@@ -18,6 +18,8 @@ import (
 	"zentro/internal/utils"
 )
 
+var emitEvent = runtime.EventsEmit
+
 // QuerySession tracks one active query execution per tab.
 // Pattern: Singleton-per-tab — created per ExecuteQuery call, destroyed on done/cancel.
 type QuerySession struct {
@@ -134,7 +136,7 @@ func (a *App) Connect(name string) error {
 	a.db = db
 	a.profile = prof
 
-	runtime.EventsEmit(a.ctx, "connection:changed", map[string]any{
+	emitEvent(a.ctx, "connection:changed", map[string]any{
 		"profile": prof,
 		"status":  "connected",
 	})
@@ -152,7 +154,7 @@ func (a *App) Disconnect() {
 		a.db = nil
 	}
 	a.profile = nil
-	runtime.EventsEmit(a.ctx, "connection:changed", map[string]any{"status": "disconnected"})
+	emitEvent(a.ctx, "connection:changed", map[string]any{"status": "disconnected"})
 	a.logger.Info("disconnected")
 }
 
@@ -171,7 +173,7 @@ func (a *App) fetchDatabaseList() {
 	for i, d := range dbs {
 		names[i] = d.Name
 	}
-	runtime.EventsEmit(a.ctx, "schema:databases", map[string]any{
+	emitEvent(a.ctx, "schema:databases", map[string]any{
 		"profileName": a.profile.Name,
 		"databases":   names,
 	})
@@ -209,7 +211,7 @@ func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 			a.logger.Warn("fetch schema failed", "db", dbName, "err", err)
 			return
 		}
-		runtime.EventsEmit(a.ctx, "schema:loaded", map[string]any{
+		emitEvent(a.ctx, "schema:loaded", map[string]any{
 			"profileName": profileName,
 			"dbName":      dbName,
 			"schemas":     schemas,
@@ -241,7 +243,7 @@ func (a *App) ExecuteQuery(tabID, query string) {
 		StartedAt:  time.Now(),
 	}
 
-	runtime.EventsEmit(a.ctx, "query:started", map[string]any{"tabID": tabID})
+	emitEvent(a.ctx, "query:started", map[string]any{"tabID": tabID})
 	a.logger.Info("executing query", "tab", tabID)
 
 	go func() {
@@ -292,7 +294,7 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.
 				chunkCols = cols
 				sentCols = true
 			}
-			runtime.EventsEmit(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
+			emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
 			buf = buf[:0]
 			seq++
 		}
@@ -303,7 +305,7 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.
 		if !sentCols {
 			chunkCols = cols
 		}
-		runtime.EventsEmit(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
+		emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
 	}
 
 	a.emitDone(tabID, 0, time.Since(start), true, rows.Err())
@@ -361,7 +363,7 @@ func (a *App) emitDone(tabID string, affected int64, duration time.Duration, isS
 	if err != nil {
 		payload["error"] = err.Error()
 	}
-	runtime.EventsEmit(a.ctx, "query:done", payload)
+	emitEvent(a.ctx, "query:done", payload)
 }
 
 func buildChunk(tabID string, cols []string, rows [][]string, seq int) map[string]any {

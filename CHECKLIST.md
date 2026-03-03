@@ -59,28 +59,28 @@
 ## Phase 2 — Async Query Engine
 
 ### 2.1 Streaming Goroutine
-- [ ] Export `InjectLimitIfMissing` từ `executor.go` (hiện là unexported)
-- [ ] `ExecuteQuery(tabID, query string)` — void, emit-based
-- [ ] Streaming SELECT: emit `query:chunk` mỗi 500 rows
-- [ ] `columns` chỉ gửi trong chunk đầu tiên (`seq == 0`)
-- [ ] Emit `query:done` khi stream kết thúc (success hoặc error)
-- [ ] Non-SELECT: `ExecContext` → emit `query:done` với `affected`
-- [ ] `scanRowAsStrings` helper: `[]interface{}` → `[]string` (stringify tất cả values)
+- [x] Export `InjectLimitIfMissing` từ `executor.go` (hiện là unexported)
+- [x] `ExecuteQuery(tabID, query string)` — void, emit-based
+- [x] Streaming SELECT: emit `query:chunk` mỗi 500 rows
+- [x] `columns` chỉ gửi trong chunk đầu tiên (`seq == 0`)
+- [x] Emit `query:done` khi stream kết thúc (success hoặc error)
+- [x] Non-SELECT: `ExecContext` → emit `query:done` với `affected`
+- [x] `scanRowAsStrings` helper: `[]interface{}` → `[]string` (stringify tất cả values)
 
 ### 2.2 QuerySession per Tab
-- [ ] `sessions map[string]*QuerySession` trong `App`
-- [ ] Tạo session mới mỗi lần `ExecuteQuery` (hủy session cũ nếu còn)
-- [ ] `CancelQuery(tabID string)` — gọi `CancelFunc` đúng session
+- [x] `sessions map[string]*QuerySession` trong `App`
+- [x] Tạo session mới mỗi lần `ExecuteQuery` (hủy session cũ nếu còn)
+- [x] `CancelQuery(tabID string)` — gọi `CancelFunc` đúng session
 
 ### 2.3 Timeout & Error Handling
-- [ ] Context timeout 60s (hardcoded MVP)
-- [ ] Cancel mid-stream: goroutine thoát sạch, emit `query:done` với error
-- [ ] `db == nil`: emit `query:done` ngay với `error: "No active connection"`
+- [x] Context timeout 60s (hardcoded MVP)
+- [x] Cancel mid-stream: goroutine thoát sạch, emit `query:done` với error
+- [x] `db == nil`: emit `query:done` ngay với `error: "No active connection"`
 
 ### 2.4 Verify Phase 2
-- [ ] Integration test: query 50k rows → chunks nhận đủ, seq tăng dần
-- [ ] `CancelQuery` mid-stream → goroutine dừng, `query:done` emit với error message
-- [ ] Non-SELECT (INSERT/UPDATE) → `query:done` với `affected > 0`
+- [x] Integration test: query 50k rows → chunks nhận đủ, seq tăng dần
+- [x] `CancelQuery` mid-stream → goroutine dừng, `query:done` emit với error message
+- [x] Non-SELECT (INSERT/UPDATE) → `query:done` với `affected > 0`
 
 ---
 
