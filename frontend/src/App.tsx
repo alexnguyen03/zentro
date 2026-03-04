@@ -2,62 +2,80 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
+import { QueryTabs } from './components/editor/QueryTabs';
 import { useConnectionStore } from './stores/connectionStore';
-import { onConnectionChanged, onSchemaDatabases } from './lib/events';
+import { useEditorStore } from './stores/editorStore';
+import { useResultStore } from './stores/resultStore';
+import { useStatusStore } from './stores/statusStore';
+import {
+    onConnectionChanged,
+    onSchemaDatabases,
+    onQueryStarted,
+    onQueryChunk,
+    onQueryDone,
+} from './lib/events';
 
 function App() {
     const { setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
+    const { setTabRunning } = useEditorStore();
+    const { initTab, appendRows, setDone, results } = useResultStore();
+    const { setQueryStats } = useStatusStore();
+
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);
 
-    const startResizing = React.useCallback(() => {
-        isResizing.current = true;
+    const startResizing = React.useCallback(() => { isResizing.current = true; }, []);
+    const stopResizing = React.useCallback(() => { isResizing.current = false; }, []);
+
+    const resize = React.useCallback((e: MouseEvent) => {
+        if (isResizing.current && e.clientX > 150 && e.clientX < 800) {
+            setSidebarWidth(e.clientX);
+        }
     }, []);
 
-    const stopResizing = React.useCallback(() => {
-        isResizing.current = false;
-    }, []);
-
-    const resize = React.useCallback(
-        (mouseMoveEvent: MouseEvent) => {
-            if (isResizing.current) {
-                if (mouseMoveEvent.clientX > 150 && mouseMoveEvent.clientX < 800) {
-                    setSidebarWidth(mouseMoveEvent.clientX);
+    // ── Global Wails event wiring ─────────────────────────────────────────
+    useEffect(() => {
+        const subs = [
+            onConnectionChanged((data) => {
+                if (data.status === 'connected' && data.profile) {
+                    setIsConnected(true);
+                    setActiveProfile(data.profile as any);
+                } else {
+                    setIsConnected(false);
+                    setActiveProfile(null);
+                    setDatabases([]);
                 }
-            }
-        },
-        []
-    );
-
-    // Wire global Wails events → stores. Placed at root so listeners
-    // persist for the full app lifetime regardless of which child is mounted.
-    useEffect(() => {
-        const unsubConn = onConnectionChanged((data) => {
-            if (data.status === 'connected' && data.profile) {
-                setIsConnected(true);
-                // Cast to any because Wails runtime serialises the Go struct as plain object
-                setActiveProfile(data.profile as any);
-            } else {
-                setIsConnected(false);
-                setActiveProfile(null);
-                setDatabases([]);
-            }
-        });
-        const unsubDbs = onSchemaDatabases((data) => {
-            setDatabases(data.databases ?? []);
-        });
-        return () => {
-            unsubConn();
-            unsubDbs();
-        };
-    }, [setIsConnected, setActiveProfile, setDatabases]);
+            }),
+            onSchemaDatabases((data) => {
+                setDatabases(data.databases ?? []);
+            }),
+            onQueryStarted(({ tabID }) => {
+                setTabRunning(tabID, true);
+                initTab(tabID);
+            }),
+            onQueryChunk(({ tabID, columns, rows }) => {
+                appendRows(tabID, columns, rows);
+            }),
+            onQueryDone(({ tabID, affected, duration, isSelect, error }) => {
+                setTabRunning(tabID, false);
+                setDone(tabID, affected, duration, isSelect, error);
+                // Update status bar row count from finished result
+                const rowCount = isSelect
+                    ? (results[tabID]?.rows.length ?? affected)
+                    : affected;
+                setQueryStats(Number(rowCount), duration);
+            }),
+        ];
+        return () => subs.forEach(unsub => unsub());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
-        window.addEventListener("mousemove", resize);
-        window.addEventListener("mouseup", stopResizing);
+        window.addEventListener('mousemove', resize);
+        window.addEventListener('mouseup', stopResizing);
         return () => {
-            window.removeEventListener("mousemove", resize);
-            window.removeEventListener("mouseup", stopResizing);
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
         };
     }, [resize, stopResizing]);
 
@@ -68,15 +86,9 @@ function App() {
                 <div style={{ width: sidebarWidth, flexShrink: 0 }}>
                     <Sidebar />
                 </div>
-                <div
-                    className="resizer"
-                    onMouseDown={startResizing}
-                />
+                <div className="resizer" onMouseDown={startResizing} />
                 <div className="editor-area">
-                    <div className="empty-state">
-                        <h1>Zentro Engine</h1>
-                        <p>Select a database and run queries.</p>
-                    </div>
+                    <QueryTabs />
                 </div>
             </div>
             <StatusBar />

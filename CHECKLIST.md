@@ -124,27 +124,27 @@
 ## Phase 4 — Editor
 
 ### 4.1 Monaco Editor Integration
-- [ ] Cài `@monaco-editor/react` (wrapper React cho Monaco)
-- [ ] `vite-plugin-monaco-editor` để tree-shake, chỉ bundle SQL worker
-- [ ] `MonacoEditor.tsx` — SQL language mode, dark/light theme sync
-- [ ] Override `Ctrl+Enter` keybinding (Monaco dùng cho suggestion → rebind sang runQuery)
-- [ ] Register `completionProvider` từ `schemaStore` (table/column names → IntelliSense)
-- [ ] `automaticLayout: true`, `minimap: { enabled: false }` (Zen principle)
+- [x] Cài `@monaco-editor/react` (wrapper React cho Monaco)
+- [x] `vite-plugin-monaco-editor` — dùng `@monaco-editor/react` loader mặc định (không cần plugin riêng)
+- [x] `MonacoEditor.tsx` — SQL language mode, dark/light theme sync
+- [x] Override `Ctrl+Enter` keybinding (Monaco dùng cho suggestion → rebind sang runQuery)
+- [x] Register `completionProvider` từ `schemaStore` (table/column names → IntelliSense)
+- [x] `automaticLayout: true`, `minimap: { enabled: false }` (Zen principle)
 
 ### 4.2 Query Tabs
-- [ ] `QueryTabs.tsx` — tab bar + active tab content
-- [ ] `TabBar.tsx` — close button (×), double-click/F2 rename, right-click context menu
-- [ ] Tab context menu: Close / Rename / Close Other / Close All
-- [ ] VSplit: MonacoEditor (top) + ResultPanel (bottom), draggable divider
-- [ ] Unsaved prompt khi close tab có query text
-- [ ] `Ctrl+W` close active tab, `Ctrl+T` new tab
+- [x] `QueryTabs.tsx` — tab bar + active tab content
+- [x] `TabBar.tsx` — close button (×), double-click/F2 rename, right-click context menu
+- [x] Tab context menu: Close / Rename / Close Other / Close All
+- [x] VSplit: MonacoEditor (top) + ResultPanel (bottom), draggable divider
+- [x] Unsaved prompt khi close tab có query text
+- [x] `Ctrl+W` close active tab, `Ctrl+T` new tab
 
 ### 4.3 Execution Wiring
-- [ ] `editorStore.runCurrentTab()` → gọi `ExecuteQuery(tabID, query)` Wails binding
-- [ ] Listen `query:started` → set `isRunning = true`, clear result
-- [ ] Listen `query:chunk` → `resultStore.appendRows(tabID, rows)`
-- [ ] Listen `query:done` → set `isRunning = false`, update status bar
-- [ ] Run/Cancel toolbar buttons driven bởi `isRunning`
+- [x] `editorStore.runCurrentTab()` → gọi `ExecuteQuery(tabID, query)` Wails binding
+- [x] Listen `query:started` → set `isRunning = true`, clear result
+- [x] Listen `query:chunk` → `resultStore.appendRows(tabID, rows)`
+- [x] Listen `query:done` → set `isRunning = false`, update status bar
+- [x] Run/Cancel toolbar buttons driven bởi `isRunning`
 
 ### 4.4 Verify Phase 4
 - [ ] Ctrl+Enter trong Monaco Editor chạy query (không trigger Monaco suggestion)

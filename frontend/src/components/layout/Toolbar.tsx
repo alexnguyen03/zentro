@@ -1,45 +1,78 @@
-import React, { useState } from 'react';
-import { Database, Play, Square, Save, Settings } from 'lucide-react';
+import React from 'react';
+import { Plus, Play, Square, Save, Settings } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useResultStore } from '../../stores/resultStore';
+import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 
 export const Toolbar: React.FC = () => {
-    const isConnected = useConnectionStore(state => state.isConnected);
-    const tabs = useEditorStore(state => state.tabs);
-    const activeTabId = useEditorStore(state => state.activeTabId);
+    const isConnected = useConnectionStore(s => s.isConnected);
+    const { tabs, activeTabId, addTab } = useEditorStore();
+    const { results } = useResultStore();
 
-    // Derived state for the active tab context
     const activeTab = tabs.find(t => t.id === activeTabId);
-    const isRunning = activeTab?.isRunning || false;
+    const isRunning = activeTab?.isRunning ?? false;
+    const isDone = activeTabId ? (results[activeTabId]?.isDone ?? true) : true;
+
+    const handleRun = async () => {
+        if (!activeTab || !isConnected) return;
+        try { await ExecuteQuery(activeTab.id, activeTab.query); } catch { /* event-driven, ignore */ }
+    };
+
+    const handleCancel = async () => {
+        if (!activeTabId) return;
+        try { await CancelQuery(activeTabId); } catch { /* swallow */ }
+    };
 
     return (
         <div className="toolbar">
-            <button className="toolbar-btn primary" title="New Connection">
-                <Database size={16} /> Connect
+            <button
+                className="toolbar-btn"
+                title="New Tab (Ctrl+T)"
+                onClick={() => addTab()}
+            >
+                <Plus size={16} /> New Tab
             </button>
 
-            <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 8px' }}></div>
+            <div className="toolbar-separator" />
 
             <button
                 className="toolbar-btn"
-                disabled={!isConnected || isRunning}
+                disabled={!isConnected || !activeTab || isRunning}
                 title="Run Query (Ctrl+Enter)"
+                onClick={handleRun}
             >
-                <Play size={16} color={!isConnected || isRunning ? "gray" : "var(--success-color)"} /> Run
+                <Play
+                    size={16}
+                    color={!isConnected || isRunning ? 'currentColor' : 'var(--success-color)'}
+                />
+                Run
             </button>
+
             <button
                 className="toolbar-btn"
-                disabled={!isConnected || !isRunning}
+                disabled={!isRunning}
                 title="Cancel Execution"
+                onClick={handleCancel}
             >
-                <Square size={16} color={!isConnected || !isRunning ? "gray" : "var(--error-color)"} fill={!isConnected || !isRunning ? "none" : "currentColor"} /> Cancel
+                <Square
+                    size={16}
+                    color={isRunning ? 'var(--error-color)' : 'currentColor'}
+                    fill={isRunning ? 'currentColor' : 'none'}
+                />
+                Cancel
             </button>
 
-            <div style={{ flex: 1 }}></div>
+            <div style={{ flex: 1 }} />
 
-            <button className="toolbar-btn" disabled={!isConnected} title="Export CSV">
+            <button
+                className="toolbar-btn"
+                disabled={!isDone || !activeTab}
+                title="Export CSV"
+            >
                 <Save size={16} /> Export
             </button>
+
             <button className="toolbar-btn" title="Settings">
                 <Settings size={16} />
             </button>
