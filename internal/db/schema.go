@@ -15,7 +15,7 @@ import (
 
 // FetchDatabases lists all databases and schemas for currentDB.
 // Delegates to the registered driver — no postgres/mssql switch here.
-func FetchDatabases(db *sql.DB, driverName, currentDB string, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
+func FetchDatabases(db *sql.DB, driverName, currentDB string, showAllSchemas bool, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -27,7 +27,7 @@ func FetchDatabases(db *sql.DB, driverName, currentDB string, logger *slog.Logge
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	dbs, err := d.FetchDatabases(ctx, db, currentDB, logger)
+	dbs, err := d.FetchDatabases(ctx, db, currentDB, showAllSchemas, logger)
 	if err != nil {
 		logger.Error("fetch databases failed", "err", err)
 		return nil, err
@@ -42,6 +42,7 @@ func FetchAllDatabaseSchemas(
 	databases []*models.DatabaseInfo,
 	currentDB string,
 	driverName string,
+	showAllSchemas bool,
 	openFn func(dbName string) (*sql.DB, error),
 	logger *slog.Logger,
 ) {
@@ -66,7 +67,7 @@ func FetchAllDatabaseSchemas(
 			logger.Warn("cannot open db for schema fetch", "db", dbInfo.Name, "err", err)
 			continue
 		}
-		schemas, err := d.FetchSchema(ctx, conn, logger)
+		schemas, err := d.FetchSchema(ctx, conn, showAllSchemas, logger)
 		conn.Close()
 		if err != nil {
 			logger.Warn("fetch schema failed", "db", dbInfo.Name, "err", err)

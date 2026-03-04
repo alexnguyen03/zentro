@@ -186,7 +186,7 @@ func (a *App) fetchDatabaseList() {
 		"port", a.profile.Port,
 	)
 
-	dbs, err := dbpkg.FetchDatabases(a.db, a.profile.Driver, a.profile.DBName, a.logger)
+	dbs, err := dbpkg.FetchDatabases(a.db, a.profile.Driver, a.profile.DBName, a.profile.ShowAllSchemas, a.logger)
 	if err != nil {
 		a.logger.Warn("fetch databases failed", "err", err)
 		return
@@ -273,7 +273,7 @@ func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 		if !ok {
 			return
 		}
-		schemas, err := d.FetchSchema(ctx, conn, a.logger)
+		schemas, err := d.FetchSchema(ctx, conn, a.profile.ShowAllSchemas, a.logger)
 		if err != nil {
 			a.logger.Warn("fetch schema failed", "db", dbName, "err", err)
 			return

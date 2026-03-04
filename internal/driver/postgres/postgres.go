@@ -76,7 +76,7 @@ func (d *PostgresDriver) FriendlyError(err error) error {
 }
 
 // FetchDatabases lists all databases on the server and fetches schemas for currentDB.
-func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
+func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, showAllSchemas bool, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
 	// Resolve actual DB name
 	actualDB := currentDB
 	if err := db.QueryRowContext(ctx, "SELECT current_database()").Scan(&actualDB); err != nil {
@@ -93,7 +93,7 @@ func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, current
 	// Fetch schemas for the currently connected DB only (others are lazy)
 	for _, info := range dbInfos {
 		if info.Name == actualDB {
-			schemas, err := d.FetchSchema(ctx, db, logger)
+			schemas, err := d.FetchSchema(ctx, db, showAllSchemas, logger)
 			if err != nil {
 				logger.Warn("fetch schemas failed", "db", actualDB, "err", err)
 			} else {
@@ -160,13 +160,20 @@ func (d *PostgresDriver) listDatabases(ctx context.Context, db *sql.DB, actualDB
 }
 
 // FetchSchema returns all user schemas with all 9 object categories populated.
-func (d *PostgresDriver) FetchSchema(ctx context.Context, db *sql.DB, logger *slog.Logger) ([]*models.SchemaNode, error) {
-	schemaRows, err := db.QueryContext(ctx, `
-		SELECT nspname FROM pg_catalog.pg_namespace
-		WHERE nspname NOT IN ('information_schema','pg_catalog','pg_toast')
-		AND nspname NOT LIKE 'pg_%'
-		ORDER BY nspname
-	`)
+func (d *PostgresDriver) FetchSchema(ctx context.Context, db *sql.DB, showAllSchemas bool, logger *slog.Logger) ([]*models.SchemaNode, error) {
+	var query string
+	if showAllSchemas {
+		query = `SELECT nspname FROM pg_catalog.pg_namespace ORDER BY nspname`
+	} else {
+		query = `
+			SELECT nspname FROM pg_catalog.pg_namespace
+			WHERE nspname NOT IN ('information_schema','pg_catalog','pg_toast')
+			AND nspname NOT LIKE 'pg_%'
+			ORDER BY nspname
+		`
+	}
+
+	schemaRows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: list schemas: %w", err)
 	}

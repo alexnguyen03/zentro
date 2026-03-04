@@ -33,6 +33,9 @@ func (d *MSSQLDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
 		"sqlserver://%s:%s@%s:%d?database=%s&connection+timeout=%d",
 		user, pass, p.Host, p.Port, p.DBName, p.ConnectTimeout,
 	)
+	if p.TrustServerCert {
+		dsn += "&TrustServerCertificate=true"
+	}
 
 	db, err := sql.Open("sqlserver", dsn)
 	if err != nil {
@@ -68,7 +71,7 @@ func (d *MSSQLDriver) FriendlyError(err error) error {
 }
 
 // FetchDatabases lists user databases and fetches schemas for currentDB.
-func (d *MSSQLDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
+func (d *MSSQLDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, showAllSchemas bool, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT name FROM sys.databases
 		WHERE database_id > 4
@@ -90,7 +93,7 @@ func (d *MSSQLDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB 
 
 	for _, info := range dbInfos {
 		if info.Name == currentDB {
-			schemas, err := d.FetchSchema(ctx, db, logger)
+			schemas, err := d.FetchSchema(ctx, db, showAllSchemas, logger)
 			if err == nil {
 				info.Schemas = schemas
 			}
@@ -101,7 +104,7 @@ func (d *MSSQLDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB 
 }
 
 // FetchSchema returns all non-system schemas with their tables and views.
-func (d *MSSQLDriver) FetchSchema(ctx context.Context, db *sql.DB, logger *slog.Logger) ([]*models.SchemaNode, error) {
+func (d *MSSQLDriver) FetchSchema(ctx context.Context, db *sql.DB, showAllSchemas bool, logger *slog.Logger) ([]*models.SchemaNode, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT s.name, t.name, 'TABLE'
 		FROM sys.schemas s

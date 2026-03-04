@@ -25,9 +25,9 @@ type Connector interface {
 // SchemaFetcher is the Port for reading database structure.
 type SchemaFetcher interface {
 	// FetchDatabases returns all databases on the server plus schemas for currentDB.
-	FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, logger *slog.Logger) ([]*models.DatabaseInfo, error)
+	FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, showAllSchemas bool, logger *slog.Logger) ([]*models.DatabaseInfo, error)
 	// FetchSchema returns schemas+tables+views for the currently connected database.
-	FetchSchema(ctx context.Context, db *sql.DB, logger *slog.Logger) ([]*models.SchemaNode, error)
+	FetchSchema(ctx context.Context, db *sql.DB, showAllSchemas bool, logger *slog.Logger) ([]*models.SchemaNode, error)
 }
 
 // DatabaseDriver is the full extension point: Connector + SchemaFetcher.

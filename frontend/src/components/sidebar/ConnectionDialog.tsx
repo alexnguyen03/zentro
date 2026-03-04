@@ -24,6 +24,8 @@ const DEFAULT_FORM: Partial<ConnectionProfile> = {
     username: '',
     password: '',
     db_name: '',
+    show_all_schemas: false,
+    trust_server_cert: false,
 };
 
 export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onClose, onSave, profile }) => {
@@ -305,7 +307,25 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
                                 max={300}
                             />
                         </div>
-                        <div className="form-group form-group-checkbox" style={{ flex: 2, justifyContent: 'flex-end' }}>
+                        <div className="form-group form-group-checkbox" style={{ flex: 2, justifyContent: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    name="show_all_schemas"
+                                    checked={formData.show_all_schemas ?? false}
+                                    onChange={handleChange}
+                                />
+                                <span title="Show pg_catalog and information_schema (Postgres)">Show all schemas</span>
+                            </label>
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    name="trust_server_cert"
+                                    checked={formData.trust_server_cert ?? false}
+                                    onChange={handleChange}
+                                />
+                                <span title="Bypass SSL verification (SQL Server)">Trust server cert</span>
+                            </label>
                             <label className="checkbox-label">
                                 <input
                                     type="checkbox"
