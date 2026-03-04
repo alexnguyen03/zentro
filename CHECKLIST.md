@@ -216,6 +216,7 @@
 - [ ] `ClearHistory()` với confirm dialog
 
 ### 6.3 Theme
+- [ ] config theme for app
 - [ ] Light/dark toggle trong Toolbar (⚙ menu hoặc dedicated button)
 - [ ] CSS custom properties: `--bg-primary`, `--text-primary`, etc.
 - [ ] `data-theme="dark"|"light"` trên `<html>` element
