@@ -67,9 +67,9 @@ function App() {
             onQueryChunk(({ tabID, columns, rows }) => {
                 appendRows(tabID, columns, rows);
             }),
-            onQueryDone(({ tabID, affected, duration, isSelect, error }) => {
+            onQueryDone(({ tabID, affected, duration, isSelect, hasMore, error }) => {
                 setTabRunning(tabID, false);
-                setDone(tabID, affected, duration, isSelect, error);
+                setDone(tabID, affected, duration, isSelect, hasMore, error);
                 if (error) {
                     toast.error(`Query failed: ${error}`);
                 }

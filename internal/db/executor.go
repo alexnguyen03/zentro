@@ -43,23 +43,27 @@ func InjectLimitOffsetIfMissing(query, driver string, limit int, offset int) str
 	if limitPattern.MatchString(query) {
 		return query
 	}
+
+	trimmed := strings.TrimSpace(query)
+
 	if driver == "sqlserver" {
-		// MSSQL >= 2012 supports OFFSET X ROWS FETCH NEXT Y ROWS ONLY
-		// Requires an ORDER BY clause. If none exists, this will fail at DB level,
-		// but since Zentro injects it blindly, we must append it.
-		// For true infinite scroll in MSSQL, the query MUST have ORDER BY.
-		// If offset is 0 and we want to fall back to SELECT TOP:
 		if offset == 0 {
-			return selectTopPattern.ReplaceAllString(query, fmt.Sprintf("$1 TOP %d$2", limit))
+			return selectTopPattern.ReplaceAllString(trimmed, fmt.Sprintf("$1 TOP %d$2", limit))
 		}
-		// If offset > 0, we use OFFSET FETCH
-		return query + fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
+		// MSSQL >= 2012 requires ORDER BY for OFFSET/FETCH.
+		// If the query doesn't have an ORDER BY, we must inject a dummy one.
+		hasOrderBy := regexp.MustCompile(`(?i)\bORDER\s+BY\b`).MatchString(trimmed)
+		if !hasOrderBy {
+			trimmed = trimmed + " ORDER BY 1"
+		}
+		return trimmed + fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
 	}
+
 	// Postgres / SQLite / MySQL
 	if offset > 0 {
-		return query + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+		return trimmed + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 	}
-	return query + fmt.Sprintf(" LIMIT %d", limit)
+	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
 }
 
 // injectLimitIfMissing is kept for internal use and unit tests.

@@ -184,12 +184,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
 
     // Infinite Scroll trigger
     useEffect(() => {
-        if (!virtualItems.length || !isDone || !resultState?.hasMore) return;
+        if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore) return;
         const lastItem = virtualItems[virtualItems.length - 1];
         if (lastItem.index >= tableRows.length - 15) {
             // Trigger fetch
-            const currentOffset = resultState.offset || 0;
-            const newOffset = currentOffset + rows.length;
+            // The new offset should be exactly the number of rows currently in memory
+            const newOffset = rows.length;
             setOffset(tabId, newOffset);
             FetchMoreRows(tabId, newOffset).catch(console.error);
         }
@@ -255,12 +255,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     )}
                 </tbody>
             </table>
-
-            {!isDone && results[tabId]?.offset > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0', color: 'var(--text-secondary)', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                    <Loader size={14} className="result-spinner" /> Loading more rows...
-                </div>
-            )}
         </div>
     );
 };

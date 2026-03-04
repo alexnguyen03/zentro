@@ -64,6 +64,7 @@ export interface QueryDonePayload {
     affected: number;
     duration: number;
     isSelect: boolean;
+    hasMore: boolean;
     error?: string;
 }
 

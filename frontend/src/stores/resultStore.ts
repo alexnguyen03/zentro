@@ -10,6 +10,7 @@ export interface TabResult {
     isSelect: boolean;
     hasMore: boolean;
     offset: number;
+    isFetchingMore: boolean;
 }
 
 interface ResultState {
@@ -17,7 +18,7 @@ interface ResultState {
 
     initTab: (tabId: string) => void;
     appendRows: (tabId: string, columns: string[] | undefined, rows: string[][]) => void;
-    setDone: (tabId: string, affected: number, duration: number, isSelect: boolean, error?: string) => void;
+    setDone: (tabId: string, affected: number, duration: number, isSelect: boolean, hasMore: boolean, error?: string) => void;
     setOffset: (tabId: string, offset: number) => void;
     clearResult: (tabId: string) => void;
     isDone: (tabId: string) => boolean;
@@ -29,7 +30,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     initTab: (tabId) => set((state) => ({
         results: {
             ...state.results,
-            [tabId]: { columns: [], rows: [], isDone: false, affected: 0, duration: 0, isSelect: true, error: undefined, hasMore: true, offset: 0 }
+            [tabId]: { columns: [], rows: [], isDone: false, affected: 0, duration: 0, isSelect: true, error: undefined, hasMore: true, offset: 0, isFetchingMore: false }
         }
     })),
 
@@ -49,14 +50,9 @@ export const useResultStore = create<ResultState>((set, get) => ({
         };
     }),
 
-    setDone: (tabId, affected, duration, isSelect, error) => set((state) => {
+    setDone: (tabId, affected, duration, isSelect, hasMore, error) => set((state) => {
         const prev = state.results[tabId];
         if (!prev) return state;
-
-        // If affected > 0 in SELECT, it means we fetched a chunk.
-        // We assume we have more. The precise check is affected == fetchLimit.
-        // For safety, let's say if affected == 0, hasMore = false.
-        const hasMore = isSelect && affected > 0 && !error;
 
         return {
             results: {
@@ -64,12 +60,13 @@ export const useResultStore = create<ResultState>((set, get) => ({
                 [tabId]: {
                     ...prev,
                     isDone: true,
-                    // keep original affected rows if it's select, so status bar shows cumulative sum
+                    // keep cumulative row count for status bar
                     affected: isSelect ? prev.rows.length : affected,
                     duration,
                     isSelect,
                     error,
                     hasMore,
+                    isFetchingMore: false,
                 }
             }
         };
@@ -84,7 +81,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
                 [tabId]: {
                     ...prev,
                     offset,
-                    isDone: false, // Set to false so UI shows loading state and prevents immediate re-fetch
+                    isFetchingMore: true,
                 }
             }
         };

@@ -418,9 +418,16 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 	fetchLimit := a.prefs.DefaultLimit
 	normalized := dbpkg.InjectLimitOffsetIfMissing(query, driver, fetchLimit, offset)
 
+	// If the query already had a manual LIMIT, we cannot inject offset safely.
+	// We prevent endless loops of fetching the same N manual rows.
+	if normalized == query && offset > 0 {
+		a.emitDoneWithMore(tabID, 0, time.Since(start), true, false, nil)
+		return
+	}
+
 	rows, err := a.db.QueryContext(ctx, normalized)
 	if err != nil {
-		a.emitDone(tabID, 0, time.Since(start), true, fmt.Errorf("query: %w", err))
+		a.emitDoneWithMore(tabID, 0, time.Since(start), true, false, fmt.Errorf("query: %w", err))
 		return
 	}
 	defer rows.Close()
@@ -458,11 +465,14 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 		emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
 	}
 
+	// hasMore is true only when we fetched exactly fetchLimit rows — meaning there may be more pages.
+	hasMore := totalRowsFetched == fetchLimit
+
 	totalRows := int64(seq*500 + len(buf))
 	if offset == 0 {
 		a.appendHistoryFromResult(tabID, query, totalRows, time.Since(start), rows.Err())
 	}
-	a.emitDone(tabID, int64(totalRowsFetched), time.Since(start), true, rows.Err())
+	a.emitDoneWithMore(tabID, int64(totalRowsFetched), time.Since(start), true, hasMore, rows.Err())
 }
 
 // FetchMoreRows is called by the frontend to load the next page of results for an active tab.
@@ -653,11 +663,16 @@ func (a *App) ExportCSV(columns []string, rows [][]string) (string, error) {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 func (a *App) emitDone(tabID string, affected int64, duration time.Duration, isSelect bool, err error) {
+	a.emitDoneWithMore(tabID, affected, duration, isSelect, false, err)
+}
+
+func (a *App) emitDoneWithMore(tabID string, affected int64, duration time.Duration, isSelect bool, hasMore bool, err error) {
 	payload := map[string]any{
 		"tabID":    tabID,
 		"affected": affected,
 		"duration": duration.Milliseconds(),
 		"isSelect": isSelect,
+		"hasMore":  hasMore,
 	}
 	if err != nil {
 		payload["error"] = err.Error()
