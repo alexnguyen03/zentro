@@ -28,6 +28,7 @@ const DEFAULT_FORM: Partial<ConnectionProfile> = {
 
 export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onClose, onSave, profile }) => {
     const [formData, setFormData] = useState<Partial<ConnectionProfile>>(DEFAULT_FORM);
+    const [connString, setConnString] = useState('');
     const [testing, setTesting] = useState(false);
     const [saving, setSaving] = useState(false);
     const [testResult, setTestResult] = useState<'idle' | 'ok' | 'error'>('idle');
@@ -40,6 +41,7 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
     useEffect(() => {
         if (!isOpen) return;
         setFormData(profile ? { ...profile } : { ...DEFAULT_FORM });
+        setConnString('');
         setErrorMsg('');
         setSuccessMsg('');
         setTestResult('idle');
@@ -62,6 +64,50 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
         setTestResult('idle');
         setSuccessMsg('');
         setErrorMsg('');
+    };
+
+    const handleParseConnectionString = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const urlStr = e.target.value;
+        setConnString(urlStr);
+
+        if (!urlStr.trim()) return;
+
+        try {
+            // Need a valid protocol to parse properly
+            const toParse = urlStr.includes('://') ? urlStr : `postgres://${urlStr}`;
+            const url = new URL(toParse);
+            const updates: Partial<ConnectionProfile> = {};
+
+            if (url.protocol.startsWith('postgres')) updates.driver = 'postgres';
+            if (url.protocol.startsWith('sqlserver')) updates.driver = 'sqlserver';
+
+            if (url.hostname) updates.host = url.hostname;
+            if (url.port) updates.port = parseInt(url.port, 10);
+
+            if (url.pathname) {
+                const db = url.pathname.replace(/^\//, '');
+                if (db) updates.db_name = db;
+            }
+
+            if (url.username) updates.username = decodeURIComponent(url.username);
+            if (url.password) updates.password = decodeURIComponent(url.password);
+
+            const sslmode = url.searchParams.get('sslmode');
+            if (sslmode) updates.ssl_mode = sslmode;
+
+            // Auto-generate name if it's empty
+            if (!formData.name && updates.host) {
+                updates.name = `${updates.driver}-${updates.host.split('.')[0]}`;
+            }
+
+            setFormData(prev => ({ ...prev, ...updates }));
+            setTestResult('idle');
+            setSuccessMsg('');
+            // Optional: clear the field after pasting
+            // setConnString('');
+        } catch (err) {
+            // Ignore parse errors while typing
+        }
     };
 
     const validate = (): string | null => {
@@ -134,6 +180,23 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
                 </div>
 
                 <form onSubmit={handleSave} className="connection-form">
+                    {/* Connection String (Only show when adding new, or maybe always) */}
+                    {!isEditing && (
+                        <div className="form-row" style={{ paddingBottom: 15, borderBottom: '1px solid var(--border-color)', marginBottom: 15 }}>
+                            <div className="form-group" style={{ flex: 1 }}>
+                                <label>Paste Connection String (URI)</label>
+                                <input
+                                    type="text"
+                                    value={connString}
+                                    onChange={handleParseConnectionString}
+                                    placeholder="postgres://user:pass@host:5432/dbname?sslmode=require"
+                                    style={{ fontFamily: 'var(--font-mono)' }}
+                                />
+                                <span className="form-hint">Auto-fills the fields below</span>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Profile Name + Driver */}
                     <div className="form-row">
                         <div className="form-group" style={{ flex: 2 }}>
