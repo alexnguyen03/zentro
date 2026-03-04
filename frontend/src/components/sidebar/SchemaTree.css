@@ -1,0 +1,67 @@
+/* ─── Schema tree ────────────────────────────────────── */
+.tree-node {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-primary);
+    user-select: none;
+    border-radius: 3px;
+    transition: background 0.1s;
+}
+
+.tree-node:hover {
+    background: var(--bg-tertiary);
+}
+
+.tree-node.active {
+    background: rgba(0, 122, 204, 0.15);
+}
+
+.tree-children {
+    padding-left: 16px;
+}
+
+.tree-group-label {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px 2px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    user-select: none;
+}
+
+.tree-leaf {
+    cursor: default;
+}
+
+.tree-leaf:hover {
+    background: var(--bg-tertiary);
+}
+
+.connection-active-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success-color);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.tree-count-badge {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    padding: 0 5px;
+    min-width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}

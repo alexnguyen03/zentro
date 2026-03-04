@@ -1,0 +1,127 @@
+/* ─── Toolbar ────────────────────────────────────────── */
+.toolbar {
+    height: 48px;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.tableplus-toolbar {
+    justify-content: space-between;
+    padding: 0 12px;
+    background-color: var(--bg-secondary);
+}
+
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolbar-center {
+    flex: 1;
+    justify-content: center;
+}
+
+/* ─── Toolbar buttons ────────────────────────────────── */
+.toolbar-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.toolbar-btn.icon-only {
+    padding: 6px 8px;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+.toolbar-btn.primary {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.toolbar-btn.primary:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+}
+
+.toolbar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ─── Toolbar separator ──────────────────────────────── */
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+/* ─── Breadcrumb ─────────────────────────────────────── */
+.connection-breadcrumb-wrapper {
+    position: relative;
+}
+
+.connection-breadcrumb {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+
+.connection-breadcrumb:hover,
+.connection-breadcrumb.active {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.breadcrumb-chevron {
+    opacity: 0.5;
+}
+
+/* ─── Network indicator ──────────────────────────────── */
+.network-indicator {
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.network-badge {
+    border: 1px solid var(--success-color);
+    color: var(--success-color);
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 9px;
+    text-transform: uppercase;
+}

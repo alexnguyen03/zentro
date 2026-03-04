@@ -1,0 +1,28 @@
+/* ─── Context menu ───────────────────────────────────── */
+.context-menu {
+    position: fixed;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    padding: 4px 0;
+    border-radius: 4px;
+    z-index: 1000;
+    min-width: 150px;
+}
+
+.context-menu-item {
+    padding: 6px 16px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.context-menu-item:hover {
+    background: var(--accent-color);
+    color: white;
+}
+
+.context-menu-separator {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
+}
