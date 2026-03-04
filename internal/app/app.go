@@ -169,10 +169,23 @@ func (a *App) fetchDatabaseList() {
 		a.logger.Warn("fetch databases failed", "err", err)
 		return
 	}
-	names := make([]string, len(dbs))
-	for i, d := range dbs {
-		names[i] = d.Name
+
+	names := make([]string, 0, len(dbs))
+	seen := make(map[string]bool)
+
+	// Always put the profile's configured DBName first — even if the pooler
+	// doesn't expose it in pg_database (e.g., Neon serverless pooler).
+	if a.profile.DBName != "" {
+		names = append(names, a.profile.DBName)
+		seen[a.profile.DBName] = true
 	}
+	for _, d := range dbs {
+		if !seen[d.Name] {
+			names = append(names, d.Name)
+			seen[d.Name] = true
+		}
+	}
+
 	emitEvent(a.ctx, "schema:databases", map[string]any{
 		"profileName": a.profile.Name,
 		"databases":   names,

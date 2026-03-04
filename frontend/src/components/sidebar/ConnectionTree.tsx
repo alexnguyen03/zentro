@@ -73,23 +73,32 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
             ) : (
                 connections.map(c => {
                     const isActive = activeProfile?.name === c.name;
+                    const showDatabases = isActive && isConnected && databases.length > 0;
                     return (
                         <div key={c.name}>
+                            {/* Connection profile row */}
                             <div
                                 className={`tree-node ${isActive ? 'active' : ''}`}
                                 onContextMenu={(e) => handleContextMenu(e, c)}
                                 onClick={() => handleConnect(c.name!)}
                             >
-                                {isActive ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                {showDatabases ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                 <Database
                                     size={14}
                                     color={isActive && isConnected ? 'var(--success-color)' : 'currentColor'}
                                 />
                                 <span style={{ fontWeight: isActive ? 600 : 400 }}>{c.name}</span>
+                                {isActive && isConnected && (
+                                    <span className="connection-active-dot" title="Connected" />
+                                )}
                             </div>
 
-                            {isActive && isConnected && (
+                            {/* Databases group */}
+                            {showDatabases && (
                                 <div className="tree-children">
+                                    <div className="tree-group-label">
+                                        <span>Databases</span>
+                                    </div>
                                     {databases.map(db => (
                                         <DatabaseNode
                                             key={db}
@@ -102,6 +111,7 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
                         </div>
                     );
                 })
+
             )}
 
             {contextMenu && (
