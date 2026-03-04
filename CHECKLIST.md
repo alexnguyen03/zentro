@@ -1,4 +1,4 @@
-# Zentro Migration Checklist
+﻿# Zentro Migration Checklist
 > **Stack**: Wails v2 + React 18 + TypeScript + **Monaco Editor** + TanStack Table + Zustand  
 > **Rule**: Checklist chỉ được **thêm** items, không sửa/xóa. Check `[x]` khi done.
 
@@ -256,7 +256,20 @@
 
 ### 7.2 Frontend Integration
 - [x] `TabResult` state thêm `hasMore`, `offset`
-- [x] Check affected = 0 → set `hasMore` = false
+- [x] **Fix**: `hasMore` do backend tính (`totalRowsFetched == fetchLimit`) và emit trong `query:done` — không tự đoán ở frontend
 - [x] Lắng nghe scroll event từ `useVirtualizer` của ResultTable
 - [x] Disable sorting khi `hasMore = true` (to avoid local sort issues)
 - [x] Trigger `FetchMoreRows` + loading spinner dưới bottom cùng
+
+---
+
+## Phase 8 — UI Polish & Window Management
+
+### 8.1 Frameless Window + Custom Title Bar
+- [x] `main.go`: `Frameless: true` — bỏ native title bar Windows
+- [x] Toolbar drag region (`--wails-draggable: drag`) để kéo cửa sổ
+- [x] Breadcrumb opt-out kéo với `no-drag`
+- [x] Window control buttons (Minimize / Maximize / Close) tích hợp vào `toolbar-right`
+- [x] Hover colors: minimize `#ffbd2e`, maximize `#28c962`, close `#ff5f57`
+- [x] Dùng Wails runtime: `WindowMinimise`, `WindowToggleMaximise`, `Quit`
+
