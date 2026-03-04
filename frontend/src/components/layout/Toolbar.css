@@ -17,16 +17,22 @@
 }
 
 .toolbar-left,
-.toolbar-center,
 .toolbar-right {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-shrink: 0;
 }
 
-.toolbar-center {
+.toolbar-drag-region {
     flex: 1;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    /* Mark the entire drag region as draggable; individual children opt out via no-drag */
+    --wails-draggable: drag;
+    cursor: default;
+    height: 100%;
 }
 
 /* ─── Toolbar buttons ────────────────────────────────── */
@@ -124,4 +130,55 @@
     border-radius: 2px;
     font-size: 9px;
     text-transform: uppercase;
+}
+
+/* ─── Window controls ────────────────────────────────── */
+.window-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 2px;
+}
+
+.wc-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+
+.wc-btn:hover {
+    color: var(--text-primary);
+}
+
+.wc-minimize:hover {
+    background: rgba(255, 189, 46, 0.2);
+    color: #ffbd2e;
+}
+
+.wc-maximize:hover {
+    background: rgba(40, 201, 98, 0.2);
+    color: #28c962;
+}
+
+.wc-close:hover {
+    background: rgba(255, 95, 87, 0.2);
+    color: #ff5f57;
+}
+
+/* Maximize icon — a simple square outline */
+.wc-max-icon {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid currentColor;
+    border-radius: 1px;
 }

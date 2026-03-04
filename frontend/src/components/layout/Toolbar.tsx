@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Play, Square, Save, Settings, ChevronDown, Search, RefreshCw, Lock } from 'lucide-react';
+import { Plus, Play, Square, Settings, ChevronDown, Search, RefreshCw, Lock, Minus, X } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
+import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { ConnectionPicker } from './ConnectionPicker';
 import { ShortcutHelp } from './ShortcutHelp';
 
@@ -29,7 +30,6 @@ export const Toolbar: React.FC = () => {
         try { await CancelQuery(activeTabId); } catch { /* swallow */ }
     };
 
-    // Breadcrumb label: only connection name + db
     let breadcrumbLabel = 'No Connection';
     if (isConnected && activeProfile) {
         breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name}`;
@@ -76,11 +76,13 @@ export const Toolbar: React.FC = () => {
                 </button>
             </div>
 
-            <div className="toolbar-center">
+            {/* Drag region — fills center, allows dragging the frameless window */}
+            <div className="toolbar-drag-region">
                 <div ref={breadcrumbRef}>
                     <div
                         className={`connection-breadcrumb ${pickerOpen ? 'active' : ''}`}
                         onClick={() => setPickerOpen(prev => !prev)}
+                        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
                     >
                         {breadcrumbLabel}
                         <ChevronDown size={14} className="breadcrumb-chevron" />
@@ -106,6 +108,22 @@ export const Toolbar: React.FC = () => {
                 <button className="toolbar-btn icon-only" title="Settings" onClick={openModal}>
                     <Settings size={14} />
                 </button>
+
+                <div className="toolbar-separator" />
+
+                {/* Window controls */}
+                <div className="window-controls">
+                    <button className="wc-btn wc-minimize" title="Minimize" onClick={WindowMinimise}>
+                        <Minus size={12} />
+                    </button>
+                    <button className="wc-btn wc-maximize" title="Maximize / Restore" onClick={WindowToggleMaximise}>
+                        {/* Simple maximize icon via CSS box */}
+                        <span className="wc-max-icon" />
+                    </button>
+                    <button className="wc-btn wc-close" title="Close" onClick={Quit}>
+                        <X size={13} />
+                    </button>
+                </div>
             </div>
 
             <ShortcutHelp isOpen={helpOpen} onClose={() => setHelpOpen(false)} />

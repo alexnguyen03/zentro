@@ -30,9 +30,10 @@ func main() {
 	app := zentroapp.NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "Zentro",
-		Width:  1280,
-		Height: 800,
+		Title:     "Zentro",
+		Width:     1280,
+		Height:    800,
+		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
