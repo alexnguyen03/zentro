@@ -83,14 +83,16 @@ function App() {
 
     return (
         <div className="app-container">
-            <Toolbar />
             <div className="main-content">
                 <div style={{ width: sidebarWidth, flexShrink: 0 }}>
                     <Sidebar />
                 </div>
                 <div className="resizer" onMouseDown={startResizing} />
-                <div className="editor-area">
-                    <QueryTabs />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <Toolbar />
+                    <div className="editor-area">
+                        <QueryTabs />
+                    </div>
                 </div>
             </div>
             <StatusBar />
