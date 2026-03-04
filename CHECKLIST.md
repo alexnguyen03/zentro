@@ -169,21 +169,21 @@
 ## Phase 5 — Result Grid
 
 ### 5.1 TanStack Table + Virtual
-- [ ] `ResultTable.tsx` với `@tanstack/react-table` + `@tanstack/react-virtual`
-- [ ] `useVirtualizer` cho row virtualization (target 50k rows không lag)
+- [x] `ResultTable.tsx` với `@tanstack/react-table` + `@tanstack/react-virtual`
+- [x] `useVirtualizer` cho row virtualization (target 50k rows không lag)
 - [ ] Benchmark: render 50k rows < 100ms (đo bằng React DevTools Profiler)
-- [ ] Column header render từ `resultStore.columns[tabID]`
-- [ ] Row number column (frozen left)
+- [x] Column header render từ `resultStore.columns[tabID]`
+- [x] Row number column (frozen left)
 
 ### 5.2 Sort
-- [ ] Sort header click → asc/desc (client-side, TanStack built-in)
-- [ ] Sort disabled khi `!resultStore.isDone(tabID)` (đang streaming)
-- [ ] Sort indicator (↑↓) trên column header
+- [x] Sort header click → asc/desc (client-side, TanStack built-in)
+- [x] Sort disabled khi `!resultStore.isDone(tabID)` (đang streaming)
+- [x] Sort indicator (↑↓) trên column header
 
 ### 5.3 Export CSV
-- [ ] Export button trong Toolbar (enabled sau `query:done`)
-- [ ] Gọi `ExportCSV(columns, rows)` → Wails `runtime.SaveFileDialog`
-- [ ] Go: `encoding/csv.WriteAll` ghi file
+- [x] Export button trong Toolbar (enabled sau `query:done`)
+- [x] Gọi `ExportCSV(columns, rows)` → Wails `runtime.SaveFileDialog`
+- [x] Go: `encoding/csv.WriteAll` ghi file
 - [ ] Hiển thị file path trong StatusBar sau export thành công
 
 ### 5.4 Row Limit Setting
