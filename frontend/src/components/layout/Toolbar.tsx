@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Play, Square, Save, Settings, ChevronDown, Search, RefreshCw, Lock } from 'lucide-react';
+import { Plus, Play, Square, Save, Settings, ChevronDown, ChevronRight, Search, RefreshCw, Lock } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -11,22 +11,18 @@ export const Toolbar: React.FC = () => {
     const { results } = useResultStore();
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [isDbDropdownOpen, setIsDbDropdownOpen] = useState(false);
+    const [hoveredConn, setHoveredConn] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const dbDropdownRef = useRef<HTMLDivElement>(null);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
     const isRunning = activeTab?.isRunning ?? false;
     const isDone = activeTabId ? (results[activeTabId]?.isDone ?? true) : true;
 
-    // Handle outside click for dropdowns
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
-            }
-            if (dbDropdownRef.current && !dbDropdownRef.current.contains(event.target as Node)) {
-                setIsDbDropdownOpen(false);
+                setHoveredConn(null);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -35,7 +31,7 @@ export const Toolbar: React.FC = () => {
 
     const handleRun = async () => {
         if (!activeTab || !isConnected) return;
-        try { await ExecuteQuery(activeTab.id, activeTab.query); } catch { /* event-driven, ignore */ }
+        try { await ExecuteQuery(activeTab.id, activeTab.query); } catch { /* event-driven */ }
     };
 
     const handleCancel = async () => {
@@ -43,34 +39,35 @@ export const Toolbar: React.FC = () => {
         try { await CancelQuery(activeTabId); } catch { /* swallow */ }
     };
 
-    const handleConnect = async (profileName: string) => {
+    const handleSelectDb = async (profileName: string, dbName: string) => {
         setIsDropdownOpen(false);
-        if (activeProfile?.name === profileName) return; // Already connected
+        setHoveredConn(null);
+
+        const isSameProfile = activeProfile?.name === profileName;
+        const isSameDb = activeProfile?.db_name === dbName;
+
+        if (isSameProfile && isSameDb) return;
+
         try {
-            await Connect(profileName);
+            if (!isSameProfile) {
+                // Connect to the new profile first, which uses its default DB
+                await Connect(profileName);
+            }
+            // Then switch to the chosen DB
+            if (!isSameDb || !isSameProfile) {
+                await SwitchDatabase(dbName);
+            }
         } catch (err) {
-            console.error('Failed to switch connection:', err);
+            console.error('Failed to switch connection/db:', err);
         }
     };
 
-    const handleSwitchDb = async (dbName: string) => {
-        setIsDbDropdownOpen(false);
-        if (activeProfile?.db_name === dbName) return;
-        try {
-            await SwitchDatabase(dbName);
-        } catch (err) {
-            console.error('Failed to switch database:', err);
-        }
-    };
-
-    // Build the breadcrumb string
-    let connBreadcrumbText = 'No Connection';
+    // Build breadcrumb label
+    let breadcrumbText = 'No Connection';
     if (isConnected && activeProfile) {
-        // e.g., PostgreSQL : require : ep-dawn
         const driverName = activeProfile.driver === 'postgres' ? 'PostgreSQL' : 'SQL Server';
-        const ssl = activeProfile.ssl_mode || 'disable';
-        const hostShort = activeProfile.host.split('.')[0]; // Only first part of host
-        connBreadcrumbText = `${driverName} : ${ssl} : ${hostShort}`;
+        const hostShort = activeProfile.host.split('.')[0];
+        breadcrumbText = `${driverName}  ·  ${hostShort}  ·  ${activeProfile.db_name}`;
     }
 
     return (
@@ -107,84 +104,83 @@ export const Toolbar: React.FC = () => {
             </div>
 
             <div className="toolbar-center">
-                {!isConnected ? (
-                    <div className="connection-breadcrumb-wrapper">
-                        <div className="connection-breadcrumb">No Connection</div>
+                <div className="connection-breadcrumb-wrapper" ref={dropdownRef}>
+                    <div
+                        className={`connection-breadcrumb ${isDropdownOpen ? 'active' : ''}`}
+                        onClick={() => {
+                            setIsDropdownOpen(prev => !prev);
+                            setHoveredConn(null);
+                        }}
+                    >
+                        {breadcrumbText}
+                        <ChevronDown size={14} className="breadcrumb-chevron" />
                     </div>
-                ) : (
-                    <div className="breadcrumb-group" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <div className="connection-breadcrumb-wrapper" ref={dropdownRef}>
-                            <div
-                                className={`connection-breadcrumb ${isDropdownOpen ? 'active' : ''}`}
-                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            >
-                                {connBreadcrumbText}
-                                <ChevronDown size={14} className="breadcrumb-chevron" />
-                            </div>
 
-                            {isDropdownOpen && (
-                                <div className="connection-dropdown">
-                                    <div className="dropdown-header">Connections</div>
-                                    {connections.length === 0 ? (
-                                        <div className="dropdown-empty">No connections found</div>
-                                    ) : (
-                                        <div className="dropdown-list">
-                                            {connections.map((conn) => (
-                                                <div
-                                                    key={conn.name}
-                                                    className={`dropdown-item ${activeProfile?.name === conn.name ? 'active' : ''}`}
-                                                    onClick={() => handleConnect(conn.name)}
-                                                >
-                                                    <div className="dropdown-item-name">{conn.name}</div>
-                                                    <div className="dropdown-item-host">{conn.host}:{conn.port}</div>
+                    {isDropdownOpen && (
+                        <div className="connection-dropdown">
+                            <div className="dropdown-header">Select Connection · Database</div>
+                            {connections.length === 0 ? (
+                                <div className="dropdown-empty">No connections found</div>
+                            ) : (
+                                <div className="dropdown-list">
+                                    {connections.map((conn) => {
+                                        const isActive = activeProfile?.name === conn.name;
+                                        const isHovered = hoveredConn === conn.name;
+                                        // Only show databases submenu for the active connection
+                                        const dbList = isActive ? databases : [];
+
+                                        return (
+                                            <div
+                                                key={conn.name}
+                                                className={`dropdown-item dropdown-item-has-sub ${isActive ? 'active' : ''} ${isHovered ? 'hovered' : ''}`}
+                                                onMouseEnter={() => setHoveredConn(conn.name)}
+                                                onMouseLeave={() => setHoveredConn(null)}
+                                            >
+                                                <div className="dropdown-item-content">
+                                                    <div>
+                                                        <div className="dropdown-item-name">{conn.name}</div>
+                                                        <div className="dropdown-item-host">{conn.host}:{conn.port}</div>
+                                                    </div>
+                                                    <ChevronRight size={12} className="dropdown-item-arrow" />
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
+
+                                                {/* Submenu: DB list */}
+                                                {isHovered && (
+                                                    <div className="dropdown-submenu">
+                                                        <div className="dropdown-header">Databases</div>
+                                                        {dbList.length === 0 ? (
+                                                            <div className="dropdown-empty" style={{ fontSize: 11 }}>
+                                                                {isActive ? 'No databases' : 'Connect first to see databases'}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="dropdown-list">
+                                                                {dbList.map((dbName) => (
+                                                                    <div
+                                                                        key={dbName}
+                                                                        className={`dropdown-item ${isActive && activeProfile?.db_name === dbName ? 'active' : ''}`}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleSelectDb(conn.name, dbName);
+                                                                        }}
+                                                                    >
+                                                                        <div className="dropdown-item-name">{dbName}</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
-
-                        <div className="breadcrumb-divider" style={{ opacity: 0.5, fontSize: 14 }}>:</div>
-
-                        <div className="connection-breadcrumb-wrapper" ref={dbDropdownRef}>
-                            <div
-                                className={`connection-breadcrumb ${isDbDropdownOpen ? 'active' : ''}`}
-                                onClick={() => setIsDbDropdownOpen(!isDbDropdownOpen)}
-                                title="Switch active database"
-                            >
-                                {activeProfile?.db_name}
-                                <ChevronDown size={14} className="breadcrumb-chevron" />
-                            </div>
-
-                            {isDbDropdownOpen && (
-                                <div className="connection-dropdown" style={{ width: 220, left: 0, transform: 'none' }}>
-                                    <div className="dropdown-header">Databases</div>
-                                    {databases.length === 0 ? (
-                                        <div className="dropdown-empty">No databases found</div>
-                                    ) : (
-                                        <div className="dropdown-list">
-                                            {databases.map((dbName) => (
-                                                <div
-                                                    key={dbName}
-                                                    className={`dropdown-item ${activeProfile?.db_name === dbName ? 'active' : ''}`}
-                                                    onClick={() => handleSwitchDb(dbName)}
-                                                >
-                                                    <div className="dropdown-item-name">{dbName}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             <div className="toolbar-right">
-                {/* <span className="network-indicator">24 b/s <span className="network-badge">loc</span></span> */}
-
                 <div className="toolbar-separator" />
 
                 <button className="toolbar-btn icon-only" title="Search">
