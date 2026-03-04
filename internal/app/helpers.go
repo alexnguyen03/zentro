@@ -34,6 +34,11 @@ func exportCSV(ctx context.Context, columns []string, rows [][]string) (string, 
 	}
 	defer f.Close()
 
+	// Write UTF-8 BOM so Excel opens the file with correct encoding
+	if _, err := f.WriteString("\xEF\xBB\xBF"); err != nil {
+		return "", fmt.Errorf("export: write bom: %w", err)
+	}
+
 	w := csv.NewWriter(f)
 	if len(columns) > 0 {
 		_ = w.Write(columns)
