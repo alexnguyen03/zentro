@@ -181,17 +181,122 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.dialog-content h3 {
-  margin-top: 0;
-  margin-bottom: 20px;
+.connection-dialog {
+  width: 520px;
+  padding: 0;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dialog-header h3 {
+  margin: 0;
   font-weight: 500;
+  font-size: 14px;
+}
+
+.dialog-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.dialog-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
 }
 
 .connection-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  padding: 20px;
 }
+
+.form-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.required {
+  color: var(--error-color);
+}
+
+.form-row-footer {
+  align-items: center;
+}
+
+.form-group-checkbox {
+  display: flex;
+  align-items: flex-end;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+.dialog-feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.dialog-feedback.error {
+  color: var(--error-color);
+  background: rgba(244, 135, 113, 0.1);
+  border: 1px solid rgba(244, 135, 113, 0.2);
+}
+
+.dialog-feedback.success {
+  color: var(--success-color);
+  background: rgba(137, 209, 133, 0.1);
+  border: 1px solid rgba(137, 209, 133, 0.2);
+}
+
+.btn-success {
+  background: rgba(137, 209, 133, 0.15) !important;
+  border-color: var(--success-color) !important;
+  color: var(--success-color) !important;
+}
+
+.btn-danger {
+  background: rgba(244, 135, 113, 0.15) !important;
+  border-color: var(--error-color) !important;
+  color: var(--error-color) !important;
+}
+
+input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 
 .form-row {
   display: flex;

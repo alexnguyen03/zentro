@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Edit, Trash2, Plug, ChevronRight, ChevronDown, Server, Table, Eye, Loader } from 'lucide-react';
+import { Database, Edit, Trash2, Plug, PlugZap, ChevronRight, ChevronDown, Server, Table, Eye, Loader } from 'lucide-react';
 import { models } from '../../../wailsjs/go/models';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
-import { Connect, DeleteConnection, FetchDatabaseSchema, LoadConnections } from '../../../wailsjs/go/app/App';
+import { Connect, DeleteConnection, FetchDatabaseSchema, LoadConnections, Disconnect } from '../../../wailsjs/go/app/App';
 import { onSchemaLoaded } from '../../lib/events';
 
 type ConnectionProfile = models.ConnectionProfile;
@@ -14,6 +14,9 @@ interface ConnectionTreeProps {
 
 export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
     const { connections, isConnected, activeProfile, databases, setConnections } = useConnectionStore();
+    const setIsConnected = useConnectionStore(s => s.setIsConnected);
+    const setActiveProfile = useConnectionStore(s => s.setActiveProfile);
+    const setDatabases = useConnectionStore(s => s.setDatabases);
 
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; profile: ConnectionProfile } | null>(null);
 
@@ -34,6 +37,18 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
             await Connect(profileName);
         } catch (err: any) {
             alert(`Connection error: ${err.toString()}`);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        try {
+            await Disconnect();
+            // App.tsx onConnectionChanged will also clear, but clear immediately for snappy UX
+            setIsConnected(false);
+            setActiveProfile(null);
+            setDatabases([]);
+        } catch (err: any) {
+            alert(err.toString());
         }
     };
 
@@ -100,6 +115,16 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
                     >
                         <Plug size={12} style={{ marginRight: 6 }} /> Connect
                     </div>
+                    {activeProfile?.name === contextMenu.profile.name && isConnected && (
+                        <div
+                            className="context-menu-item"
+                            onClick={(e) => { e.stopPropagation(); handleDisconnect(); setContextMenu(null); }}
+                            style={{ color: 'var(--accent-color)' }}
+                        >
+                            <PlugZap size={12} style={{ marginRight: 6 }} /> Disconnect
+                        </div>
+                    )}
+                    <div className="context-menu-separator" />
                     <div
                         className="context-menu-item"
                         onClick={(e) => { e.stopPropagation(); onEdit(contextMenu.profile); setContextMenu(null); }}

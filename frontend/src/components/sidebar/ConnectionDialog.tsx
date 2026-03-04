@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { CheckCircle, AlertCircle, Loader, X } from 'lucide-react';
 import { models } from '../../../wailsjs/go/models';
-import { SaveConnection, TestConnection } from '../../../wailsjs/go/app/App';
+import { SaveConnection, TestConnection, LoadConnections } from '../../../wailsjs/go/app/App';
+import { useConnectionStore } from '../../stores/connectionStore';
 
 type ConnectionProfile = models.ConnectionProfile;
 
@@ -8,62 +10,90 @@ interface ConnectionDialogProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: () => void;
-    profile?: ConnectionProfile | null;
+    profile?: ConnectionProfile | null;  // null = create new
 }
 
-export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onClose, onSave, profile }) => {
-    const [formData, setFormData] = useState<Partial<ConnectionProfile>>({
-        driver: 'postgres',
-        host: 'localhost',
-        port: 5432,
-        ssl_mode: 'disable'
-    });
+const DEFAULT_FORM: Partial<ConnectionProfile> = {
+    driver: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    ssl_mode: 'disable',
+    connect_timeout: 30,
+    save_password: true,
+    name: '',
+    username: '',
+    password: '',
+    db_name: '',
+};
 
+export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onClose, onSave, profile }) => {
+    const [formData, setFormData] = useState<Partial<ConnectionProfile>>(DEFAULT_FORM);
     const [testing, setTesting] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [testResult, setTestResult] = useState<'idle' | 'ok' | 'error'>('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
+    const existingConnections = useConnectionStore(s => s.connections);
+    const isEditing = Boolean(profile);
+
     useEffect(() => {
-        if (isOpen) {
-            if (profile) {
-                setFormData({ ...profile });
-            } else {
-                setFormData({
-                    driver: 'postgres',
-                    host: 'localhost',
-                    port: 5432,
-                    ssl_mode: 'disable',
-                    name: '',
-                    username: '',
-                    password: '',
-                    db_name: ''
-                });
-            }
-            setErrorMsg('');
-            setSuccessMsg('');
-        }
+        if (!isOpen) return;
+        setFormData(profile ? { ...profile } : { ...DEFAULT_FORM });
+        setErrorMsg('');
+        setSuccessMsg('');
+        setTestResult('idle');
     }, [isOpen, profile]);
 
     if (!isOpen) return null;
 
+    // ── Handlers ─────────────────────────────────────────────────────────
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: name === 'port' || name === 'connect_timeout' ? parseInt(value) || 0 : value
-        }));
+        const { name, value, type } = e.target;
+        if (type === 'checkbox') {
+            setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+        } else if (name === 'port' || name === 'connect_timeout') {
+            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
+        // Reset test result when form changes
+        setTestResult('idle');
+        setSuccessMsg('');
+        setErrorMsg('');
+    };
+
+    const validate = (): string | null => {
+        if (!formData.name?.trim()) return 'Profile name is required';
+        if (!isEditing) {
+            // Duplicate name check (only for new connections)
+            if (existingConnections.some(c => c.name === formData.name?.trim())) {
+                return `A connection named "${formData.name.trim()}" already exists`;
+            }
+        }
+        if (!formData.host?.trim()) return 'Host is required';
+        if (!formData.username?.trim()) return 'Username is required';
+        if (!formData.db_name?.trim()) return 'Database name is required';
+        if (!formData.port || formData.port <= 0) return 'Port must be a positive number';
+        return null;
     };
 
     const handleTest = async () => {
+        const err = validate();
+        if (err) { setErrorMsg(err); return; }
+
         setTesting(true);
         setErrorMsg('');
         setSuccessMsg('');
+        setTestResult('idle');
         try {
             await TestConnection(new models.ConnectionProfile(formData as any));
             setSuccessMsg('Connection successful!');
+            setTestResult('ok');
         } catch (err: any) {
             setErrorMsg(err.toString());
+            setTestResult('error');
         } finally {
             setTesting(false);
         }
@@ -71,15 +101,14 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name) {
-            setErrorMsg('Profile name is required');
-            return;
-        }
+        const err = validate();
+        if (err) { setErrorMsg(err); return; }
+
         setSaving(true);
         setErrorMsg('');
         try {
             await SaveConnection(new models.ConnectionProfile(formData as any));
-            onSave(); // Refresh list via parent
+            onSave();
             onClose();
         } catch (err: any) {
             setErrorMsg(err.toString());
@@ -88,53 +117,108 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
         }
     };
 
+    const handleOverlayClick = (e: React.MouseEvent) => {
+        if (e.target === e.currentTarget) onClose();
+    };
+
+    // ── Render ───────────────────────────────────────────────────────────
+
     return (
-        <div className="dialog-overlay">
-            <div className="dialog-content">
-                <h3>{profile ? 'Edit Connection' : 'New Connection'}</h3>
+        <div className="dialog-overlay" onClick={handleOverlayClick}>
+            <div className="dialog-content connection-dialog">
+                <div className="dialog-header">
+                    <h3>{isEditing ? `Edit — ${profile?.name}` : 'New Connection'}</h3>
+                    <button className="dialog-close-btn" onClick={onClose} title="Close">
+                        <X size={16} />
+                    </button>
+                </div>
 
                 <form onSubmit={handleSave} className="connection-form">
-                    <div className="form-group">
-                        <label>Profile Name <span style={{ color: 'var(--error-color)' }}>*</span></label>
-                        <input name="name" value={formData.name || ''} onChange={handleChange} required autoFocus />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Driver</label>
-                        <select name="driver" value={formData.driver || 'postgres'} onChange={handleChange}>
-                            <option value="postgres">PostgreSQL</option>
-                            {/* <option value="mysql">MySQL</option> */}
-                        </select>
-                    </div>
-
+                    {/* Profile Name + Driver */}
                     <div className="form-row">
                         <div className="form-group" style={{ flex: 2 }}>
-                            <label>Host</label>
-                            <input name="host" value={formData.host || ''} onChange={handleChange} required />
+                            <label>Profile Name <span className="required">*</span></label>
+                            <input
+                                name="name"
+                                value={formData.name || ''}
+                                onChange={handleChange}
+                                placeholder="e.g., Production DB"
+                                autoFocus={!isEditing}
+                                disabled={isEditing} // Name is the unique key, not editable
+                            />
+                            {isEditing && (
+                                <span className="form-hint">Profile name cannot be changed after creation</span>
+                            )}
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
-                            <label>Port</label>
-                            <input type="number" name="port" value={formData.port || 5432} onChange={handleChange} required />
+                            <label>Driver</label>
+                            <select name="driver" value={formData.driver || 'postgres'} onChange={handleChange}>
+                                <option value="postgres">PostgreSQL</option>
+                                <option value="sqlserver">SQL Server</option>
+                            </select>
                         </div>
                     </div>
 
+                    {/* Host + Port */}
+                    <div className="form-row">
+                        <div className="form-group" style={{ flex: 3 }}>
+                            <label>Host <span className="required">*</span></label>
+                            <input
+                                name="host"
+                                value={formData.host || ''}
+                                onChange={handleChange}
+                                placeholder="localhost"
+                            />
+                        </div>
+                        <div className="form-group" style={{ flex: 1 }}>
+                            <label>Port <span className="required">*</span></label>
+                            <input
+                                type="number"
+                                name="port"
+                                value={formData.port || 5432}
+                                onChange={handleChange}
+                                min={1}
+                                max={65535}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Username + Password */}
                     <div className="form-row">
                         <div className="form-group">
-                            <label>Username</label>
-                            <input name="username" value={formData.username || ''} onChange={handleChange} required />
+                            <label>Username <span className="required">*</span></label>
+                            <input
+                                name="username"
+                                value={formData.username || ''}
+                                onChange={handleChange}
+                                placeholder="postgres"
+                                autoComplete="username"
+                            />
                         </div>
                         <div className="form-group">
                             <label>Password</label>
-                            <input type="password" name="password" value={formData.password || ''} onChange={handleChange} />
+                            <input
+                                type="password"
+                                name="password"
+                                value={formData.password || ''}
+                                onChange={handleChange}
+                                autoComplete="current-password"
+                            />
                         </div>
                     </div>
 
+                    {/* Database + SSL Mode */}
                     <div className="form-row">
-                        <div className="form-group">
-                            <label>Database Name</label>
-                            <input name="db_name" value={formData.db_name || ''} onChange={handleChange} required />
+                        <div className="form-group" style={{ flex: 2 }}>
+                            <label>Database <span className="required">*</span></label>
+                            <input
+                                name="db_name"
+                                value={formData.db_name || ''}
+                                onChange={handleChange}
+                                placeholder="postgres"
+                            />
                         </div>
-                        <div className="form-group">
+                        <div className="form-group" style={{ flex: 1 }}>
                             <label>SSL Mode</label>
                             <select name="ssl_mode" value={formData.ssl_mode || 'disable'} onChange={handleChange}>
                                 <option value="disable">Disable</option>
@@ -145,17 +229,66 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({ isOpen, onCl
                         </div>
                     </div>
 
-                    {errorMsg && <div className="error-message">{errorMsg}</div>}
-                    {successMsg && <div className="success-message">{successMsg}</div>}
+                    {/* Connect Timeout + Save Password */}
+                    <div className="form-row form-row-footer">
+                        <div className="form-group" style={{ flex: 1 }}>
+                            <label>Timeout (seconds)</label>
+                            <input
+                                type="number"
+                                name="connect_timeout"
+                                value={formData.connect_timeout ?? 30}
+                                onChange={handleChange}
+                                min={1}
+                                max={300}
+                            />
+                        </div>
+                        <div className="form-group form-group-checkbox" style={{ flex: 2, justifyContent: 'flex-end' }}>
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    name="save_password"
+                                    checked={formData.save_password ?? true}
+                                    onChange={handleChange}
+                                />
+                                <span>Save password</span>
+                            </label>
+                        </div>
+                    </div>
 
+                    {/* Test result feedback */}
+                    {errorMsg && (
+                        <div className="dialog-feedback error">
+                            <AlertCircle size={14} />
+                            <span>{errorMsg}</span>
+                        </div>
+                    )}
+                    {successMsg && (
+                        <div className="dialog-feedback success">
+                            <CheckCircle size={14} />
+                            <span>{successMsg}</span>
+                        </div>
+                    )}
+
+                    {/* Actions */}
                     <div className="dialog-actions">
-                        <button type="button" className="btn" onClick={handleTest} disabled={testing}>
-                            {testing ? 'Testing...' : 'Test'}
+                        <button
+                            type="button"
+                            className={`btn ${testResult === 'ok' ? 'btn-success' : testResult === 'error' ? 'btn-danger' : ''}`}
+                            onClick={handleTest}
+                            disabled={testing}
+                            title="Test the connection without saving"
+                        >
+                            {testing
+                                ? <><Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Testing…</>
+                                : testResult === 'ok'
+                                    ? <><CheckCircle size={13} /> Connected</>
+                                    : 'Test Connection'
+                            }
                         </button>
-                        <div style={{ flex: 1 }}></div>
+                        <div style={{ flex: 1 }} />
                         <button type="button" className="btn" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn primary" disabled={saving}>
-                            {saving ? 'Saving...' : 'Save'}
+                            {saving ? 'Saving…' : 'Save'}
                         </button>
                     </div>
                 </form>

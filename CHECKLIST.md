@@ -119,6 +119,17 @@
 - [ ] Expand DB node → schemas/tables/views lazy load
 - [ ] Right-click menu hoạt động đúng
 
+### 3.6 Connection — Frontend Gap Fixes
+> Các field trong `models.ConnectionProfile` chưa được expose đầy đủ trong `ConnectionDialog.tsx`
+
+- [x] `ConnectionDialog.tsx` — thêm checkbox `Save Password` (field `save_password`)
+- [x] `ConnectionDialog.tsx` — thêm input `Connect Timeout` (field `connect_timeout`, default 30s)
+- [x] `ConnectionDialog.tsx` — validate: Name không được trùng khi tạo mới (khác với edit)
+- [x] `ConnectionTree.tsx` — thêm menu item **Disconnect** trong right-click context menu → gọi `Disconnect()` Wails binding
+- [x] `ConnectionTree.tsx` — sau `Disconnect()`: clear `isConnected`, `activeProfile`, `databases` trong store
+- [x] Wire `Disconnect` event: backend emit `connection:changed` với `status: disconnected` → frontend đã handle (App.tsx), chỉ cần trigger từ UI
+
+
 ---
 
 ## Phase 4 — Editor
