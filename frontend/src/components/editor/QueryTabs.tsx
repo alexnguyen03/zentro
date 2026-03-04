@@ -136,7 +136,7 @@ export const QueryTabs: React.FC = () => {
                 />
 
                 <div className="result-pane" style={{ height: `calc(${100 - splitPct}% - 4px)` }}>
-                    <ResultPanel tabId={activeTabId ?? ''} result={activeResult} />
+                    <ResultPanel tabId={activeTabId ?? ''} result={activeResult} onRun={handleRun} />
                 </div>
             </div>
         </div>

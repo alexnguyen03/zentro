@@ -702,6 +702,12 @@ input:disabled {
   gap: 0;
 }
 
+.result-loading-inline {
+  flex: 1;
+  overflow: hidden;
+}
+
+
 .result-loading-inner {
   display: flex;
   align-items: center;
@@ -772,20 +778,63 @@ input:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
 }
 
+
 .result-toolbar-left,
+.result-toolbar-center,
 .result-toolbar-right {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
+.result-toolbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.result-reload-btn {
+  color: var(--accent-color) !important;
+  gap: 5px;
+}
+
+.result-reload-btn:hover {
+  background: rgba(0, 122, 204, 0.12) !important;
+  border-color: var(--accent-color) !important;
+}
+
+
 .result-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
+
+.result-limit-select {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  cursor: pointer;
+  outline: none;
+  appearance: auto;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.result-limit-select:hover {
+  border-color: var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.result-limit-select:focus {
+  border-color: var(--accent-color);
+}
+
 
 .result-toolbar-btn {
   background: transparent;
