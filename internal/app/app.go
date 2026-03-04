@@ -380,7 +380,11 @@ func (a *App) ExecuteQuery(tabID, query string) {
 
 // streamSelect runs a SELECT and emits chunks of 500 rows progressively.
 func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.Time) {
-	normalized := dbpkg.InjectLimitIfMissing(query, a.prefs.DefaultLimit)
+	driver := ""
+	if a.profile != nil {
+		driver = a.profile.Driver
+	}
+	normalized := dbpkg.InjectLimitIfMissing(query, driver, a.prefs.DefaultLimit)
 	rows, err := a.db.QueryContext(ctx, normalized)
 	if err != nil {
 		a.emitDone(tabID, 0, time.Since(start), true, fmt.Errorf("query: %w", err))

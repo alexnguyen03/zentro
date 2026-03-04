@@ -17,6 +17,10 @@ import (
 // limitPattern matches queries that already contain a LIMIT or TOP clause.
 var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bTOP\b`)
 
+// selectTopPattern matches "SELECT" at the start of a trimmed query (case-insensitive),
+// used to inject TOP N for MSSQL.
+var selectTopPattern = regexp.MustCompile(`(?i)^(SELECT)(\s+)`)
+
 // IsSelectQuery returns true for read-only query types (SELECT, WITH, SHOW, EXPLAIN).
 func IsSelectQuery(query string) bool {
 	upper := strings.ToUpper(strings.TrimSpace(query))
@@ -28,18 +32,26 @@ func IsSelectQuery(query string) bool {
 	return false
 }
 
-// InjectLimitIfMissing appends LIMIT N to a SELECT query if no LIMIT/TOP clause exists.
+// InjectLimitIfMissing appends a row-limit clause to a SELECT query if none exists.
+// For MSSQL (driver == "sqlserver") it injects TOP N after SELECT.
+// All other drivers get a trailing LIMIT N.
 // Exported so internal/app can use it without duplicating the regex.
-func InjectLimitIfMissing(query string, limit int) string {
+func InjectLimitIfMissing(query, driver string, limit int) string {
 	if limitPattern.MatchString(query) {
 		return query
+	}
+	if driver == "sqlserver" {
+		// Inject "TOP N" right after SELECT (handles SELECT DISTINCT etc. gracefully
+		// because DISTINCT comes before TOP in MSSQL syntax — use FETCH instead).
+		// Safe pattern: SELECT TOP N <rest>
+		return selectTopPattern.ReplaceAllString(query, fmt.Sprintf("$1 TOP %d$2", limit))
 	}
 	return query + fmt.Sprintf(" LIMIT %d", limit)
 }
 
 // injectLimitIfMissing is kept for internal use and unit tests.
-func injectLimitIfMissing(query string, limit int) string {
-	return InjectLimitIfMissing(query, limit)
+func injectLimitIfMissing(query, driver string, limit int) string {
+	return InjectLimitIfMissing(query, driver, limit)
 }
 
 // streamRows scans all rows into memory. Caller is responsible for rows.Close().
@@ -89,7 +101,7 @@ func ExecuteQuery(ctx context.Context, db *sql.DB, query string, defaultLimit in
 
 		if IsSelectQuery(trimmed) {
 			result.IsSelect = true
-			normalized := injectLimitIfMissing(trimmed, defaultLimit)
+			normalized := injectLimitIfMissing(trimmed, "", defaultLimit)
 
 			rows, err := db.QueryContext(ctx, normalized)
 			if err != nil {
