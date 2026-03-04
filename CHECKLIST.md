@@ -47,7 +47,7 @@
 - [x] Document event names trong code comment hoặc `events.go` constants file
   - `connection:changed`, `schema:databases`, `schema:loaded`
   - `query:started`, `query:chunk`, `query:done`
-- [ ] Frontend `src/lib/events.ts` — typed event listeners wrapper
+- [x] Frontend `src/lib/events.ts` — typed event listeners wrapper
 
 ### 1.7 Verify Phase 1
 - [x] `wails dev` boots, blank React app hiện trong WebView
@@ -87,31 +87,31 @@
 ## Phase 3 — Layout + Sidebar
 
 ### 3.1 Zustand Stores
-- [ ] `connectionStore.ts` — `connections`, `activeProfile`, `isConnected`, `databases`
-- [ ] `editorStore.ts` — `tabs`, `activeTabId`, `isRunning per tab`
-- [ ] `resultStore.ts` — `columns`, `rows`, `isDone`, `appendRows` per tabID
-- [ ] `statusStore.ts` — `connectionLabel`, `status`, `rowCount`, `duration`
-- [ ] `schemaStore.ts` — `tree` (lazy, per profileName+dbName)
+- [x] `connectionStore.ts` — `connections`, `activeProfile`, `isConnected`, `databases`
+- [x] `editorStore.ts` — `tabs`, `activeTabId`, `isRunning per tab`
+- [x] `resultStore.ts` — `columns`, `rows`, `isDone`, `appendRows` per tabID
+- [x] `statusStore.ts` — `connectionLabel`, `status`, `rowCount`, `duration`
+- [x] `schemaStore.ts` — `tree` (lazy, per profileName+dbName)
 
 ### 3.2 App Shell Layout
-- [ ] CSS Grid layout: sidebar (22%) + main area (78%)
-- [ ] `Toolbar.tsx` — buttons, enable/disable logic từ stores
-- [ ] `StatusBar.tsx` — listen Wails events, update store
-- [ ] Sidebar shell `Sidebar.tsx` — resizable panel
+- [x] CSS Grid layout: sidebar (22%) + main area (78%)
+- [x] `Toolbar.tsx` — buttons, enable/disable logic từ stores
+- [x] `StatusBar.tsx` — listen Wails events, update store
+- [x] Sidebar shell `Sidebar.tsx` — resizable panel
 
 ### 3.3 Connection CRUD
-- [ ] `ConnectionTree.tsx` — tree nodes (conn → db → schema → table/view)
-- [ ] `ConnectionDialog.tsx` — modal form tạo/sửa connection
-- [ ] Wire: `LoadConnections` → `SaveConnection` → `DeleteConnection`
-- [ ] `TestConnection` — hiển thị success/error trong dialog
-- [ ] Right-click context menu: Connect / Edit / Delete
-- [ ] Active connection indicator (● green dot)
+- [x] `ConnectionTree.tsx` — tree nodes (conn → db → schema → table/view)
+- [x] `ConnectionDialog.tsx` — modal form tạo/sửa connection
+- [x] Wire: `LoadConnections` → `SaveConnection` → `DeleteConnection`
+- [x] `TestConnection` — hiển thị success/error trong dialog
+- [x] Right-click context menu: Connect / Edit / Delete
+- [x] Active connection indicator (● green dot)
 
 ### 3.4 Lazy Schema Tree
-- [ ] `Connect(name)` → emit `schema:databases` (chỉ DB names, không fetch schemas)
-- [ ] Frontend: expand DB node → gọi `FetchDatabaseSchema(profileName, dbName)`
-- [ ] Backend emit `schema:loaded` → `schemaStore` cập nhật tree
-- [ ] Auto-expand active DB sau khi schema loaded
+- [x] `Connect(name)` → emit `schema:databases` (chỉ DB names, không fetch schemas)
+- [x] Frontend: expand DB node → gọi `FetchDatabaseSchema(profileName, dbName)`
+- [x] Backend emit `schema:loaded` → `schemaStore` cập nhật tree
+- [x] Auto-expand active DB sau khi schema loaded
 
 ### 3.5 Verify Phase 3
 - [ ] CRUD connection profiles hoạt động + persist sau restart

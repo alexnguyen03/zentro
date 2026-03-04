@@ -1,30 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useStatusStore } from '../../stores/statusStore';
-import { EventsOn } from '../../../wailsjs/runtime/runtime';
+import { onConnectionChanged } from '../../lib/events';
 
 export const StatusBar: React.FC = () => {
     const { connectionLabel, status, rowCount, duration, setStatus, setConnectionLabel } = useStatusStore();
-    const [wailsEventsBound, setWailsEventsBound] = useState(false);
 
     useEffect(() => {
-        if (!window.go || wailsEventsBound) return;
-
-        let unsub = EventsOn("connection:changed", (data: any) => {
-            if (data.status === "connected" && data.profile) {
-                setStatus("connected");
-                setConnectionLabel(`${data.profile.Name} (${data.profile.Driver})`);
-            } else if (data.status === "disconnected") {
-                setStatus("disconnected");
-                setConnectionLabel("No Connection");
+        // StatusBar listens to connection changes independently to update its own label/color.
+        // connectionStore state (isConnected, activeProfile) is managed centrally in App.tsx.
+        const unsub = onConnectionChanged((data) => {
+            if (data.status === 'connected' && data.profile) {
+                setStatus('connected');
+                setConnectionLabel(`${data.profile.name} (${data.profile.driver})`);
+            } else {
+                setStatus('disconnected');
+                setConnectionLabel('No Connection');
             }
         });
-
-        setWailsEventsBound(true);
-
-        return () => {
-            if (unsub) unsub();
-        };
-    }, [wailsEventsBound, setStatus, setConnectionLabel]);
+        return () => unsub();
+    }, [setStatus, setConnectionLabel]);
 
     // Format duration e.g. 1.2s or 500ms
     const durStr = duration > 1000 ? `${(duration / 1000).toFixed(2)}s` : `${duration}ms`;

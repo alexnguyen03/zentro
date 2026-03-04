@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
-import { EventsOn } from '../wailsjs/runtime/runtime';
 import { useConnectionStore } from './stores/connectionStore';
-import { useSchemaStore } from './stores/schemaStore';
+import { onConnectionChanged, onSchemaDatabases } from './lib/events';
 
 function App() {
+    const { setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);
 
@@ -28,6 +28,29 @@ function App() {
         },
         []
     );
+
+    // Wire global Wails events → stores. Placed at root so listeners
+    // persist for the full app lifetime regardless of which child is mounted.
+    useEffect(() => {
+        const unsubConn = onConnectionChanged((data) => {
+            if (data.status === 'connected' && data.profile) {
+                setIsConnected(true);
+                // Cast to any because Wails runtime serialises the Go struct as plain object
+                setActiveProfile(data.profile as any);
+            } else {
+                setIsConnected(false);
+                setActiveProfile(null);
+                setDatabases([]);
+            }
+        });
+        const unsubDbs = onSchemaDatabases((data) => {
+            setDatabases(data.databases ?? []);
+        });
+        return () => {
+            unsubConn();
+            unsubDbs();
+        };
+    }, [setIsConnected, setActiveProfile, setDatabases]);
 
     useEffect(() => {
         window.addEventListener("mousemove", resize);
