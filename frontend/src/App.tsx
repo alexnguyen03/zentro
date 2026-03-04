@@ -16,12 +16,14 @@ import {
     onQueryChunk,
     onQueryDone,
 } from './lib/events';
+import { useToast } from './components/layout/Toast';
 
 function App() {
-    const { setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
+    const { isConnected, setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
     const { setTabRunning } = useEditorStore();
     const { initTab, appendRows, setDone, results } = useResultStore();
     const { setQueryStats } = useStatusStore();
+    const { toast } = useToast();
 
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);
@@ -46,10 +48,12 @@ function App() {
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
                     setActiveProfile(data.profile as any);
-                } else {
+                } else if (data.status === 'disconnected') {
                     setIsConnected(false);
                     setActiveProfile(null);
                     setDatabases([]);
+                } else {
+                    toast.error(`Connection failed`);
                 }
             }),
             onSchemaDatabases((data) => {
@@ -66,6 +70,9 @@ function App() {
             onQueryDone(({ tabID, affected, duration, isSelect, error }) => {
                 setTabRunning(tabID, false);
                 setDone(tabID, affected, duration, isSelect, error);
+                if (error) {
+                    toast.error(`Query failed: ${error}`);
+                }
                 // Update status bar row count from finished result
                 const rowCount = isSelect
                     ? (results[tabID]?.rows.length ?? affected)
@@ -96,7 +103,15 @@ function App() {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <Toolbar />
                     <div className="editor-area">
-                        <QueryTabs />
+                        {!isConnected ? (
+                            <div className="empty-state">
+                                <span className="empty-icon">🔌</span>
+                                <h3>No active connection</h3>
+                                <p>Select or add a connection from the sidebar to begin.</p>
+                            </div>
+                        ) : (
+                            <QueryTabs />
+                        )}
                     </div>
                 </div>
             </div>

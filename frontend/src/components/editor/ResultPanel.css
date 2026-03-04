@@ -234,12 +234,9 @@
 .result-table-tanstack td {
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     border-right: 1px solid var(--border-color);
-    padding: 3px 8px;
-    white-space: nowrap;
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 0;
     height: 30px;
+    vertical-align: middle;
 }
 
 .result-table-tanstack tr.rt-row-alt td {
@@ -250,10 +247,45 @@
     background: rgba(0, 122, 204, 0.1);
 }
 
+.rt-cell-content {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    height: 100%;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid transparent;
+    user-select: none;
+}
+
+.rt-cell-selected {
+    background: rgba(0, 122, 204, 0.2) !important;
+    border: 1px dashed var(--accent-color);
+}
+
+.rt-cell-dirty {
+    background: rgba(137, 209, 133, 0.1) !important;
+    border-left: 2px solid var(--success-color);
+}
+
+.rt-cell-input {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--accent-color);
+    outline: none;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0 7px;
+}
+
 .row-num-col {
     color: var(--text-secondary);
     font-size: 11px;
     user-select: none;
     min-width: 40px;
-    text-align: right;
+    justify-content: flex-end;
 }

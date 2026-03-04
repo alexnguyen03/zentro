@@ -201,19 +201,19 @@
 ## Phase 6 — Advanced Features
 
 ### 6.1 Batch Edit
-- [ ] Multi-cell selection: click + Shift (range) + Ctrl (individual)
-- [ ] Selection highlight CSS
-- [ ] Double-click cell → inline `<input>` tại cell đó
-- [ ] Enter → propagate value đến tất cả selected cells **cùng cột**
-- [ ] Dirty cells highlight khác màu
-- [ ] Escape → cancel edit, revert value
+- [x] Multi-cell selection: click + Shift (range) + Ctrl (individual)
+- [x] Selection highlight CSS
+- [x] Double-click cell → inline `<input>` tại cell đó
+- [x] Enter → propagate value đến tất cả selected cells **cùng cột**
+- [x] Dirty cells highlight khác màu
+- [x] Escape → cancel edit, revert value
 
 ### 6.2 Query History
-- [ ] `AppendHistory(e HistoryEntry)` trong `app.go` — gọi sau `query:done`
-- [ ] Giới hạn 500 entries (rotate oldest)
-- [ ] `GetHistory() []HistoryEntry` Wails method
-- [ ] History panel UI: list entries, click → paste query vào active Monaco tab
-- [ ] `ClearHistory()` với confirm dialog
+- [x] `AppendHistory(e HistoryEntry)` trong `app.go` — gọi sau `query:done`
+- [x] Giới hạn 500 entries (rotate oldest)
+- [x] `GetHistory() []HistoryEntry` Wails method
+- [x] History panel UI: list entries, click → paste query vào active Monaco tab
+- [x] `ClearHistory()` với confirm dialog
 
 ### 6.3 Theme
 - [x] config theme for app
@@ -231,11 +231,11 @@
 - [x] Save → `SetPreferences(prefs)`
 
 ### 6.5 Polish
-- [ ] Error toast notifications (connection fail, query error)
-- [ ] Loading spinner khi connecting / streaming
-- [ ] Keyboard shortcut cheatsheet (? key hoặc Help button)
-- [ ] Empty state placeholders (no connection, no query run yet)
-- [ ] Window title update: `Zentro — ProfileName (postgres)`
+- [x] Error toast notifications (connection fail, query error)
+- [x] Loading spinner khi connecting / streaming
+- [x] Keyboard shortcut cheatsheet (? key hoặc Help button)
+- [x] Empty state placeholders (no connection, no query run yet)
+- [x] Window title update: `Zentro — ProfileName (postgres)`
 
 ### 6.6 Cross-Platform Build
 - [ ] `wails build -platform windows/amd64 -clean`

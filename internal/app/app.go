@@ -7,8 +7,12 @@ package app
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -28,6 +32,18 @@ type QuerySession struct {
 	StartedAt  time.Time
 }
 
+// HistoryEntry records one query execution.
+type HistoryEntry struct {
+	ID         string    `json:"id"`
+	Query      string    `json:"query"`
+	Profile    string    `json:"profile"`
+	Database   string    `json:"database"`
+	DurationMs int64     `json:"duration_ms"`
+	RowCount   int64     `json:"row_count"`
+	Error      string    `json:"error,omitempty"`
+	ExecutedAt time.Time `json:"executed_at"`
+}
+
 // App is the Wails application struct.
 // All exported methods become callable from the frontend via generated bindings.
 type App struct {
@@ -37,6 +53,8 @@ type App struct {
 	profile  *models.ConnectionProfile
 	sessions map[string]*QuerySession // tabID → active session
 	prefs    utils.Preferences
+	history  []HistoryEntry
+	histMu   sync.Mutex
 }
 
 // NewApp creates the App. Called once in main.go.
@@ -154,6 +172,7 @@ func (a *App) Connect(name string) error {
 		"driver", prof.Driver,
 		"db_name", prof.DBName,
 	)
+	runtime.WindowSetTitle(a.ctx, fmt.Sprintf("Zentro — %s (%s)", prof.Name, prof.Driver))
 
 	// Fetch DB list async — lazy schema per-DB loaded on demand
 	go a.fetchDatabaseList()
@@ -212,6 +231,7 @@ func (a *App) Disconnect() {
 	}
 	a.profile = nil
 	emitEvent(a.ctx, "connection:changed", map[string]any{"status": "disconnected"})
+	runtime.WindowSetTitle(a.ctx, "Zentro")
 	a.logger.Info("disconnected")
 }
 
@@ -423,18 +443,24 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.
 		emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
 	}
 
+	totalRows := int64(seq*500 + len(buf))
+	a.appendHistoryFromResult(tabID, query, totalRows, time.Since(start), rows.Err())
 	a.emitDone(tabID, 0, time.Since(start), true, rows.Err())
 }
 
 // execNonSelect runs INSERT/UPDATE/DELETE/DDL and emits done.
 func (a *App) execNonSelect(ctx context.Context, tabID, query string, start time.Time) {
 	res, err := a.db.ExecContext(ctx, query)
+	dur := time.Since(start)
 	if err != nil {
-		a.emitDone(tabID, 0, time.Since(start), false, fmt.Errorf("exec: %w", err))
+		wrappedErr := fmt.Errorf("exec: %w", err)
+		a.appendHistoryFromResult(tabID, query, 0, dur, wrappedErr)
+		a.emitDone(tabID, 0, dur, false, wrappedErr)
 		return
 	}
 	affected, _ := res.RowsAffected()
-	a.emitDone(tabID, affected, time.Since(start), false, nil)
+	a.appendHistoryFromResult(tabID, query, affected, dur, nil)
+	a.emitDone(tabID, affected, dur, false, nil)
 }
 
 // CancelQuery cancels the running query for the specified tab.
@@ -456,6 +482,110 @@ func (a *App) GetPreferences() utils.Preferences {
 func (a *App) SetPreferences(p utils.Preferences) error {
 	a.prefs = p
 	return utils.SavePreferences(p)
+}
+
+// ── History ───────────────────────────────────────────────────────────────
+
+const maxHistoryEntries = 500
+
+// appendHistoryFromResult is called internally after each query finishes.
+func (a *App) appendHistoryFromResult(tabID, query string, rowCount int64, duration time.Duration, err error) {
+	profile := ""
+	db := ""
+	if a.profile != nil {
+		profile = a.profile.Name
+		db = a.profile.DBName
+	}
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	e := HistoryEntry{
+		ID:         fmt.Sprintf("%d", time.Now().UnixNano()),
+		Query:      query,
+		Profile:    profile,
+		Database:   db,
+		DurationMs: duration.Milliseconds(),
+		RowCount:   rowCount,
+		Error:      errStr,
+		ExecutedAt: time.Now(),
+	}
+	a.histMu.Lock()
+	a.history = append([]HistoryEntry{e}, a.history...) // newest first
+	if len(a.history) > maxHistoryEntries {
+		a.history = a.history[:maxHistoryEntries]
+	}
+	entries := make([]HistoryEntry, len(a.history))
+	copy(entries, a.history)
+	a.histMu.Unlock()
+	_ = saveHistoryFile(entries)
+}
+
+// GetHistory returns all history entries (newest first).
+func (a *App) GetHistory() []HistoryEntry {
+	a.histMu.Lock()
+	if a.history == nil {
+		// Lazy-load from disk on first access
+		a.histMu.Unlock()
+		entries, _ := loadHistoryFile()
+		a.histMu.Lock()
+		a.history = entries
+	}
+	out := make([]HistoryEntry, len(a.history))
+	copy(out, a.history)
+	a.histMu.Unlock()
+	return out
+}
+
+// ClearHistory deletes all history.
+func (a *App) ClearHistory() error {
+	a.histMu.Lock()
+	a.history = nil
+	a.histMu.Unlock()
+	p, err := historyFilePath()
+	if err != nil {
+		return err
+	}
+	return os.Remove(p)
+}
+
+func historyFilePath() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "zentro", "history.json"), nil
+}
+
+func saveHistoryFile(entries []HistoryEntry) error {
+	p, err := historyFilePath()
+	if err != nil {
+		return err
+	}
+	_ = os.MkdirAll(filepath.Dir(p), 0o755)
+	f, err := os.Create(p)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return json.NewEncoder(f).Encode(entries)
+}
+
+func loadHistoryFile() ([]HistoryEntry, error) {
+	p, err := historyFilePath()
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var entries []HistoryEntry
+	if err := json.NewDecoder(f).Decode(&entries); err != nil {
+		return nil, err
+	}
+	return entries, nil
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────

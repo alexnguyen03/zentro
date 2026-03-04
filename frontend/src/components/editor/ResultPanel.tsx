@@ -6,6 +6,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { ResultTable } from './ResultTable';
 import { ExportCSV } from '../../../wailsjs/go/app/App';
 import { utils } from '../../../wailsjs/go/models';
+import { useToast } from '../layout/Toast';
 
 interface ResultPanelProps {
     tabId: string;
@@ -17,6 +18,7 @@ const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
+    const { toast } = useToast();
 
     const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newLimit = parseInt(e.target.value) || 1000;
@@ -30,7 +32,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     if (!result) {
         return (
             <div className="result-panel result-empty">
-                <span>Run a query to see results</span>
+                <span>Run a query (Ctrl+Enter) to see results</span>
             </div>
         );
     }
@@ -58,9 +60,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
         try {
             const path = await ExportCSV(result.columns, result.rows);
             if (path) {
+                toast.success(`Exported to: ${path}`);
                 useStatusStore.getState().setMessage(`Exported to: ${path}`);
             }
         } catch (err) {
+            toast.error(`Export failed: ${err}`);
             useStatusStore.getState().setMessage(`Export failed: ${err}`);
             console.error('Export failed:', err);
         }

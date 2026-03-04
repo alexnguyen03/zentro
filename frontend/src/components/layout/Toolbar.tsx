@@ -5,6 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { ConnectionPicker } from './ConnectionPicker';
+import { ShortcutHelp } from './ShortcutHelp';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
@@ -12,6 +13,7 @@ export const Toolbar: React.FC = () => {
     const { openModal } = useSettingsStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [helpOpen, setHelpOpen] = useState(false);
     const breadcrumbRef = useRef<HTMLDivElement>(null);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
@@ -95,6 +97,9 @@ export const Toolbar: React.FC = () => {
 
             <div className="toolbar-right">
                 <div className="toolbar-separator" />
+                <button className="toolbar-btn icon-only" title="Keyboard Shortcuts" onClick={() => setHelpOpen(true)}>
+                    <span style={{ fontSize: 13, fontWeight: 'bold' }}>?</span>
+                </button>
                 <button className="toolbar-btn icon-only" title="Search">
                     <Search size={14} />
                 </button>
@@ -102,6 +107,8 @@ export const Toolbar: React.FC = () => {
                     <Settings size={14} />
                 </button>
             </div>
+
+            <ShortcutHelp isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
         </div>
     );
 };

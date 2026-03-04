@@ -17,6 +17,7 @@ interface EditorState {
     updateTabQuery: (id: string, query: string) => void;
     setTabRunning: (id: string, isRunning: boolean) => void;
     renameTab: (id: string, newName: string) => void;
+    setTabQuery: (id: string, query: string) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -76,5 +77,9 @@ export const useEditorStore = create<EditorState>((set) => ({
 
     renameTab: (id, newName) => set((state) => ({
         tabs: state.tabs.map(t => t.id === id ? { ...t, name: newName } : t)
-    }))
+    })),
+
+    setTabQuery: (id, query) => set((state) => ({
+        tabs: state.tabs.map(t => t.id === id ? { ...t, query } : t)
+    })),
 }));

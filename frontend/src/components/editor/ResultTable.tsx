@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -20,6 +20,78 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
     const [sorting, setSorting] = useState<SortingState>([]);
     const parentRef = React.useRef<HTMLDivElement>(null);
 
+    // Batch Edit States
+    const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
+    const [editedCells, setEditedCells] = useState<Map<string, string>>(new Map());
+    const [editingCell, setEditingCell] = useState<string | null>(null);
+    const [editValue, setEditValue] = useState<string>('');
+    const [lastSelected, setLastSelected] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isDone) {
+            setSelectedCells(new Set());
+            setEditedCells(new Map());
+            setEditingCell(null);
+            setLastSelected(null);
+        }
+    }, [isDone, rows]); // Reset on new query
+
+    const handleCellClick = (e: React.MouseEvent, rIdx: number, cIdx: number) => {
+        if (!isDone) return;
+        const id = `${rIdx}:${cIdx}`;
+
+        if (e.shiftKey && lastSelected) {
+            const [lastR, lastC] = lastSelected.split(':').map(Number);
+            if (lastC === cIdx) { // range select works on same col only
+                const newSel = new Set(selectedCells);
+                const min = Math.min(lastR, rIdx);
+                const max = Math.max(lastR, rIdx);
+                for (let i = min; i <= max; i++) {
+                    newSel.add(`${i}:${cIdx}`);
+                }
+                setSelectedCells(newSel);
+                return;
+            }
+        }
+
+        if (e.ctrlKey || e.metaKey) {
+            const newSel = new Set(selectedCells);
+            if (newSel.has(id)) newSel.delete(id); else newSel.add(id);
+            setSelectedCells(newSel);
+        } else {
+            setSelectedCells(new Set([id]));
+        }
+        setLastSelected(id);
+    };
+
+    const handleCellDoubleClick = (rIdx: number, cIdx: number, val: string) => {
+        if (!isDone) return;
+        const id = `${rIdx}:${cIdx}`;
+        setEditingCell(id);
+        setEditValue(val);
+        if (!selectedCells.has(id)) {
+            setSelectedCells(new Set([id]));
+            setLastSelected(id);
+        }
+    };
+
+    const handleCommitEdit = () => {
+        if (!editingCell) return;
+        const [rIdx, cIdx] = editingCell.split(':').map(Number);
+
+        const newMap = new Map(editedCells);
+        // Propagate to all selected cells in the SAME col
+        selectedCells.forEach(selId => {
+            const [selR, selC] = selId.split(':').map(Number);
+            if (selC === cIdx) {
+                newMap.set(selId, editValue);
+            }
+        });
+
+        setEditedCells(newMap);
+        setEditingCell(null);
+    };
+
     // Build TanStack column definitions
     const colDefs = useMemo<ColumnDef<string[]>[]>(() => {
         const rowNumCol: ColumnDef<string[]> = {
@@ -27,7 +99,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
             header: '#',
             enableSorting: false,
             size: 52,
-            cell: ({ row }) => row.index + 1,
+            cell: ({ row }) => (
+                <div className="rt-cell-content row-num-col">
+                    {row.index + 1}
+                </div>
+            ),
         };
 
         const dataCols: ColumnDef<string[]>[] = columns.map((col, colIdx) => ({
@@ -36,10 +112,46 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
             accessorFn: (row: string[]) => row[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
+            cell: ({ row, getValue }) => {
+                const cellId = `${row.index}:${colIdx}`;
+                const isSelected = selectedCells.has(cellId);
+                const isDirty = editedCells.has(cellId);
+                const isEditing = editingCell === cellId;
+                const origVal = getValue() as string;
+                const value = isDirty ? editedCells.get(cellId)! : origVal;
+
+                if (isEditing) {
+                    return (
+                        <input
+                            autoFocus
+                            className="rt-cell-input"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleCommitEdit();
+                                else if (e.key === 'Escape') setEditingCell(null);
+                            }}
+                            onBlur={handleCommitEdit}
+                            onClick={e => e.stopPropagation()}
+                        />
+                    );
+                }
+
+                return (
+                    <div
+                        className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
+                        onClick={(e) => handleCellClick(e, row.index, colIdx)}
+                        onDoubleClick={() => handleCellDoubleClick(row.index, colIdx, String(value))}
+                        title={String(value)}
+                    >
+                        {String(value)}
+                    </div>
+                );
+            }
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns]);
+    }, [columns, selectedCells, editedCells, editingCell, editValue, isDone]);
 
     const table = useReactTable({
         data: rows,
@@ -105,7 +217,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
                         return (
                             <tr key={row.id} className={virtualRow.index % 2 === 0 ? '' : 'rt-row-alt'}>
                                 {row.getVisibleCells().map((cell) => (
-                                    <td key={cell.id} style={{ width: cell.column.getSize() }} title={String(cell.getValue() ?? '')}>
+                                    <td key={cell.id} style={{ width: cell.column.getSize() }}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                     </td>
                                 ))}

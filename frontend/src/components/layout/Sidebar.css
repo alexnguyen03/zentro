@@ -1,3 +1,36 @@
+/* ─── Sidebar tab bar ────────────────────────────────── */
+.sidebar-tab-bar {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+}
+
+.sidebar-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 7px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-bottom: 2px solid transparent;
+    transition: color 0.1s, border-color 0.1s;
+    flex-shrink: 0;
+}
+
+.sidebar-tab-btn:hover {
+    color: var(--text-primary);
+}
+
+.sidebar-tab-btn.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent-color);
+}
+
 /* ─── Sidebar shell ──────────────────────────────────── */
 .sidebar {
     background-color: var(--bg-secondary);
