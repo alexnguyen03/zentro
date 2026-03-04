@@ -37,6 +37,7 @@ function App() {
     useEffect(() => {
         const subs = [
             onConnectionChanged((data) => {
+                console.log('[zentro] connection:changed', data);
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
                     setActiveProfile(data.profile as any);
@@ -47,6 +48,7 @@ function App() {
                 }
             }),
             onSchemaDatabases((data) => {
+                console.log('[zentro] schema:databases', data);
                 setDatabases(data.databases ?? []);
             }),
             onQueryStarted(({ tabID }) => {

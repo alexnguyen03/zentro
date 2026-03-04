@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Edit, Trash2, Plug, PlugZap, ChevronRight, ChevronDown, Server, Table, Eye, Loader } from 'lucide-react';
+import {
+    Database, Edit, Trash2, Plug, PlugZap,
+    ChevronRight, ChevronDown,
+    Table2, Link2, Eye, Layers, Hash,
+    Zap, List, Type, Sigma,
+    Server, Loader,
+} from 'lucide-react';
 import { models } from '../../../wailsjs/go/models';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
@@ -8,9 +14,25 @@ import { onSchemaLoaded } from '../../lib/events';
 
 type ConnectionProfile = models.ConnectionProfile;
 
+// Extended schema node type matching the Go model
+interface SchemaNodeData {
+    Name: string;
+    Tables: string[];
+    ForeignTables: string[];
+    Views: string[];
+    MaterializedViews: string[];
+    Indexes: string[];
+    Functions: string[];
+    Sequences: string[];
+    DataTypes: string[];
+    AggregateFunctions: string[];
+}
+
 interface ConnectionTreeProps {
     onEdit: (profile: ConnectionProfile) => void;
 }
+
+// ── ConnectionTree ─────────────────────────────────────────────────────────────
 
 export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
     const { connections, isConnected, activeProfile, databases, setConnections } = useConnectionStore();
@@ -20,7 +42,6 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
 
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; profile: ConnectionProfile } | null>(null);
 
-    // Close context menu on outside click
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
         window.addEventListener('click', handleClick);
@@ -43,7 +64,6 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
     const handleDisconnect = async () => {
         try {
             await Disconnect();
-            // App.tsx onConnectionChanged will also clear, but clear immediately for snappy UX
             setIsConnected(false);
             setActiveProfile(null);
             setDatabases([]);
@@ -56,7 +76,6 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
         if (!confirm(`Delete connection "${profileName}"?`)) return;
         try {
             await DeleteConnection(profileName);
-            // Refresh list in-place — no full reload required
             const data = await LoadConnections();
             setConnections(data || []);
         } catch (err: any) {
@@ -66,86 +85,63 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
 
     return (
         <div>
-            {connections.length === 0 ? (
-                <div className="empty-state" style={{ padding: '20px', fontSize: 13 }}>
-                    No connections yet. Click "+" to create one.
-                </div>
-            ) : (
-                connections.map(c => {
-                    const isActive = activeProfile?.name === c.name;
-                    const showDatabases = isActive && isConnected && databases.length > 0;
-                    return (
-                        <div key={c.name}>
-                            {/* Connection profile row */}
-                            <div
-                                className={`tree-node ${isActive ? 'active' : ''}`}
-                                onContextMenu={(e) => handleContextMenu(e, c)}
-                                onClick={() => handleConnect(c.name!)}
-                            >
-                                {showDatabases ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                <Database
-                                    size={14}
-                                    color={isActive && isConnected ? 'var(--success-color)' : 'currentColor'}
-                                />
-                                <span style={{ fontWeight: isActive ? 600 : 400 }}>{c.name}</span>
-                                {isActive && isConnected && (
-                                    <span className="connection-active-dot" title="Connected" />
-                                )}
-                            </div>
-
-                            {/* Databases group */}
-                            {showDatabases && (
-                                <div className="tree-children">
-                                    <div className="tree-group-label">
-                                        <span>Databases</span>
-                                    </div>
-                                    {databases.map(db => (
-                                        <DatabaseNode
-                                            key={db}
-                                            dbName={db}
-                                            profileName={c.name!}
-                                        />
-                                    ))}
-                                </div>
+            {connections.map(c => {
+                const isActive = activeProfile?.name === c.name;
+                const showDatabases = isActive && isConnected && databases.length > 0;
+                return (
+                    <div key={c.name}>
+                        {/* Connection profile row */}
+                        <div
+                            className={`tree-node ${isActive ? 'active' : ''}`}
+                            onContextMenu={(e) => handleContextMenu(e, c)}
+                            onClick={() => handleConnect(c.name!)}
+                        >
+                            {showDatabases ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            <Database
+                                size={14}
+                                color={isActive && isConnected ? 'var(--success-color)' : 'currentColor'}
+                            />
+                            <span style={{ fontWeight: isActive ? 600 : 400 }}>{c.name}</span>
+                            {isActive && isConnected && (
+                                <span className="connection-active-dot" title="Connected" />
                             )}
                         </div>
-                    );
-                })
 
-            )}
+                        {/* Databases group */}
+                        {showDatabases && (
+                            <div className="tree-children">
+                                <div className="tree-group-label"><span>Databases</span></div>
+                                {databases.map(db => (
+                                    <DatabaseNode key={db} dbName={db} profileName={c.name!} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
 
+            {/* Context menu */}
             {contextMenu && (
-                <div
-                    className="context-menu"
-                    style={{ left: contextMenu.x, top: contextMenu.y }}
-                >
-                    <div
-                        className="context-menu-item"
-                        onClick={(e) => { e.stopPropagation(); handleConnect(contextMenu.profile.name!); setContextMenu(null); }}
-                    >
+                <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+                    <div className="context-menu-item"
+                        onClick={(e) => { e.stopPropagation(); handleConnect(contextMenu.profile.name!); setContextMenu(null); }}>
                         <Plug size={12} style={{ marginRight: 6 }} /> Connect
                     </div>
                     {activeProfile?.name === contextMenu.profile.name && isConnected && (
-                        <div
-                            className="context-menu-item"
+                        <div className="context-menu-item"
                             onClick={(e) => { e.stopPropagation(); handleDisconnect(); setContextMenu(null); }}
-                            style={{ color: 'var(--accent-color)' }}
-                        >
+                            style={{ color: 'var(--accent-color)' }}>
                             <PlugZap size={12} style={{ marginRight: 6 }} /> Disconnect
                         </div>
                     )}
                     <div className="context-menu-separator" />
-                    <div
-                        className="context-menu-item"
-                        onClick={(e) => { e.stopPropagation(); onEdit(contextMenu.profile); setContextMenu(null); }}
-                    >
+                    <div className="context-menu-item"
+                        onClick={(e) => { e.stopPropagation(); onEdit(contextMenu.profile); setContextMenu(null); }}>
                         <Edit size={12} style={{ marginRight: 6 }} /> Edit
                     </div>
-                    <div
-                        className="context-menu-item"
+                    <div className="context-menu-item"
                         onClick={(e) => { e.stopPropagation(); handleDelete(contextMenu.profile.name!); setContextMenu(null); }}
-                        style={{ color: 'var(--error-color)' }}
-                    >
+                        style={{ color: 'var(--error-color)' }}>
                         <Trash2 size={12} style={{ marginRight: 6 }} /> Delete
                     </div>
                 </div>
@@ -154,14 +150,9 @@ export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
     );
 };
 
-// ── DatabaseNode ──────────────────────────────────────────────────────────────
-// Lazy-loads schemas when expanded for the first time.
-// Subsequent expand/collapse reads from schemaStore cache (no repeat fetch).
+// ── DatabaseNode ───────────────────────────────────────────────────────────────
 
-interface DatabaseNodeProps {
-    dbName: string;
-    profileName: string;
-}
+interface DatabaseNodeProps { dbName: string; profileName: string; }
 
 const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
     const [expanded, setExpanded] = useState(false);
@@ -172,7 +163,6 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
     const setTree = useSchemaStore(s => s.setTree);
     const setLoading = useSchemaStore(s => s.setLoading);
 
-    // Subscribe to schema:loaded for this specific db
     useEffect(() => {
         const unsub = onSchemaLoaded((data) => {
             if (data.profileName === profileName && data.dbName === dbName) {
@@ -185,13 +175,11 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
     const handleExpand = async () => {
         const next = !expanded;
         setExpanded(next);
-        // Fetch only on first open and only if not already cached / loading
         if (next && !schemas && !isLoading) {
             setLoading(profileName, dbName, true);
             try {
                 await FetchDatabaseSchema(profileName, dbName);
-                // setTree is called via the onSchemaLoaded event listener above
-            } catch (err) {
+            } catch {
                 setLoading(profileName, dbName, false);
             }
         }
@@ -210,7 +198,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
                 <div className="tree-children">
                     {isLoading && (
                         <div className="tree-node" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                            Loading schemas...
+                            Loading schemas…
                         </div>
                     )}
                     {schemas && schemas.length === 0 && (
@@ -218,27 +206,30 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
                             No schemas found
                         </div>
                     )}
-                    {schemas?.map(schema => (
-                        <SchemaNode key={schema.Name} schema={schema} />
-                    ))}
+                    {/* Schemas group label */}
+                    {schemas && schemas.length > 0 && (
+                        <>
+                            <div className="tree-group-label"><span>Schemas</span></div>
+                            {(schemas as SchemaNodeData[]).map((schema: SchemaNodeData) => (
+                                <SchemaNode key={schema.Name} schema={schema} />
+                            ))}
+                        </>
+                    )}
                 </div>
             )}
         </div>
     );
 };
 
-// ── SchemaNode ────────────────────────────────────────────────────────────────
+// ── SchemaNode ─────────────────────────────────────────────────────────────────
 
-interface SchemaNodeProps {
-    schema: { Name: string; Tables: string[]; Views: string[] };
-}
+interface SchemaNodeProps { schema: SchemaNodeData; }
 
 const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const tables = schema.Tables ?? [];
-    const views = schema.Views ?? [];
-    const hasItems = tables.length > 0 || views.length > 0;
+    const categories = buildCategories(schema);
+    const hasItems = categories.some(c => c.items.length > 0);
 
     return (
         <div>
@@ -250,24 +241,49 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
                     ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
                     : <span style={{ width: 14, display: 'inline-block' }} />
                 }
-                <Server size={13} style={{ opacity: 0.7 }} />
+                <Layers size={13} style={{ opacity: 0.8 }} />
                 <span style={{ fontSize: 12 }}>{schema.Name}</span>
             </div>
 
             {expanded && (
                 <div className="tree-children">
-                    {tables.map(t => (
-                        <div key={`t:${t}`} className="tree-node" style={{ fontSize: 12 }}>
-                            <span style={{ width: 14, display: 'inline-block' }} />
-                            <Table size={12} style={{ marginRight: 4, opacity: 0.8 }} />
-                            {t}
-                        </div>
+                    {categories.map(cat => cat.items.length > 0 && (
+                        <CategoryNode key={cat.label} {...cat} />
                     ))}
-                    {views.map(v => (
-                        <div key={`v:${v}`} className="tree-node" style={{ fontSize: 12, fontStyle: 'italic' }}>
-                            <span style={{ width: 14, display: 'inline-block' }} />
-                            <Eye size={12} style={{ marginRight: 4, opacity: 0.8 }} />
-                            {v}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── CategoryNode ────────────────────────────────────────────────────────────────
+
+interface CategoryDef {
+    label: string;
+    icon: React.ReactNode;
+    items: string[];
+    itemIcon: React.ReactNode;
+}
+
+const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon }) => {
+    const [expanded, setExpanded] = useState(false);
+
+    return (
+        <div>
+            <div className="tree-node" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
+                {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                {icon}
+                <span style={{ fontSize: 12 }}>{label}</span>
+                <span className="tree-count-badge">{items.length}</span>
+            </div>
+
+            {expanded && (
+                <div className="tree-children">
+                    {items.map(item => (
+                        <div key={item} className="tree-node tree-leaf" style={{ fontSize: 12 }}>
+                            <span style={{ width: 13, display: 'inline-block' }} />
+                            {itemIcon}
+                            <span>{item}</span>
                         </div>
                     ))}
                 </div>
@@ -275,3 +291,21 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
         </div>
     );
 };
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function buildCategories(s: SchemaNodeData): CategoryDef[] {
+    const iconSize = 12;
+    const iconStyle = { opacity: 0.75, flexShrink: 0 as const };
+    return [
+        { label: 'Tables', icon: <Table2 size={iconSize} style={iconStyle} />, itemIcon: <Table2 size={iconSize} style={iconStyle} />, items: s.Tables ?? [] },
+        { label: 'Foreign Tables', icon: <Link2 size={iconSize} style={iconStyle} />, itemIcon: <Link2 size={iconSize} style={iconStyle} />, items: s.ForeignTables ?? [] },
+        { label: 'Views', icon: <Eye size={iconSize} style={iconStyle} />, itemIcon: <Eye size={iconSize} style={iconStyle} />, items: s.Views ?? [] },
+        { label: 'Materialized Views', icon: <Layers size={iconSize} style={iconStyle} />, itemIcon: <Layers size={iconSize} style={iconStyle} />, items: s.MaterializedViews ?? [] },
+        { label: 'Indexes', icon: <Hash size={iconSize} style={iconStyle} />, itemIcon: <Hash size={iconSize} style={iconStyle} />, items: s.Indexes ?? [] },
+        { label: 'Functions', icon: <Zap size={iconSize} style={iconStyle} />, itemIcon: <Zap size={iconSize} style={iconStyle} />, items: s.Functions ?? [] },
+        { label: 'Sequences', icon: <List size={iconSize} style={iconStyle} />, itemIcon: <List size={iconSize} style={iconStyle} />, items: s.Sequences ?? [] },
+        { label: 'Data types', icon: <Type size={iconSize} style={iconStyle} />, itemIcon: <Type size={iconSize} style={iconStyle} />, items: s.DataTypes ?? [] },
+        { label: 'Aggregate functions', icon: <Sigma size={iconSize} style={iconStyle} />, itemIcon: <Sigma size={iconSize} style={iconStyle} />, items: s.AggregateFunctions ?? [] },
+    ];
+}

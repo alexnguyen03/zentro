@@ -34,6 +34,12 @@ func (d *PostgresDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s&connect_timeout=%d",
 		user, pass, p.Host, p.Port, p.DBName, p.SSLMode, p.ConnectTimeout,
 	)
+	// Log masked DSN for debugging (password replaced)
+	masked := fmt.Sprintf(
+		"postgres://%s:***@%s:%d/%s?sslmode=%s&connect_timeout=%d",
+		user, p.Host, p.Port, p.DBName, p.SSLMode, p.ConnectTimeout,
+	)
+	slog.Info("postgres: open", "dsn", masked)
 
 	// pgx/v5/stdlib registers as "pgx"
 	db, err := sql.Open("pgx", dsn)
@@ -77,7 +83,10 @@ func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, current
 		logger.Warn("current_database() failed, using profile DBName", "fallback", currentDB, "err", err)
 		actualDB = currentDB
 	}
-	logger.Info("postgres schema fetch", "profile_dbname", currentDB, "actual_current_db", actualDB)
+	logger.Info("postgres FetchDatabases",
+		"profile_dbname", currentDB,
+		"actual_current_db", actualDB,
+	)
 
 	dbInfos := d.listDatabases(ctx, db, actualDB, logger)
 
@@ -89,11 +98,12 @@ func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, current
 				logger.Warn("fetch schemas failed", "db", actualDB, "err", err)
 			} else {
 				info.Schemas = schemas
-				logger.Info("schemas fetched", "db", actualDB, "schema_count", len(schemas))
+				logger.Info("schemas fetched for current db", "db", actualDB, "schema_count", len(schemas))
 			}
 			break
 		}
 	}
+	logger.Info("FetchDatabases returning", "total_dbs", len(dbInfos))
 	return dbInfos, nil
 }
 
@@ -108,7 +118,10 @@ func (d *PostgresDriver) listDatabases(ctx context.Context, db *sql.DB, actualDB
 		ORDER  BY datname
 	`)
 	if err != nil {
-		logger.Warn("pg_database query failed, falling back to current DB", "err", err)
+		logger.Warn("pg_database query failed, falling back to current DB only",
+			"current_db", actualDB,
+			"err", err,
+		)
 		return []*models.DatabaseInfo{{Name: actualDB}}
 	}
 	defer rows.Close()
@@ -118,6 +131,7 @@ func (d *PostgresDriver) listDatabases(ctx context.Context, db *sql.DB, actualDB
 		var name string
 		if rows.Scan(&name) == nil {
 			infos = append(infos, &models.DatabaseInfo{Name: name})
+			logger.Info("pg_database row", "db", name)
 		}
 	}
 
@@ -136,13 +150,16 @@ func (d *PostgresDriver) listDatabases(ctx context.Context, db *sql.DB, actualDB
 		}
 	}
 	if !found {
-		logger.Warn("actual_db not in pg_database list, prepending", "actual_db", actualDB)
+		logger.Warn("actual_db NOT in pg_database list — prepending it",
+			"actual_db", actualDB,
+			"pg_database_returned", names,
+		)
 		infos = append([]*models.DatabaseInfo{{Name: actualDB}}, infos...)
 	}
 	return infos
 }
 
-// FetchSchema returns all non-system schemas with their tables and views.
+// FetchSchema returns all user schemas with all 9 object categories populated.
 func (d *PostgresDriver) FetchSchema(ctx context.Context, db *sql.DB, logger *slog.Logger) ([]*models.SchemaNode, error) {
 	schemaRows, err := db.QueryContext(ctx, `
 		SELECT nspname FROM pg_catalog.pg_namespace
@@ -155,48 +172,195 @@ func (d *PostgresDriver) FetchSchema(ctx context.Context, db *sql.DB, logger *sl
 	}
 	defer schemaRows.Close()
 
-	var schemas []string
+	var schemaNames []string
 	for schemaRows.Next() {
 		var name string
 		if schemaRows.Scan(&name) == nil {
-			schemas = append(schemas, name)
+			schemaNames = append(schemaNames, name)
 		}
 	}
 
-	nodes := make([]*models.SchemaNode, 0, len(schemas))
-	for _, schema := range schemas {
-		node := &models.SchemaNode{
-			Name:   schema,
-			Tables: []string{},
-			Views:  []string{},
-		}
-		tableRows, err := db.QueryContext(ctx, `
-			SELECT table_name, table_type
-			FROM information_schema.tables
-			WHERE table_schema = $1
-			  AND table_type IN ('BASE TABLE','VIEW')
-			ORDER BY table_type DESC, table_name
-		`, schema)
-		if err != nil {
-			logger.Warn("postgres: list tables failed", "schema", schema, "err", err)
-			nodes = append(nodes, node)
-			continue
-		}
-		for tableRows.Next() {
+	nodes := make([]*models.SchemaNode, 0, len(schemaNames))
+	for _, schema := range schemaNames {
+		node := models.NewSchemaNode(schema)
+		d.populateSchema(ctx, db, schema, node, logger)
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
+}
+
+// populateSchema fills all object categories for a single schema.
+// Errors per-category are logged and skipped — not fatal.
+func (d *PostgresDriver) populateSchema(ctx context.Context, db *sql.DB, schema string, node *models.SchemaNode, logger *slog.Logger) {
+	// ── Tables & Foreign Tables ──────────────────────────────────────────
+	rows, err := db.QueryContext(ctx, `
+		SELECT table_name, table_type
+		FROM information_schema.tables
+		WHERE table_schema = $1
+		  AND table_type IN ('BASE TABLE', 'FOREIGN')
+		ORDER BY table_name
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list tables failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
 			var name, typ string
-			if tableRows.Scan(&name, &typ) == nil {
-				if typ == "VIEW" {
-					node.Views = append(node.Views, name)
+			if rows.Scan(&name, &typ) == nil {
+				if typ == "FOREIGN" {
+					node.ForeignTables = append(node.ForeignTables, name)
 				} else {
 					node.Tables = append(node.Tables, name)
 				}
 			}
 		}
-		tableRows.Close()
-		logger.Info("schema tables fetched", "schema", schema, "tables", len(node.Tables), "views", len(node.Views))
-		nodes = append(nodes, node)
+		rows.Close()
 	}
-	return nodes, nil
+
+	// ── Views ────────────────────────────────────────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT table_name FROM information_schema.views
+		WHERE table_schema = $1 ORDER BY table_name
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list views failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.Views = append(node.Views, name)
+			}
+		}
+		rows.Close()
+	}
+
+	// ── Materialized Views ───────────────────────────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT matviewname FROM pg_matviews
+		WHERE schemaname = $1 ORDER BY matviewname
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list matviews failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.MaterializedViews = append(node.MaterializedViews, name)
+			}
+		}
+		rows.Close()
+	}
+
+	// ── Indexes ──────────────────────────────────────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT indexname FROM pg_indexes
+		WHERE schemaname = $1 ORDER BY indexname
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list indexes failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.Indexes = append(node.Indexes, name)
+			}
+		}
+		rows.Close()
+	}
+
+	// ── Functions (non-aggregate, non-procedure) ─────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT p.proname
+		FROM pg_proc p
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE n.nspname = $1 AND p.prokind = 'f'
+		ORDER BY p.proname
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list functions failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.Functions = append(node.Functions, name)
+			}
+		}
+		rows.Close()
+	}
+
+	// ── Sequences ────────────────────────────────────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT sequence_name FROM information_schema.sequences
+		WHERE sequence_schema = $1 ORDER BY sequence_name
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list sequences failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.Sequences = append(node.Sequences, name)
+			}
+		}
+		rows.Close()
+	}
+
+	// ── Data Types (composite + enum) ────────────────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT t.typname
+		FROM pg_type t
+		JOIN pg_namespace n ON n.oid = t.typnamespace
+		WHERE n.nspname = $1
+		  AND t.typtype IN ('c', 'e')
+		  AND (t.typrelid = 0 OR EXISTS (
+		      SELECT 1 FROM pg_class c
+		      WHERE c.oid = t.typrelid AND c.relkind = 'c'
+		  ))
+		ORDER BY t.typname
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list types failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.DataTypes = append(node.DataTypes, name)
+			}
+		}
+		rows.Close()
+	}
+
+	// ── Aggregate Functions ──────────────────────────────────────────────
+	rows, err = db.QueryContext(ctx, `
+		SELECT p.proname
+		FROM pg_proc p
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE n.nspname = $1 AND p.prokind = 'a'
+		ORDER BY p.proname
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list aggregates failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.AggregateFunctions = append(node.AggregateFunctions, name)
+			}
+		}
+		rows.Close()
+	}
+
+	logger.Info("schema populated",
+		"schema", schema,
+		"tables", len(node.Tables),
+		"foreign_tables", len(node.ForeignTables),
+		"views", len(node.Views),
+		"matviews", len(node.MaterializedViews),
+		"indexes", len(node.Indexes),
+		"functions", len(node.Functions),
+		"sequences", len(node.Sequences),
+		"types", len(node.DataTypes),
+		"aggregates", len(node.AggregateFunctions),
+	)
 }
 
 func containsAny(s string, subs ...string) bool {

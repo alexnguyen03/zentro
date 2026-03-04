@@ -117,15 +117,24 @@ func (a *App) Connect(name string) error {
 		return fmt.Errorf("connection %q not found", name)
 	}
 
-	a.logger.Info("connecting", "profile", name)
+	a.logger.Info("connecting",
+		"profile", name,
+		"driver", prof.Driver,
+		"host", prof.Host,
+		"port", prof.Port,
+		"db_name", prof.DBName,
+		"ssl_mode", prof.SSLMode,
+	)
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
+		a.logger.Error("open connection failed", "profile", name, "err", err)
 		return dbpkg.FriendlyError(prof.Driver, err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
+		a.logger.Error("ping failed", "profile", name, "err", err)
 		return dbpkg.FriendlyError(prof.Driver, err)
 	}
 
@@ -140,7 +149,11 @@ func (a *App) Connect(name string) error {
 		"profile": prof,
 		"status":  "connected",
 	})
-	a.logger.Info("connected", "profile", name, "driver", prof.Driver)
+	a.logger.Info("connected — emitted connection:changed",
+		"profile", name,
+		"driver", prof.Driver,
+		"db_name", prof.DBName,
+	)
 
 	// Fetch DB list async — lazy schema per-DB loaded on demand
 	go a.fetchDatabaseList()
@@ -164,28 +177,69 @@ func (a *App) fetchDatabaseList() {
 	if a.db == nil || a.profile == nil {
 		return
 	}
+
+	a.logger.Info("fetchDatabaseList start",
+		"profile", a.profile.Name,
+		"profile_db_name", a.profile.DBName,
+		"driver", a.profile.Driver,
+		"host", a.profile.Host,
+		"port", a.profile.Port,
+	)
+
 	dbs, err := dbpkg.FetchDatabases(a.db, a.profile.Driver, a.profile.DBName, a.logger)
 	if err != nil {
 		a.logger.Warn("fetch databases failed", "err", err)
 		return
 	}
 
-	names := make([]string, 0, len(dbs))
+	names := make([]string, 0, len(dbs)+4)
 	seen := make(map[string]bool)
 
-	// Always put the profile's configured DBName first — even if the pooler
-	// doesn't expose it in pg_database (e.g., Neon serverless pooler).
+	// 1) Always put the profile's configured DBName first — even if the pooler
+	//    doesn't expose it in pg_database (e.g., Neon serverless pooler).
 	if a.profile.DBName != "" {
 		names = append(names, a.profile.DBName)
 		seen[a.profile.DBName] = true
+		a.logger.Info("db list: added profile db_name first", "db_name", a.profile.DBName)
 	}
+
+	// 2) Add everything pg_database returned.
 	for _, d := range dbs {
 		if !seen[d.Name] {
 			names = append(names, d.Name)
 			seen[d.Name] = true
 		}
 	}
+	a.logger.Info("db list: after pg_database merge", "count", len(names), "databases", names)
 
+	// 3) Cross-reference sibling profiles: any saved profile with the same
+	//    driver+host+port but a different db_name — add it so Neon users who
+	//    have separate profiles per database see ALL their databases in one tree.
+	allProfiles, loadErr := utils.LoadConnections()
+	if loadErr != nil {
+		a.logger.Warn("cross-profile load failed", "err", loadErr)
+	} else {
+		for _, p := range allProfiles {
+			if p.Driver == a.profile.Driver &&
+				p.Host == a.profile.Host &&
+				p.Port == a.profile.Port &&
+				p.DBName != "" &&
+				!seen[p.DBName] {
+				names = append(names, p.DBName)
+				seen[p.DBName] = true
+				a.logger.Info("db list: added sibling db from profile",
+					"db_name", p.DBName,
+					"from_profile", p.Name,
+				)
+			}
+		}
+	}
+
+	a.logger.Info("emitting schema:databases",
+		"profile", a.profile.Name,
+		"final_db_count", len(names),
+		"final_databases", names,
+	)
 	emitEvent(a.ctx, "schema:databases", map[string]any{
 		"profileName": a.profile.Name,
 		"databases":   names,
