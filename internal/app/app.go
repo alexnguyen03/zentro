@@ -160,6 +160,50 @@ func (a *App) Connect(name string) error {
 	return nil
 }
 
+// SwitchDatabase changes the active database on the current connection.
+func (a *App) SwitchDatabase(dbName string) error {
+	if a.profile == nil {
+		return fmt.Errorf("no active connection")
+	}
+	if a.profile.DBName == dbName {
+		return nil
+	}
+
+	a.logger.Info("switching database", "from", a.profile.DBName, "to", dbName)
+
+	clone := *a.profile
+	clone.DBName = dbName
+
+	db, err := dbpkg.OpenConnection(&clone)
+	if err != nil {
+		a.logger.Error("switch database failed", "db", dbName, "err", err)
+		return dbpkg.FriendlyError(clone.Driver, err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		db.Close()
+		a.logger.Error("ping failed on new db", "db", dbName, "err", err)
+		return dbpkg.FriendlyError(clone.Driver, err)
+	}
+
+	if a.db != nil {
+		_ = a.db.Close()
+	}
+	a.db = db
+	a.profile = &clone
+
+	a.logger.Info("switched database ok")
+	emitEvent(a.ctx, "connection:changed", map[string]any{
+		"profile": &clone,
+		"status":  "connected",
+	})
+
+	go a.fetchDatabaseList()
+	return nil
+}
+
 // Disconnect closes the active connection.
 func (a *App) Disconnect() {
 	if a.db != nil {
