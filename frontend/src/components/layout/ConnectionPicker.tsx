@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Loader } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
 
@@ -9,27 +10,46 @@ interface ConnectionPickerProps {
 
 export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anchorRef }) => {
     const { connections, databases, activeProfile } = useConnectionStore();
+
+    // Track which connection is "previewed" in right column
     const [selectedConn, setSelectedConn] = useState<string>(activeProfile?.name ?? '');
+    const [connecting, setConnecting] = useState(false);
 
-    // When a connection item is focused, show its DBs if it's the active one
-    const pickerDbs = selectedConn === activeProfile?.name ? databases : [];
+    // Databases to show: only from active profile (the backend owns this list)
+    // After Connect(), the store gets updated via event, so we reactively re-render.
+    const isSelectedActive = selectedConn === activeProfile?.name;
+    const pickerDbs = isSelectedActive ? databases : [];
 
-    const handleSelectConn = (name: string) => {
+    const handleSelectConn = async (name: string) => {
         setSelectedConn(name);
+        if (name === activeProfile?.name) return;
+
+        // Auto-connect to this server so databases load on the right
+        setConnecting(true);
+        try {
+            await Connect(name);
+            // After connect the store will update activeProfile + databases via event
+        } catch (err) {
+            console.error('ConnectionPicker: connect failed:', err);
+        } finally {
+            setConnecting(false);
+        }
     };
 
     const handleSelectDb = async (dbName: string) => {
-        if (!selectedConn) return;
         onClose();
+        if (activeProfile?.db_name === dbName) return;
         try {
-            if (selectedConn !== activeProfile?.name) {
-                await Connect(selectedConn);
-            }
             await SwitchDatabase(dbName);
         } catch (err) {
-            console.error('ConnectionPicker error:', err);
+            console.error('ConnectionPicker: switch db failed:', err);
         }
     };
+
+    // Sync selected conn when activeProfile changes (after connect resolves)
+    useEffect(() => {
+        if (activeProfile?.name) setSelectedConn(activeProfile.name);
+    }, [activeProfile?.name]);
 
     // Close on Escape
     useEffect(() => {
@@ -77,17 +97,18 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                 <div className="cp-col">
                     <div className="cp-col-header">Database</div>
                     <div className="cp-list">
-                        {pickerDbs.length === 0 ? (
-                            <div className="cp-empty">
-                                {selectedConn !== activeProfile?.name
-                                    ? 'Connect first'
-                                    : 'No databases'}
+                        {connecting ? (
+                            <div className="cp-empty cp-loading">
+                                <Loader size={14} className="cp-spinner" />
+                                Connecting…
                             </div>
+                        ) : pickerDbs.length === 0 ? (
+                            <div className="cp-empty">No databases</div>
                         ) : (
                             pickerDbs.map((db) => (
                                 <div
                                     key={db}
-                                    className={`cp-item ${activeProfile?.db_name === db && selectedConn === activeProfile?.name ? 'active' : ''}`}
+                                    className={`cp-item ${activeProfile?.db_name === db ? 'active' : ''}`}
                                     onClick={() => handleSelectDb(db)}
                                 >
                                     {db}

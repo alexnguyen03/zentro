@@ -1133,3 +1133,20 @@ input:disabled {
   font-size: 12px;
   color: var(--text-secondary);
 }
+
+.cp-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes cp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cp-spinner {
+  animation: cp-spin 0.8s linear infinite;
+  opacity: 0.6;
+}
