@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
+import { SettingsDialog } from './components/layout/SettingsDialog';
 import { QueryTabs } from './components/editor/QueryTabs';
 import { useConnectionStore } from './stores/connectionStore';
 import { useEditorStore } from './stores/editorStore';
 import { useResultStore } from './stores/resultStore';
 import { useStatusStore } from './stores/statusStore';
+import { useSettingsStore } from './stores/settingsStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
@@ -35,6 +37,9 @@ function App() {
 
     // ── Global Wails event wiring ─────────────────────────────────────────
     useEffect(() => {
+        // Load global settings on starup
+        useSettingsStore.getState().load();
+
         const subs = [
             onConnectionChanged((data) => {
                 console.log('[zentro] connection:changed', data);
@@ -96,6 +101,7 @@ function App() {
                 </div>
             </div>
             <StatusBar />
+            <SettingsDialog />
         </div>
     );
 }

@@ -3,7 +3,7 @@ import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
 
 export const StatusBar: React.FC = () => {
-    const { connectionLabel, status, rowCount, duration, setStatus, setConnectionLabel } = useStatusStore();
+    const { connectionLabel, status, rowCount, duration, message, setStatus, setConnectionLabel, setMessage } = useStatusStore();
 
     useEffect(() => {
         // StatusBar listens to connection changes independently to update its own label/color.
@@ -23,6 +23,13 @@ export const StatusBar: React.FC = () => {
     // Format duration e.g. 1.2s or 500ms
     const durStr = duration > 1000 ? `${(duration / 1000).toFixed(2)}s` : `${duration}ms`;
 
+    // Clear message after 4s
+    useEffect(() => {
+        if (!message) return;
+        const timer = setTimeout(() => setMessage(null), 4000);
+        return () => clearTimeout(timer);
+    }, [message, setMessage]);
+
     // Status color mapping
     const getStatusColor = () => {
         switch (status) {
@@ -37,6 +44,7 @@ export const StatusBar: React.FC = () => {
         <div className="statusbar" style={{ backgroundColor: getStatusColor() }}>
             <div className="statusbar-left">
                 <span>{status === 'connected' ? '●' : '○'} {connectionLabel}</span>
+                {message && <span className="statusbar-message" style={{ marginLeft: 16, opacity: 0.9 }}>{message}</span>}
             </div>
             <div className="statusbar-right">
                 {rowCount > 0 && <span>{rowCount.toLocaleString()} rows</span>}

@@ -2,23 +2,20 @@ import React, { useRef, useState } from 'react';
 import { Plus, Play, Square, Save, Settings, ChevronDown, Search, RefreshCw, Lock } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { useResultStore } from '../../stores/resultStore';
-import { ExecuteQuery, CancelQuery, ExportCSV } from '../../../wailsjs/go/app/App';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { ConnectionPicker } from './ConnectionPicker';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
     const { tabs, activeTabId, addTab } = useEditorStore();
-    const { results } = useResultStore();
+    const { openModal } = useSettingsStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const breadcrumbRef = useRef<HTMLDivElement>(null);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
     const isRunning = activeTab?.isRunning ?? false;
-    const activeResult = activeTabId ? results[activeTabId] : undefined;
-    const isDone = activeResult?.isDone ?? true;
-    const canExport = !!(isDone && activeResult?.isSelect && activeResult.rows.length > 0);
 
     const handleRun = async () => {
         if (!activeTab || !isConnected) return;
@@ -28,16 +25,6 @@ export const Toolbar: React.FC = () => {
     const handleCancel = async () => {
         if (!activeTabId) return;
         try { await CancelQuery(activeTabId); } catch { /* swallow */ }
-    };
-
-    const handleExport = async () => {
-        if (!activeResult || !canExport) return;
-        try {
-            const path = await ExportCSV(activeResult.columns, activeResult.rows);
-            if (path) console.info('Exported to:', path);
-        } catch (err) {
-            console.error('Export failed:', err);
-        }
     };
 
     // Breadcrumb label: only connection name + db
@@ -111,10 +98,7 @@ export const Toolbar: React.FC = () => {
                 <button className="toolbar-btn icon-only" title="Search">
                     <Search size={14} />
                 </button>
-                <button className="toolbar-btn icon-only" disabled={!canExport} title="Export CSV" onClick={handleExport}>
-                    <Save size={14} />
-                </button>
-                <button className="toolbar-btn icon-only" title="Settings">
+                <button className="toolbar-btn icon-only" title="Settings" onClick={openModal}>
                     <Settings size={14} />
                 </button>
             </div>

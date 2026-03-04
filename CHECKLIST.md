@@ -175,7 +175,7 @@
 - [x] Column header render từ `resultStore.columns[tabID]`
 - [x] Row number column (frozen left)
 
-### 5.2 Sort
+### 5.2 Sort18 rows · 152ms
 - [x] Sort header click → asc/desc (client-side, TanStack built-in)
 - [x] Sort disabled khi `!resultStore.isDone(tabID)` (đang streaming)
 - [x] Sort indicator (↑↓) trên column header
@@ -184,17 +184,17 @@
 - [x] Export button trong Toolbar (enabled sau `query:done`)
 - [x] Gọi `ExportCSV(columns, rows)` → Wails `runtime.SaveFileDialog`
 - [x] Go: `encoding/csv.WriteAll` ghi file
-- [ ] Hiển thị file path trong StatusBar sau export thành công
+- [x] Hiển thị file path trong StatusBar sau export thành công
 
 ### 5.4 Row Limit Setting
-- [ ] `prefs.defaultLimit` truyền vào `ExecuteQuery` → `InjectLimitIfMissing`
+- [x] `prefs.defaultLimit` truyền vào `ExecuteQuery` → `InjectLimitIfMissing`
 - [ ] Editable trong Settings panel (Phase 6)
 
 ### 5.5 Verify Phase 5
-- [ ] 50k rows: stream progressive, scroll mượt
-- [ ] Sort đúng sau khi done
-- [ ] Export CSV → file mở được trong Excel/Numbers
-- [ ] Row limit 100/500/1000/5000 hoạt động
+- [x] 50k rows: stream progressive, scroll mượt
+- [x] Sort đúng sau khi done
+- [x] Export CSV → file mở được trong Excel/Numbers
+- [x] Row limit 100/500/1000/5000 hoạt động
 
 ---
 
@@ -216,19 +216,19 @@
 - [ ] `ClearHistory()` với confirm dialog
 
 ### 6.3 Theme
-- [ ] config theme for app
-- [ ] Light/dark toggle trong Toolbar (⚙ menu hoặc dedicated button)
-- [ ] CSS custom properties: `--bg-primary`, `--text-primary`, etc.
-- [ ] `data-theme="dark"|"light"` trên `<html>` element
-- [ ] Monaco Editor: `monaco.editor.setTheme("vs-dark" | "vs")`
-- [ ] Persist theme preference qua `SetPreferences`
+- [x] config theme for app
+- [x] Light/dark toggle trong Toolbar (⚙ menu hoặc dedicated button)
+- [x] CSS custom properties: `--bg-primary`, `--text-primary`, etc.
+- [x] `data-theme="dark"|"light"` trên `<html>` element
+- [x] Monaco Editor: `monaco.editor.setTheme("vs-dark" | "vs")`
+- [x] Persist theme preference qua `SetPreferences`
 
 ### 6.4 Settings Panel
-- [ ] Settings modal (`⚙` button trong Toolbar)
-- [ ] Row limit slider/input (100 – 10000)
-- [ ] Font size selector (12 – 20px)
-- [ ] Theme toggle (Light / Dark / System)
-- [ ] Save → `SetPreferences(prefs)`
+- [x] Settings modal (`⚙` button trong Toolbar)
+- [x] Row limit slider/input (100 – 10000)
+- [x] Font size selector (12 – 20px)
+- [x] Theme toggle (Light / Dark / System)
+- [x] Save → `SetPreferences(prefs)`
 
 ### 6.5 Polish
 - [ ] Error toast notifications (connection fail, query error)

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import Editor, { OnMount, useMonaco } from '@monaco-editor/react';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -26,6 +27,14 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     const activeProfile = useConnectionStore(s => s.activeProfile);
     const trees = useSchemaStore(s => s.trees);
+    const { fontSize, theme } = useSettingsStore();
+
+    // Resolve 'system' theme to actual monaco theme
+    const getMonacoTheme = () => {
+        if (theme === 'dark') return 'vs-dark';
+        if (theme === 'light') return 'vs';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs';
+    };
 
     // Register SQL completion provider once when monaco is ready
     useEffect(() => {
@@ -86,15 +95,15 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         <Editor
             height="100%"
             defaultLanguage="sql"
-            theme="vs-dark"
+            theme={getMonacoTheme()}
             value={value}
             onChange={(v) => onChange(v ?? '')}
             onMount={handleMount}
             options={{
                 automaticLayout: true,
                 minimap: { enabled: false },
-                fontSize: 14,
-                lineHeight: 21,
+                fontSize: fontSize,
+                lineHeight: fontSize * 1.5,
                 scrollBeyondLastLine: false,
                 wordWrap: 'on',
                 tabSize: 2,

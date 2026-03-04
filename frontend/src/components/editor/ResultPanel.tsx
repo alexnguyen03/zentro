@@ -1,7 +1,9 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { AlertCircle, CheckCircle, Download, Loader } from 'lucide-react';
 import { TabResult } from '../../stores/resultStore';
+import { useStatusStore } from '../../stores/statusStore';
 import { ResultTable } from './ResultTable';
+import { ExportCSV } from '../../../wailsjs/go/app/App';
 
 interface ResultPanelProps {
     tabId: string;
@@ -53,11 +55,32 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result }) => {
         );
     }
 
+    const handleExport = async () => {
+        if (!result.columns || !result.rows) return;
+        try {
+            const path = await ExportCSV(result.columns, result.rows);
+            if (path) {
+                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+            }
+        } catch (err) {
+            useStatusStore.getState().setMessage(`Export failed: ${err}`);
+            console.error('Export failed:', err);
+        }
+    };
+
     // SELECT result — fully rendered only when done
     return (
         <div className="result-panel result-table-container">
-            <div className="result-meta">
-                <span>{result.rows.length.toLocaleString()} rows · {formatDuration(result.duration)}</span>
+            <div className="result-toolbar">
+                <div className="result-toolbar-left">
+                    <span className="result-stats">{result.rows.length.toLocaleString()} rows · {formatDuration(result.duration)}</span>
+                </div>
+                <div className="result-toolbar-right">
+                    <button className="result-toolbar-btn" onClick={handleExport} title="Export as CSV">
+                        <Download size={13} />
+                        <span>Export</span>
+                    </button>
+                </div>
             </div>
             <ResultTable
                 columns={result.columns}
