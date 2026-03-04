@@ -8,6 +8,8 @@ export interface TabResult {
     duration: number;
     error?: string;
     isSelect: boolean;
+    hasMore: boolean;
+    offset: number;
 }
 
 interface ResultState {
@@ -16,6 +18,7 @@ interface ResultState {
     initTab: (tabId: string) => void;
     appendRows: (tabId: string, columns: string[] | undefined, rows: string[][]) => void;
     setDone: (tabId: string, affected: number, duration: number, isSelect: boolean, error?: string) => void;
+    setOffset: (tabId: string, offset: number) => void;
     clearResult: (tabId: string) => void;
     isDone: (tabId: string) => boolean;
 }
@@ -26,7 +29,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     initTab: (tabId) => set((state) => ({
         results: {
             ...state.results,
-            [tabId]: { columns: [], rows: [], isDone: false, affected: 0, duration: 0, isSelect: true, error: undefined }
+            [tabId]: { columns: [], rows: [], isDone: false, affected: 0, duration: 0, isSelect: true, error: undefined, hasMore: true, offset: 0 }
         }
     })),
 
@@ -50,16 +53,38 @@ export const useResultStore = create<ResultState>((set, get) => ({
         const prev = state.results[tabId];
         if (!prev) return state;
 
+        // If affected > 0 in SELECT, it means we fetched a chunk.
+        // We assume we have more. The precise check is affected == fetchLimit.
+        // For safety, let's say if affected == 0, hasMore = false.
+        const hasMore = isSelect && affected > 0 && !error;
+
         return {
             results: {
                 ...state.results,
                 [tabId]: {
                     ...prev,
                     isDone: true,
-                    affected,
+                    // keep original affected rows if it's select, so status bar shows cumulative sum
+                    affected: isSelect ? prev.rows.length : affected,
                     duration,
                     isSelect,
                     error,
+                    hasMore,
+                }
+            }
+        };
+    }),
+
+    setOffset: (tabId, offset) => set((state) => {
+        const prev = state.results[tabId];
+        if (!prev) return state;
+        return {
+            results: {
+                ...state.results,
+                [tabId]: {
+                    ...prev,
+                    offset,
+                    isDone: false, // Set to false so UI shows loading state and prevents immediate re-fetch
                 }
             }
         };

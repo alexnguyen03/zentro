@@ -243,3 +243,20 @@
 - [ ] Verify binary chạy không cần Wails dev server
 - [ ] Verify WebView2 trên máy Windows không có Wails installed
 - [ ] Monaco bundle size check (dùng `vite-bundle-analyzer`)
+
+---
+
+## Phase 7 — Data Pagination & Infinite Scroll
+
+### 7.1 Backend Offset Pagination
+- [x] Extend `InjectLimitOffsetIfMissing` for Postgres/MSSQL
+- [x] State `activeQueries` để lưu query SELECT mới nhất
+- [x] Method `FetchMoreRows(tabID, offset)` 
+- [x] Bỏ history append cho các trang sau trang đầu (offset > 0)
+
+### 7.2 Frontend Integration
+- [x] `TabResult` state thêm `hasMore`, `offset`
+- [x] Check affected = 0 → set `hasMore` = false
+- [x] Lắng nghe scroll event từ `useVirtualizer` của ResultTable
+- [x] Disable sorting khi `hasMore = true` (to avoid local sort issues)
+- [x] Trigger `FetchMoreRows` + loading spinner dưới bottom cùng

@@ -8,15 +8,23 @@ import {
     type SortingState,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { FetchMoreRows } from '../../../wailsjs/go/app/App';
+import { useResultStore } from '../../stores/resultStore';
+import { Loader, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface ResultTableProps {
+    tabId: string;
     columns: string[];
     rows: string[][];
     isDone: boolean;
 }
 
-export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone }) => {
+export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone }) => {
+    const { results, setOffset } = useResultStore();
+    const resultState = results[tabId];
+
+    // Disable sorting locally if we haven't loaded everything yet (true infinite scroll limitation)
+    const canSortClientSide = isDone && !resultState?.hasMore;
     const [sorting, setSorting] = useState<SortingState>([]);
     const parentRef = React.useRef<HTMLDivElement>(null);
 
@@ -157,10 +165,10 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
         data: rows,
         columns: colDefs,
         state: { sorting },
-        onSortingChange: isDone ? setSorting : undefined,
+        onSortingChange: canSortClientSide ? setSorting : undefined,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
-        enableSorting: isDone,
+        enableSorting: canSortClientSide,
     });
 
     const { rows: tableRows } = table.getRowModel();
@@ -173,6 +181,24 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
     });
 
     const virtualItems = virtualizer.getVirtualItems();
+
+    // Infinite Scroll trigger
+    useEffect(() => {
+        if (!virtualItems.length || !isDone || !resultState?.hasMore) return;
+        const lastItem = virtualItems[virtualItems.length - 1];
+        if (lastItem.index >= tableRows.length - 15) {
+            // Trigger fetch
+            const currentOffset = resultState.offset || 0;
+            const newOffset = currentOffset + rows.length;
+            setOffset(tabId, newOffset);
+            FetchMoreRows(tabId, newOffset).catch(console.error);
+        }
+    }, [
+        virtualItems.length ? virtualItems[virtualItems.length - 1].index : 0,
+        isDone,
+        resultState?.hasMore
+    ]);
+
     const totalHeight = virtualizer.getTotalSize();
     const paddingTop = virtualItems.length > 0 ? (virtualItems[0]?.start ?? 0) : 0;
     const paddingBottom =
@@ -229,6 +255,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({ columns, rows, isDone 
                     )}
                 </tbody>
             </table>
+
+            {!isDone && results[tabId]?.offset > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0', color: 'var(--text-secondary)', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                    <Loader size={14} className="result-spinner" /> Loading more rows...
+                </div>
+            )}
         </div>
     );
 };

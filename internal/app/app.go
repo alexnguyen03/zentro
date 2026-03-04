@@ -55,12 +55,18 @@ type App struct {
 	prefs    utils.Preferences
 	history  []HistoryEntry
 	histMu   sync.Mutex
+
+	// activeQueries stores the last executed SELECT query per tab for pagination
+	// Pattern: Singleton application state for query tracking
+	activeQueries   map[string]string
+	activeQueriesMu sync.Mutex
 }
 
 // NewApp creates the App. Called once in main.go.
 func NewApp() *App {
 	return &App{
-		sessions: make(map[string]*QuerySession),
+		sessions:      make(map[string]*QuerySession),
+		activeQueries: make(map[string]string),
 	}
 }
 
@@ -391,7 +397,10 @@ func (a *App) ExecuteQuery(tabID, query string) {
 		start := time.Now()
 
 		if dbpkg.IsSelectQuery(query) {
-			a.streamSelect(ctx, tabID, query, start)
+			a.activeQueriesMu.Lock()
+			a.activeQueries[tabID] = query
+			a.activeQueriesMu.Unlock()
+			a.streamSelect(ctx, tabID, query, 0, start)
 		} else {
 			a.execNonSelect(ctx, tabID, query, start)
 		}
@@ -399,12 +408,16 @@ func (a *App) ExecuteQuery(tabID, query string) {
 }
 
 // streamSelect runs a SELECT and emits chunks of 500 rows progressively.
-func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.Time) {
+// Pattern: Facade for database interaction and Observer for async chunk delivery.
+func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int, start time.Time) {
 	driver := ""
 	if a.profile != nil {
 		driver = a.profile.Driver
 	}
-	normalized := dbpkg.InjectLimitIfMissing(query, driver, a.prefs.DefaultLimit)
+
+	fetchLimit := a.prefs.DefaultLimit
+	normalized := dbpkg.InjectLimitOffsetIfMissing(query, driver, fetchLimit, offset)
+
 	rows, err := a.db.QueryContext(ctx, normalized)
 	if err != nil {
 		a.emitDone(tabID, 0, time.Since(start), true, fmt.Errorf("query: %w", err))
@@ -418,10 +431,12 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.
 	seq := 0
 	buf := make([][]string, 0, 500)
 	sentCols := false
+	totalRowsFetched := 0
 
 	for rows.Next() {
 		row := scanRowAsStrings(rows, colCount)
 		buf = append(buf, row)
+		totalRowsFetched++
 
 		if len(buf) == 500 {
 			var chunkCols []string
@@ -444,8 +459,47 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, start time.
 	}
 
 	totalRows := int64(seq*500 + len(buf))
-	a.appendHistoryFromResult(tabID, query, totalRows, time.Since(start), rows.Err())
-	a.emitDone(tabID, 0, time.Since(start), true, rows.Err())
+	if offset == 0 {
+		a.appendHistoryFromResult(tabID, query, totalRows, time.Since(start), rows.Err())
+	}
+	a.emitDone(tabID, int64(totalRowsFetched), time.Since(start), true, rows.Err())
+}
+
+// FetchMoreRows is called by the frontend to load the next page of results for an active tab.
+// Pattern: Facade/Controller method.
+func (a *App) FetchMoreRows(tabID string, offset int) {
+	a.activeQueriesMu.Lock()
+	query, ok := a.activeQueries[tabID]
+	a.activeQueriesMu.Unlock()
+
+	if !ok || query == "" {
+		a.emitDone(tabID, 0, 0, true, fmt.Errorf("no active query found for pagination"))
+		return
+	}
+
+	// We must wrap execution in a session just like ExecuteQuery does.
+	a.sessions[tabID] = &QuerySession{
+		TabID:     tabID,
+		StartedAt: time.Now(),
+	}
+
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.sessions[tabID].CancelFunc = cancel
+
+	go func() {
+		defer func() {
+			cancel()
+			delete(a.sessions, tabID)
+		}()
+
+		if a.db == nil {
+			a.emitDone(tabID, 0, 0, true, fmt.Errorf("no active connection"))
+			return
+		}
+
+		start := time.Now()
+		a.streamSelect(ctx, tabID, query, offset, start)
+	}()
 }
 
 // execNonSelect runs INSERT/UPDATE/DELETE/DDL and emits done.

@@ -124,6 +124,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                 </div>
             ) : (
                 <ResultTable
+                    tabId={tabId}
                     columns={result.columns}
                     rows={result.rows}
                     isDone={true}

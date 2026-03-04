@@ -15,7 +15,7 @@ import (
 )
 
 // limitPattern matches queries that already contain a LIMIT or TOP clause.
-var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bTOP\b`)
+var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bTOP\b|\bOFFSET\b`)
 
 // selectTopPattern matches "SELECT" at the start of a trimmed query (case-insensitive),
 // used to inject TOP N for MSSQL.
@@ -33,18 +33,31 @@ func IsSelectQuery(query string) bool {
 }
 
 // InjectLimitIfMissing appends a row-limit clause to a SELECT query if none exists.
-// For MSSQL (driver == "sqlserver") it injects TOP N after SELECT.
-// All other drivers get a trailing LIMIT N.
 // Exported so internal/app can use it without duplicating the regex.
 func InjectLimitIfMissing(query, driver string, limit int) string {
+	return InjectLimitOffsetIfMissing(query, driver, limit, 0)
+}
+
+// InjectLimitOffsetIfMissing appends a row-limit and offset clause to a SELECT query if none exists.
+func InjectLimitOffsetIfMissing(query, driver string, limit int, offset int) string {
 	if limitPattern.MatchString(query) {
 		return query
 	}
 	if driver == "sqlserver" {
-		// Inject "TOP N" right after SELECT (handles SELECT DISTINCT etc. gracefully
-		// because DISTINCT comes before TOP in MSSQL syntax — use FETCH instead).
-		// Safe pattern: SELECT TOP N <rest>
-		return selectTopPattern.ReplaceAllString(query, fmt.Sprintf("$1 TOP %d$2", limit))
+		// MSSQL >= 2012 supports OFFSET X ROWS FETCH NEXT Y ROWS ONLY
+		// Requires an ORDER BY clause. If none exists, this will fail at DB level,
+		// but since Zentro injects it blindly, we must append it.
+		// For true infinite scroll in MSSQL, the query MUST have ORDER BY.
+		// If offset is 0 and we want to fall back to SELECT TOP:
+		if offset == 0 {
+			return selectTopPattern.ReplaceAllString(query, fmt.Sprintf("$1 TOP %d$2", limit))
+		}
+		// If offset > 0, we use OFFSET FETCH
+		return query + fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
+	}
+	// Postgres / SQLite / MySQL
+	if offset > 0 {
+		return query + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 	}
 	return query + fmt.Sprintf(" LIMIT %d", limit)
 }
