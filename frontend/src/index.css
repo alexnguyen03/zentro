@@ -1029,3 +1029,107 @@ input:disabled {
   font-size: 9px;
   text-transform: uppercase;
 }
+
+/* ─── Connection Picker Overlay ───────────────────────────────────────────── */
+.cp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1100;
+  backdrop-filter: blur(2px);
+}
+
+.cp-panel {
+  position: fixed;
+  z-index: 1101;
+  display: flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  min-width: 520px;
+  max-height: 400px;
+  animation: cp-fade-in 0.12s ease;
+}
+
+@keyframes cp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.cp-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cp-col-header {
+  padding: 10px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.cp-divider {
+  width: 1px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+.cp-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.cp-item {
+  padding: 9px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cp-item:last-child {
+  border-bottom: none;
+}
+
+.cp-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.cp-item.selected {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.cp-item.active {
+  border-left: 2px solid var(--success-color);
+  background: rgba(137, 209, 133, 0.07);
+  color: var(--success-color);
+  font-weight: 500;
+}
+
+.cp-empty {
+  padding: 16px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
