@@ -226,7 +226,9 @@ interface SchemaNodeProps {
 const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const hasItems = schema.Tables.length > 0 || schema.Views.length > 0;
+    const tables = schema.Tables ?? [];
+    const views = schema.Views ?? [];
+    const hasItems = tables.length > 0 || views.length > 0;
 
     return (
         <div>
@@ -244,14 +246,14 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
 
             {expanded && (
                 <div className="tree-children">
-                    {schema.Tables.map(t => (
+                    {tables.map(t => (
                         <div key={`t:${t}`} className="tree-node" style={{ fontSize: 12 }}>
                             <span style={{ width: 14, display: 'inline-block' }} />
                             <Table size={12} style={{ marginRight: 4, opacity: 0.8 }} />
                             {t}
                         </div>
                     ))}
-                    {schema.Views.map(v => (
+                    {views.map(v => (
                         <div key={`v:${v}`} className="tree-node" style={{ fontSize: 12, fontStyle: 'italic' }}>
                             <span style={{ width: 14, display: 'inline-block' }} />
                             <Eye size={12} style={{ marginRight: 4, opacity: 0.8 }} />

@@ -152,7 +152,11 @@ func (d *PostgresDriver) FetchSchema(ctx context.Context, db *sql.DB, logger *sl
 
 	nodes := make([]*models.SchemaNode, 0, len(schemas))
 	for _, schema := range schemas {
-		node := &models.SchemaNode{Name: schema}
+		node := &models.SchemaNode{
+			Name:   schema,
+			Tables: []string{},
+			Views:  []string{},
+		}
 		tableRows, err := db.QueryContext(ctx, `
 			SELECT table_name, table_type
 			FROM information_schema.tables
