@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.19",
     "lucide-react": "^0.576.0",
     "monaco-editor": "^0.55.1",
     "react": "^18.2.0",

@@ -694,51 +694,99 @@ input:disabled {
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.result-table-scroll {
+.result-streaming-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-color);
+  font-size: 11px;
+}
+
+.result-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* ── TanStack Virtual Table ──────────────────────────── */
+.result-virtual-scroll {
   flex: 1;
   overflow: auto;
+  contain: strict;
 }
 
-.result-table {
-  width: 100%;
+.result-table-tanstack {
   border-collapse: collapse;
   font-size: 12px;
   font-family: 'Cascadia Code', 'Fira Code', monospace;
+  width: max-content;
+  min-width: 100%;
 }
 
-.result-table th {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
-  padding: 4px 8px;
-  text-align: left;
-  font-weight: 600;
+.result-table-tanstack thead {
   position: sticky;
   top: 0;
+  z-index: 10;
+}
+
+.rt-th {
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  padding: 0;
+  text-align: left;
   white-space: nowrap;
+  user-select: none;
+}
+
+.rt-th-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  font-weight: 600;
   color: var(--text-secondary);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 
-.result-table td {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.rt-th-sortable {
+  cursor: pointer;
+}
+
+.rt-th-sortable:hover .rt-th-label {
+  color: var(--text-primary);
+}
+
+.rt-th-sorted .rt-th-label {
+  color: var(--accent-color);
+}
+
+.rt-sort-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.result-table-tanstack td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   border-right: 1px solid var(--border-color);
   padding: 3px 8px;
   white-space: nowrap;
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+  height: 30px;
 }
 
-.result-table tr.alt td {
+.result-table-tanstack tr.rt-row-alt td {
   background: rgba(255, 255, 255, 0.02);
 }
 
-.result-table tr:hover td {
+.result-table-tanstack tr:hover td {
   background: rgba(0, 122, 204, 0.1);
 }
 

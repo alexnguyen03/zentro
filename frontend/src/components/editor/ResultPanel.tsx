@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { TabResult } from '../../stores/resultStore';
+import { ResultTable } from './ResultTable';
 
 interface ResultPanelProps {
     tabId: string;
@@ -12,15 +13,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result }) => {
         return (
             <div className="result-panel result-empty">
                 <span>Run a query to see results</span>
-            </div>
-        );
-    }
-
-    if (!result.isDone) {
-        return (
-            <div className="result-panel result-loading">
-                <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                <span>Streaming results… {result.rows.length.toLocaleString()} rows received</span>
             </div>
         );
     }
@@ -43,34 +35,26 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result }) => {
         );
     }
 
-    // SELECT result: placeholder table header until Phase 5 wires TanStack grid
+    // SELECT result (streaming or done)
     return (
         <div className="result-panel result-table-container">
             <div className="result-meta">
-                <span>{result.rows.length.toLocaleString()} rows · {formatDuration(result.duration)}</span>
+                <span>
+                    {result.rows.length.toLocaleString()} rows
+                    {result.isDone ? ` · ${formatDuration(result.duration)}` : ''}
+                </span>
+                {!result.isDone && (
+                    <span className="result-streaming-badge">
+                        <Loader size={11} className="result-spinner" />
+                        streaming…
+                    </span>
+                )}
             </div>
-            <div className="result-table-scroll">
-                <table className="result-table">
-                    <thead>
-                        <tr>
-                            <th className="row-num-col">#</th>
-                            {result.columns.map((col) => (
-                                <th key={col} title={col}>{col}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {result.rows.map((row, rowIdx) => (
-                            <tr key={rowIdx} className={rowIdx % 2 === 0 ? '' : 'alt'}>
-                                <td className="row-num-col">{rowIdx + 1}</td>
-                                {row.map((cell, colIdx) => (
-                                    <td key={colIdx} title={cell}>{cell}</td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <ResultTable
+                columns={result.columns}
+                rows={result.rows}
+                isDone={result.isDone}
+            />
         </div>
     );
 };
