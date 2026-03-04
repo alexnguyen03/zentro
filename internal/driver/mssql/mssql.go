@@ -30,7 +30,7 @@ func (d *MSSQLDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
 	user := url.QueryEscape(p.Username)
 	pass := url.QueryEscape(p.Password)
 	dsn := fmt.Sprintf(
-		"sqlserver://%s:%s@%s:%d?database=%s&connection+timeout=%d",
+		"sqlserver://%s:%s@%s:%d?database=%s&connection+timeout=%d&tlsmin=1.0",
 		user, pass, p.Host, p.Port, p.DBName, p.ConnectTimeout,
 	)
 	if p.TrustServerCert {
