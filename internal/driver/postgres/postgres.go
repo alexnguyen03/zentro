@@ -71,7 +71,7 @@ func (d *PostgresDriver) FriendlyError(err error) error {
 
 // FetchDatabases lists all databases on the server and fetches schemas for currentDB.
 func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, logger *slog.Logger) ([]*models.DatabaseInfo, error) {
-	// Resolve actual DB name to handle case mismatches
+	// Resolve actual DB name
 	actualDB := currentDB
 	if err := db.QueryRowContext(ctx, "SELECT current_database()").Scan(&actualDB); err != nil {
 		logger.Warn("current_database() failed, using profile DBName", "fallback", currentDB, "err", err)
@@ -79,41 +79,9 @@ func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, current
 	}
 	logger.Info("postgres schema fetch", "profile_dbname", currentDB, "actual_current_db", actualDB)
 
-	rows, err := db.QueryContext(ctx, `
-		SELECT datname FROM pg_database
-		WHERE datistemplate = false
-		ORDER BY datname
-	`)
+	dbInfos := d.listDatabases(ctx, db, actualDB, logger)
 
-	var dbInfos []*models.DatabaseInfo
-	if err != nil {
-		logger.Warn("pg_database query failed (pooler restriction?), fallback to current DB only", "err", err, "current_db", actualDB)
-		dbInfos = []*models.DatabaseInfo{{Name: actualDB}}
-	} else {
-		defer rows.Close()
-		for rows.Next() {
-			var name string
-			if rows.Scan(&name) == nil {
-				dbInfos = append(dbInfos, &models.DatabaseInfo{Name: name})
-			}
-		}
-		logger.Info("pg_database list", "count", len(dbInfos))
-
-		// Ensure actualDB is present in list
-		found := false
-		for _, di := range dbInfos {
-			if di.Name == actualDB {
-				found = true
-				break
-			}
-		}
-		if !found {
-			logger.Warn("actual_db not in pg_database list, prepending", "actual_db", actualDB)
-			dbInfos = append([]*models.DatabaseInfo{{Name: actualDB}}, dbInfos...)
-		}
-	}
-
-	// Fetch schemas+tables for actualDB
+	// Fetch schemas for the currently connected DB only (others are lazy)
 	for _, info := range dbInfos {
 		if info.Name == actualDB {
 			schemas, err := d.FetchSchema(ctx, db, logger)
@@ -127,6 +95,51 @@ func (d *PostgresDriver) FetchDatabases(ctx context.Context, db *sql.DB, current
 		}
 	}
 	return dbInfos, nil
+}
+
+// listDatabases queries all visible databases using pg_database.
+// Some poolers (Neon, PgBouncer in transaction mode) restrict pg_database access;
+// in that case it falls back to just the current database.
+func (d *PostgresDriver) listDatabases(ctx context.Context, db *sql.DB, actualDB string, logger *slog.Logger) []*models.DatabaseInfo {
+	rows, err := db.QueryContext(ctx, `
+		SELECT datname
+		FROM   pg_database
+		WHERE  datistemplate = false
+		ORDER  BY datname
+	`)
+	if err != nil {
+		logger.Warn("pg_database query failed, falling back to current DB", "err", err)
+		return []*models.DatabaseInfo{{Name: actualDB}}
+	}
+	defer rows.Close()
+
+	var infos []*models.DatabaseInfo
+	for rows.Next() {
+		var name string
+		if rows.Scan(&name) == nil {
+			infos = append(infos, &models.DatabaseInfo{Name: name})
+		}
+	}
+
+	names := make([]string, len(infos))
+	for i, di := range infos {
+		names[i] = di.Name
+	}
+	logger.Info("pg_database list", "count", len(infos), "databases", names)
+
+	// Ensure actualDB is always in the list (poolers sometimes omit it)
+	found := false
+	for _, di := range infos {
+		if di.Name == actualDB {
+			found = true
+			break
+		}
+	}
+	if !found {
+		logger.Warn("actual_db not in pg_database list, prepending", "actual_db", actualDB)
+		infos = append([]*models.DatabaseInfo{{Name: actualDB}}, infos...)
+	}
+	return infos
 }
 
 // FetchSchema returns all non-system schemas with their tables and views.
