@@ -672,6 +672,57 @@ input:disabled {
 
 .result-loading {
   color: var(--accent-color);
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.result-loading-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+/* Skeleton shimmer rows */
+.result-skeleton {
+  flex: 1;
+  overflow: hidden;
+  padding: 8px 0;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -600px 0;
+  }
+
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+.result-skeleton-header,
+.result-skeleton-row {
+  height: 18px;
+  border-radius: 3px;
+  margin: 6px 12px;
+  background: linear-gradient(90deg,
+      var(--bg-tertiary) 25%,
+      rgba(255, 255, 255, 0.06) 50%,
+      var(--bg-tertiary) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.result-skeleton-header {
+  width: 60%;
+  height: 22px;
+  margin-bottom: 12px;
+  background-color: var(--bg-tertiary);
 }
 
 .result-error-state {

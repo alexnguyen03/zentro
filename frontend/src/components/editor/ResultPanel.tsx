@@ -35,25 +35,34 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result }) => {
         );
     }
 
-    // SELECT result (streaming or done)
+    // Show loading skeleton while streaming — avoid jitter from incremental renders
+    if (!result.isDone) {
+        return (
+            <div className="result-panel result-loading">
+                <div className="result-loading-inner">
+                    <Loader size={18} className="result-spinner" />
+                    <span>Streaming… {result.rows.length > 0 ? `${result.rows.length.toLocaleString()} rows received` : 'executing query'}</span>
+                </div>
+                <div className="result-skeleton">
+                    <div className="result-skeleton-header" />
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="result-skeleton-row" style={{ opacity: 1 - i * 0.1 }} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // SELECT result — fully rendered only when done
     return (
         <div className="result-panel result-table-container">
             <div className="result-meta">
-                <span>
-                    {result.rows.length.toLocaleString()} rows
-                    {result.isDone ? ` · ${formatDuration(result.duration)}` : ''}
-                </span>
-                {!result.isDone && (
-                    <span className="result-streaming-badge">
-                        <Loader size={11} className="result-spinner" />
-                        streaming…
-                    </span>
-                )}
+                <span>{result.rows.length.toLocaleString()} rows · {formatDuration(result.duration)}</span>
             </div>
             <ResultTable
                 columns={result.columns}
                 rows={result.rows}
-                isDone={result.isDone}
+                isDone={true}
             />
         </div>
     );
