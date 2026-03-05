@@ -18,7 +18,7 @@ interface ResultTableProps {
     rows: string[][];
     isDone: boolean;
     editedCells: Map<string, string>;
-    setEditedCells: (map: Map<string, string>) => void;
+    setEditedCells: React.Dispatch<React.SetStateAction<Map<string, string>>>;
 }
 
 export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells }) => {
@@ -41,6 +41,16 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     const [editValue, setEditValue] = useState<string>('');
     const [lastSelected, setLastSelected] = useState<string | null>(null);
 
+    // Stable ref so closures inside useMemo can always read fresh editValue
+    const editValueRef = React.useRef(editValue);
+    useEffect(() => { editValueRef.current = editValue; }, [editValue]);
+
+    const selectedCellsRef = React.useRef(selectedCells);
+    useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
+
+    const editingCellRef = React.useRef(editingCell);
+    useEffect(() => { editingCellRef.current = editingCell; }, [editingCell]);
+
     useEffect(() => {
         if (!isDone) {
             setSelectedCells(new Set());
@@ -49,61 +59,65 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         }
     }, [isDone, rows]); // Reset on new query
 
-    const handleCellClick = (e: React.MouseEvent, rIdx: number, cIdx: number) => {
+    const handleCellClick = React.useCallback((e: React.MouseEvent, rIdx: number, cIdx: number) => {
         if (!isDone) return;
         const id = `${rIdx}:${cIdx}`;
 
         if (e.shiftKey && lastSelected) {
             const [lastR, lastC] = lastSelected.split(':').map(Number);
-            if (lastC === cIdx) { // range select works on same col only
-                const newSel = new Set(selectedCells);
-                const min = Math.min(lastR, rIdx);
-                const max = Math.max(lastR, rIdx);
-                for (let i = min; i <= max; i++) {
-                    newSel.add(`${i}:${cIdx}`);
-                }
-                setSelectedCells(newSel);
+            if (lastC === cIdx) {
+                setSelectedCells(prev => {
+                    const newSel = new Set(prev);
+                    const min = Math.min(lastR, rIdx);
+                    const max = Math.max(lastR, rIdx);
+                    for (let i = min; i <= max; i++) newSel.add(`${i}:${cIdx}`);
+                    return newSel;
+                });
                 return;
             }
         }
 
         if (e.ctrlKey || e.metaKey) {
-            const newSel = new Set(selectedCells);
-            if (newSel.has(id)) newSel.delete(id); else newSel.add(id);
-            setSelectedCells(newSel);
+            setSelectedCells(prev => {
+                const newSel = new Set(prev);
+                if (newSel.has(id)) newSel.delete(id); else newSel.add(id);
+                return newSel;
+            });
         } else {
             setSelectedCells(new Set([id]));
         }
         setLastSelected(id);
-    };
+    }, [isDone, lastSelected]);
 
-    const handleCellDoubleClick = (rIdx: number, cIdx: number, val: string) => {
-        if (!isDone || !isEditable) return;
+    const handleCellDoubleClick = React.useCallback((rIdx: number, cIdx: number, val: string) => {
+        if (!isDone) return;
         const id = `${rIdx}:${cIdx}`;
         setEditingCell(id);
         setEditValue(val);
-        if (!selectedCells.has(id)) {
-            setSelectedCells(new Set([id]));
+        setSelectedCells(prev => {
+            if (prev.has(id)) return prev;
             setLastSelected(id);
-        }
-    };
-
-    const handleCommitEdit = () => {
-        if (!editingCell) return;
-        const [rIdx, cIdx] = editingCell.split(':').map(Number);
-
-        const newMap = new Map(editedCells);
-        // Propagate to all selected cells in the SAME col
-        selectedCells.forEach(selId => {
-            const [selR, selC] = selId.split(':').map(Number);
-            if (selC === cIdx) {
-                newMap.set(selId, editValue);
-            }
+            return new Set([id]);
         });
+    }, [isDone]);
 
-        setEditedCells(newMap);
+    const handleCommitEdit = React.useCallback(() => {
+        const currentEditingCell = editingCellRef.current;
+        if (!currentEditingCell) return;
+        const [, cIdx] = currentEditingCell.split(':').map(Number);
+        const currentEditValue = editValueRef.current;
+        const currentSelectedCells = selectedCellsRef.current;
+
+        setEditedCells((prev: Map<string, string>) => {
+            const newMap = new Map<string, string>(prev);
+            currentSelectedCells.forEach(selId => {
+                const [, selC] = selId.split(':').map(Number);
+                if (selC === cIdx) newMap.set(selId, currentEditValue);
+            });
+            return newMap;
+        });
         setEditingCell(null);
-    };
+    }, [setEditedCells]);
 
     // Build TanStack column definitions
     const colDefs = useMemo<ColumnDef<string[]>[]>(() => {

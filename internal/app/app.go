@@ -446,17 +446,27 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 	var tableName string
 	var pks []string
 	if offset == 0 {
-		schema, table := dbpkg.ExtractTableFromQuery(query)
+		parsedSchema, table := dbpkg.ExtractTableFromQuery(query)
 		if table != "" {
-			if schema == "" && driver == "postgres" && a.profile != nil {
-				schema = "public"
-			} else if schema == "" && driver == "sqlserver" {
-				schema = "dbo"
+			tableName = table
+			trySchemas := []string{parsedSchema}
+			if parsedSchema == "" {
+				if driver == "postgres" {
+					trySchemas = []string{"public"}
+				} else if driver == "sqlserver" {
+					trySchemas = []string{"dbo"}
+				} else {
+					trySchemas = []string{""}
+				}
 			}
-			keys, err := dbpkg.FetchTablePrimaryKeys(a.db, driver, schema, table)
-			if err == nil && len(keys) > 0 {
-				tableName = table
-				pks = keys
+			for _, sch := range trySchemas {
+				keys, err := dbpkg.FetchTablePrimaryKeys(a.db, driver, sch, table)
+				if err == nil && len(keys) > 0 {
+					pks = keys
+					a.logger.Info("pk fetch ok", "table", table, "schema", sch, "pks", keys)
+					break
+				}
+				a.logger.Warn("pk fetch failed", "table", table, "schema", sch, "err", err)
 			}
 		}
 	}
