@@ -5,9 +5,10 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { ResultTable } from './ResultTable';
-import { ExportCSV, FetchTotalRowCount } from '../../../wailsjs/go/app/App';
+import { ExportCSV, FetchTotalRowCount, ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
+import { Modal } from '../layout/Modal';
 
 interface ResultPanelProps {
     tabId: string;
@@ -90,18 +91,21 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     const handleOpenInNewTab = () => {
         addTab({ name: `Update ${result?.tableName}`, query: generateUpdateScript() });
         setShowSaveModal(false);
+        setEditedCells(new Map());
+        toast.success("Script opened in a new tab.");
     };
 
-    const handleExecuteScript = () => {
-        if (onRun) {
-            // Ideally we should execute the actual script directly, but since ResultPanel 
-            // doesn't have an execute method, we pass it back or create a new tab.
-            // Let's create a new tab and run it there.
-            const newTabId = addTab({ name: `Update ${result?.tableName}`, query: generateUpdateScript() });
-            // Close modal, let user run it. Running manually is safer.
+    const handleDirectExecute = async () => {
+        const script = generateUpdateScript();
+        if (!script) return;
+        try {
             setShowSaveModal(false);
             setEditedCells(new Map());
-            toast.success("Script opened in new tab. Execute it there.");
+            await ExecuteQuery(tabId, script);
+            toast.success("Update executed successfully.");
+        } catch (err: any) {
+            toast.error(`Update failed: ${err}`);
+            console.error('Execute update error:', err);
         }
     };
 
@@ -250,45 +254,48 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
             )}
 
             {/* Save Confirmation Modal */}
-            {showSaveModal && (
-                <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
-                    <div className="modal-content" style={{ width: 600 }} onClick={e => e.stopPropagation()}>
-                        <h3 className="modal-title">Confirm Changes</h3>
-                        <p style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: 12 }}>
-                            The following script will be generated to apply your changes:
-                        </p>
-                        <div style={{
-                            background: '#1e1e1e',
-                            padding: '12px',
-                            borderRadius: '4px',
-                            fontFamily: 'monospace',
-                            fontSize: '12px',
-                            maxHeight: '300px',
-                            overflowY: 'auto',
-                            whiteSpace: 'pre-wrap',
-                            color: '#d4d4d4',
-                            border: '1px solid var(--color-border)',
-                            marginBottom: '16px'
-                        }}>
-                            {generateUpdateScript()}
-                        </div>
-                        <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
-                            <button className="btn btn-secondary" onClick={() => setShowSaveModal(false)}>Cancel</button>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button className="btn btn-secondary" onClick={handleCopyScript}>
-                                    <Copy size={14} style={{ marginRight: 6 }} /> Copy
-                                </button>
-                                <button className="btn btn-secondary" onClick={handleOpenInNewTab}>
-                                    <FilePlus size={14} style={{ marginRight: 6 }} /> Open in New Tab
-                                </button>
-                                <button className="btn btn-primary" onClick={handleExecuteScript}>
-                                    <Play size={14} style={{ marginRight: 6 }} /> To Script Mode
-                                </button>
-                            </div>
+            <Modal
+                isOpen={showSaveModal}
+                onClose={() => setShowSaveModal(false)}
+                title="Confirm Changes"
+                width={600}
+                footer={
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <button className="btn" onClick={() => setShowSaveModal(false)}>Cancel</button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button className="btn" onClick={handleCopyScript}>
+                                <Copy size={14} style={{ marginRight: 6 }} /> Copy
+                            </button>
+                            <button className="btn" onClick={handleOpenInNewTab}>
+                                <FilePlus size={14} style={{ marginRight: 6 }} /> Open in New Tab
+                            </button>
+                            <button className="btn primary" onClick={handleDirectExecute}>
+                                <Play size={14} style={{ marginRight: 6 }} /> Execute Update
+                            </button>
                         </div>
                     </div>
+                }
+            >
+                <div style={{ marginBottom: '16px' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: 12 }}>
+                        The following script will be generated to apply your changes:
+                    </p>
+                    <div style={{
+                        background: 'var(--color-bg-tertiary)',
+                        padding: '12px',
+                        borderRadius: 'var(--radius-md)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '12px',
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        color: 'var(--color-text-secondary)',
+                        border: '1px solid var(--color-border)'
+                    }}>
+                        {generateUpdateScript()}
+                    </div>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 };
