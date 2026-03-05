@@ -1,66 +1,66 @@
-# Zentro - Bảng tính năng (Features List)
+# Zentro - Features List
 
-Danh sách tổng hợp toàn bộ các tính năng đã được phát triển và tích hợp vào dự án Zentro cho đến hiện tại (Sprint 5).
+Complete list of features developed and integrated into the Zentro project to date (Sprint 5).
 
-## 1. Kiến trúc & Công nghệ lõi (Core Architecture)
-- **Frontend**: React 18, TypeScript, Zustand (quản lý state), CSS thuần (CSS Variables cho thegme).
+## 1. Core Technology & Architecture 
+- **Frontend**: React 18, TypeScript, Zustand (state management), Vanilla CSS (CSS Variables for theming).
 - **Backend (App Shell)**: Golang + Wails v2.
-- **Renderer / Window**: Frameless Window (giao diện cửa sổ không viền system native), điều khiển thông qua custom window controls trên thanh Toolbar. Luồng gọi data giữa frontend/backend qua JSON Wails IPC, đối với khối lượng data lớn (Rows) thì stream thông qua Wails Events (Observer pattern).
-- **Lưu trữ cục bộ (Local-first)**: 
-  - Lưu thông tin kết nối và cấu hình ở thư mục JSON bảo mật của người dùng hệ điều hành (`~/.config/zentro/` hoặc Windows AppData).
-  - Lịch sử truy vấn cũng được persist xuống ổ cứng (File history.json tuần tự hóa).
+- **Renderer / Window**: Frameless Window (native borderless window interface), controlled via custom window controls on the Toolbar. Data flow between frontend/backend via JSON Wails IPC, for large datasets (Rows), data is streamed via Wails Events (Observer pattern).
+- **Local-first Storage**:
+  - Connection info and configs are saved securely in the OS user JSON directory (`~/.config/zentro/` or Windows AppData).
+  - Query history is persisted to the local drive (serialized `history.json` file).
 
-## 2. Quản lý Kết nối (Connection Management)
-- **Hệ quản trị CSDL hỗ trợ**: PostgreSQL (đã implement first-class support) - module driver thiết kế để dễ dàng mở rộng sang các DB engine khác.
-- **Quản lý cấu hình (Profiles)**: 
-  - Khởi tạo, chỉnh sửa, xóa Profile (Name, Host, Port, Database, User, Password, SSL mode, Timeout).
-  - Giao diện dialog config trực quan.
-  - Tùy chọn nhớ mật khẩu an toàn (`Save Password` bọc bằng hash base64 ở layer lưu trữ tạm tuỳ version).
-- **Test Connection**: Tính năng Ping/Test tới cấu hình server trực tiếp từ UI.
-- **Quản lý trạng thái (Connect/Disconnect)**: Menu chuột phải tại tree node ngoài chức năng Connect/Edit/Delete còn tích hợp quick Disconnect để giải phóng resource DB pool.
+## 2. Connection Management
+- **Supported Databases**: PostgreSQL (first-class support implemented) - driver module designed for easy extension to other DB engines.
+- **Profile Management**:
+  - Create, edit, delete Profiles (Name, Host, Port, Database, User, Password, SSL mode, Timeout).
+  - Intuitive config dialog interface.
+  - Secure remember password option (`Save Password` wrapped with base64 hashing at the storage layer).
+- **Test Connection**: Ping/Test server config directly from the UI.
+- **State Management (Connect/Disconnect)**: Right-click context menu at the tree node integrates quick Disconnect feature to release DB pool resources, besides Connect/Edit/Delete actions.
 
-## 3. Khám phá Cây Dữ liệu (Schema Explorer Tree)
-- **Lazy Loading Tree**: Tiết kiệm tài nguyên lớn. Chỉ fetch cấu trúc schemas, tables, functions... khi người dùng bấm mở node (expand tree pointer) chứ không load hết từ đầu.
-- **Context Switch nhanh (Overlay/Toolbar)**: Cho phép chuyển đổi nhanh Connection Profile đang active thông qua menu thả cấp ở toolbar mà không cần vào lại sidebar.
-- **Cấu trúc DBeaver-style Schema**:  
-  - Phân nhánh các đối tượng (Object) của DB theo các cấp: Schema -> Table / View / Sequence / Function...
-  - Support list phong phú (Postgres): Table thông thường, System View, Materialized View, Foreign Table, Data Type, Aggregate Function, Index.
-- **Bảng & Cột**: Khi click sâu vào Node của Bảng, hiển thị toàn bộ cột (Columns), primary keys, constraints...
+## 3. Schema Explorer Tree
+- **Lazy Loading Tree**: High resource saving. Only fetches structures like schemas, tables, functions... when the user expands the tree pointer, instead of loading everything upfront.
+- **Fast Context Switch (Overlay/Toolbar)**: Switch active Connection Profile quickly via a drop-down menu on the toolbar without returning to the sidebar.
+- **DBeaver-style Schema Structure**:
+  - Branches DB objects hierarchically: Schema -> Table / View / Sequence / Function...
+  - Rich entity support (Postgres): Regular Table, System View, Materialized View, Foreign Table, Data Type, Aggregate Function, Index.
+- **Tables & Columns**: Clicking deep into a Table Node displays all columns, primary keys, constraints...
 
-## 4. Giao diện (UI Layout & Theme)
-- **App Shell chuẩn IDE**: Split pane layout với thanh bên (Sidebar) thu/phóng/kéo thả được (Resizeable).  
-- **Window Controls tùy biến**: Nút đóng/nhỏ/to cửa sổ (window controls) trên hệ điều hành Windows tích hợp trực tiếp góc phải thanh Toolbar siêu liền mạch giống app VSCode hoặc Spotify. Breadcrumb cho phép kéo thả làm vùng "drag app" ở thanh Toolbar.
-- **Status Bar (Thanh trạng thái)**: Bám viền dưới, báo cáo Server/Cấu hình đang kết nối trực quan, cảnh báo lỗi toast text, thời gian chạy query.
-- **Settings Panel Dialog**: Chỉnh các tham số trải nghiệm app cá nhân hóa:
+## 4. UI Layout & Theme
+- **IDE-standard App Shell**: Split pane layout with resizable Sidebar.
+- **Custom Window Controls**: OS window controls (close/minimize/maximize) on Windows are natively integrated directly into the right corner of the Toolbar, providing a seamless experience similar to VSCode or Spotify. Breadcrumbs area acts as an app drag region on the Toolbar.
+- **Status Bar**: Sticks to the bottom, intuitively reports active Server/Config connection, displays toast text errors, and query execution time.
+- **Settings Panel Dialog**: Customize personalized app experience parameters:
   - Theme (Dark/Light Mode).
-  - Default Row Limit (Giới hạn fetch rows mặc định).
+  - Default Row Limit (Default fetch rows limit).
   - Font Size.
-  - Tự động save `Preferences`.
+  - Auto-save `Preferences`.
 
-## 5. Trình soạn thảo SQL (Monaco Editor)
-- **Core Engine (Monaco/VS Code)**: Tích hợp engine editor của VSCode ngay trong React app. Xử lý hàng chục ngàn dòng script cực kì nhẹ. 
-  - Tích hợp Auto-completion (Gợi ý code/Auto-suggest table, columns theo Schema đang làm việc).
-  - Syntax Highlighting rực rỡ và Dark/Light mode sync chuẩn IDE.
-- **Quản lý Đa Tab (Tab Bar)**: 
-  - Mở/đóng tab linh hoạt (`Ctrl+T` tạo mới, `Ctrl+W` đóng tab).
-  - Cảnh báo "Unsaved Changes" nếu vô tình đóng lúc đang chỉnh sửa query.
-  - Context menu tab: Rename (bấm F2 để sửa tên script tab), Close All, Close Others.
-- **Hotkey Execute**: Cấu hình chuẩn ngón tay (`Ctrl+Enter` thực thi run block/script).
+## 5. SQL Editor (Monaco Editor)
+- **Core Engine (Monaco/VS Code)**: VSCode's editor engine integrated straight into the React app. Handles tens of thousands of lines of script extremely lightly.
+  - Integrated Auto-completion (Code suggestions/Auto-suggest tables and columns based on the active Schema).
+  - Vibrant Syntax Highlighting with IDE-standard Dark/Light mode sync.
+- **Multi-Tab Management (Tab Bar)**:
+  - Flexible tab open/close (`Ctrl+T` to create new, `Ctrl+W` to close tab).
+  - "Unsaved Changes" warning if accidentally closed while editing a query.
+  - Tab context menu: Rename (press F2 to rename script tab), Close All, Close Others.
+- **Execute Hotkey**: Ergonomic config (`Ctrl+Enter` to execute run block/script).
 
-## 6. Lưới kết quả truy vấn (Data Result Grid)
-- **Async Streaming Execution (Goroutine Stream)**: Query SELECT kéo kết quả về giao diện dưới dạng phân nhỏ (chunk 500 dòng/lần emit) giúp giao diện không bị treo / đơ khi query data chục ngàn dòng (Progressive loading).
-- **TanStack Virtualized Grid**: Render "ảo" (ảo hoá DOM) grid hiển thị. Có thể cuộn siêu mượt 50 ngàn đến 1 triệu dòng Data Grid với 60fps mượt mà vì DOM chỉ giữ 40-50 nodes.
-- **Vô hạn cuộn (Infinite Scroll / Pagination)**: Khi scroll thanh kéo quá số records stream về, tự động trigger backend SQL offset lấy trang tiếp theo fill vào bảng.
-- **Đếm tổng dòng không cần tải (Total Row Count)**: Nút `Total` tính năng đo lượng Data Result xấp xỉ bằng lệnh Count giấu kín (tốc độ cao).
-- **Hủy phiên truy vấn nhanh (Cancel Query)**: Context timeout ở driver layer, cho phép nút Stop cắt ngay Query cực to làm DB pending.
-- **Chỉnh sửa Batch Edit (Data Cell)**: 
-  - Bôi đen (Select) phạm vi hàng loạt các cell của data grid (Alt-click, Shift Range select).
-  - Đúp chuột input giá trị -> Commit (Enter) gán cùng giá trị cho tất cả các cell chọn.
-  - Highlight màu các cell bị "Dirty" đang bị thay đổi nhưng chưa sync với DB.
-- **Export Data**: Nút `Export` nhanh ra định dạng file \`.csv\` bằng Dialog Native.
-- **DDL & DML (Update/Insert)**: Hỗ trợ báo cáo text thông báo "affected rows", tốc độ run query khi không phải lệnh SELECT (không trả ResultGrid mà báo Alert Success).
+## 6. Data Result Grid
+- **Async Streaming Execution (Goroutine Stream)**: SELECT queries pull results to the UI in small chunks (emit 500 rows per chunk), preventing UI freezes/hangs when querying tens of thousands of rows of data (Progressive loading).
+- **TanStack Virtualized Grid**: Virtual DOM rendering for the display grid. Super smooth 60fps scrolling for Data Grids with 50,000 to 1,000,000 rows, utilizing only 40-50 nodes in the DOM.
+- **Infinite Scroll / Pagination**: Automatically triggers backend SQL offset to fetch the next page and append to the grid when scrolling past the returned stream records.
+- **Total Row Count**: Fast measurement of approximate Data Result volume using a hidden Count query via the `Total` button without having to fetch all rows.
+- **Quick Query Cancellation**: Context timeout at the driver layer allows the Stop button to immediately terminate huge queries causing DB pending manually.
+- **Batch Edit (Data Cell)**:
+  - Select ranges of cells in the data grid (Alt-click, Shift Range select).
+  - Double-click input value -> Commit (Enter) assigns the same value to all selected cells in the column.
+  - Color-highlight "Dirty" cells that have been modified but not yet synced with the DB.
+- **Export Data**: Native Dialog for quick `Export` to \`.csv\` file format.
+- **DDL & DML (Update/Insert)**: Supports text reporting for "affected rows" and query execution speed for non-SELECT commands (displays Alert Success instead of returning a ResultGrid).
 
-## 7. Truy vấn lịch sử (Query History Panel)
-- **Panel riêng biệt**: Frame xem lịch sử bên tay trái Sidebar (History icon tab).
-- **Lưu toàn bộ context**: Lưu cả string Query (highlight SQL), Profile đã thực thi, User thực thi, Lỗi gặp phải (nếu error), Thời gian DB trả về. Limit danh sách quay vòng (mặc định 500 limit).
-- **Thao tác nhanh**: Click chuột lịch sử đổ thẳng lại vào Editor đang kích hoạt. Hỗ trợ nút Trash để xóa sạch list.
+## 7. Query History Panel
+- **Dedicated Panel**: Separate history view frame on the left Sidebar (History icon tab).
+- **Full Context Storage**: Saves Query string (with SQL highlighting), Executed Profile, Database, Encountered Errors (if any), and DB Response Time. Rolling list limit (default 500 limit).
+- **Quick Actions**: Clicking on a history item inserts the query directly back into the active Monaco tab. Supports a Trash button to clear the entire list.
