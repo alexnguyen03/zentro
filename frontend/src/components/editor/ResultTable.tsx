@@ -10,6 +10,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FetchMoreRows } from '../../../wailsjs/go/app/App';
 import { useResultStore } from '../../stores/resultStore';
+import { useToast } from '../layout/Toast';
 import { Loader, ArrowUp, ArrowDown, Database, Lock, Unlock } from 'lucide-react';
 
 interface ResultTableProps {
@@ -23,6 +24,7 @@ interface ResultTableProps {
 
 export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells }) => {
     const { results, setOffset } = useResultStore();
+    const { toast } = useToast();
     const resultState = results[tabId];
 
     const isEditable = useMemo(() => {
@@ -91,6 +93,10 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
 
     const handleCellDoubleClick = React.useCallback((rIdx: number, cIdx: number, val: string) => {
         if (!isDone) return;
+        if (!isEditable) {
+            toast.error("Result is read-only. Make sure the query includes the primary key(s).");
+            return;
+        }
         const id = `${rIdx}:${cIdx}`;
         setEditingCell(id);
         setEditValue(val);
@@ -99,7 +105,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             setLastSelected(id);
             return new Set([id]);
         });
-    }, [isDone]);
+    }, [isDone, isEditable, toast]);
 
     const handleCommitEdit = React.useCallback(() => {
         const currentEditingCell = editingCellRef.current;
@@ -119,14 +125,14 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         setEditingCell(null);
     }, [setEditedCells]);
 
-    // Build TanStack column definitions
+    // Build TanStack column definitions - stable
     const colDefs = useMemo<ColumnDef<string[]>[]>(() => {
         const rowNumCol: ColumnDef<string[]> = {
             id: '__rownum__',
             header: () => (
                 <div
                     title={isEditable
-                        ? `Editable (${resultState.tableName})`
+                        ? `Editable (${resultState?.tableName})`
                         : "Read-only (No Primary Key or missing PK in SELECT)"}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'help' }}
                 >
@@ -152,26 +158,27 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             accessorFn: (row: string[]) => row[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
-            cell: ({ row, getValue }) => {
-                const cellId = `${row.index}:${colIdx}`;
-                const isSelected = selectedCells.has(cellId);
-                const isDirty = editedCells.has(cellId);
-                const isEditing = editingCell === cellId;
-                const origVal = getValue() as string;
-                const value = isDirty ? editedCells.get(cellId)! : origVal;
+            cell: (info) => {
+                const meta = info.table.options.meta as any;
+                const cellId = `${info.row.index}:${colIdx}`;
+                const isSelected = meta.selectedCells.has(cellId);
+                const isDirty = meta.editedCells.has(cellId);
+                const isEditing = meta.editingCell === cellId;
+                const origVal = info.getValue() as string;
+                const value = isDirty ? meta.editedCells.get(cellId)! : origVal;
 
                 if (isEditing) {
                     return (
                         <input
                             autoFocus
                             className="rt-cell-input"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
+                            value={meta.editValue}
+                            onChange={(e) => meta.setEditValue(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleCommitEdit();
-                                else if (e.key === 'Escape') setEditingCell(null);
+                                if (e.key === 'Enter') meta.handleCommitEdit();
+                                else if (e.key === 'Escape') meta.setEditingCell(null);
                             }}
-                            onBlur={handleCommitEdit}
+                            onBlur={meta.handleCommitEdit}
                             onClick={e => e.stopPropagation()}
                         />
                     );
@@ -180,8 +187,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return (
                     <div
                         className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
-                        onClick={(e) => handleCellClick(e, row.index, colIdx)}
-                        onDoubleClick={() => handleCellDoubleClick(row.index, colIdx, String(value))}
+                        onClick={(e) => meta.handleCellClick(e, info.row.index, colIdx)}
+                        onDoubleClick={() => meta.handleCellDoubleClick(info.row.index, colIdx, String(value))}
                         title={String(value)}
                     >
                         {String(value)}
@@ -191,12 +198,23 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns, selectedCells, editedCells, editingCell, editValue, isDone, isEditable, resultState?.tableName]);
+    }, [columns, isEditable, resultState?.tableName]);
 
     const table = useReactTable({
         data: rows,
         columns: colDefs,
         state: { sorting },
+        meta: {
+            selectedCells,
+            editedCells,
+            editingCell,
+            editValue,
+            handleCellClick,
+            handleCellDoubleClick,
+            setEditValue,
+            handleCommitEdit,
+            setEditingCell
+        },
         onSortingChange: canSortClientSide ? setSorting : undefined,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
