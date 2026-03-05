@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/core';
 
 export const QueryTabs: React.FC = () => {
-    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId } = useEditorStore();
+    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag } = useEditorStore();
     const { isConnected } = useConnectionStore();
 
     // Drag overlay state
@@ -118,6 +118,11 @@ export const QueryTabs: React.FC = () => {
 
             const newIndex = targetGroup.tabs.length;
             moveTab(activeId, sourceGroupId, targetGroupId, newIndex);
+        }
+        else if (overData.type === 'SplitLeft' || overData.type === 'SplitRight') {
+            const targetGroupId = overData.groupId;
+            const direction = overData.type === 'SplitLeft' ? 'left' : 'right';
+            splitGroupFromDrag(sourceGroupId, activeId, targetGroupId, direction);
         }
     };
 

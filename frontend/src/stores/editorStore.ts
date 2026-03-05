@@ -29,6 +29,7 @@ interface EditorState {
 
     // Split View Actions
     splitGroup: (sourceGroupId: string, tabId: string) => void;
+    splitGroupFromDrag: (sourceGroupId: string, tabId: string, targetGroupId: string, direction: 'left' | 'right') => void;
     closeGroup: (groupId: string) => void;
 
     // DnD Actions
@@ -175,6 +176,45 @@ export const useEditorStore = create<EditorState>()(
 
                 return {
                     groups: newGroups,
+                    activeGroupId: newGroupId
+                };
+            }),
+
+            splitGroupFromDrag: (sourceGroupId, tabId, targetGroupId, direction) => set((state) => {
+                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
+                if (!sourceGroup) return state;
+
+                const tabToMove = sourceGroup.tabs.find(t => t.id === tabId);
+                if (!tabToMove) return state;
+
+                // Move tab out of source group
+                const newSourceTabs = sourceGroup.tabs.filter(t => t.id !== tabId);
+                let newSourceActiveId = sourceGroup.activeTabId;
+                if (newSourceActiveId === tabId) {
+                    newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
+                }
+
+                const newGroupId = crypto.randomUUID();
+                const newGroup: TabGroup = {
+                    id: newGroupId,
+                    tabs: [tabToMove],
+                    activeTabId: tabId,
+                };
+
+                const intermediateGroups = state.groups.map(g =>
+                    g.id === sourceGroupId
+                        ? { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId }
+                        : g
+                );
+
+                const targetIndex = intermediateGroups.findIndex(g => g.id === targetGroupId);
+                if (targetIndex === -1) return state;
+
+                const insertIndex = direction === 'left' ? targetIndex : targetIndex + 1;
+                intermediateGroups.splice(insertIndex, 0, newGroup);
+
+                return {
+                    groups: intermediateGroups,
                     activeGroupId: newGroupId
                 };
             }),

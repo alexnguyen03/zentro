@@ -7,6 +7,7 @@ import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
+import { useDroppable } from '@dnd-kit/core';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -30,6 +31,18 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
 
     const activeTab = tabs.find(t => t.id === activeTabId);
     const activeResult = activeTabId ? results[activeTabId] : undefined;
+
+    // Edge drop zones for splitting
+    const { setNodeRef: setLeftNodeRef, isOver: isLeftOver, active: dragActive } = useDroppable({
+        id: `split-left-${groupId}`,
+        data: { type: 'SplitLeft', groupId }
+    });
+    const { setNodeRef: setRightNodeRef, isOver: isRightOver } = useDroppable({
+        id: `split-right-${groupId}`,
+        data: { type: 'SplitRight', groupId }
+    });
+
+    const isDraggingTab = dragActive?.data.current?.type === 'Tab';
 
     // ── Tab open/close ────────────────────────────────────────────────────
     const handleClose = useCallback((id: string) => {
@@ -113,6 +126,15 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             />
 
             <div className={`query-tabs-body ${isActiveGroup ? 'active-group-body' : ''}`} ref={containerRef} style={{ flex: 1, position: 'relative' }}>
+                {isDraggingTab && (
+                    <>
+                        <div ref={setLeftNodeRef} className="split-drop-zone left" />
+                        <div ref={setRightNodeRef} className="split-drop-zone right" />
+                    </>
+                )}
+                {isLeftOver && <div className="split-snap-preview left" />}
+                {isRightOver && <div className="split-snap-preview right" />}
+
                 {tabs.length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>
                         No open tabs in this group.
