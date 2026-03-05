@@ -527,6 +527,39 @@ func (a *App) execNonSelect(ctx context.Context, tabID, query string, start time
 	a.emitDone(tabID, affected, dur, false, nil)
 }
 
+// FetchTotalRowCount returns the total row count for the last executed query in the given tab.
+func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
+	a.activeQueriesMu.Lock()
+	query, ok := a.activeQueries[tabID]
+	a.activeQueriesMu.Unlock()
+
+	if !ok || query == "" {
+		return 0, fmt.Errorf("no active query found for count")
+	}
+
+	if a.db == nil {
+		return 0, fmt.Errorf("no active connection")
+	}
+
+	// Remove trailing semicolon if exists, to safely wrap in subquery
+	// Simple trim works for basic cases
+
+	// Create a subquery to count all rows without fetching them
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS zentro_count", query)
+
+	var count int64
+	// Don't use a.ctx here directly if we want it cancellable, but a.ctx is fine for short counts
+	// or we can use a timeout context.
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+
+	err := a.db.QueryRowContext(ctx, countQuery).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // CancelQuery cancels the running query for the specified tab.
 func (a *App) CancelQuery(tabID string) {
 	if s, ok := a.sessions[tabID]; ok {

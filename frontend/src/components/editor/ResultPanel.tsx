@@ -1,10 +1,10 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Download, Loader, RotateCcw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Calculator } from 'lucide-react';
 import { TabResult } from '../../stores/resultStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { ResultTable } from './ResultTable';
-import { ExportCSV } from '../../../wailsjs/go/app/App';
+import { ExportCSV, FetchTotalRowCount } from '../../../wailsjs/go/app/App';
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 
@@ -19,6 +19,30 @@ const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const { toast } = useToast();
+
+    const [totalCount, setTotalCount] = React.useState<number | null>(null);
+    const [isCounting, setIsCounting] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!result?.isDone) {
+            setTotalCount(null);
+            setIsCounting(false);
+        }
+    }, [result?.isDone]);
+
+    const handleCountTotal = async () => {
+        if (!tabId) return;
+        setIsCounting(true);
+        try {
+            const count = await FetchTotalRowCount(tabId);
+            setTotalCount(count);
+        } catch (err) {
+            toast.error(`Count failed: ${err}`);
+            useStatusStore.getState().setMessage(`Count failed: ${err}`);
+        } finally {
+            setIsCounting(false);
+        }
+    };
 
     const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newLimit = parseInt(e.target.value) || 1000;
@@ -89,6 +113,22 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                         </select>
                         &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
                     </span>
+                    {totalCount !== null ? (
+                        <span className="result-stats" style={{ marginLeft: 8 }}>
+                            (Total: <strong>{totalCount.toLocaleString()}</strong>)
+                        </span>
+                    ) : (
+                        <button
+                            className="result-toolbar-btn"
+                            style={{ marginLeft: 8 }}
+                            onClick={handleCountTotal}
+                            disabled={isCounting || !result.isDone}
+                            title="Count total rows for this query"
+                        >
+                            {isCounting ? <Loader size={12} className="result-spinner" /> : <Calculator size={12} />}
+                            <span style={{ marginLeft: 4 }}>{isCounting ? 'Counting...' : 'Total'}</span>
+                        </button>
+                    )}
                 </div>
                 <div className="result-toolbar-center">
                     {onRun && (
