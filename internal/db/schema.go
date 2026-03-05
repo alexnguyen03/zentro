@@ -36,6 +36,20 @@ func FetchDatabases(db *sql.DB, driverName, currentDB string, showAllSchemas boo
 	return dbs, nil
 }
 
+// FetchTablePrimaryKeys finds the primary key columns given a driver, schema, and table name.
+// Pattern: Facade matching other driver methods.
+func FetchTablePrimaryKeys(db *sql.DB, driverName, schema, table string) ([]string, error) {
+	d, ok := core.Get(driverName)
+	if !ok {
+		return nil, fmt.Errorf("schema: unsupported driver %q", driverName)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return d.FetchTablePrimaryKeys(ctx, db, schema, table)
+}
+
 // FetchAllDatabaseSchemas fetches schemas for all databases not yet loaded.
 // openFn opens a fresh connection for each database (required by PostgreSQL).
 func FetchAllDatabaseSchemas(

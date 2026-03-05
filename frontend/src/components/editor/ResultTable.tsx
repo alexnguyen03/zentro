@@ -10,18 +10,25 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FetchMoreRows } from '../../../wailsjs/go/app/App';
 import { useResultStore } from '../../stores/resultStore';
-import { Loader, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader, ArrowUp, ArrowDown, Database, Lock, Unlock } from 'lucide-react';
 
 interface ResultTableProps {
     tabId: string;
     columns: string[];
     rows: string[][];
     isDone: boolean;
+    editedCells: Map<string, string>;
+    setEditedCells: (map: Map<string, string>) => void;
 }
 
-export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone }) => {
+export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells }) => {
     const { results, setOffset } = useResultStore();
     const resultState = results[tabId];
+
+    const isEditable = useMemo(() => {
+        if (!resultState?.tableName || !resultState?.primaryKeys?.length) return false;
+        return resultState.primaryKeys.every(pk => columns.includes(pk));
+    }, [resultState?.tableName, resultState?.primaryKeys, columns]);
 
     // Disable sorting locally if we haven't loaded everything yet (true infinite scroll limitation)
     const canSortClientSide = isDone && !resultState?.hasMore;
@@ -30,7 +37,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
 
     // Batch Edit States
     const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
-    const [editedCells, setEditedCells] = useState<Map<string, string>>(new Map());
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
     const [lastSelected, setLastSelected] = useState<string | null>(null);
@@ -38,7 +44,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     useEffect(() => {
         if (!isDone) {
             setSelectedCells(new Set());
-            setEditedCells(new Map());
             setEditingCell(null);
             setLastSelected(null);
         }
@@ -73,7 +78,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     };
 
     const handleCellDoubleClick = (rIdx: number, cIdx: number, val: string) => {
-        if (!isDone) return;
+        if (!isDone || !isEditable) return;
         const id = `${rIdx}:${cIdx}`;
         setEditingCell(id);
         setEditValue(val);
@@ -104,7 +109,20 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     const colDefs = useMemo<ColumnDef<string[]>[]>(() => {
         const rowNumCol: ColumnDef<string[]> = {
             id: '__rownum__',
-            header: '#',
+            header: () => (
+                <div
+                    title={isEditable
+                        ? `Editable (${resultState.tableName})`
+                        : "Read-only (No Primary Key or missing PK in SELECT)"}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'help' }}
+                >
+                    #
+                    {isEditable
+                        ? <Unlock size={10} style={{ color: 'var(--color-success)' }} />
+                        : <Lock size={10} style={{ color: 'var(--color-warning)' }} />
+                    }
+                </div>
+            ),
             enableSorting: false,
             size: 52,
             cell: ({ row }) => (
@@ -159,7 +177,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns, selectedCells, editedCells, editingCell, editValue, isDone]);
+    }, [columns, selectedCells, editedCells, editingCell, editValue, isDone, isEditable, resultState?.tableName]);
 
     const table = useReactTable({
         data: rows,

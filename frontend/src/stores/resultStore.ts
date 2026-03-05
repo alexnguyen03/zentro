@@ -11,13 +11,21 @@ export interface TabResult {
     hasMore: boolean;
     offset: number;
     isFetchingMore: boolean;
+    tableName?: string;
+    primaryKeys?: string[];
 }
 
 interface ResultState {
     results: Record<string, TabResult>;
 
     initTab: (tabId: string) => void;
-    appendRows: (tabId: string, columns: string[] | undefined, rows: string[][]) => void;
+    appendRows: (
+        tabId: string,
+        columns: string[] | undefined,
+        rows: string[][],
+        tableName?: string,
+        primaryKeys?: string[]
+    ) => void;
     setDone: (tabId: string, affected: number, duration: number, isSelect: boolean, hasMore: boolean, error?: string) => void;
     setOffset: (tabId: string, offset: number) => void;
     clearResult: (tabId: string) => void;
@@ -30,11 +38,24 @@ export const useResultStore = create<ResultState>((set, get) => ({
     initTab: (tabId) => set((state) => ({
         results: {
             ...state.results,
-            [tabId]: { columns: [], rows: [], isDone: false, affected: 0, duration: 0, isSelect: true, error: undefined, hasMore: true, offset: 0, isFetchingMore: false }
+            [tabId]: {
+                columns: [],
+                rows: [],
+                isDone: false,
+                affected: 0,
+                duration: 0,
+                isSelect: true,
+                error: undefined,
+                hasMore: true,
+                offset: 0,
+                isFetchingMore: false,
+                tableName: undefined,
+                primaryKeys: undefined
+            }
         }
     })),
 
-    appendRows: (tabId, columns, rows) => set((state) => {
+    appendRows: (tabId, columns, rows, tableName, primaryKeys) => set((state) => {
         const prev = state.results[tabId];
         if (!prev) return state; // Should be initialized
 
@@ -45,6 +66,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
                     ...prev,
                     columns: columns || prev.columns,
                     rows: [...prev.rows, ...rows],
+                    tableName: tableName || prev.tableName,
+                    primaryKeys: primaryKeys || prev.primaryKeys,
                 }
             }
         };

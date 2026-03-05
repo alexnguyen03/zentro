@@ -443,6 +443,24 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 	cols, _ := rows.Columns()
 	colCount := len(cols)
 
+	var tableName string
+	var pks []string
+	if offset == 0 {
+		schema, table := dbpkg.ExtractTableFromQuery(query)
+		if table != "" {
+			if schema == "" && driver == "postgres" && a.profile != nil {
+				schema = "public"
+			} else if schema == "" && driver == "sqlserver" {
+				schema = "dbo"
+			}
+			keys, err := dbpkg.FetchTablePrimaryKeys(a.db, driver, schema, table)
+			if err == nil && len(keys) > 0 {
+				tableName = table
+				pks = keys
+			}
+		}
+	}
+
 	seq := 0
 	buf := make([][]string, 0, 500)
 	sentCols := false
@@ -458,8 +476,10 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 			if !sentCols {
 				chunkCols = cols
 				sentCols = true
+				emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
+			} else {
+				emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, "", nil))
 			}
-			emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
 			buf = buf[:0]
 			seq++
 		}
@@ -469,8 +489,10 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 		var chunkCols []string
 		if !sentCols {
 			chunkCols = cols
+			emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
+		} else {
+			emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, "", nil))
 		}
-		emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq))
 	}
 
 	// hasMore is true only when we fetched exactly fetchLimit rows — meaning there may be more pages.
@@ -745,7 +767,7 @@ func (a *App) emitDoneWithMore(tabID string, affected int64, duration time.Durat
 	emitEvent(a.ctx, "query:done", payload)
 }
 
-func buildChunk(tabID string, cols []string, rows [][]string, seq int) map[string]any {
+func buildChunk(tabID string, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
 	chunk := map[string]any{
 		"tabID": tabID,
 		"rows":  rows,
@@ -753,6 +775,12 @@ func buildChunk(tabID string, cols []string, rows [][]string, seq int) map[strin
 	}
 	if cols != nil {
 		chunk["columns"] = cols
+	}
+	if tableName != "" {
+		chunk["tableName"] = tableName
+	}
+	if len(pks) > 0 {
+		chunk["primaryKeys"] = pks
 	}
 	return chunk
 }

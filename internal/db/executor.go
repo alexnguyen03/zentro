@@ -21,6 +21,9 @@ var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bTOP\b|\bOFFSET\b`)
 // used to inject TOP N for MSSQL.
 var selectTopPattern = regexp.MustCompile(`(?i)^(SELECT)(\s+)`)
 
+// fromPattern matches "FROM [schema.]table" to extract for in-line editing.
+var fromPattern = regexp.MustCompile(`(?i)\bFROM\s+([a-zA-Z0-9_"\[\]]+)(?:\.([a-zA-Z0-9_"\[\]]+))?`)
+
 // IsSelectQuery returns true for read-only query types (SELECT, WITH, SHOW, EXPLAIN).
 func IsSelectQuery(query string) bool {
 	upper := strings.ToUpper(strings.TrimSpace(query))
@@ -30,6 +33,24 @@ func IsSelectQuery(query string) bool {
 		}
 	}
 	return false
+}
+
+// ExtractTableFromQuery tries to parse a simple SELECT query to find the target schema and table.
+func ExtractTableFromQuery(query string) (schema, table string) {
+	matches := fromPattern.FindStringSubmatch(query)
+	if len(matches) < 2 {
+		return "", ""
+	}
+
+	// If only one match, it's the table name.
+	// If two matches (like schema.table), matches[1] is schema, matches[2] is table.
+	if len(matches) == 3 && matches[2] != "" {
+		schema = strings.Trim(matches[1], `"[]`)
+		table = strings.Trim(matches[2], `"[]`)
+	} else {
+		table = strings.Trim(matches[1], `"[]`)
+	}
+	return schema, table
 }
 
 // InjectLimitIfMissing appends a row-limit clause to a SELECT query if none exists.

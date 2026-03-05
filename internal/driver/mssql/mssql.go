@@ -163,6 +163,35 @@ func (d *MSSQLDriver) FetchSchema(ctx context.Context, db *sql.DB, showAllSchema
 	return nodes, nil
 }
 
+// FetchTablePrimaryKeys returns the primary key columns for a given table.
+func (d *MSSQLDriver) FetchTablePrimaryKeys(ctx context.Context, db *sql.DB, schema, table string) ([]string, error) {
+	query := `
+		SELECT c.name
+		FROM sys.indexes i
+		JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+		JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+		JOIN sys.tables t ON i.object_id = t.object_id
+		JOIN sys.schemas s ON t.schema_id = s.schema_id
+		WHERE i.is_primary_key = 1
+		  AND t.name = @p1
+		  AND s.name = @p2
+	`
+	rows, err := db.QueryContext(ctx, query, table, schema)
+	if err != nil {
+		return nil, fmt.Errorf("mssql: fetch primary keys: %w", err)
+	}
+	defer rows.Close()
+
+	var pks []string
+	for rows.Next() {
+		var pk string
+		if rows.Scan(&pk) == nil {
+			pks = append(pks, pk)
+		}
+	}
+	return pks, nil
+}
+
 func containsAny(s string, subs ...string) bool {
 	for _, sub := range subs {
 		if strings.Contains(s, sub) {

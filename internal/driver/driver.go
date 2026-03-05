@@ -28,6 +28,8 @@ type SchemaFetcher interface {
 	FetchDatabases(ctx context.Context, db *sql.DB, currentDB string, showAllSchemas bool, logger *slog.Logger) ([]*models.DatabaseInfo, error)
 	// FetchSchema returns schemas+tables+views for the currently connected database.
 	FetchSchema(ctx context.Context, db *sql.DB, showAllSchemas bool, logger *slog.Logger) ([]*models.SchemaNode, error)
+	// FetchTablePrimaryKeys returns the primary key columns for a given table.
+	FetchTablePrimaryKeys(ctx context.Context, db *sql.DB, schema, table string) ([]string, error)
 }
 
 // DatabaseDriver is the full extension point: Connector + SchemaFetcher.

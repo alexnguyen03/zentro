@@ -57,6 +57,8 @@ export interface QueryChunkPayload {
     columns?: string[];
     rows: string[][];
     seq: number;
+    tableName?: string;
+    primaryKeys?: string[];
 }
 
 export interface QueryDonePayload {

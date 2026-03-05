@@ -367,7 +367,36 @@ func (d *PostgresDriver) populateSchema(ctx context.Context, db *sql.DB, schema 
 		"sequences", len(node.Sequences),
 		"types", len(node.DataTypes),
 		"aggregates", len(node.AggregateFunctions),
+		"aggregates", len(node.AggregateFunctions),
 	)
+}
+
+// FetchTablePrimaryKeys returns the primary key columns for a given table.
+func (d *PostgresDriver) FetchTablePrimaryKeys(ctx context.Context, db *sql.DB, schema, table string) ([]string, error) {
+	query := `
+		SELECT a.attname
+		FROM   pg_index i
+		JOIN   pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+		JOIN   pg_class c ON c.oid = i.indrelid
+		JOIN   pg_namespace n ON n.oid = c.relnamespace
+		WHERE  i.indisprimary
+		AND    c.relname = $1
+		AND    n.nspname = $2
+	`
+	rows, err := db.QueryContext(ctx, query, table, schema)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: fetch primary keys: %w", err)
+	}
+	defer rows.Close()
+
+	var pks []string
+	for rows.Next() {
+		var pk string
+		if rows.Scan(&pk) == nil {
+			pks = append(pks, pk)
+		}
+	}
+	return pks, nil
 }
 
 func containsAny(s string, subs ...string) bool {

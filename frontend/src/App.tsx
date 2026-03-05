@@ -82,8 +82,8 @@ function App() {
                 setTabRunning(tabID, true);
                 initTab(tabID);
             }),
-            onQueryChunk(({ tabID, columns, rows }) => {
-                appendRows(tabID, columns, rows);
+            onQueryChunk(({ tabID, columns, rows, tableName, primaryKeys }) => {
+                appendRows(tabID, columns, rows, tableName, primaryKeys);
             }),
             onQueryDone(({ tabID, affected, duration, isSelect, hasMore, error }) => {
                 setTabRunning(tabID, false);
