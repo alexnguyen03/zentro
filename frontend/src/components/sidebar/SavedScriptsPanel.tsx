@@ -16,7 +16,7 @@ function formatDate(iso: string): string {
 export const SavedScriptsPanel: React.FC = () => {
     const { scripts, loadScripts, deleteScript, getContent } = useScriptStore();
     const { activeProfile } = useConnectionStore();
-    const { addTab, setActiveTabId } = useEditorStore();
+    const { addTab } = useEditorStore();
     const [search, setSearch] = useState('');
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
@@ -33,12 +33,11 @@ export const SavedScriptsPanel: React.FC = () => {
         if (!connectionName) return;
         try {
             const content = await getContent(connectionName, scriptId);
-            const id = addTab({ name: scriptName, query: content });
-            setActiveTabId(id);
+            addTab({ name: scriptName, query: content });
         } catch (e) {
             console.error('Failed to load script content', e);
         }
-    }, [connectionName, getContent, addTab, setActiveTabId]);
+    }, [connectionName, getContent, addTab]);
 
     const handleDelete = useCallback(async (scriptId: string) => {
         if (confirmDelete !== scriptId) {

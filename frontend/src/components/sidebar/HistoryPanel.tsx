@@ -30,7 +30,7 @@ export const HistoryPanel: React.FC = () => {
     const [entries, setEntries] = useState<HistoryEntry[]>([]);
     const [search, setSearch] = useState('');
     const [confirmClear, setConfirmClear] = useState(false);
-    const { tabs, activeTabId, addTab, setTabQuery, setActiveTabId } = useEditorStore();
+    const { groups, activeGroupId, addTab, setTabQuery } = useEditorStore();
 
     const load = useCallback(async () => {
         try {
@@ -46,11 +46,13 @@ export const HistoryPanel: React.FC = () => {
     }, [load]);
 
     const pasteQuery = (query: string) => {
-        if (activeTabId) {
+        const activeGroup = groups.find(g => g.id === activeGroupId);
+        const activeTabId = activeGroup?.activeTabId;
+
+        if (activeTabId && activeGroupId) {
             setTabQuery(activeTabId, query);
         } else {
-            const id = addTab({ query });
-            setActiveTabId(id);
+            addTab({ query });
         }
     };
 

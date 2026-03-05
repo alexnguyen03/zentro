@@ -1,108 +1,128 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Allotment } from 'allotment';
+import 'allotment/dist/style.css';
 import { useEditorStore } from '../../stores/editorStore';
-import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { useScriptStore } from '../../stores/scriptStore';
-import { TabBar } from './TabBar';
-import { MonacoEditorWrapper } from './MonacoEditor';
-import { ResultPanel } from './ResultPanel';
-import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
-
-const DIVIDER_MIN_TOP = 80;   // px — Monaco min height
-const DIVIDER_MIN_BOT = 80;   // px — ResultPanel min height
+import { QueryGroup } from './QueryGroup';
+import {
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    closestCenter
+} from '@dnd-kit/core';
 
 export const QueryTabs: React.FC = () => {
-    const { tabs, activeTabId, addTab, removeTab, setActiveTabId, updateTabQuery, renameTab } = useEditorStore();
-    const { results } = useResultStore();
-    const { isConnected, activeProfile } = useConnectionStore();
-    const { saveScript } = useScriptStore();
+    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId } = useEditorStore();
+    const { isConnected } = useConnectionStore();
 
-    // VSplit divider state
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [splitPct, setSplitPct] = useState(55); // monaco takes 55% by default
-    const isDragging = useRef(false);
+    // Drag overlay state
+    const [activeDragTab, setActiveDragTab] = useState<any>(null);
 
-    const activeTab = tabs.find(t => t.id === activeTabId);
-    const activeResult = activeTabId ? results[activeTabId] : undefined;
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        })
+    );
 
     // ── Keyboard shortcuts ────────────────────────────────────────────────
     useEffect(() => {
         const handleKey = (e: KeyboardEvent) => {
             const mod = e.ctrlKey || e.metaKey;
-            if (mod && e.key === 't') { e.preventDefault(); addTab(); }
-            if (mod && e.key === 'w') { e.preventDefault(); if (activeTabId) handleClose(activeTabId); }
-            // Ctrl+S → save active tab as script
-            if (mod && e.key === 's') {
+            if (mod && e.key === 't') { e.preventDefault(); addTab(undefined, activeGroupId || undefined); }
+            if (mod && e.key === 'w') {
                 e.preventDefault();
-                if (activeTabId) {
-                    window.dispatchEvent(new CustomEvent('zentro:save-script', { detail: activeTabId }));
+                if (activeGroupId) {
+                    const activeGroup = groups.find(g => g.id === activeGroupId);
+                    if (activeGroup && activeGroup.activeTabId) {
+                        const tab = activeGroup.tabs.find(t => t.id === activeGroup.activeTabId);
+                        if (tab?.query && !confirm(`Close "${tab.name}"? Query text will be lost.`)) return;
+                        removeTab(activeGroup.activeTabId, activeGroupId);
+                    }
                 }
             }
-            // F2 → rename active tab
-            if (e.key === 'F2' && activeTabId) {
+            if (mod && e.key === 's') {
                 e.preventDefault();
-                window.dispatchEvent(new CustomEvent('zentro:rename-tab', { detail: activeTabId }));
+                if (activeGroupId) {
+                    const activeGroup = groups.find(g => g.id === activeGroupId);
+                    if (activeGroup && activeGroup.activeTabId) {
+                        window.dispatchEvent(new CustomEvent('zentro:save-script', { detail: activeGroup.activeTabId }));
+                    }
+                }
+            }
+            if (e.key === 'F2' && activeGroupId) {
+                e.preventDefault();
+                const activeGroup = groups.find(g => g.id === activeGroupId);
+                if (activeGroup && activeGroup.activeTabId) {
+                    window.dispatchEvent(new CustomEvent('zentro:rename-tab', { detail: activeGroup.activeTabId }));
+                }
             }
         };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [activeTabId, addTab]);
+    }, [activeGroupId, addTab, groups, removeTab]);
 
-    // ── Tab open/close ────────────────────────────────────────────────────
-    const handleClose = useCallback((id: string) => {
-        const tab = tabs.find(t => t.id === id);
-        if (tab?.query && !confirm(`Close "${tab.name}"? Query text will be lost.`)) return;
-        removeTab(id);
-    }, [tabs, removeTab]);
-
-    // ── Run / Cancel ──────────────────────────────────────────────────────
-    const handleRun = useCallback(async () => {
-        if (!activeTab || !isConnected) return;
-        try {
-            await ExecuteQuery(activeTab.id, activeTab.query);
-        } catch (err: any) {
-            console.error('ExecuteQuery error:', err);
-        }
-    }, [activeTab, isConnected]);
-
-    const handleCancel = useCallback(async () => {
-        if (!activeTabId) return;
-        try { await CancelQuery(activeTabId); } catch { /* swallow */ }
-    }, [activeTabId]);
-
-    const handleSaveScript = useCallback(async (tabId: string, scriptName: string) => {
-        const tab = tabs.find(t => t.id === tabId);
-        const connectionName = activeProfile?.name;
-        if (!tab || !connectionName) return;
-        try {
-            await saveScript(connectionName, scriptName, tab.query);
-        } catch (e) {
-            console.error('Save script failed', e);
-        }
-    }, [tabs, activeProfile, saveScript]);
-
-    // ── VSplit drag ───────────────────────────────────────────────────────
-    const startDrag = useCallback(() => { isDragging.current = true; }, []);
-
+    // Handle automatically closing groups when they are empty
     useEffect(() => {
-        const onMove = (e: MouseEvent) => {
-            if (!isDragging.current || !containerRef.current) return;
-            const rect = containerRef.current.getBoundingClientRect();
-            const totalH = rect.height;
-            const offsetY = e.clientY - rect.top;
-            const pct = (offsetY / totalH) * 100;
-            const minPct = (DIVIDER_MIN_TOP / totalH) * 100;
-            const maxPct = ((totalH - DIVIDER_MIN_BOT) / totalH) * 100;
-            setSplitPct(Math.min(maxPct, Math.max(minPct, pct)));
-        };
-        const onUp = () => { isDragging.current = false; };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-    }, []);
+        groups.forEach(g => {
+            if (g.tabs.length === 0 && groups.length > 1) {
+                closeGroup(g.id);
+            }
+        });
+    }, [groups, closeGroup]);
+
+    // ── Drag and Drop handlers ─────────────────────────────────────────────
+    const handleDragStart = (e: DragStartEvent) => {
+        const { active } = e;
+        if (active.data.current?.type === 'Tab') {
+            setActiveDragTab(active.data.current.tab);
+            // Optionally focus the group where drag started
+            setActiveGroupId(active.data.current.groupId);
+        }
+    };
+
+    const handleDragEnd = (e: DragEndEvent) => {
+        setActiveDragTab(null);
+        const { active, over } = e;
+        if (!over) return;
+
+        const activeId = active.id as string;
+        const overId = over.id as string;
+
+        if (activeId === overId) return;
+
+        const activeData = active.data.current;
+        const overData = over.data.current;
+
+        if (!activeData || !overData) return;
+
+        const sourceGroupId = activeData.groupId;
+
+        if (overData.type === 'Tab') {
+            const targetGroupId = overData.groupId;
+            const targetGroup = groups.find(g => g.id === targetGroupId);
+            if (!targetGroup) return;
+
+            const newIndex = targetGroup.tabs.findIndex(t => t.id === overId);
+            moveTab(activeId, sourceGroupId, targetGroupId, newIndex);
+        }
+        else if (overData.type === 'Group') {
+            const targetGroupId = overData.groupId;
+            const targetGroup = groups.find(g => g.id === targetGroupId);
+            if (!targetGroup) return;
+
+            const newIndex = targetGroup.tabs.length;
+            moveTab(activeId, sourceGroupId, targetGroupId, newIndex);
+        }
+    };
 
     // ── Empty state ───────────────────────────────────────────────────────
-    if (tabs.length === 0) {
+    if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
         return (
             <div className="empty-editor-state">
                 <div className="empty-editor-content">
@@ -120,44 +140,40 @@ export const QueryTabs: React.FC = () => {
     }
 
     return (
-        <div className="query-tabs-root">
-            <TabBar
-                tabs={tabs}
-                activeTabId={activeTabId}
-                onActivate={setActiveTabId}
-                onClose={handleClose}
-                onNewTab={addTab}
-                onRename={renameTab}
-                onSaveScript={handleSaveScript}
-            />
-
-            <div className="query-tabs-body" ref={containerRef}>
-                {/* Monaco editors — all rendered but only active one visible */}
-                <div className="editor-pane" style={{ height: `${splitPct}%` }}>
-                    {tabs.map(tab => (
-                        <div
-                            key={tab.id}
-                            style={{ display: tab.id === activeTabId ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}
-                        >
-                            <MonacoEditorWrapper
-                                tabId={tab.id}
-                                value={tab.query}
-                                onChange={(v) => updateTabQuery(tab.id, v)}
-                                onRun={handleRun}
-                            />
-                        </div>
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+        >
+            <div className="query-tabs-root" style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'row' }}>
+                <Allotment separator={false}>
+                    {groups.map((group, index) => (
+                        <Allotment.Pane key={group.id} minSize={300}>
+                            <div style={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                borderLeft: index > 0 ? '1px solid var(--border-color)' : 'none'
+                            }}>
+                                <QueryGroup
+                                    group={group}
+                                    isActiveGroup={group.id === activeGroupId}
+                                />
+                            </div>
+                        </Allotment.Pane>
                     ))}
-                </div>
-
-                <div
-                    className="vsplit-divider"
-                    onMouseDown={startDrag}
-                />
-
-                <div className="result-pane" style={{ height: `calc(${100 - splitPct}% - 4px)` }}>
-                    <ResultPanel tabId={activeTabId ?? ''} result={activeResult} onRun={handleRun} />
-                </div>
+                </Allotment>
             </div>
-        </div>
+
+            {/* Drag Overlay for smooth visual feedback while dragging outside the flow */}
+            <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+                {activeDragTab ? (
+                    <div className="tab-item active" style={{ cursor: 'grabbing', opacity: 0.9, width: 120 }}>
+                        <span className="tab-label">{activeDragTab.name}</span>
+                    </div>
+                ) : null}
+            </DragOverlay>
+        </DndContext>
     );
 };

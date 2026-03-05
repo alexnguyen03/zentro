@@ -10,14 +10,16 @@ import { ShortcutHelp } from './ShortcutHelp';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
-    const { tabs, activeTabId, addTab } = useEditorStore();
+    const { groups, activeGroupId, addTab } = useEditorStore();
     const { openModal } = useSettingsStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
     const breadcrumbRef = useRef<HTMLDivElement>(null);
 
-    const activeTab = tabs.find(t => t.id === activeTabId);
+    const activeGroup = groups.find(g => g.id === activeGroupId);
+    const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
+    const activeTabId = activeGroup?.activeTabId;
     const isRunning = activeTab?.isRunning ?? false;
 
     const handleRun = async () => {

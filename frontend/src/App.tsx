@@ -30,7 +30,7 @@ function App() {
     // ── Before-close guard ────────────────────────────────────────────────
     useEffect(() => {
         const off = EventsOn('app:before-close', () => {
-            const running = useEditorStore.getState().tabs.some(t => t.isRunning);
+            const running = useEditorStore.getState().groups.some(g => g.tabs.some(t => t.isRunning));
             if (!running) {
                 Quit();
                 return;
