@@ -4,19 +4,21 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { utils } from '../../../wailsjs/go/models';
 
 export const SettingsDialog: React.FC = () => {
-    const { isOpen, closeModal, theme, fontSize, defaultLimit, save } = useSettingsStore();
+    const { isOpen, closeModal, theme, fontSize, defaultLimit, toastPlacement, save } = useSettingsStore();
 
     const [formTheme, setFormTheme] = useState(theme);
     const [formFontSize, setFormFontSize] = useState(fontSize);
     const [formLimit, setFormLimit] = useState(defaultLimit);
+    const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
 
     useEffect(() => {
         if (isOpen) {
             setFormTheme(theme);
             setFormFontSize(fontSize);
             setFormLimit(defaultLimit);
+            setFormToastPlacement(toastPlacement);
         }
-    }, [isOpen, theme, fontSize, defaultLimit]);
+    }, [isOpen, theme, fontSize, defaultLimit, toastPlacement]);
 
     if (!isOpen) return null;
 
@@ -24,7 +26,8 @@ export const SettingsDialog: React.FC = () => {
         save(new utils.Preferences({
             theme: formTheme,
             font_size: formFontSize,
-            default_limit: formLimit
+            default_limit: formLimit,
+            toast_placement: formToastPlacement
         }));
     };
 
@@ -55,6 +58,19 @@ export const SettingsDialog: React.FC = () => {
                             value={formFontSize}
                             onChange={(e) => setFormFontSize(parseInt(e.target.value) || 14)}
                         />
+                    </div>
+
+                    <div className="form-group">
+                        <label>Toast Message Position</label>
+                        <select value={formToastPlacement} onChange={(e) => setFormToastPlacement(e.target.value as any)}>
+                            <option value="bottom-left">Bottom Left</option>
+                            <option value="bottom-center">Bottom Center</option>
+                            <option value="bottom-right">Bottom Right</option>
+                            <option value="top-left">Top Left</option>
+                            <option value="top-center">Top Center</option>
+                            <option value="top-right">Top Right</option>
+                        </select>
+                        <span className="form-hint">Choose where notification toasts will appear on screen.</span>
                     </div>
 
                     <div className="form-group">

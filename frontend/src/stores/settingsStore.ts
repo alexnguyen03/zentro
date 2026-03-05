@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { GetPreferences, SetPreferences } from '../../wailsjs/go/app/App';
 import { utils } from '../../wailsjs/go/models';
+import { ToastPlacement } from '../components/layout/Toast';
 
 interface SettingsState {
     theme: string;
     fontSize: number;
     defaultLimit: number;
+    toastPlacement: ToastPlacement;
     isOpen: boolean;
 
     load: () => Promise<void>;
@@ -18,6 +20,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     theme: 'system',
     fontSize: 14,
     defaultLimit: 1000,
+    toastPlacement: 'bottom-left',
     isOpen: false,
 
     load: async () => {
@@ -26,7 +29,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             set({
                 theme: prefs.theme || 'system',
                 fontSize: prefs.font_size || 14,
-                defaultLimit: prefs.default_limit || 1000
+                defaultLimit: prefs.default_limit || 1000,
+                toastPlacement: (prefs.toast_placement as ToastPlacement) || 'bottom-left',
             });
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme || 'system');
@@ -42,6 +46,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 theme: prefs.theme,
                 fontSize: prefs.font_size,
                 defaultLimit: prefs.default_limit,
+                toastPlacement: prefs.toast_placement as ToastPlacement,
                 isOpen: false
             });
             // Apply theme

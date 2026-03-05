@@ -15,9 +15,10 @@ import (
 
 // Preferences holds all user-configurable settings.
 type Preferences struct {
-	Theme        string `json:"theme"`         // "light" | "dark" | "system"
-	FontSize     int    `json:"font_size"`     // default 14
-	DefaultLimit int    `json:"default_limit"` // default 1000
+	Theme          string `json:"theme"`           // "light" | "dark" | "system"
+	FontSize       int    `json:"font_size"`       // default 14
+	DefaultLimit   int    `json:"default_limit"`   // default 1000
+	ToastPlacement string `json:"toast_placement"` // default bottom-left
 }
 
 // config is the root JSON structure written to disk.
@@ -68,6 +69,9 @@ func loadConfig() (*config, error) {
 	if cfg.Preferences.Theme == "" {
 		cfg.Preferences.Theme = "system"
 	}
+	if cfg.Preferences.ToastPlacement == "" {
+		cfg.Preferences.ToastPlacement = "bottom-left"
+	}
 	// Decode passwords
 	for _, p := range cfg.Connections {
 		if p.SavePassword && p.Password != "" {
@@ -111,7 +115,7 @@ func saveConfig(cfg *config) error {
 
 func defaultConfig() *config {
 	return &config{
-		Preferences: Preferences{Theme: "system", FontSize: 14, DefaultLimit: 1000},
+		Preferences: Preferences{Theme: "system", FontSize: 14, DefaultLimit: 1000, ToastPlacement: "bottom-left"},
 		Connections: []*models.ConnectionProfile{},
 	}
 }

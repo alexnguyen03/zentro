@@ -26,7 +26,16 @@ export const useToast = () => {
     return ctx;
 };
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export type ToastPlacement =
+    | 'top-left' | 'top-center' | 'top-right'
+    | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+interface ToastProviderProps {
+    children: React.ReactNode;
+    placement?: ToastPlacement;
+}
+
+export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placement = 'bottom-left' }) => {
     const [toasts, setToasts] = useState<ToastItem[]>([]);
     const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -54,7 +63,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return (
         <ToastContext.Provider value={{ toast }}>
             {children}
-            <div className="toast-container">
+            <div className={`toast-container toast-${placement}`}>
                 {toasts.map((t) => (
                     <div
                         key={t.id}
@@ -63,13 +72,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         onMouseLeave={() => { timers.current[t.id] = setTimeout(() => dismiss(t.id), 4000); }}
                     >
                         <span className="toast-icon">
-                            {t.variant === 'success' && <CheckCircle size={14} />}
-                            {t.variant === 'error' && <AlertCircle size={14} />}
-                            {t.variant === 'info' && <Info size={14} />}
+                            {t.variant === 'success' && <CheckCircle size={15} />}
+                            {t.variant === 'error' && <AlertCircle size={15} />}
+                            {t.variant === 'info' && <Info size={15} />}
                         </span>
                         <span className="toast-message">{t.message}</span>
                         <button className="toast-close" onClick={() => dismiss(t.id)}>
-                            <X size={12} />
+                            <X size={14} />
                         </button>
                     </div>
                 ))}
