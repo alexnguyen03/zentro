@@ -5,7 +5,7 @@ import { ConnectionTree } from './ConnectionTree';
 import { ConnectionDialog } from './ConnectionDialog';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
-import { LoadConnections, Connect } from '../../../wailsjs/go/app/App';
+import { LoadConnections, Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import '../layout/Sidebar.css';
@@ -31,10 +31,13 @@ export const Sidebar: React.FC = () => {
                     if (profile) {
                         try {
                             await Connect(profile.name);
+                            if (store.lastDatabaseName && store.lastDatabaseName !== profile.db_name) {
+                                await SwitchDatabase(store.lastDatabaseName);
+                            }
                         } catch (err) {
                             toast.error(`Auto-connect to ${profile.name} failed: ${err}`);
                             // Xóa lastProfileName nếu connect lỗi để k bị loop lỗi
-                            useConnectionStore.setState({ lastProfileName: null });
+                            useConnectionStore.setState({ lastProfileName: null, lastDatabaseName: null });
                         }
                     }
                 }

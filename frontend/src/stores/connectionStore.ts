@@ -10,6 +10,7 @@ interface ConnectionState {
     isConnected: boolean;
     databases: string[];
     lastProfileName: string | null;
+    lastDatabaseName: string | null;
 
     setConnections: (conns: ConnectionProfile[]) => void;
     setActiveProfile: (profile: ConnectionProfile | null) => void;
@@ -25,11 +26,13 @@ export const useConnectionStore = create<ConnectionState>()(
             isConnected: false,
             databases: [],
             lastProfileName: null,
+            lastDatabaseName: null,
 
             setConnections: (conns) => set({ connections: conns }),
             setActiveProfile: (profile) => set((state) => ({
                 activeProfile: profile,
-                lastProfileName: profile ? profile.name : state.lastProfileName
+                lastProfileName: profile ? profile.name : state.lastProfileName,
+                lastDatabaseName: profile ? profile.db_name : state.lastDatabaseName
             })),
             setIsConnected: (connected) => set({ isConnected: connected }),
             setDatabases: (dbs) => set({ databases: dbs })
@@ -38,6 +41,7 @@ export const useConnectionStore = create<ConnectionState>()(
             name: 'zentro:connection-store',
             partialize: (state) => ({
                 lastProfileName: state.lastProfileName,
+                lastDatabaseName: state.lastDatabaseName,
             })
         }
     )
