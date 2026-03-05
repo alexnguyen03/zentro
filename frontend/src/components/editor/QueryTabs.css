@@ -129,3 +129,64 @@
 .tab-new-btn:hover {
     color: var(--text-primary);
 }
+
+/* ─── Tab save prompt (inline name input) ───────────── */
+.tab-save-prompt {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.tab-save-input {
+    background: var(--bg-primary);
+    border: 1px solid var(--accent-color);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 3px 7px;
+    border-radius: 3px;
+    outline: none;
+    width: 160px;
+}
+
+.tab-save-confirm {
+    background: var(--accent-color);
+    border: none;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: opacity 0.1s;
+}
+
+.tab-save-confirm:hover {
+    opacity: 0.85;
+}
+
+.tab-save-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: color 0.1s;
+}
+
+.tab-save-cancel:hover {
+    color: var(--text-primary);
+}
+
+/* Save Script context menu item accent */
+.context-menu-item--save {
+    display: flex;
+    align-items: center;
+    color: var(--accent-color);
+}

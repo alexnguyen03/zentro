@@ -17,13 +17,31 @@ import {
     onQueryDone,
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
+import { EventsOn } from '../wailsjs/runtime/runtime';
+import { Quit } from '../wailsjs/runtime/runtime';
 
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
-    const { setTabRunning } = useEditorStore();
+    const { setTabRunning, addTab } = useEditorStore();
     const { initTab, appendRows, setDone, results } = useResultStore();
     const { setQueryStats } = useStatusStore();
     const { toast } = useToast();
+
+    // ── Before-close guard ────────────────────────────────────────────────
+    useEffect(() => {
+        const off = EventsOn('app:before-close', () => {
+            const running = useEditorStore.getState().tabs.some(t => t.isRunning);
+            if (!running) {
+                Quit();
+                return;
+            }
+            const ok = window.confirm(
+                'One or more queries are still running.\nStop them and close anyway?'
+            );
+            if (ok) Quit();
+        });
+        return () => { if (typeof off === 'function') off(); };
+    }, []);
 
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);

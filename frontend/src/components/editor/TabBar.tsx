@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, BookMarked } from 'lucide-react';
 import { Tab } from '../../stores/editorStore';
 
 interface TabBarProps {
@@ -9,6 +9,7 @@ interface TabBarProps {
     onClose: (id: string) => void;
     onNewTab: () => void;
     onRename: (id: string, newName: string) => void;
+    onSaveScript: (tabId: string, scriptName: string) => void;
 }
 
 interface ContextMenu {
@@ -24,11 +25,15 @@ export const TabBar: React.FC<TabBarProps> = ({
     onClose,
     onNewTab,
     onRename,
+    onSaveScript,
 }) => {
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
     const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+    const [savePrompt, setSavePrompt] = useState<{ tabId: string } | null>(null);
+    const [saveNameValue, setSaveNameValue] = useState('');
     const renameInputRef = useRef<HTMLInputElement>(null);
+    const saveInputRef = useRef<HTMLInputElement>(null);
 
     // Auto-focus rename input
     useEffect(() => {
@@ -37,6 +42,26 @@ export const TabBar: React.FC<TabBarProps> = ({
             renameInputRef.current.select();
         }
     }, [renamingId]);
+
+    // Auto-focus save prompt input
+    useEffect(() => {
+        if (savePrompt && saveInputRef.current) {
+            saveInputRef.current.focus();
+            saveInputRef.current.select();
+        }
+    }, [savePrompt]);
+
+    // Listen to Ctrl+S custom event from QueryTabs
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const tabId = (e as CustomEvent<string>).detail;
+            const tab = tabs.find(t => t.id === tabId);
+            setSaveNameValue(tab?.name ?? '');
+            setSavePrompt({ tabId });
+        };
+        window.addEventListener('zentro:save-script', handler);
+        return () => window.removeEventListener('zentro:save-script', handler);
+    }, [tabs]);
 
     // Close context menu on outside click
     useEffect(() => {
@@ -116,6 +141,50 @@ export const TabBar: React.FC<TabBarProps> = ({
             <button className="tab-new-btn" onClick={onNewTab} title="New Tab (Ctrl+T)">
                 <Plus size={14} />
             </button>
+            {/* Save script prompt */}
+            {savePrompt && (
+                <div
+                    className="tab-save-prompt"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <input
+                        ref={saveInputRef}
+                        className="tab-save-input"
+                        placeholder="Script name…"
+                        value={saveNameValue}
+                        onChange={(e) => setSaveNameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && saveNameValue.trim()) {
+                                onSaveScript(savePrompt.tabId, saveNameValue.trim());
+                                setSavePrompt(null);
+                                setSaveNameValue('');
+                            }
+                            if (e.key === 'Escape') {
+                                setSavePrompt(null);
+                                setSaveNameValue('');
+                            }
+                        }}
+                    />
+                    <button
+                        className="tab-save-confirm"
+                        onClick={() => {
+                            if (saveNameValue.trim()) {
+                                onSaveScript(savePrompt.tabId, saveNameValue.trim());
+                                setSavePrompt(null);
+                                setSaveNameValue('');
+                            }
+                        }}
+                    >
+                        Save
+                    </button>
+                    <button
+                        className="tab-save-cancel"
+                        onClick={() => { setSavePrompt(null); setSaveNameValue(''); }}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
 
             {contextMenu && (
                 <div
@@ -125,15 +194,27 @@ export const TabBar: React.FC<TabBarProps> = ({
                 >
                     <div
                         className="context-menu-item"
-                        onClick={() => { const t = tabs.find(t => t.id === contextMenu.tabId); if (t) startRename(t); setContextMenu(null); }}
+                        onClick={() => { const t = tabs.find(t => t.id === contextMenu!.tabId); if (t) startRename(t); setContextMenu(null); }}
                     >
                         Rename
                     </div>
-                    <div className="context-menu-item" onClick={() => { onClose(contextMenu.tabId); setContextMenu(null); }}>
+                    <div
+                        className="context-menu-item context-menu-item--save"
+                        onClick={() => {
+                            const tab = tabs.find(t => t.id === contextMenu!.tabId);
+                            setSaveNameValue(tab?.name ?? '');
+                            setSavePrompt({ tabId: contextMenu!.tabId });
+                            setContextMenu(null);
+                        }}
+                    >
+                        <BookMarked size={11} style={{ marginRight: 5 }} />
+                        Save Script
+                    </div>
+                    <div className="context-menu-item" onClick={() => { onClose(contextMenu!.tabId); setContextMenu(null); }}>
                         Close
                     </div>
                     <div className="context-menu-separator" />
-                    <div className="context-menu-item" onClick={() => closeOthers(contextMenu.tabId)}>
+                    <div className="context-menu-item" onClick={() => closeOthers(contextMenu!.tabId)}>
                         Close Others
                     </div>
                     <div className="context-menu-item" onClick={closeAll}>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useScriptStore } from '../../stores/scriptStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { ResultPanel } from './ResultPanel';
@@ -13,7 +14,8 @@ const DIVIDER_MIN_BOT = 80;   // px — ResultPanel min height
 export const QueryTabs: React.FC = () => {
     const { tabs, activeTabId, addTab, removeTab, setActiveTabId, updateTabQuery, renameTab } = useEditorStore();
     const { results } = useResultStore();
-    const isConnected = useConnectionStore(s => s.isConnected);
+    const { isConnected, activeProfile } = useConnectionStore();
+    const { saveScript } = useScriptStore();
 
     // VSplit divider state
     const containerRef = useRef<HTMLDivElement>(null);
@@ -29,11 +31,16 @@ export const QueryTabs: React.FC = () => {
             const mod = e.ctrlKey || e.metaKey;
             if (mod && e.key === 't') { e.preventDefault(); addTab(); }
             if (mod && e.key === 'w') { e.preventDefault(); if (activeTabId) handleClose(activeTabId); }
+            // Ctrl+S → save active tab as script
+            if (mod && e.key === 's') {
+                e.preventDefault();
+                if (activeTabId) {
+                    window.dispatchEvent(new CustomEvent('zentro:save-script', { detail: activeTabId }));
+                }
+            }
             // F2 → rename active tab
             if (e.key === 'F2' && activeTabId) {
                 e.preventDefault();
-                // TabBar will handle the rename via its own state,
-                // but we trigger it by dispatching a custom event
                 window.dispatchEvent(new CustomEvent('zentro:rename-tab', { detail: activeTabId }));
             }
         };
@@ -62,6 +69,17 @@ export const QueryTabs: React.FC = () => {
         if (!activeTabId) return;
         try { await CancelQuery(activeTabId); } catch { /* swallow */ }
     }, [activeTabId]);
+
+    const handleSaveScript = useCallback(async (tabId: string, scriptName: string) => {
+        const tab = tabs.find(t => t.id === tabId);
+        const connectionName = activeProfile?.name;
+        if (!tab || !connectionName) return;
+        try {
+            await saveScript(connectionName, scriptName, tab.query);
+        } catch (e) {
+            console.error('Save script failed', e);
+        }
+    }, [tabs, activeProfile, saveScript]);
 
     // ── VSplit drag ───────────────────────────────────────────────────────
     const startDrag = useCallback(() => { isDragging.current = true; }, []);
@@ -110,6 +128,7 @@ export const QueryTabs: React.FC = () => {
                 onClose={handleClose}
                 onNewTab={addTab}
                 onRename={renameTab}
+                onSaveScript={handleSaveScript}
             />
 
             <div className="query-tabs-body" ref={containerRef}>

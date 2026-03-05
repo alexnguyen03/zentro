@@ -82,6 +82,14 @@ func (a *App) Startup(ctx context.Context) {
 	a.logger.Info("zentro starting", "version", "0.2.0")
 }
 
+// OnBeforeClose is called by Wails when the user requests to close the window.
+// Returning true blocks the native close — the frontend will call runtime.Quit()
+// after confirming with the user (e.g. if queries are still running).
+func (a *App) OnBeforeClose(ctx context.Context) bool {
+	emitEvent(ctx, "app:before-close", nil)
+	return true // always block; frontend decides when to actually quit
+}
+
 // ── Connection Management ──────────────────────────────────────────────────
 
 // LoadConnections returns all saved connection profiles.
@@ -566,6 +574,30 @@ func (a *App) CancelQuery(tabID string) {
 		a.logger.Info("cancelling query", "tab", tabID)
 		s.CancelFunc()
 	}
+}
+
+// ── Saved Scripts ─────────────────────────────────────────────────────────
+
+// GetScripts returns all saved script metadata for a connection.
+func (a *App) GetScripts(connectionName string) ([]models.SavedScript, error) {
+	return utils.LoadScripts(connectionName)
+}
+
+// GetScriptContent reads the SQL content of a script by ID.
+func (a *App) GetScriptContent(connectionName, scriptID string) (string, error) {
+	return utils.GetScriptContent(connectionName, scriptID)
+}
+
+// SaveScript upserts a script (metadata + .sql file) for a connection.
+func (a *App) SaveScript(script models.SavedScript, content string) error {
+	a.logger.Info("saving script", "connection", script.ConnectionName, "name", script.Name, "id", script.ID)
+	return utils.SaveScript(script, content)
+}
+
+// DeleteScript removes a script by ID for a connection.
+func (a *App) DeleteScript(connectionName, scriptID string) error {
+	a.logger.Info("deleting script", "connection", connectionName, "id", scriptID)
+	return utils.DeleteScript(connectionName, scriptID)
 }
 
 // ── Preferences ───────────────────────────────────────────────────────────

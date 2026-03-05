@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { models } from '../../wailsjs/go/models';
 
 type ConnectionProfile = models.ConnectionProfile;
@@ -8,6 +9,7 @@ interface ConnectionState {
     activeProfile: ConnectionProfile | null;
     isConnected: boolean;
     databases: string[];
+    lastProfileName: string | null;
 
     setConnections: (conns: ConnectionProfile[]) => void;
     setActiveProfile: (profile: ConnectionProfile | null) => void;
@@ -15,14 +17,28 @@ interface ConnectionState {
     setDatabases: (dbs: string[]) => void;
 }
 
-export const useConnectionStore = create<ConnectionState>((set) => ({
-    connections: [],
-    activeProfile: null,
-    isConnected: false,
-    databases: [],
+export const useConnectionStore = create<ConnectionState>()(
+    persist(
+        (set) => ({
+            connections: [],
+            activeProfile: null,
+            isConnected: false,
+            databases: [],
+            lastProfileName: null,
 
-    setConnections: (conns) => set({ connections: conns }),
-    setActiveProfile: (profile) => set({ activeProfile: profile }),
-    setIsConnected: (connected) => set({ isConnected: connected }),
-    setDatabases: (dbs) => set({ databases: dbs })
-}));
+            setConnections: (conns) => set({ connections: conns }),
+            setActiveProfile: (profile) => set((state) => ({
+                activeProfile: profile,
+                lastProfileName: profile ? profile.name : state.lastProfileName
+            })),
+            setIsConnected: (connected) => set({ isConnected: connected }),
+            setDatabases: (dbs) => set({ databases: dbs })
+        }),
+        {
+            name: 'zentro:connection-store',
+            partialize: (state) => ({
+                lastProfileName: state.lastProfileName,
+            })
+        }
+    )
+);
