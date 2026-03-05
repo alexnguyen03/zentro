@@ -30,6 +30,7 @@ interface ResultState {
     setOffset: (tabId: string, offset: number) => void;
     clearResult: (tabId: string) => void;
     isDone: (tabId: string) => boolean;
+    applyEdits: (tabId: string, edits: Map<string, string>) => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -114,6 +115,31 @@ export const useResultStore = create<ResultState>((set, get) => ({
         const newResults = { ...state.results };
         delete newResults[tabId];
         return { results: newResults };
+    }),
+
+    applyEdits: (tabId, edits) => set((state) => {
+        const prev = state.results[tabId];
+        if (!prev) return state;
+
+        const newRows = [...prev.rows];
+        edits.forEach((val, cellId) => {
+            const [rIdx, cIdx] = cellId.split(':').map(Number);
+            if (newRows[rIdx]) {
+                const newRow = [...newRows[rIdx]];
+                newRow[cIdx] = val;
+                newRows[rIdx] = newRow;
+            }
+        });
+
+        return {
+            results: {
+                ...state.results,
+                [tabId]: {
+                    ...prev,
+                    rows: newRows
+                }
+            }
+        };
     }),
 
     isDone: (tabId) => {

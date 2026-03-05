@@ -1,11 +1,11 @@
 import React from 'react';
 import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Calculator, Save, Undo, Play, Copy, FilePlus } from 'lucide-react';
-import { TabResult } from '../../stores/resultStore';
+import { TabResult, useResultStore } from '../../stores/resultStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { ResultTable } from './ResultTable';
-import { ExportCSV, FetchTotalRowCount, ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync } from '../../../wailsjs/go/app/App';
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import { Modal } from '../layout/Modal';
@@ -95,14 +95,17 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
         toast.success("Script opened in a new tab.");
     };
 
+    const applyEdits = useResultStore(s => s.applyEdits);
+
     const handleDirectExecute = async () => {
         const script = generateUpdateScript();
         if (!script) return;
         try {
             setShowSaveModal(false);
+            const affected = await ExecuteUpdateSync(script);
+            applyEdits(tabId, editedCells);
             setEditedCells(new Map());
-            await ExecuteQuery(tabId, script);
-            toast.success("Update executed successfully.");
+            toast.success(`Update executed successfully (${affected} row${affected !== 1 ? 's' : ''} modified).`);
         } catch (err: any) {
             toast.error(`Update failed: ${err}`);
             console.error('Execute update error:', err);
