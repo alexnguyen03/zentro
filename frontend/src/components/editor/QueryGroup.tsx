@@ -5,7 +5,6 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
-import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { useDroppable } from '@dnd-kit/core';
 
@@ -14,23 +13,12 @@ interface QueryGroupProps {
     isActiveGroup: boolean;
 }
 
-const DIVIDER_MIN_TOP = 80;
-const DIVIDER_MIN_BOT = 80;
-
 export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) => {
     const { id: groupId, tabs, activeTabId } = group;
     const { removeTab, setActiveTabId, setActiveGroupId, renameTab, updateTabQuery, addTab, splitGroup } = useEditorStore();
-    const { results } = useResultStore();
     const { isConnected, activeProfile } = useConnectionStore();
     const { saveScript } = useScriptStore();
-
-    // VSplit divider state
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [splitPct, setSplitPct] = useState(55); // monaco takes 55% by default
-    const isDragging = useRef(false);
-
     const activeTab = tabs.find(t => t.id === activeTabId);
-    const activeResult = activeTabId ? results[activeTabId] : undefined;
 
     // Edge drop zones for splitting
     const { setNodeRef: setLeftNodeRef, isOver: isLeftOver, active: dragActive } = useDroppable({
@@ -81,26 +69,6 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         splitGroup(groupId, tabId);
     }, [groupId, splitGroup]);
 
-    // ── VSplit drag ───────────────────────────────────────────────────────
-    const startDrag = useCallback(() => { isDragging.current = true; }, []);
-
-    useEffect(() => {
-        const onMove = (e: MouseEvent) => {
-            if (!isDragging.current || !containerRef.current) return;
-            const rect = containerRef.current.getBoundingClientRect();
-            const totalH = rect.height;
-            const offsetY = e.clientY - rect.top;
-            const pct = (offsetY / totalH) * 100;
-            const minPct = (DIVIDER_MIN_TOP / totalH) * 100;
-            const maxPct = ((totalH - DIVIDER_MIN_BOT) / totalH) * 100;
-            setSplitPct(Math.min(maxPct, Math.max(minPct, pct)));
-        };
-        const onUp = () => { isDragging.current = false; };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-    }, []);
-
     const handleGroupClick = useCallback(() => {
         if (!isActiveGroup) {
             setActiveGroupId(groupId);
@@ -125,7 +93,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                 onSplit={handleSplit}
             />
 
-            <div className={`query-tabs-body ${isActiveGroup ? 'active-group-body' : ''}`} ref={containerRef} style={{ flex: 1, position: 'relative' }}>
+            <div className={`query-tabs-body ${isActiveGroup ? 'active-group-body' : ''}`} style={{ flex: 1, position: 'relative' }}>
                 {isDraggingTab && (
                     <>
                         <div ref={setLeftNodeRef} className="split-drop-zone left" />
@@ -140,32 +108,21 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                         No open tabs in this group.
                     </div>
                 ) : (
-                    <>
-                        <div className="editor-pane" style={{ height: `${splitPct}%` }}>
-                            {tabs.map(tab => (
-                                <div
-                                    key={tab.id}
-                                    style={{ display: tab.id === activeTabId ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}
-                                >
-                                    <MonacoEditorWrapper
-                                        tabId={tab.id}
-                                        value={tab.query}
-                                        onChange={(v) => updateTabQuery(tab.id, v)}
-                                        onRun={handleRun}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-
-                        <div
-                            className="vsplit-divider"
-                            onMouseDown={startDrag}
-                        />
-
-                        <div className="result-pane" style={{ height: `calc(${100 - splitPct}% - 4px)` }}>
-                            <ResultPanel tabId={activeTabId ?? ''} result={activeResult} onRun={handleRun} />
-                        </div>
-                    </>
+                    <div className="editor-pane" style={{ height: '100%' }}>
+                        {tabs.map(tab => (
+                            <div
+                                key={tab.id}
+                                style={{ display: tab.id === activeTabId ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}
+                            >
+                                <MonacoEditorWrapper
+                                    tabId={tab.id}
+                                    value={tab.query}
+                                    onChange={(v) => updateTabQuery(tab.id, v)}
+                                    onRun={handleRun}
+                                />
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>

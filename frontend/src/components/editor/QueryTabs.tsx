@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { useEditorStore } from '../../stores/editorStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { QueryGroup } from './QueryGroup';
+import { ResultPanel } from './ResultPanel';
+import { ExecuteQuery } from '../../../wailsjs/go/app/App';
 import {
     DndContext,
     DragEndEvent,
@@ -17,7 +20,23 @@ import {
 
 export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag } = useEditorStore();
+    const { results } = useResultStore();
     const { isConnected } = useConnectionStore();
+
+    // Global active tab for the shared result panel
+    const globalActiveGroup = groups.find(g => g.id === activeGroupId);
+    const globalActiveTabId = globalActiveGroup?.activeTabId;
+    const globalActiveTab = globalActiveGroup?.tabs.find(t => t.id === globalActiveTabId);
+    const globalActiveResult = globalActiveTabId ? results[globalActiveTabId] : undefined;
+
+    const handleRunGlobal = React.useCallback(async () => {
+        if (!globalActiveTab || !isConnected) return;
+        try {
+            await ExecuteQuery(globalActiveTab.id, globalActiveTab.query);
+        } catch (err: any) {
+            console.error('ExecuteQuery error:', err);
+        }
+    }, [globalActiveTab, isConnected]);
 
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<any>(null);
@@ -151,23 +170,33 @@ export const QueryTabs: React.FC = () => {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="query-tabs-root" style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'row' }}>
-                <Allotment separator={false}>
-                    {groups.map((group, index) => (
-                        <Allotment.Pane key={group.id} minSize={300}>
-                            <div style={{
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                borderLeft: index > 0 ? '1px solid var(--border-color)' : 'none'
-                            }}>
-                                <QueryGroup
-                                    group={group}
-                                    isActiveGroup={group.id === activeGroupId}
-                                />
-                            </div>
-                        </Allotment.Pane>
-                    ))}
+            <div className="query-tabs-root" style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Allotment vertical>
+                    <Allotment.Pane>
+                        <Allotment separator={false}>
+                            {groups.map((group, index) => (
+                                <Allotment.Pane key={group.id} minSize={300}>
+                                    <div style={{
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        borderLeft: index > 0 ? '1px solid var(--border-color)' : 'none'
+                                    }}>
+                                        <QueryGroup
+                                            group={group}
+                                            isActiveGroup={group.id === activeGroupId}
+                                        />
+                                    </div>
+                                </Allotment.Pane>
+                            ))}
+                        </Allotment>
+                    </Allotment.Pane>
+
+                    <Allotment.Pane preferredSize="35%" minSize={100}>
+                        <div className="global-result-pane" style={{ height: '100%', borderTop: '1px solid var(--border-color)' }}>
+                            <ResultPanel tabId={globalActiveTabId ?? ''} result={globalActiveResult} onRun={handleRunGlobal} />
+                        </div>
+                    </Allotment.Pane>
                 </Allotment>
             </div>
 
