@@ -34,14 +34,14 @@ type QuerySession struct {
 
 // HistoryEntry records one query execution.
 type HistoryEntry struct {
-	ID         string    `json:"id"`
-	Query      string    `json:"query"`
-	Profile    string    `json:"profile"`
-	Database   string    `json:"database"`
-	DurationMs int64     `json:"duration_ms"`
-	RowCount   int64     `json:"row_count"`
-	Error      string    `json:"error,omitempty"`
-	ExecutedAt time.Time `json:"executed_at"`
+	ID         string `json:"id"`
+	Query      string `json:"query"`
+	Profile    string `json:"profile"`
+	Database   string `json:"database"`
+	DurationMs int64  `json:"duration_ms"`
+	RowCount   int64  `json:"row_count"`
+	Error      string `json:"error,omitempty"`
+	ExecutedAt string `json:"executed_at"`
 }
 
 // App is the Wails application struct.
@@ -608,6 +608,20 @@ func (a *App) CancelQuery(tabID string) {
 	}
 }
 
+// ExecuteUpdateSync runs a query synchronously (usually script generated from UI) and returns affected row count.
+func (a *App) ExecuteUpdateSync(query string) (int64, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("no active connection")
+	}
+
+	res, err := a.db.ExecContext(a.ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}
+
 // ── Saved Scripts ─────────────────────────────────────────────────────────
 
 // GetScripts returns all saved script metadata for a connection.
@@ -669,7 +683,7 @@ func (a *App) appendHistoryFromResult(tabID, query string, rowCount int64, durat
 		DurationMs: duration.Milliseconds(),
 		RowCount:   rowCount,
 		Error:      errStr,
-		ExecutedAt: time.Now(),
+		ExecutedAt: time.Now().Format(time.RFC3339),
 	}
 	a.histMu.Lock()
 	a.history = append([]HistoryEntry{e}, a.history...) // newest first

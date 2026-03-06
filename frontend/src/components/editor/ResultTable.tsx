@@ -246,7 +246,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     }, [
         virtualItems.length ? virtualItems[virtualItems.length - 1].index : 0,
         isDone,
-        resultState?.hasMore
+        resultState?.hasMore,
+        resultState?.isFetchingMore,
+        rows.length
     ]);
 
     const totalHeight = virtualizer.getTotalSize();
