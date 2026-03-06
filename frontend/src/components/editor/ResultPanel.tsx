@@ -30,28 +30,40 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     const [editedCells, setEditedCells] = React.useState<Map<string, string>>(new Map());
     const [showSaveModal, setShowSaveModal] = React.useState(false);
 
-    React.useEffect(() => {
-        if (!result?.isDone) {
-            setTotalCount(null);
-            setIsCounting(false);
-            setEditedCells(new Map());
-            setShowSaveModal(false);
-        }
-    }, [result?.isDone]);
-
-    const handleCountTotal = async () => {
+    const handleCountTotal = React.useCallback(async () => {
         if (!tabId) return;
         setIsCounting(true);
         try {
             const count = await FetchTotalRowCount(tabId);
             setTotalCount(count);
         } catch (err) {
-            toast.error(`Count failed: ${err}`);
-            useStatusStore.getState().setMessage(`Count failed: ${err}`);
+            console.warn(`Count failed in background: ${err}`);
+            setTotalCount(-1);
         } finally {
             setIsCounting(false);
         }
-    };
+    }, [tabId]);
+
+    const prevIsDone = React.useRef(result?.isDone);
+
+    React.useEffect(() => {
+        if (!result) return;
+
+        // This triggers when result.isDone transitions
+        if (prevIsDone.current !== result.isDone) {
+            if (!result.isDone) {
+                // New query started
+                setTotalCount(null);
+                setIsCounting(false);
+                setEditedCells(new Map());
+                setShowSaveModal(false);
+
+                // Automatically count in parallel
+                handleCountTotal();
+            }
+            prevIsDone.current = result.isDone;
+        }
+    }, [result?.isDone, handleCountTotal]);
 
     const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newLimit = parseInt(e.target.value) || 1000;
@@ -153,6 +165,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
         }
     };
 
+    let displayTotalCount: number | undefined = undefined;
+    if (totalCount !== null && totalCount >= 0) {
+        displayTotalCount = totalCount;
+    } else if (result.isDone && !result.hasMore) {
+        displayTotalCount = result.rows.length;
+    }
+
     // SELECT result
     return (
         <div className="result-panel result-table-container">
@@ -172,22 +191,20 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                         </select>
                         &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
                     </span>
-                    {totalCount !== null ? (
+                    {displayTotalCount !== undefined ? (
                         <span className="result-stats" style={{ marginLeft: 8 }}>
-                            (Total: <strong>{totalCount.toLocaleString()}</strong>)
+                            (Total: <strong>{displayTotalCount.toLocaleString()}</strong>)
                         </span>
-                    ) : (
-                        <button
-                            className="result-toolbar-btn"
-                            style={{ marginLeft: 8 }}
-                            onClick={handleCountTotal}
-                            disabled={isCounting || !result.isDone}
-                            title="Count total rows for this query"
-                        >
-                            {isCounting ? <Loader size={12} className="result-spinner" /> : <Calculator size={12} />}
-                            <span style={{ marginLeft: 4 }}>{isCounting ? 'Counting...' : 'Total'}</span>
-                        </button>
-                    )}
+                    ) : totalCount === -1 ? (
+                        <span className="result-stats" style={{ marginLeft: 8, color: 'var(--color-warning)' }} title="Failed to count total rows in background">
+                            (Total: ?)
+                        </span>
+                    ) : isCounting ? (
+                        <span className="result-stats" style={{ marginLeft: 8, opacity: 0.7 }}>
+                            <Loader size={12} className="result-spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />
+                            Counting...
+                        </span>
+                    ) : null}
                 </div>
                 <div className="result-toolbar-center">
                     {editedCells.size > 0 && (

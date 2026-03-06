@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -60,6 +61,8 @@ type App struct {
 	// Pattern: Singleton application state for query tracking
 	activeQueries   map[string]string
 	activeQueriesMu sync.Mutex
+
+	forceQuit bool
 }
 
 // NewApp creates the App. Called once in main.go.
@@ -86,8 +89,17 @@ func (a *App) Startup(ctx context.Context) {
 // Returning true blocks the native close — the frontend will call runtime.Quit()
 // after confirming with the user (e.g. if queries are still running).
 func (a *App) OnBeforeClose(ctx context.Context) bool {
+	if a.forceQuit {
+		return false // do not block, allow close directly
+	}
 	emitEvent(ctx, "app:before-close", nil)
-	return true // always block; frontend decides when to actually quit
+	return true // block the initial close request; wait for frontend to confirm via ForceQuit
+}
+
+// ForceQuit bypasses the OnBeforeClose check and immediately quits the application.
+func (a *App) ForceQuit() {
+	a.forceQuit = true
+	runtime.Quit(a.ctx)
 }
 
 // ── Connection Management ──────────────────────────────────────────────────
@@ -391,6 +403,16 @@ func (a *App) ExecuteQuery(tabID, query string) {
 	emitEvent(a.ctx, "query:started", map[string]any{"tabID": tabID})
 	a.logger.Info("executing query", "tab", tabID)
 
+	if dbpkg.IsSelectQuery(query) {
+		a.activeQueriesMu.Lock()
+		a.activeQueries[tabID] = query
+		a.activeQueriesMu.Unlock()
+	} else {
+		a.activeQueriesMu.Lock()
+		delete(a.activeQueries, tabID)
+		a.activeQueriesMu.Unlock()
+	}
+
 	go func() {
 		defer func() {
 			cancel()
@@ -405,9 +427,6 @@ func (a *App) ExecuteQuery(tabID, query string) {
 		start := time.Now()
 
 		if dbpkg.IsSelectQuery(query) {
-			a.activeQueriesMu.Lock()
-			a.activeQueries[tabID] = query
-			a.activeQueriesMu.Unlock()
 			a.streamSelect(ctx, tabID, query, 0, start)
 		} else {
 			a.execNonSelect(ctx, tabID, query, start)
@@ -582,10 +601,11 @@ func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
 	}
 
 	// Remove trailing semicolon if exists, to safely wrap in subquery
-	// Simple trim works for basic cases
+	cleanQuery := strings.TrimRight(strings.TrimSpace(query), ";")
 
 	// Create a subquery to count all rows without fetching them
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS zentro_count", query)
+	// We add a newline before the closing parenthesis in case the query ends with a single-line SQL comment (--)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s\n) AS zentro_count", cleanQuery)
 
 	var count int64
 	// Don't use a.ctx here directly if we want it cancellable, but a.ctx is fine for short counts

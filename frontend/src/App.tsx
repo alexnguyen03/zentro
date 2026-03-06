@@ -18,7 +18,7 @@ import {
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
-import { Quit } from '../wailsjs/runtime/runtime';
+import { ForceQuit } from '../wailsjs/go/app/App';
 
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
@@ -32,13 +32,13 @@ function App() {
         const off = EventsOn('app:before-close', () => {
             const running = useEditorStore.getState().groups.some(g => g.tabs.some(t => t.isRunning));
             if (!running) {
-                Quit();
+                ForceQuit();
                 return;
             }
             const ok = window.confirm(
                 'One or more queries are still running.\nStop them and close anyway?'
             );
-            if (ok) Quit();
+            if (ok) ForceQuit();
         });
         return () => { if (typeof off === 'function') off(); };
     }, []);
