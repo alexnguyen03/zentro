@@ -28,16 +28,16 @@ func (d *PostgresDriver) Name() string { return "postgres" }
 
 // Open builds a DSN and opens a *sql.DB with sensible pool defaults.
 func (d *PostgresDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
-	user := url.QueryEscape(p.Username)
-	pass := url.QueryEscape(p.Password)
+	userInfo := url.UserPassword(p.Username, p.Password).String()
 	dsn := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=%s&connect_timeout=%d",
-		user, pass, p.Host, p.Port, p.DBName, p.SSLMode, p.ConnectTimeout,
+		"postgres://%s@%s:%d/%s?sslmode=%s&connect_timeout=%d",
+		userInfo, p.Host, p.Port, p.DBName, p.SSLMode, p.ConnectTimeout,
 	)
 	// Log masked DSN for debugging (password replaced)
+	maskedUserInfo := url.UserPassword(p.Username, "***").String()
 	masked := fmt.Sprintf(
-		"postgres://%s:***@%s:%d/%s?sslmode=%s&connect_timeout=%d",
-		user, p.Host, p.Port, p.DBName, p.SSLMode, p.ConnectTimeout,
+		"postgres://%s@%s:%d/%s?sslmode=%s&connect_timeout=%d",
+		maskedUserInfo, p.Host, p.Port, p.DBName, p.SSLMode, p.ConnectTimeout,
 	)
 	slog.Info("postgres: open", "dsn", masked)
 

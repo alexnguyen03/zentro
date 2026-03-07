@@ -1,25 +1,15 @@
 // Package db — Query executor engine.
-// Pattern: Strategy — ExecuteQuery dispatches to SELECT vs non-SELECT path.
-// Pattern: Observer — result delivered via buffered channel (async-safe).
 package db
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
-
-	"zentro/internal/models"
 )
 
-// limitPattern matches queries that already contain a LIMIT or TOP clause.
-var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bTOP\b|\bOFFSET\b`)
-
-// selectTopPattern matches "SELECT" at the start of a trimmed query (case-insensitive),
-// used to inject TOP N for MSSQL.
-var selectTopPattern = regexp.MustCompile(`(?i)^(SELECT)(\s+)`)
+// limitPattern matches queries that already contain a LIMIT, TOP, or OFFSET clause.
+// Covers: LIMIT, OFFSET, TOP, FETCH (MSSQL), and MySQL legacy LIMIT x,y syntax
+var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bOFFSET\b|\bTOP\b|\bFETCH\b`)
 
 // fromPattern matches "FROM [schema.]table" to extract for in-line editing.
 var fromPattern = regexp.MustCompile(`(?i)\bFROM\s+([a-zA-Z0-9_"\[\]]+)(?:\.([a-zA-Z0-9_"\[\]]+))?`)
@@ -68,9 +58,6 @@ func InjectLimitOffsetIfMissing(query, driver string, limit int, offset int) str
 	trimmed := strings.TrimSpace(query)
 
 	if driver == "sqlserver" {
-		if offset == 0 {
-			return selectTopPattern.ReplaceAllString(trimmed, fmt.Sprintf("$1 TOP %d$2", limit))
-		}
 		// MSSQL >= 2012 requires ORDER BY for OFFSET/FETCH.
 		// If the query doesn't have an ORDER BY, we must inject a dummy one.
 		hasOrderBy := regexp.MustCompile(`(?i)\bORDER\s+BY\b`).MatchString(trimmed)
@@ -85,86 +72,4 @@ func InjectLimitOffsetIfMissing(query, driver string, limit int, offset int) str
 		return trimmed + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 	}
 	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
-}
-
-// injectLimitIfMissing is kept for internal use and unit tests.
-func injectLimitIfMissing(query, driver string, limit int) string {
-	return InjectLimitIfMissing(query, driver, limit)
-}
-
-// streamRows scans all rows into memory. Caller is responsible for rows.Close().
-func streamRows(rows *sql.Rows, colCount int) [][]interface{} {
-	var result [][]interface{}
-	for rows.Next() {
-		row := make([]interface{}, colCount)
-		ptrs := make([]interface{}, colCount)
-		for i := range row {
-			ptrs[i] = &row[i]
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			continue
-		}
-		result = append(result, row)
-	}
-	return result
-}
-
-// ExecuteQuery runs a query asynchronously and delivers the result on the returned channel.
-// The channel is buffered(1) and closed after the result is sent — safe to range over.
-// Pattern: Observer — channel as event stream; caller consumes without blocking executor.
-func ExecuteQuery(ctx context.Context, db *sql.DB, query string, defaultLimit int) <-chan *models.QueryResult {
-	ch := make(chan *models.QueryResult, 1)
-
-	go func() {
-		defer close(ch)
-
-		result := &models.QueryResult{}
-
-		// Guard: no connection
-		if db == nil {
-			result.Err = fmt.Errorf("no active connection")
-			ch <- result
-			return
-		}
-
-		// Guard: empty query
-		trimmed := strings.TrimSpace(query)
-		if trimmed == "" {
-			result.Err = fmt.Errorf("query is empty")
-			ch <- result
-			return
-		}
-
-		start := time.Now()
-
-		if IsSelectQuery(trimmed) {
-			result.IsSelect = true
-			normalized := injectLimitIfMissing(trimmed, "", defaultLimit)
-
-			rows, err := db.QueryContext(ctx, normalized)
-			if err != nil {
-				result.Err = fmt.Errorf("executor: query: %w", err)
-				result.Duration = time.Since(start)
-				ch <- result
-				return
-			}
-			defer rows.Close()
-
-			cols, _ := rows.Columns()
-			result.Columns = cols
-			result.Rows = streamRows(rows, len(cols))
-		} else {
-			res, err := db.ExecContext(ctx, trimmed)
-			if err != nil {
-				result.Err = fmt.Errorf("executor: exec: %w", err)
-			} else {
-				result.Affected, _ = res.RowsAffected()
-			}
-		}
-
-		result.Duration = time.Since(start)
-		ch <- result
-	}()
-
-	return ch
 }

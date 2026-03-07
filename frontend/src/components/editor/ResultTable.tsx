@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -6,12 +6,14 @@ import {
     flexRender,
     type ColumnDef,
     type SortingState,
+    type Row,
+    type Cell,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FetchMoreRows } from '../../../wailsjs/go/app/App';
-import { useResultStore } from '../../stores/resultStore';
+import { useResultStore, type TabResult } from '../../stores/resultStore';
 import { useToast } from '../layout/Toast';
-import { Loader, ArrowUp, ArrowDown, Database, Lock, Unlock } from 'lucide-react';
+import { ArrowUp, ArrowDown, Lock, Unlock } from 'lucide-react';
 
 interface ResultTableProps {
     tabId: string;
@@ -22,13 +24,26 @@ interface ResultTableProps {
     setEditedCells: React.Dispatch<React.SetStateAction<Map<string, string>>>;
 }
 
+interface TableMeta {
+    selectedCells: Set<string>;
+    editedCells: Map<string, string>;
+    editingCell: string | null;
+    editValue: string;
+    handleCellClick: (e: React.MouseEvent, rIdx: number, cIdx: number) => void;
+    handleCellDoubleClick: (rIdx: number, cIdx: number, val: string) => void;
+    setEditValue: (val: string) => void;
+    handleCommitEdit: () => void;
+    setEditingCell: (cellId: string | null) => void;
+}
+
 export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
-    const resultState = results[tabId];
+    const resultState = results[tabId] as TabResult | undefined;
 
     const isEditable = useMemo(() => {
         if (!resultState?.tableName || !resultState?.primaryKeys?.length) return false;
+        if (!columns.length) return false;
         return resultState.primaryKeys.every(pk => columns.includes(pk));
     }, [resultState?.tableName, resultState?.primaryKeys, columns]);
 
@@ -126,8 +141,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     }, [setEditedCells]);
 
     // Build TanStack column definitions - stable
-    const colDefs = useMemo<ColumnDef<string[]>[]>(() => {
-        const rowNumCol: ColumnDef<string[]> = {
+    const colDefs = useMemo<ColumnDef<any>[]>(() => {
+        const rowNumCol: ColumnDef<any> = {
             id: '__rownum__',
             header: () => (
                 <div
@@ -152,33 +167,34 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             ),
         };
 
-        const dataCols: ColumnDef<string[]>[] = columns.map((col, colIdx) => ({
+        const dataCols: ColumnDef<any>[] = columns.map((col, colIdx) => ({
             id: col || `col_${colIdx}`,
             header: col,
-            accessorFn: (row: string[]) => row[colIdx] ?? '',
+            accessorFn: (row: any[]) => row[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
             cell: (info) => {
-                const meta = info.table.options.meta as any;
+                const meta = info.table.options.meta as TableMeta | undefined;
                 const cellId = `${info.row.index}:${colIdx}`;
-                const isSelected = meta.selectedCells.has(cellId);
-                const isDirty = meta.editedCells.has(cellId);
-                const isEditing = meta.editingCell === cellId;
+                const isSelected = meta?.selectedCells?.has(cellId) ?? false;
+                const isDirty = meta?.editedCells?.has(cellId) ?? false;
+                const isEditing = meta?.editingCell === cellId;
                 const origVal = info.getValue() as string;
-                const value = isDirty ? meta.editedCells.get(cellId)! : origVal;
+                const editedValue = meta?.editedCells?.get(cellId);
+                const value = isDirty && editedValue !== undefined ? editedValue : origVal;
 
                 if (isEditing) {
                     return (
                         <input
                             autoFocus
                             className="rt-cell-input"
-                            value={meta.editValue}
-                            onChange={(e) => meta.setEditValue(e.target.value)}
+                            value={meta?.editValue ?? ''}
+                            onChange={(e) => meta?.setEditValue?.(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') meta.handleCommitEdit();
-                                else if (e.key === 'Escape') meta.setEditingCell(null);
+                                if (e.key === 'Enter') meta?.handleCommitEdit?.();
+                                else if (e.key === 'Escape') meta?.setEditingCell?.(null);
                             }}
-                            onBlur={meta.handleCommitEdit}
+                            onBlur={() => meta?.handleCommitEdit?.()}
                             onClick={e => e.stopPropagation()}
                         />
                     );
@@ -187,8 +203,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return (
                     <div
                         className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
-                        onClick={(e) => meta.handleCellClick(e, info.row.index, colIdx)}
-                        onDoubleClick={() => meta.handleCellDoubleClick(info.row.index, colIdx, String(value))}
+                        onClick={(e) => meta?.handleCellClick?.(e, info.row.index, colIdx)}
+                        onDoubleClick={() => meta?.handleCellDoubleClick?.(info.row.index, colIdx, String(value))}
                         title={String(value)}
                     >
                         {String(value)}
@@ -198,9 +214,10 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns, isEditable, resultState?.tableName]);
+    }, [columns, isEditable, resultState?.tableName, resultState?.hasMore, canSortClientSide]);
 
-    const table = useReactTable({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const table = useReactTable<any>({
         data: rows,
         columns: colDefs,
         state: { sorting },
@@ -232,16 +249,23 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
 
     const virtualItems = virtualizer.getVirtualItems();
 
-    // Infinite Scroll trigger
+    // Debounce ref to prevent multiple rapid fetch requests
+    const fetchMoreRef = React.useRef(false);
+
+    // Infinite Scroll trigger with debounce
     useEffect(() => {
-        if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore) return;
+        if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore || fetchMoreRef.current) return;
+        
         const lastItem = virtualItems[virtualItems.length - 1];
         if (lastItem.index >= tableRows.length - 15) {
-            // Trigger fetch
-            // The new offset should be exactly the number of rows currently in memory
+            fetchMoreRef.current = true;
             const newOffset = rows.length;
             setOffset(tabId, newOffset);
-            FetchMoreRows(tabId, newOffset).catch(console.error);
+            FetchMoreRows(tabId, newOffset)
+                .catch(console.error)
+                .finally(() => {
+                    setTimeout(() => { fetchMoreRef.current = false; }, 300);
+                });
         }
     }, [
         virtualItems.length ? virtualItems[virtualItems.length - 1].index : 0,
@@ -304,6 +328,28 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     })}
                     {paddingBottom > 0 && (
                         <tr><td style={{ height: paddingBottom }} /></tr>
+                    )}
+                    {resultState?.isFetchingMore && (
+                        <tr>
+                            <td colSpan={columns.length + 1} style={{ 
+                                textAlign: 'center', 
+                                padding: '8px',
+                                background: 'var(--bg-primary)'
+                            }}>
+                                <div className="loading-spinner" style={{ 
+                                    display: 'inline-block', 
+                                    width: 16, 
+                                    height: 16, 
+                                    border: '2px solid var(--border-color)',
+                                    borderTopColor: 'var(--color-primary)',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite'
+                                }} />
+                                <span style={{ marginLeft: 8, color: 'var(--text-secondary)' }}>
+                                    Loading more rows...
+                                </span>
+                            </td>
+                        </tr>
                     )}
                 </tbody>
             </table>

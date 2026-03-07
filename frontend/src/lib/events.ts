@@ -11,6 +11,7 @@ export const EVENT = {
     CONNECTION_CHANGED: 'connection:changed',
     SCHEMA_DATABASES: 'schema:databases',
     SCHEMA_LOADED: 'schema:loaded',
+    SCHEMA_ERROR: 'schema:error',
     QUERY_STARTED: 'query:started',
     QUERY_CHUNK: 'query:chunk',
     QUERY_DONE: 'query:done',
@@ -19,7 +20,7 @@ export const EVENT = {
 // ── Payload types ─────────────────────────────────────────────────────────
 
 export interface ConnectionChangedPayload {
-    status: 'connected' | 'disconnected';
+    status: 'connected' | 'disconnected' | 'failed';
     profile?: {
         name: string;
         driver: string;
@@ -27,7 +28,12 @@ export interface ConnectionChangedPayload {
         port: number;
         username: string;
         db_name: string;
-        ssl_mode: string;
+        password?: string;
+        ssl_mode?: string;
+        connect_timeout?: number;
+        save_password?: boolean;
+        show_all_schemas?: boolean;
+        trust_server_cert?: boolean;
     };
 }
 
@@ -46,6 +52,12 @@ export interface SchemaLoadedPayload {
     profileName: string;
     dbName: string;
     schemas: SchemaNode[];
+}
+
+export interface SchemaErrorPayload {
+    profileName: string;
+    dbName: string;
+    error: string;
 }
 
 export interface QueryStartedPayload {
@@ -84,6 +96,10 @@ export function onSchemaDatabases(cb: (data: SchemaDatabasesPayload) => void): U
 
 export function onSchemaLoaded(cb: (data: SchemaLoadedPayload) => void): Unsubscribe {
     return EventsOn(EVENT.SCHEMA_LOADED, cb);
+}
+
+export function onSchemaError(cb: (data: SchemaErrorPayload) => void): Unsubscribe {
+    return EventsOn(EVENT.SCHEMA_ERROR, cb);
 }
 
 export function onQueryStarted(cb: (data: QueryStartedPayload) => void): Unsubscribe {

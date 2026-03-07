@@ -12,9 +12,12 @@ import { useSettingsStore } from './stores/settingsStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
+    onSchemaLoaded,
+    onSchemaError,
     onQueryStarted,
     onQueryChunk,
     onQueryDone,
+    type ConnectionChangedPayload,
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
@@ -61,7 +64,7 @@ function App() {
         useSettingsStore.getState().load();
 
         const subs = [
-            onConnectionChanged((data) => {
+            onConnectionChanged((data: ConnectionChangedPayload) => {
                 console.log('[zentro] connection:changed', data);
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
@@ -77,6 +80,10 @@ function App() {
             onSchemaDatabases((data) => {
                 console.log('[zentro] schema:databases', data);
                 setDatabases(data.databases ?? []);
+            }),
+            onSchemaError((data) => {
+                console.warn('[zentro] schema:error', data);
+                toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
             }),
             onQueryStarted(({ tabID }) => {
                 setTabRunning(tabID, true);

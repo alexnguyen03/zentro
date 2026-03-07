@@ -60,7 +60,7 @@ type App struct {
 	// activeQueries stores the last executed SELECT query per tab for pagination
 	// Pattern: Singleton application state for query tracking
 	activeQueries   map[string]string
-	activeQueriesMu sync.Mutex
+	activeQueriesMu sync.RWMutex
 
 	forceQuit bool
 }
@@ -98,8 +98,30 @@ func (a *App) OnBeforeClose(ctx context.Context) bool {
 
 // ForceQuit bypasses the OnBeforeClose check and immediately quits the application.
 func (a *App) ForceQuit() {
-	a.forceQuit = true
+	a.Shutdown()
 	runtime.Quit(a.ctx)
+}
+
+// Shutdown gracefully closes all connections and cancels running queries.
+func (a *App) Shutdown() {
+	a.logger.Info("zentro shutting down")
+
+	// Cancel all running queries
+	for _, session := range a.sessions {
+		if session.CancelFunc != nil {
+			session.CancelFunc()
+		}
+	}
+	a.sessions = make(map[string]*QuerySession)
+
+	// Close database connection
+	if a.db != nil {
+		_ = a.db.Close()
+		a.db = nil
+	}
+
+	a.profile = nil
+	a.logger.Info("zentro shutdown complete")
 }
 
 // ── Connection Management ──────────────────────────────────────────────────
@@ -174,7 +196,7 @@ func (a *App) Connect(name string) error {
 		a.logger.Error("open connection failed", "profile", name, "err", err)
 		return dbpkg.FriendlyError(prof.Driver, err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(a.prefs.ConnectTimeout)*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
@@ -225,7 +247,7 @@ func (a *App) SwitchDatabase(dbName string) error {
 		return dbpkg.FriendlyError(clone.Driver, err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(a.prefs.ConnectTimeout)*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
@@ -352,20 +374,35 @@ func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 		conn, err := dbpkg.OpenConnection(&clone)
 		if err != nil {
 			a.logger.Warn("cannot open db for schema fetch", "db", dbName, "err", err)
+			emitEvent(a.ctx, "schema:error", map[string]any{
+				"profileName": profileName,
+				"dbName":      dbName,
+				"error":       err.Error(),
+			})
 			return
 		}
 		defer conn.Close()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(a.prefs.SchemaTimeout)*time.Second)
 		defer cancel()
 
 		d, ok := getDriver(a.profile.Driver)
 		if !ok {
+			emitEvent(a.ctx, "schema:error", map[string]any{
+				"profileName": profileName,
+				"dbName":      dbName,
+				"error":       "driver not found",
+			})
 			return
 		}
 		schemas, err := d.FetchSchema(ctx, conn, a.profile.ShowAllSchemas, a.logger)
 		if err != nil {
 			a.logger.Warn("fetch schema failed", "db", dbName, "err", err)
+			emitEvent(a.ctx, "schema:error", map[string]any{
+				"profileName": profileName,
+				"dbName":      dbName,
+				"error":       err.Error(),
+			})
 			return
 		}
 		emitEvent(a.ctx, "schema:loaded", map[string]any{
@@ -393,7 +430,7 @@ func (a *App) ExecuteQuery(tabID, query string) {
 		delete(a.sessions, tabID)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(a.prefs.QueryTimeout)*time.Second)
 	a.sessions[tabID] = &QuerySession{
 		TabID:      tabID,
 		CancelFunc: cancel,
@@ -443,7 +480,10 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 	}
 
 	fetchLimit := a.prefs.DefaultLimit
-	normalized := dbpkg.InjectLimitOffsetIfMissing(query, driver, fetchLimit, offset)
+
+	// Fetch one extra row to determine if there are more results
+	checkLimit := fetchLimit + 1
+	normalized := dbpkg.InjectLimitOffsetIfMissing(query, driver, checkLimit, offset)
 
 	// If the query already had a manual LIMIT, we cannot inject offset safely.
 	// We prevent endless loops of fetching the same N manual rows.
@@ -490,8 +530,13 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 		}
 	}
 
+	chunkSize := a.prefs.ChunkSize
+	if chunkSize == 0 {
+		chunkSize = 500 // fallback
+	}
+
 	seq := 0
-	buf := make([][]string, 0, 500)
+	buf := make([][]string, 0, chunkSize)
 	sentCols := false
 	totalRowsFetched := 0
 
@@ -500,7 +545,7 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 		buf = append(buf, row)
 		totalRowsFetched++
 
-		if len(buf) == 500 {
+		if len(buf) == chunkSize {
 			var chunkCols []string
 			if !sentCols {
 				chunkCols = cols
@@ -509,7 +554,7 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 			} else {
 				emitEvent(a.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, "", nil))
 			}
-			buf = buf[:0]
+			buf = nil
 			seq++
 		}
 	}
@@ -524,10 +569,15 @@ func (a *App) streamSelect(ctx context.Context, tabID, query string, offset int,
 		}
 	}
 
-	// hasMore is true only when we fetched exactly fetchLimit rows — meaning there may be more pages.
-	hasMore := totalRowsFetched == fetchLimit
+	// hasMore is true only when we fetched fetchLimit+1 rows (the extra row indicates more data)
+	hasMore := totalRowsFetched > fetchLimit
 
-	totalRows := int64(seq*500 + len(buf))
+	// If we fetched the extra row, trim it from the count
+	if hasMore {
+		totalRowsFetched = fetchLimit
+	}
+
+	totalRows := int64(seq*chunkSize + len(buf))
 	if offset == 0 {
 		a.appendHistoryFromResult(tabID, query, totalRows, time.Since(start), rows.Err())
 	}
@@ -546,7 +596,31 @@ func (a *App) FetchMoreRows(tabID string, offset int) {
 		return
 	}
 
-	// We must wrap execution in a session just like ExecuteQuery does.
+	driver := ""
+	if a.profile != nil {
+		driver = a.profile.Driver
+	}
+	limit := a.prefs.DefaultLimit
+
+	// Fetch one extra row to determine if there are more results
+	checkLimit := limit + 1
+
+	// Inject LIMIT và OFFSET vào query gốc
+	paginatedQuery := dbpkg.InjectLimitOffsetIfMissing(query, driver, checkLimit, offset)
+
+	// Guard against endless loops if the query had a hardcoded LIMIT/TOP.
+	if paginatedQuery == query && offset > 0 {
+		a.emitDoneWithMore(tabID, 0, 0, true, false, nil)
+		return
+	}
+
+	// Cancel any existing session for this tab before creating new one
+	if old, ok := a.sessions[tabID]; ok {
+		old.CancelFunc()
+		delete(a.sessions, tabID)
+	}
+
+	// Create new session for fetch-more
 	a.sessions[tabID] = &QuerySession{
 		TabID:     tabID,
 		StartedAt: time.Now(),
@@ -567,8 +641,59 @@ func (a *App) FetchMoreRows(tabID string, offset int) {
 		}
 
 		start := time.Now()
-		a.streamSelect(ctx, tabID, query, offset, start)
+
+		// Thực thi query đã được paginated
+		rows, err := a.db.QueryContext(ctx, paginatedQuery)
+		if err != nil {
+			a.emitDone(tabID, 0, 0, true, fmt.Errorf("fetch more: query failed: %w", err))
+			return
+		}
+		defer rows.Close()
+
+		cols, err := rows.Columns()
+		if err != nil {
+			a.emitDone(tabID, 0, 0, true, fmt.Errorf("fetch more: columns error: %w", err))
+			return
+		}
+
+		// Stream rows theo chunk (giống logic cũ trong streamSelect)
+		var chunk [][]string
+		seq := 0
+		rowCount := 0
+
+		for rows.Next() {
+			row := scanRowAsStrings(rows, len(cols))
+			chunk = append(chunk, row)
+			rowCount++
+
+			if len(chunk) >= 500 { // chunk size như checklist
+				a.emitChunk(tabID, cols, chunk, seq)
+				chunk = nil
+				seq++
+			}
+		}
+
+		// Flush chunk cuối
+		if len(chunk) > 0 {
+			a.emitChunk(tabID, cols, chunk, seq)
+		}
+
+		duration := time.Since(start)
+		// hasMore is true only when we fetched limit+1 rows (the extra row indicates more data)
+		hasMore := rowCount > limit
+
+		// If we fetched the extra row, trim it from the count
+		if hasMore {
+			rowCount = limit
+		}
+
+		a.emitDoneWithMore(tabID, int64(rowCount), duration, true, hasMore, nil)
 	}()
+}
+
+// emitChunk sends a batch of rows to the frontend.
+func (a *App) emitChunk(tabID string, cols []string, chunk [][]string, seq int) {
+	emitEvent(a.ctx, "query:chunk", buildChunk(tabID, cols, chunk, seq, "", nil))
 }
 
 // execNonSelect runs INSERT/UPDATE/DELETE/DDL and emits done.
@@ -625,6 +750,7 @@ func (a *App) CancelQuery(tabID string) {
 	if s, ok := a.sessions[tabID]; ok {
 		a.logger.Info("cancelling query", "tab", tabID)
 		s.CancelFunc()
+		delete(a.sessions, tabID)
 	}
 }
 

@@ -27,11 +27,10 @@ func (d *MSSQLDriver) Name() string { return "sqlserver" }
 
 // Open builds a DSN and opens a *sql.DB for SQL Server.
 func (d *MSSQLDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
-	user := url.QueryEscape(p.Username)
-	pass := url.QueryEscape(p.Password)
+	userInfo := url.UserPassword(p.Username, p.Password).String()
 	dsn := fmt.Sprintf(
-		"sqlserver://%s:%s@%s:%d?database=%s&connection+timeout=%d&tlsmin=1.0",
-		user, pass, p.Host, p.Port, p.DBName, p.ConnectTimeout,
+		"sqlserver://%s@%s:%d?database=%s&connection+timeout=%d&tlsmin=1.0",
+		userInfo, p.Host, p.Port, p.DBName, p.ConnectTimeout,
 	)
 	if p.TrustServerCert {
 		dsn += "&TrustServerCertificate=true"
