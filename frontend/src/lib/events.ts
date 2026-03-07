@@ -21,6 +21,7 @@ export const EVENT = {
 
 export interface ConnectionChangedPayload {
     status: 'connected' | 'disconnected' | 'failed';
+    databases?: string[];
     profile?: {
         name: string;
         driver: string;

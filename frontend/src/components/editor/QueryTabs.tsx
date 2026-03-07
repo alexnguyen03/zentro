@@ -4,6 +4,7 @@ import 'allotment/dist/style.css';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
@@ -22,6 +23,7 @@ export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag } = useEditorStore();
     const { results } = useResultStore();
     const { isConnected } = useConnectionStore();
+    const { showResultPanel } = useLayoutStore();
 
     // Global active tab for the shared result panel
     const globalActiveGroup = groups.find(g => g.id === activeGroupId);
@@ -192,7 +194,7 @@ export const QueryTabs: React.FC = () => {
                         </Allotment>
                     </Allotment.Pane>
 
-                    <Allotment.Pane preferredSize="35%" minSize={100}>
+                    <Allotment.Pane preferredSize="35%" minSize={100} visible={showResultPanel}>
                         <div className="global-result-pane" style={{ height: '100%', borderTop: '1px solid var(--border-color)' }}>
                             <ResultPanel tabId={globalActiveTabId ?? ''} result={globalActiveResult} onRun={handleRunGlobal} />
                         </div>

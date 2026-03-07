@@ -98,6 +98,7 @@ func (a *App) OnBeforeClose(ctx context.Context) bool {
 
 // ForceQuit bypasses the OnBeforeClose check and immediately quits the application.
 func (a *App) ForceQuit() {
+	a.forceQuit = true
 	a.Shutdown()
 	runtime.Quit(a.ctx)
 }

@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Play, Square, Settings, ChevronDown, Search, RefreshCw, Lock, Minus, X } from 'lucide-react';
+import { Plus, Play, Square, Settings, ChevronDown, Search, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { ConnectionPicker } from './ConnectionPicker';
@@ -12,6 +13,7 @@ export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
     const { groups, activeGroupId, addTab } = useEditorStore();
     const { openModal } = useSettingsStore();
+    const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
@@ -34,7 +36,7 @@ export const Toolbar: React.FC = () => {
 
     let breadcrumbLabel = 'No Connection';
     if (isConnected && activeProfile) {
-        breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name}`;
+        breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name} `;
     }
 
     return (
@@ -82,11 +84,12 @@ export const Toolbar: React.FC = () => {
             <div className="toolbar-drag-region">
                 <div ref={breadcrumbRef}>
                     <div
-                        className={`connection-breadcrumb ${pickerOpen ? 'active' : ''}`}
+                        className={`connection-breadcrumb ${pickerOpen ? 'active' : ''} ${isConnected ? 'connected' : 'disconnected'}`}
                         onClick={() => setPickerOpen(prev => !prev)}
                         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
                     >
-                        {breadcrumbLabel}
+                        <div className="connection-status-dot" />
+                        <span className="connection-label">{breadcrumbLabel}</span>
                         <ChevronDown size={14} className="breadcrumb-chevron" />
                     </div>
                 </div>
@@ -109,6 +112,31 @@ export const Toolbar: React.FC = () => {
                 </button>
                 <button className="toolbar-btn icon-only" title="Settings" onClick={openModal}>
                     <Settings size={14} />
+                </button>
+
+                <div className="toolbar-separator" />
+
+                {/* Layout Toggles */}
+                <button
+                    className={`toolbar-btn icon-only ${showSidebar ? 'active' : ''}`}
+                    title="Toggle Sidebar (Ctrl+B)"
+                    onClick={toggleSidebar}
+                >
+                    <PanelLeft size={14} />
+                </button>
+                <button
+                    className={`toolbar-btn icon-only ${showResultPanel ? 'active' : ''}`}
+                    title="Toggle Result Panel (Ctrl+J)"
+                    onClick={toggleResultPanel}
+                >
+                    <PanelBottom size={14} />
+                </button>
+                <button
+                    className={`toolbar-btn icon-only ${showRightSidebar ? 'active' : ''}`}
+                    title="Toggle Right Sidebar (Ctrl+Alt+B)"
+                    onClick={toggleRightSidebar}
+                >
+                    <PanelRight size={14} />
                 </button>
 
                 <div className="toolbar-separator" />

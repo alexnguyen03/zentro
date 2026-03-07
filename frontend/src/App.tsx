@@ -9,6 +9,7 @@ import { useEditorStore } from './stores/editorStore';
 import { useResultStore } from './stores/resultStore';
 import { useStatusStore } from './stores/statusStore';
 import { useSettingsStore } from './stores/settingsStore';
+import { useLayoutStore } from './stores/layoutStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
@@ -29,6 +30,7 @@ function App() {
     const { initTab, appendRows, setDone, results } = useResultStore();
     const { setQueryStats } = useStatusStore();
     const { toast } = useToast();
+    const { showSidebar, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
 
     // ── Before-close guard ────────────────────────────────────────────────
     useEffect(() => {
@@ -41,7 +43,9 @@ function App() {
             const ok = window.confirm(
                 'One or more queries are still running.\nStop them and close anyway?'
             );
-            if (ok) ForceQuit();
+            if (ok) {
+                ForceQuit();
+            }
         });
         return () => { if (typeof off === 'function') off(); };
     }, []);
@@ -69,6 +73,7 @@ function App() {
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
                     setActiveProfile(data.profile as any);
+                    setDatabases(data.databases ?? []);
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
                     setActiveProfile(null);
@@ -118,15 +123,50 @@ function App() {
         };
     }, [resize, stopResizing]);
 
+    // ── Global Layout Shortcuts ───────────────────────────────────────────
+    useEffect(() => {
+        const handleLayoutShortcuts = (e: KeyboardEvent) => {
+            const mod = e.ctrlKey || e.metaKey;
+
+            // Ctrl + Alt + B: Toggle Right Sidebar
+            if (mod && e.altKey && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                toggleRightSidebar();
+                return;
+            }
+
+            // Ctrl + B: Toggle Left Sidebar
+            if (mod && !e.altKey && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                toggleSidebar();
+                return;
+            }
+
+            // Ctrl + J: Toggle Result Panel
+            if (mod && !e.altKey && e.key.toLowerCase() === 'j') {
+                e.preventDefault();
+                toggleResultPanel();
+                return;
+            }
+        };
+
+        window.addEventListener('keydown', handleLayoutShortcuts);
+        return () => window.removeEventListener('keydown', handleLayoutShortcuts);
+    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar]);
+
     return (
         <div className="app-container">
+            <Toolbar />
             <div className="main-content">
-                <div style={{ width: sidebarWidth, flexShrink: 0 }}>
-                    <Sidebar />
-                </div>
-                <div className="resizer" onMouseDown={startResizing} />
+                {showSidebar && (
+                    <>
+                        <div style={{ width: sidebarWidth, flexShrink: 0 }}>
+                            <Sidebar />
+                        </div>
+                        <div className="resizer" onMouseDown={startResizing} />
+                    </>
+                )}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <Toolbar />
                     <div className="editor-area">
                         {!isConnected ? (
                             <div className="empty-state">
@@ -139,6 +179,14 @@ function App() {
                         )}
                     </div>
                 </div>
+                {showRightSidebar && (
+                    <>
+                        <div className="resizer" style={{ cursor: 'e-resize' }} />
+                        <div style={{ width: 250, flexShrink: 0, backgroundColor: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                            Right Sidebar
+                        </div>
+                    </>
+                )}
             </div>
             <StatusBar />
             <SettingsDialog />

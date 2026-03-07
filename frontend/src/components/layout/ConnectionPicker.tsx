@@ -14,6 +14,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
     // Track which connection is "previewed" in right column
     const [selectedConn, setSelectedConn] = useState<string>(activeProfile?.name ?? '');
     const [connecting, setConnecting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Databases to show: only from active profile (the backend owns this list)
     // After Connect(), the store gets updated via event, so we reactively re-render.
@@ -21,6 +22,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
     const pickerDbs = isSelectedActive ? databases : [];
 
     const handleSelectConn = async (name: string) => {
+        setError(null);
         setSelectedConn(name);
         if (name === activeProfile?.name) return;
 
@@ -29,8 +31,9 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
         try {
             await Connect(name);
             // After connect the store will update activeProfile + databases via event
-        } catch (err) {
+        } catch (err: any) {
             console.error('ConnectionPicker: connect failed:', err);
+            setError(typeof err === 'string' ? err : err?.message || String(err));
         } finally {
             setConnecting(false);
         }
@@ -101,6 +104,10 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                             <div className="cp-empty cp-loading">
                                 <Loader size={14} className="cp-spinner" />
                                 Connecting…
+                            </div>
+                        ) : error ? (
+                            <div className="cp-empty" style={{ color: 'var(--error-color, #ef4444)', whiteSpace: 'normal', padding: '12px', lineHeight: 1.4, textAlign: 'center' }}>
+                                {error}
                             </div>
                         ) : pickerDbs.length === 0 ? (
                             <div className="cp-empty">No databases</div>

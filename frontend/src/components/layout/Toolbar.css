@@ -54,7 +54,8 @@
     padding: 6px 8px;
 }
 
-.toolbar-btn:hover:not(:disabled) {
+.toolbar-btn:hover:not(:disabled),
+.toolbar-btn.active {
     background-color: var(--bg-tertiary);
     border-color: var(--border-color);
 }
@@ -88,29 +89,68 @@
 }
 
 .connection-breadcrumb {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-family: 'Cascadia Code', 'Fira Code', monospace;
-    font-size: 11px;
-    color: var(--text-primary);
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    padding: 5px 12px 5px 10px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
     user-select: none;
-    transition: all 0.15s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
-.connection-breadcrumb:hover,
+.connection-label {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
+
+.connection-breadcrumb:hover {
+    background: var(--bg-hover, rgba(255, 255, 255, 0.1));
+    border-color: var(--border-color, rgba(255, 255, 255, 0.2));
+    color: var(--text-primary);
+}
+
 .connection-breadcrumb.active {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--bg-hover, rgba(255, 255, 255, 0.1));
+    border-color: var(--accent-color, #3b82f6);
+    color: var(--text-primary);
+}
+
+.connection-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--text-muted, #666);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.connection-breadcrumb.connected .connection-status-dot {
+    background-color: var(--success-color, #22c55e);
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
 }
 
 .breadcrumb-chevron {
     opacity: 0.5;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.connection-breadcrumb:hover .breadcrumb-chevron {
+    opacity: 0.8;
+}
+
+.connection-breadcrumb.active .breadcrumb-chevron {
+    transform: rotate(180deg);
+    opacity: 1;
 }
 
 /* ─── Network indicator ──────────────────────────────── */
