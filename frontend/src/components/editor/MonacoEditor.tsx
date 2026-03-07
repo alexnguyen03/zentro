@@ -9,6 +9,8 @@ interface MonacoEditorProps {
     value: string;
     onChange: (val: string) => void;
     onRun: () => void;
+    isActive?: boolean;
+    onFocus?: () => void;
 }
 
 // Track whether the completion provider has been registered (once per app).
@@ -19,11 +21,24 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     value,
     onChange,
     onRun,
+    isActive,
+    onFocus,
 }) => {
     const monaco = useMonaco();
     const editorRef = useRef<any>(null);
     const onRunRef = useRef(onRun);
     onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
+    const onFocusRef = useRef(onFocus);
+    onFocusRef.current = onFocus;
+    const isActiveRef = useRef(isActive);
+    isActiveRef.current = isActive;
+
+    // Focus editor when it becomes active
+    useEffect(() => {
+        if (isActive && editorRef.current) {
+            editorRef.current.focus();
+        }
+    }, [isActive]);
 
     const activeProfile = useConnectionStore(s => s.activeProfile);
     const trees = useSchemaStore(s => s.trees);
@@ -84,11 +99,37 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     const handleMount: OnMount = useCallback((editor, monacoInstance) => {
         editorRef.current = editor;
 
-        // Override Ctrl+Enter → run query (prevent Monaco's default suggestion accept)
-        editor.addCommand(
-            monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
-            () => onRunRef.current()
-        );
+        const safeId = tabId.replace(/[^a-zA-Z0-9]/g, '');
+        const editorFocusKey = editor.createContextKey<boolean>(`isEditorFocused_${safeId}`, false);
+
+        editor.onDidFocusEditorWidget(() => {
+            editorFocusKey.set(true);
+            if (onFocusRef.current) {
+                onFocusRef.current();
+            }
+        });
+
+        editor.onDidBlurEditorWidget(() => {
+            editorFocusKey.set(false);
+        });
+
+        // Use addAction with unique precondition so Ctrl+Enter doesn't leak to other split editors
+        editor.addAction({
+            id: `run-query-${safeId}`,
+            label: 'Run Query',
+            keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
+            precondition: `isEditorFocused_${safeId}`,
+            run: () => {
+                onRunRef.current();
+            }
+        });
+
+        if (isActiveRef.current) {
+            // Need a tiny timeout because monaco layout might need to settle
+            setTimeout(() => {
+                editor.focus();
+            }, 10);
+        }
     }, []);
 
     return (

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useEditorStore, TabGroup } from '../../stores/editorStore';
-import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { TabBar } from './TabBar';
@@ -18,6 +17,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const { removeTab, setActiveTabId, setActiveGroupId, renameTab, updateTabQuery, addTab, splitGroup } = useEditorStore();
     const { isConnected, activeProfile } = useConnectionStore();
     const { saveScript } = useScriptStore();
+
     const activeTab = tabs.find(t => t.id === activeTabId);
 
     // Edge drop zones for splitting
@@ -119,6 +119,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                                     value={tab.query}
                                     onChange={(v) => updateTabQuery(tab.id, v)}
                                     onRun={handleRun}
+                                    isActive={isActiveGroup && tab.id === activeTabId}
+                                    onFocus={handleGroupClick}
                                 />
                             </div>
                         ))}
