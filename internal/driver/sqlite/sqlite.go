@@ -96,3 +96,38 @@ func (d *SQLiteDriver) InjectPageClause(query string, limit, offset int) string 
 	}
 	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
 }
+
+func (d *SQLiteDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error) {
+	query := fmt.Sprintf("PRAGMA table_info(%s)", table) // We already format without quotes in sqlite driver
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: fetch columns: %w", err)
+	}
+	defer rows.Close()
+
+	var cols []*models.ColumnDef
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notnull int
+		var dfltValue interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk); err != nil {
+			return nil, err
+		}
+
+		defValStr := ""
+		if dfltValue != nil {
+			defValStr = fmt.Sprintf("%v", dfltValue)
+		}
+
+		cols = append(cols, &models.ColumnDef{
+			Name:         name,
+			DataType:     typ,
+			DefaultValue: defValStr,
+			IsNullable:   notnull == 0,
+			IsPrimaryKey: pk > 0,
+		})
+	}
+	return cols, nil
+}

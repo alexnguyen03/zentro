@@ -124,6 +124,9 @@ func (a *App) Disconnect()                                           { a.conn.Di
 func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 	return a.conn.FetchDatabaseSchema(profileName, dbName)
 }
+func (a *App) FetchTableColumns(schema, table string) ([]*models.ColumnDef, error) {
+	return a.conn.FetchTableColumns(schema, table)
+}
 
 // ── Query ──────────────────────────────────────────────────────────────────
 

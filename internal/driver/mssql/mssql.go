@@ -218,3 +218,49 @@ func (d *MSSQLDriver) InjectPageClause(query string, limit, offset int) string {
 	}
 	return trimmed + fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
 }
+
+// FetchTableColumns returns detailed column definitions for a given table.
+func (d *MSSQLDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error) {
+	query := `
+		SELECT 
+			c.name as column_name,
+			t.name as data_type,
+			c.is_nullable,
+			COALESCE(object_definition(c.default_object_id), '') as column_default,
+			CASE WHEN ic.object_id IS NOT NULL THEN 1 ELSE 0 END as is_primary_key
+		FROM sys.columns c
+		JOIN sys.types t ON c.user_type_id = t.user_type_id
+		JOIN sys.tables tbl ON c.object_id = tbl.object_id
+		JOIN sys.schemas s ON tbl.schema_id = s.schema_id
+		LEFT JOIN sys.indexes i ON tbl.object_id = i.object_id AND i.is_primary_key = 1
+		LEFT JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id AND c.column_id = ic.column_id
+		WHERE s.name = @p1 AND tbl.name = @p2
+		ORDER BY c.column_id;
+	`
+	rows, err := db.QueryContext(ctx, query, schema, table)
+	if err != nil {
+		return nil, fmt.Errorf("mssql: fetch columns: %w", err)
+	}
+	defer rows.Close()
+
+	var cols []*models.ColumnDef
+	for rows.Next() {
+		var colName, dataType, defVal string
+		var isNullable, isPK int
+		if err := rows.Scan(&colName, &dataType, &isNullable, &defVal, &isPK); err != nil {
+			return nil, err
+		}
+
+		// Clean up MSSQL default constraint formatting (e.g., "((0))" to "0")
+		defVal = strings.Trim(defVal, "()")
+
+		cols = append(cols, &models.ColumnDef{
+			Name:         colName,
+			DataType:     dataType,
+			DefaultValue: defVal,
+			IsNullable:   isNullable == 1,
+			IsPrimaryKey: isPK == 1,
+		})
+	}
+	return cols, nil
+}

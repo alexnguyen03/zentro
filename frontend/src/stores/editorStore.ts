@@ -6,6 +6,8 @@ export interface Tab {
     name: string;
     query: string;
     isRunning: boolean;
+    type?: 'query' | 'table';
+    content?: string; // used for table name if type === 'table'
 }
 
 export interface TabGroup {
@@ -66,6 +68,8 @@ export const useEditorStore = create<EditorState>()(
                         name,
                         query: tabInit?.query || '',
                         isRunning: false,
+                        type: tabInit?.type || 'query',
+                        content: tabInit?.content,
                         ...tabInit
                     };
 

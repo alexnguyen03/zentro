@@ -30,6 +30,8 @@ type SchemaFetcher interface {
 	FetchSchema(ctx context.Context, db *sql.DB, showAllSchemas bool, logger *slog.Logger) ([]*models.SchemaNode, error)
 	// FetchTablePrimaryKeys returns the primary key columns for a given table.
 	FetchTablePrimaryKeys(ctx context.Context, db *sql.DB, schema, table string) ([]string, error)
+	// FetchTableColumns returns detailed column definitions for a given table.
+	FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error)
 }
 
 // QueryDialect is the Port for SQL dialect differences (pagination, schema defaults).

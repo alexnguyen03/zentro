@@ -11,6 +11,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { Connect, DeleteConnection, FetchDatabaseSchema, LoadConnections, Disconnect } from '../../../wailsjs/go/app/App';
 import { onSchemaLoaded } from '../../lib/events';
+import { useEditorStore } from '../../stores/editorStore';
 
 type ConnectionProfile = models.ConnectionProfile;
 
@@ -248,7 +249,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
             {expanded && (
                 <div className="tree-children">
                     {categories.map(cat => cat.items.length > 0 && (
-                        <CategoryNode key={cat.label} {...cat} />
+                        <CategoryNode key={cat.label} {...cat} schemaName={schema.Name} />
                     ))}
                 </div>
             )}
@@ -263,10 +264,23 @@ interface CategoryDef {
     icon: React.ReactNode;
     items: string[];
     itemIcon: React.ReactNode;
+    schemaName?: string;
 }
 
-const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon }) => {
+const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, schemaName }) => {
     const [expanded, setExpanded] = useState(false);
+    const { addTab } = useEditorStore();
+
+    const handleItemDoubleClick = (item: string) => {
+        if (label === 'Tables' && schemaName) {
+            addTab({
+                type: 'table',
+                name: `${schemaName}.${item}`,
+                content: `${schemaName}.${item}`,
+                query: '' // TableInfo tab might not need a query, but it's required in the interface
+            });
+        }
+    };
 
     return (
         <div>
@@ -280,7 +294,12 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon }) =
             {expanded && (
                 <div className="tree-children">
                     {items.map(item => (
-                        <div key={item} className="tree-node tree-leaf" style={{ fontSize: 12 }}>
+                        <div
+                            key={item}
+                            className="tree-node tree-leaf"
+                            style={{ fontSize: 12 }}
+                            onDoubleClick={() => handleItemDoubleClick(item)}
+                        >
                             <span style={{ width: 13, display: 'inline-block' }} />
                             {itemIcon}
                             <span>{item}</span>

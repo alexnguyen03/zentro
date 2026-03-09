@@ -300,3 +300,25 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 	}()
 	return nil
 }
+
+func (s *ConnectionService) FetchTableColumns(schema, table string) ([]*models.ColumnDef, error) {
+	prof := s.getProfile()
+	if prof == nil {
+		return nil, fmt.Errorf("no active connection")
+	}
+	db := s.getDB()
+	if db == nil {
+		return nil, fmt.Errorf("no active connection")
+	}
+	d, ok := getDriver(prof.Driver)
+	if !ok {
+		return nil, fmt.Errorf("driver not found")
+	}
+
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
+	defer cancel()
+
+	s.logger.Info("fetching table columns", "schema", schema, "table", table)
+	return d.FetchTableColumns(ctx, db, schema, table)
+}

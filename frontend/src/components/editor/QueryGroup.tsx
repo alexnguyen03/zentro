@@ -4,6 +4,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
+import { TableInfo } from './TableInfo';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { useDroppable } from '@dnd-kit/core';
 
@@ -112,16 +113,20 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                         {tabs.map(tab => (
                             <div
                                 key={tab.id}
-                                style={{ display: tab.id === activeTabId ? 'flex' : 'none', height: '100%', flexDirection: 'column' }}
+                                style={{ display: tab.id === activeTabId ? 'flex' : 'none', height: '100%', flexDirection: 'column', backgroundColor: 'var(--bg-main)' }}
                             >
-                                <MonacoEditorWrapper
-                                    tabId={tab.id}
-                                    value={tab.query}
-                                    onChange={(v) => updateTabQuery(tab.id, v)}
-                                    onRun={handleRun}
-                                    isActive={isActiveGroup && tab.id === activeTabId}
-                                    onFocus={handleGroupClick}
-                                />
+                                {tab.type === 'table' ? (
+                                    <TableInfo tabId={tab.id} tableName={tab.content || ''} />
+                                ) : (
+                                    <MonacoEditorWrapper
+                                        tabId={tab.id}
+                                        value={tab.query}
+                                        onChange={(v) => updateTabQuery(tab.id, v)}
+                                        onRun={handleRun}
+                                        isActive={isActiveGroup && tab.id === activeTabId}
+                                        onFocus={handleGroupClick}
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>

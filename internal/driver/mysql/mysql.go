@@ -126,3 +126,38 @@ func (d *MySQLDriver) InjectPageClause(query string, limit, offset int) string {
 	}
 	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
 }
+
+func (d *MySQLDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error) {
+	query := `
+		SELECT 
+			COLUMN_NAME, 
+			COLUMN_TYPE, 
+			IS_NULLABLE, 
+			COLUMN_KEY, 
+			COALESCE(COLUMN_DEFAULT, '')
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+		ORDER BY ORDINAL_POSITION;
+	`
+	rows, err := db.QueryContext(ctx, query, table)
+	if err != nil {
+		return nil, fmt.Errorf("mysql: fetch columns: %w", err)
+	}
+	defer rows.Close()
+
+	var cols []*models.ColumnDef
+	for rows.Next() {
+		var colName, dataType, isNullable, columnKey, defVal string
+		if err := rows.Scan(&colName, &dataType, &isNullable, &columnKey, &defVal); err != nil {
+			return nil, err
+		}
+		cols = append(cols, &models.ColumnDef{
+			Name:         colName,
+			DataType:     dataType,
+			DefaultValue: defVal,
+			IsNullable:   strings.ToUpper(isNullable) == "YES",
+			IsPrimaryKey: strings.ToUpper(columnKey) == "PRI",
+		})
+	}
+	return cols, nil
+}

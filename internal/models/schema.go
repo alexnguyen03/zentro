@@ -1,5 +1,14 @@
 package models
 
+// ColumnDef holds the schema information for a single column.
+type ColumnDef struct {
+	Name         string `json:"Name"`
+	DataType     string `json:"DataType"`
+	IsPrimaryKey bool   `json:"IsPrimaryKey"`
+	IsNullable   bool   `json:"IsNullable"`
+	DefaultValue string `json:"DefaultValue"`
+}
+
 // DatabaseInfo represents a database and its schemas.
 type DatabaseInfo struct {
 	Name    string

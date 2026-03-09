@@ -423,3 +423,44 @@ func (d *PostgresDriver) InjectPageClause(query string, limit, offset int) strin
 	}
 	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
 }
+
+// FetchTableColumns returns detailed column definitions for a given table.
+func (d *PostgresDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error) {
+	query := `
+		SELECT 
+			c.column_name, 
+			c.data_type, 
+			COALESCE(c.column_default, '') as column_default, 
+			c.is_nullable,
+			CASE WHEN tc.constraint_type = 'PRIMARY KEY' THEN true ELSE false END as is_primary_key
+		FROM information_schema.columns c
+		LEFT JOIN information_schema.key_column_usage kcu
+			ON c.table_schema = kcu.table_schema AND c.table_name = kcu.table_name AND c.column_name = kcu.column_name
+		LEFT JOIN information_schema.table_constraints tc
+			ON kcu.constraint_name = tc.constraint_name AND tc.constraint_type = 'PRIMARY KEY'
+		WHERE c.table_schema = $1 AND c.table_name = $2
+		ORDER BY c.ordinal_position;
+	`
+	rows, err := db.QueryContext(ctx, query, schema, table)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: fetch columns: %w", err)
+	}
+	defer rows.Close()
+
+	var cols []*models.ColumnDef
+	for rows.Next() {
+		var colName, dataType, defVal, isNullable string
+		var isPK sql.NullBool
+		if err := rows.Scan(&colName, &dataType, &defVal, &isNullable, &isPK); err != nil {
+			return nil, err
+		}
+		cols = append(cols, &models.ColumnDef{
+			Name:         colName,
+			DataType:     dataType,
+			DefaultValue: defVal,
+			IsNullable:   strings.ToUpper(isNullable) == "YES",
+			IsPrimaryKey: isPK.Valid && isPK.Bool,
+		})
+	}
+	return cols, nil
+}

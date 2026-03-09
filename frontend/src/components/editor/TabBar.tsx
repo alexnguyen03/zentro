@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, X, BookMarked, SplitSquareHorizontal } from 'lucide-react';
+import { Plus, X, BookMarked, SplitSquareHorizontal, Table2 } from 'lucide-react';
 import { Tab } from '../../stores/editorStore';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -83,7 +83,10 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
                     onPointerDown={(e) => e.stopPropagation()}
                 />
             ) : (
-                <span className="tab-label" title={tab.name}>{tab.name}</span>
+                <span className="tab-label" title={tab.name}>
+                    {tab.type === 'table' && <Table2 size={12} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} />}
+                    {tab.name}
+                </span>
             )}
             {tab.isRunning && <span className="tab-running-dot" title="Running" />}
             <button
