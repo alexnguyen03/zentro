@@ -127,6 +127,9 @@ func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 func (a *App) FetchTableColumns(schema, table string) ([]*models.ColumnDef, error) {
 	return a.conn.FetchTableColumns(schema, table)
 }
+func (a *App) AlterTableColumn(schema, table string, old, updated models.ColumnDef) error {
+	return a.conn.AlterTableColumn(schema, table, old, updated)
+}
 
 // ── Query ──────────────────────────────────────────────────────────────────
 

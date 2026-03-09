@@ -322,3 +322,25 @@ func (s *ConnectionService) FetchTableColumns(schema, table string) ([]*models.C
 	s.logger.Info("fetching table columns", "schema", schema, "table", table)
 	return d.FetchTableColumns(ctx, db, schema, table)
 }
+
+func (s *ConnectionService) AlterTableColumn(schema, table string, old, updated models.ColumnDef) error {
+	prof := s.getProfile()
+	if prof == nil {
+		return fmt.Errorf("no active connection")
+	}
+	db := s.getDB()
+	if db == nil {
+		return fmt.Errorf("no active connection")
+	}
+	d, ok := getDriver(prof.Driver)
+	if !ok {
+		return fmt.Errorf("driver not found")
+	}
+
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
+	defer cancel()
+
+	s.logger.Info("altering column", "schema", schema, "table", table, "column", old.Name)
+	return d.AlterTableColumn(ctx, db, schema, table, &old, &updated)
+}

@@ -265,3 +265,90 @@ func (d *MSSQLDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema,
 	}
 	return cols, nil
 }
+
+// AlterTableColumn applies column changes using MSSQL DDL statements.
+// MSSQL does not support a single ALTER COLUMN for all properties — each aspect is separate.
+func (d *MSSQLDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, table string, old, updated *models.ColumnDef) error {
+	qualified := fmt.Sprintf("[%s].[%s]", schema, table)
+
+	// 1. Rename column (sp_rename)
+	if old.Name != updated.Name {
+		renameSQL := fmt.Sprintf(
+			"EXEC sp_rename '%s.%s.%s', '%s', 'COLUMN'",
+			schema, table, old.Name, updated.Name,
+		)
+		if _, err := db.ExecContext(ctx, renameSQL); err != nil {
+			return fmt.Errorf("mssql: rename column: %w", err)
+		}
+		old.Name = updated.Name // carry forward for further ops
+	}
+
+	// 2. Alter data type or nullability
+	if old.DataType != updated.DataType || old.IsNullable != updated.IsNullable {
+		nullStr := "NOT NULL"
+		if updated.IsNullable {
+			nullStr = "NULL"
+		}
+		alterSQL := fmt.Sprintf(
+			"ALTER TABLE %s ALTER COLUMN [%s] %s %s",
+			qualified, updated.Name, updated.DataType, nullStr,
+		)
+		if _, err := db.ExecContext(ctx, alterSQL); err != nil {
+			return fmt.Errorf("mssql: alter column type/null: %w", err)
+		}
+	}
+
+	// 3. Handle default value changes
+	if old.DefaultValue != updated.DefaultValue {
+		// Drop existing default constraint if any
+		dropDefSQL := fmt.Sprintf(`
+			DECLARE @cname NVARCHAR(256);
+			SELECT @cname = dc.name FROM sys.default_constraints dc
+			JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+			JOIN sys.tables t ON c.object_id = t.object_id
+			JOIN sys.schemas s ON t.schema_id = s.schema_id
+			WHERE s.name = '%s' AND t.name = '%s' AND c.name = '%s';
+			IF @cname IS NOT NULL
+				EXEC('ALTER TABLE %s DROP CONSTRAINT [' + @cname + ']');
+		`, schema, table, updated.Name, qualified)
+		if _, err := db.ExecContext(ctx, dropDefSQL); err != nil {
+			return fmt.Errorf("mssql: drop default: %w", err)
+		}
+		// Add new default if not empty
+		if updated.DefaultValue != "" {
+			addDefSQL := fmt.Sprintf(
+				"ALTER TABLE %s ADD DEFAULT (%s) FOR [%s]",
+				qualified, updated.DefaultValue, updated.Name,
+			)
+			if _, err := db.ExecContext(ctx, addDefSQL); err != nil {
+				return fmt.Errorf("mssql: add default: %w", err)
+			}
+		}
+	}
+
+	// 4. PK changes — drop old PK then recreate
+	if old.IsPrimaryKey != updated.IsPrimaryKey {
+		dropPKSQL := fmt.Sprintf(`
+			DECLARE @pkname NVARCHAR(256);
+			SELECT @pkname = kc.name FROM sys.key_constraints kc
+			JOIN sys.tables t ON kc.parent_object_id = t.object_id
+			JOIN sys.schemas s ON t.schema_id = s.schema_id
+			WHERE kc.type = 'PK' AND s.name = '%s' AND t.name = '%s';
+			IF @pkname IS NOT NULL
+				EXEC('ALTER TABLE %s DROP CONSTRAINT [' + @pkname + ']');
+		`, schema, table, qualified)
+		if _, err := db.ExecContext(ctx, dropPKSQL); err != nil {
+			return fmt.Errorf("mssql: drop pk: %w", err)
+		}
+		if updated.IsPrimaryKey {
+			addPKSQL := fmt.Sprintf(
+				"ALTER TABLE %s ADD CONSTRAINT [PK_%s_%s] PRIMARY KEY ([%s])",
+				qualified, table, updated.Name, updated.Name,
+			)
+			if _, err := db.ExecContext(ctx, addPKSQL); err != nil {
+				return fmt.Errorf("mssql: add pk: %w", err)
+			}
+		}
+	}
+	return nil
+}

@@ -131,3 +131,9 @@ func (d *SQLiteDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema
 	}
 	return cols, nil
 }
+
+// AlterTableColumn is not supported by SQLite (no native ALTER COLUMN).
+// SQLite requires a full table recreation to alter columns. This returns a clear error.
+func (d *SQLiteDriver) AlterTableColumn(_ context.Context, _ *sql.DB, _, _ string, _, _ *models.ColumnDef) error {
+	return fmt.Errorf("sqlite: ALTER COLUMN is not supported — SQLite requires table recreation to alter columns")
+}

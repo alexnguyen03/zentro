@@ -161,3 +161,27 @@ func (d *MySQLDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema,
 	}
 	return cols, nil
 }
+
+// AlterTableColumn applies column changes using MySQL DDL.
+// MySQL supports ALTER TABLE MODIFY COLUMN for type+nullability and CHANGE for rename.
+func (d *MySQLDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, table string, old, updated *models.ColumnDef) error {
+	// 1. Rename + retype in one statement (CHANGE COLUMN)
+	if old.Name != updated.Name || old.DataType != updated.DataType || old.IsNullable != updated.IsNullable {
+		nullStr := "NOT NULL"
+		if updated.IsNullable {
+			nullStr = "NULL"
+		}
+		defStr := ""
+		if updated.DefaultValue != "" {
+			defStr = fmt.Sprintf(" DEFAULT %s", updated.DefaultValue)
+		}
+		sql := fmt.Sprintf(
+			"ALTER TABLE `%s` CHANGE COLUMN `%s` `%s` %s %s%s",
+			table, old.Name, updated.Name, updated.DataType, nullStr, defStr,
+		)
+		if _, err := db.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("mysql: alter column: %w", err)
+		}
+	}
+	return nil
+}

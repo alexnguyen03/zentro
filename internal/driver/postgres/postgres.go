@@ -464,3 +464,76 @@ func (d *PostgresDriver) FetchTableColumns(ctx context.Context, db *sql.DB, sche
 	}
 	return cols, nil
 }
+
+// AlterTableColumn applies column changes using Postgres DDL statements.
+func (d *PostgresDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, table string, old, updated *models.ColumnDef) error {
+	qualified := fmt.Sprintf(`"%s"."%s"`, schema, table)
+
+	// 1. Rename
+	if old.Name != updated.Name {
+		sql := fmt.Sprintf(
+			`ALTER TABLE %s RENAME COLUMN "%s" TO "%s"`,
+			qualified, old.Name, updated.Name,
+		)
+		if _, err := db.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("postgres: rename column: %w", err)
+		}
+		old.Name = updated.Name
+	}
+
+	// 2. Change type
+	if old.DataType != updated.DataType {
+		sql := fmt.Sprintf(
+			`ALTER TABLE %s ALTER COLUMN "%s" TYPE %s USING "%s"::%s`,
+			qualified, updated.Name, updated.DataType, updated.Name, updated.DataType,
+		)
+		if _, err := db.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("postgres: alter column type: %w", err)
+		}
+	}
+
+	// 3. Nullability
+	if old.IsNullable != updated.IsNullable {
+		action := "SET NOT NULL"
+		if updated.IsNullable {
+			action = "DROP NOT NULL"
+		}
+		sql := fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN "%s" %s`, qualified, updated.Name, action)
+		if _, err := db.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("postgres: alter nullable: %w", err)
+		}
+	}
+
+	// 4. Default value
+	if old.DefaultValue != updated.DefaultValue {
+		var sql string
+		if updated.DefaultValue == "" {
+			sql = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN "%s" DROP DEFAULT`, qualified, updated.Name)
+		} else {
+			sql = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN "%s" SET DEFAULT %s`, qualified, updated.Name, updated.DefaultValue)
+		}
+		if _, err := db.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("postgres: alter default: %w", err)
+		}
+	}
+
+	// 5. PK constraint
+	if old.IsPrimaryKey != updated.IsPrimaryKey {
+		pkName := fmt.Sprintf("pk_%s_%s", table, updated.Name)
+		if !updated.IsPrimaryKey {
+			sql := fmt.Sprintf(`ALTER TABLE %s DROP CONSTRAINT IF EXISTS "%s"`, qualified, pkName)
+			if _, err := db.ExecContext(ctx, sql); err != nil {
+				return fmt.Errorf("postgres: drop pk: %w", err)
+			}
+		} else {
+			sql := fmt.Sprintf(
+				`ALTER TABLE %s ADD CONSTRAINT "%s" PRIMARY KEY ("%s")`,
+				qualified, pkName, updated.Name,
+			)
+			if _, err := db.ExecContext(ctx, sql); err != nil {
+				return fmt.Errorf("postgres: add pk: %w", err)
+			}
+		}
+	}
+	return nil
+}

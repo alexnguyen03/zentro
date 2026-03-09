@@ -32,6 +32,8 @@ type SchemaFetcher interface {
 	FetchTablePrimaryKeys(ctx context.Context, db *sql.DB, schema, table string) ([]string, error)
 	// FetchTableColumns returns detailed column definitions for a given table.
 	FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error)
+	// AlterTableColumn applies changes to a column definition via driver-specific DDL.
+	AlterTableColumn(ctx context.Context, db *sql.DB, schema, table string, old, updated *models.ColumnDef) error
 }
 
 // QueryDialect is the Port for SQL dialect differences (pagination, schema defaults).
