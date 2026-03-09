@@ -10,7 +10,9 @@ import (
 	zentroapp "zentro/internal/app"
 	"zentro/internal/core"
 	msdriver "zentro/internal/driver/mssql"
+	mydriver "zentro/internal/driver/mysql"
 	pgdriver "zentro/internal/driver/postgres"
+	sqdriver "zentro/internal/driver/sqlite"
 
 	// sql driver side-effect registrations
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -25,6 +27,8 @@ func main() {
 	// Pattern: Factory Method — each New() returns a DatabaseDriver interface.
 	core.Register(pgdriver.New())
 	core.Register(msdriver.New())
+	core.Register(mydriver.New())
+	core.Register(sqdriver.New())
 
 	// Pattern: Singleton — one App instance for the lifetime of the process.
 	app := zentroapp.NewApp()

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -198,4 +199,22 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
+}
+
+func (d *MSSQLDriver) DefaultSchema() string { return "dbo" }
+
+func (d *MSSQLDriver) InjectPageClause(query string, limit, offset int) string {
+	limitPattern := regexp.MustCompile(`(?i)\bLIMIT\b|\bOFFSET\b|\bTOP\b|\bFETCH\b`)
+	if limitPattern.MatchString(query) {
+		return query
+	}
+
+	trimmed := strings.TrimSpace(query)
+	// MSSQL >= 2012 requires ORDER BY for OFFSET/FETCH.
+	// If the query doesn't have an ORDER BY, we must inject a dummy one.
+	hasOrderBy := regexp.MustCompile(`(?i)\bORDER\s+BY\b`).MatchString(trimmed)
+	if !hasOrderBy {
+		trimmed = trimmed + " ORDER BY 1"
+	}
+	return trimmed + fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
 }

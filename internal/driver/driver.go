@@ -32,9 +32,16 @@ type SchemaFetcher interface {
 	FetchTablePrimaryKeys(ctx context.Context, db *sql.DB, schema, table string) ([]string, error)
 }
 
-// DatabaseDriver is the full extension point: Connector + SchemaFetcher.
+// QueryDialect is the Port for SQL dialect differences (pagination, schema defaults).
+type QueryDialect interface {
+	InjectPageClause(query string, limit, offset int) string
+	DefaultSchema() string
+}
+
+// DatabaseDriver is the full extension point: Connector + SchemaFetcher + QueryDialect.
 // Callers that only need connection should accept Connector; only schema → SchemaFetcher.
 type DatabaseDriver interface {
 	Connector
 	SchemaFetcher
+	QueryDialect
 }

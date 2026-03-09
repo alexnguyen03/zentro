@@ -23,8 +23,11 @@ func setupApp(t *testing.T) *App {
 	a := NewApp()
 	a.ctx = context.Background()
 	a.logger = utils.NewLogger(false)
+	a.conn.logger = a.logger
+	a.query.logger = a.logger
+	a.scripts.logger = a.logger
 	a.db = setupTestDB(t)
-	a.prefs = utils.Preferences{DefaultLimit: 100000} // Set limit high enough for 50k
+	a.prefs = utils.Preferences{DefaultLimit: 100000, QueryTimeout: 30} // Set limit high enough for 50k
 	return a
 }
 
@@ -224,7 +227,7 @@ func TestExecuteQuery_NonSelect(t *testing.T) {
 	select {
 	case done := <-doneChan:
 		if affected, ok := done["affected"].(int64); !ok || affected != 2 {
-			t.Errorf("expected 2 affected rows, got %v", done["affected"])
+			t.Errorf("expected 2 affected rows, got %v, error: %v", done["affected"], done["error"])
 		}
 		if isSel, ok := done["isSelect"].(bool); !ok || isSel {
 			t.Errorf("expected isSelect=false")

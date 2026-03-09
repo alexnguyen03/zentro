@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -406,4 +407,19 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
+}
+
+func (d *PostgresDriver) DefaultSchema() string { return "public" }
+
+func (d *PostgresDriver) InjectPageClause(query string, limit, offset int) string {
+	limitPattern := regexp.MustCompile(`(?i)\bLIMIT\b|\bOFFSET\b|\bTOP\b|\bFETCH\b`)
+	if limitPattern.MatchString(query) {
+		return query
+	}
+
+	trimmed := strings.TrimSpace(query)
+	if offset > 0 {
+		return trimmed + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	}
+	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
 }

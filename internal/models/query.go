@@ -15,12 +15,14 @@ type QueryResult struct {
 	PrimaryKey []string        // danh sách cột khoá chính của bảng đó
 }
 
-// HistoryEntry lưu một lần thực thi query vào history.
+// HistoryEntry records one query execution.
 type HistoryEntry struct {
-	Query      string    `json:"query"`
-	ExecutedAt time.Time `json:"executed_at"`
-	DurationMs int64     `json:"duration_ms"`
-	Success    bool      `json:"success"`
-	RowCount   int       `json:"row_count"`
-	Profile    string    `json:"profile"` // tên ConnectionProfile đã dùng
+	ID         string `json:"id"`
+	Query      string `json:"query"`
+	Profile    string `json:"profile"`
+	Database   string `json:"database"`
+	DurationMs int64  `json:"duration_ms"`
+	RowCount   int64  `json:"row_count"`
+	Error      string `json:"error,omitempty"`
+	ExecutedAt string `json:"executed_at"`
 }

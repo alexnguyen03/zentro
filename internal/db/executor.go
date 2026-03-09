@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"zentro/internal/core"
 )
 
 // limitPattern matches queries that already contain a LIMIT, TOP, or OFFSET clause.
@@ -43,31 +45,25 @@ func ExtractTableFromQuery(query string) (schema, table string) {
 	return schema, table
 }
 
-// InjectLimitIfMissing appends a row-limit clause to a SELECT query if none exists.
-// Exported so internal/app can use it without duplicating the regex.
-func InjectLimitIfMissing(query, driver string, limit int) string {
-	return InjectLimitOffsetIfMissing(query, driver, limit, 0)
+// InjectPageClause delegates pagination generation to the registered driver.
+func InjectPageClause(driverName, query string, limit, offset int) string {
+	d, ok := core.Get(driverName)
+	if !ok {
+		return fallbackInjectPage(query, limit, offset)
+	}
+	if dialect, ok := d.(interface {
+		InjectPageClause(query string, limit, offset int) string
+	}); ok {
+		return dialect.InjectPageClause(query, limit, offset)
+	}
+	return fallbackInjectPage(query, limit, offset)
 }
 
-// InjectLimitOffsetIfMissing appends a row-limit and offset clause to a SELECT query if none exists.
-func InjectLimitOffsetIfMissing(query, driver string, limit int, offset int) string {
+func fallbackInjectPage(query string, limit, offset int) string {
 	if limitPattern.MatchString(query) {
 		return query
 	}
-
 	trimmed := strings.TrimSpace(query)
-
-	if driver == "sqlserver" {
-		// MSSQL >= 2012 requires ORDER BY for OFFSET/FETCH.
-		// If the query doesn't have an ORDER BY, we must inject a dummy one.
-		hasOrderBy := regexp.MustCompile(`(?i)\bORDER\s+BY\b`).MatchString(trimmed)
-		if !hasOrderBy {
-			trimmed = trimmed + " ORDER BY 1"
-		}
-		return trimmed + fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
-	}
-
-	// Postgres / SQLite / MySQL
 	if offset > 0 {
 		return trimmed + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 	}
