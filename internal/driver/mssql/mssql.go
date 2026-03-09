@@ -246,7 +246,8 @@ func (d *MSSQLDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema,
 	var cols []*models.ColumnDef
 	for rows.Next() {
 		var colName, dataType, defVal string
-		var isNullable, isPK int
+		var isNullable bool
+		var isPK int
 		if err := rows.Scan(&colName, &dataType, &isNullable, &defVal, &isPK); err != nil {
 			return nil, err
 		}
@@ -258,7 +259,7 @@ func (d *MSSQLDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema,
 			Name:         colName,
 			DataType:     dataType,
 			DefaultValue: defVal,
-			IsNullable:   isNullable == 1,
+			IsNullable:   isNullable,
 			IsPrimaryKey: isPK == 1,
 		})
 	}
