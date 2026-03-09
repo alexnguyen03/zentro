@@ -1,26 +1,36 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+    DndContext, closestCenter, PointerSensor,
+    useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    SortableContext, verticalListSortingStrategy,
+    useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
-import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save } from 'lucide-react';
+import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, GripVertical } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
 
 interface TableInfoProps {
     tabId: string;
-    tableName: string; // "schema.table"
+    tableName: string;
 }
 
 type SubTab = 'info' | 'data' | 'erd';
 type SortDir = 'asc' | 'desc' | null;
-type SortField = keyof models.ColumnDef | '#';
+type SortCol = 'idx' | 'Name' | 'DataType' | 'IsPrimaryKey' | 'IsNullable' | 'DefaultValue';
 
 interface RowState {
+    id: string; // stable dnd id
     original: models.ColumnDef;
     current: models.ColumnDef;
     deleted: boolean;
 }
 
-function parseTableName(t: string): { schema: string; table: string } {
+function parseTableName(t: string) {
     const parts = t.split('.');
     return parts.length > 1 ? { schema: parts[0], table: parts.slice(1).join('.') } : { schema: '', table: t };
 }
@@ -31,92 +41,247 @@ function deepEq(a: models.ColumnDef, b: models.ColumnDef) {
         a.DefaultValue === b.DefaultValue;
 }
 
-// ── DataTypeCell ──────────────────────────────────────────────────────────────
+// ── DataTypeCell ──────────────────────────────────────────────
 interface DataTypeCellProps {
     value: string;
     types: string[];
     isDirty: boolean;
-    onChange: (v: string) => void;
+    disabled: boolean;
+    onCommit: (v: string) => void;
 }
 
-const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, onChange }) => {
-    const [open, setOpen] = useState(false);
+const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disabled, onCommit }) => {
+    const [editing, setEditing] = useState(false);
     const [search, setSearch] = useState('');
-    const ref = useRef<HTMLDivElement>(null);
+    const ref = React.useRef<HTMLDivElement>(null);
 
-    const filtered = search
-        ? types.filter(t => t.toLowerCase().includes(search.toLowerCase()))
-        : types;
+    const filtered = search ? types.filter(t => t.toLowerCase().includes(search.toLowerCase())) : types;
 
     useEffect(() => {
-        if (!open) return;
+        if (!editing) return;
         const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+            if (ref.current && !ref.current.contains(e.target as Node)) { setEditing(false); setSearch(''); }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [open]);
+    }, [editing]);
 
-    const handleSelect = (t: string) => { onChange(t); setOpen(false); setSearch(''); };
+    const handleSelect = (t: string) => { onCommit(t); setEditing(false); setSearch(''); };
+
+    if (!editing) {
+        return (
+            <span
+                className={`font-mono text-xs block truncate ${isDirty ? 'text-[var(--accent-color)]' : ''}`}
+                onDoubleClick={() => !disabled && setEditing(true)}
+                title={`${value} (double-click to edit)`}
+            >
+                {value}
+            </span>
+        );
+    }
 
     return (
         <div ref={ref} style={{ position: 'relative', width: '100%' }}>
             <input
-                style={{
-                    width: '100%', padding: '3px 6px', fontFamily: 'monospace', fontSize: 12,
-                    border: `1px solid ${isDirty ? 'var(--accent-color)' : 'var(--border-color)'}`,
-                    borderRadius: 4, background: 'var(--bg-editor)', color: 'var(--text-primary)',
-                    outline: 'none', boxSizing: 'border-box',
-                }}
-                value={open ? search : value}
-                onFocus={() => { setOpen(true); setSearch(''); }}
+                autoFocus
+                className="rt-cell-input"
+                style={{ height: 24, fontSize: 12, fontFamily: 'monospace', borderRadius: 3, padding: '0 6px' }}
+                value={search}
+                placeholder={value}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => {
                     if (e.key === 'Enter' && filtered.length > 0) handleSelect(filtered[0]);
-                    if (e.key === 'Escape') { setOpen(false); setSearch(''); }
+                    if (e.key === 'Escape') { setEditing(false); setSearch(''); }
                 }}
-                placeholder={value}
             />
-            {open && (
-                <div style={{
-                    position: 'absolute', zIndex: 9999, top: '100%', left: 0, right: 0,
-                    maxHeight: 200, overflowY: 'auto',
-                    background: 'var(--bg-toolbar)', border: '1px solid var(--border-color)',
-                    borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                }}>
-                    {filtered.length === 0
-                        ? <div style={{ padding: '6px 10px', fontSize: 12, color: 'var(--text-secondary)' }}>No match</div>
-                        : filtered.map(t => (
-                            <div
-                                key={t}
-                                onMouseDown={() => handleSelect(t)}
-                                style={{
-                                    padding: '5px 10px', fontSize: 12, cursor: 'pointer',
-                                    fontFamily: 'monospace',
-                                    background: t === value ? 'var(--accent-color)' : 'transparent',
-                                    color: t === value ? '#fff' : 'var(--text-primary)',
-                                }}
-                            >
-                                {t}
-                            </div>
-                        ))
-                    }
-                </div>
-            )}
+            <div style={{
+                position: 'fixed', zIndex: 99999,
+                minWidth: 180, maxHeight: 220, overflowY: 'auto',
+                background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                borderRadius: 4, boxShadow: '0 6px 20px rgba(0,0,0,.35)',
+                marginTop: 2,
+            }}>
+                {filtered.length === 0
+                    ? <div className="px-3 py-2 text-xs text-[var(--text-secondary)]">No match</div>
+                    : filtered.map(t => (
+                        <div
+                            key={t}
+                            onMouseDown={() => handleSelect(t)}
+                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${t === value ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'}`}
+                        >
+                            {t}
+                        </div>
+                    ))
+                }
+            </div>
         </div>
     );
 };
 
-// ── TableInfo ─────────────────────────────────────────────────────────────────
+// ── SortableRow ────────────────────────────────────────────────
+interface SortableRowProps {
+    row: RowState;
+    rowIdx: number;
+    displayIdx: number;
+    types: string[];
+    editCell: { rowIdx: number; field: 'Name' | 'DefaultValue' } | null;
+    setEditCell: React.Dispatch<React.SetStateAction<{ rowIdx: number; field: 'Name' | 'DefaultValue' } | null>>;
+    onUpdate: (rowIdx: number, patch: Partial<models.ColumnDef>) => void;
+    onDiscard: (rowIdx: number) => void;
+    rowError: string | undefined;
+}
+
+const SortableRow: React.FC<SortableRowProps> = ({
+    row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError
+}) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
+    const col = row.current;
+    const isDeleted = row.deleted;
+    const isDirty = !isDeleted && !deepEq(row.original, row.current);
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : isDeleted ? 0.55 : 1,
+        background: isDeleted
+            ? 'rgba(220,38,38,.08)'
+            : isDirty
+                ? 'rgba(var(--accent-rgb,99,102,241),.09)'
+                : displayIdx % 2 === 1 ? 'var(--bg-secondary)' : undefined,
+        position: 'relative',
+        zIndex: isDragging ? 999 : undefined,
+    };
+
+    const td: React.CSSProperties = {
+        padding: '4px 8px',
+        borderBottom: '1px solid var(--border-color)',
+        fontSize: 12,
+        verticalAlign: 'middle',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+    };
+
+    return (
+        <>
+            <tr ref={setNodeRef} style={style}>
+                {/* Drag handle */}
+                <td style={{ ...td, width: 28, textAlign: 'center', padding: '4px 4px', cursor: 'grab' }}
+                    {...attributes} {...listeners}>
+                    <GripVertical size={13} style={{ opacity: 0.35, display: 'block', margin: 'auto' }} />
+                </td>
+
+                {/* # */}
+                <td style={{ ...td, width: 36, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 11 }}>
+                    {rowIdx + 1}
+                </td>
+
+                {/* Name */}
+                <td style={{ ...td }}>
+                    {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
+                        <input
+                            autoFocus
+                            className="rt-cell-input"
+                            style={{ height: 24, fontSize: 12, borderRadius: 3, padding: '0 6px', width: '100%' }}
+                            defaultValue={col.Name}
+                            onBlur={e => { onUpdate(rowIdx, { Name: e.target.value }); setEditCell(null); }}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                if (e.key === 'Escape') setEditCell(null);
+                            }}
+                        />
+                    ) : (
+                        <span
+                            className={`block truncate ${isDirty && col.Name !== row.original.Name ? 'text-[var(--accent-color)] font-semibold' : col.IsPrimaryKey ? 'font-semibold' : ''}`}
+                            onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
+                            title={col.Name}
+                        >
+                            {col.Name}
+                        </span>
+                    )}
+                </td>
+
+                {/* DataType */}
+                <td style={{ ...td, padding: '3px 6px' }}>
+                    <DataTypeCell
+                        value={col.DataType}
+                        types={types}
+                        isDirty={col.DataType !== row.original.DataType}
+                        disabled={isDeleted}
+                        onCommit={v => onUpdate(rowIdx, { DataType: v })}
+                    />
+                </td>
+
+                {/* PK */}
+                <td style={{ ...td, width: 44, textAlign: 'center' }}>
+                    <input type="checkbox" checked={col.IsPrimaryKey} disabled={isDeleted}
+                        onChange={e => onUpdate(rowIdx, { IsPrimaryKey: e.target.checked })}
+                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--accent-color)' }} />
+                </td>
+
+                {/* Nullable */}
+                <td style={{ ...td, width: 68, textAlign: 'center' }}>
+                    <input type="checkbox" checked={col.IsNullable} disabled={isDeleted}
+                        onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
+                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--accent-color)' }} />
+                </td>
+
+                {/* Default */}
+                <td style={{ ...td, padding: '3px 6px' }}>
+                    {isDeleted
+                        ? <span className="text-[var(--text-secondary)]">{col.DefaultValue || '–'}</span>
+                        : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
+                            ? <input autoFocus className="rt-cell-input"
+                                style={{ height: 24, fontSize: 12, borderRadius: 3, padding: '0 6px', width: '100%' }}
+                                defaultValue={col.DefaultValue}
+                                onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                    if (e.key === 'Escape') setEditCell(null);
+                                }} />
+                            : <span
+                                className={`block truncate cursor-text ${col.DefaultValue ? '' : 'text-[var(--text-secondary)]'} ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-[var(--accent-color)]' : ''}`}
+                                onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
+                                title={col.DefaultValue || 'none'}
+                            >
+                                {col.DefaultValue || '–'}
+                            </span>
+                    }
+                </td>
+
+                {/* Actions */}
+                <td style={{ ...td, width: 44, padding: '4px 6px' }}>
+                    {(isDirty || isDeleted) && (
+                        <button onClick={() => onDiscard(rowIdx)} title="Discard"
+                            className="rt-th-sortable"
+                            style={{ padding: '2px 5px', borderRadius: 3, border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                            <RotateCcw size={11} />
+                        </button>
+                    )}
+                </td>
+            </tr>
+            {rowError && (
+                <tr style={{ background: 'rgba(220,38,38,.06)' }}>
+                    <td colSpan={8} style={{ padding: '3px 12px', color: 'var(--error-color)', fontSize: 11, borderBottom: '1px solid var(--border-color)' }}>
+                        ⚠ {rowError}
+                    </td>
+                </tr>
+            )}
+        </>
+    );
+};
+
+// ── Main TableInfo ─────────────────────────────────────────────
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
+    const [order, setOrder] = useState<string[]>([]); // dnd order by row.id
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('info');
     const [saving, setSaving] = useState(false);
     const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
     const [editCell, setEditCell] = useState<{ rowIdx: number; field: 'Name' | 'DefaultValue' } | null>(null);
-    const [sortField, setSortField] = useState<SortField>('#');
+    const [sortCol, setSortCol] = useState<SortCol>('idx');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
 
     const { activeProfile } = useConnectionStore();
@@ -124,61 +289,70 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const types = getTypesForDriver(driver);
     const { schema, table } = parseTableName(tableName);
 
-    const loadColumns = useCallback(async () => {
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+    const load = useCallback(async () => {
         try {
-            setLoading(true);
-            setFetchError(null);
+            setLoading(true); setFetchError(null);
             const cols = await FetchTableColumns(schema, table);
-            setRows((cols || []).map(c => ({ original: { ...c }, current: { ...c }, deleted: false })));
+            const rs: RowState[] = (cols || []).map((c, i) => ({
+                id: `col-${i}-${c.Name}`,
+                original: { ...c }, current: { ...c }, deleted: false,
+            }));
+            setRows(rs);
+            setOrder(rs.map(r => r.id));
             setRowErrors({});
-        } catch (err: any) {
-            setFetchError(err.toString());
-        } finally {
-            setLoading(false);
-        }
+        } catch (e: any) { setFetchError(e.toString()); }
+        finally { setLoading(false); }
     }, [schema, table]);
 
-    useEffect(() => { loadColumns(); }, [loadColumns]);
+    useEffect(() => { load(); }, [load]);
 
-    // ── Sort ──
-    const sortedIndices = (() => {
-        const indices = rows.map((_, i) => i);
-        if (!sortDir) return indices;
-        return [...indices].sort((ai, bi) => {
-            const a = rows[ai], b = rows[bi];
-            let av: any, bv: any;
-            if (sortField === '#') { av = ai; bv = bi; }
-            else { av = a.current[sortField as keyof models.ColumnDef]; bv = b.current[sortField as keyof models.ColumnDef]; }
+    // Sorted indices (original index order within rows array)
+    const displayIds = (() => {
+        if (!sortDir || sortCol === 'idx') {
+            // use DnD order
+            return order.filter(id => rows.find(r => r.id === id));
+        }
+        return [...order].sort((aid, bid) => {
+            const a = rows.find(r => r.id === aid)!;
+            const b = rows.find(r => r.id === bid)!;
+            let av: any = a.current[sortCol as keyof models.ColumnDef];
+            let bv: any = b.current[sortCol as keyof models.ColumnDef];
             if (typeof av === 'boolean') av = av ? 1 : 0;
             if (typeof bv === 'boolean') bv = bv ? 1 : 0;
-            if (av < bv) return sortDir === 'asc' ? -1 : 1;
-            if (av > bv) return sortDir === 'asc' ? 1 : -1;
-            return 0;
+            return sortDir === 'asc' ? (av < bv ? -1 : av > bv ? 1 : 0) : (av > bv ? -1 : av < bv ? 1 : 0);
         });
     })();
 
-    const cycleSort = (field: SortField) => {
-        if (sortField !== field) { setSortField(field); setSortDir('asc'); }
+    const cycling: SortCol[] = ['idx', 'Name', 'DataType', 'IsPrimaryKey', 'IsNullable', 'DefaultValue'];
+    const cycleSort = (col: SortCol) => {
+        if (sortCol !== col) { setSortCol(col); setSortDir('asc'); }
         else setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc');
     };
 
-    const SortIcon = ({ field }: { field: SortField }) => {
-        if (sortField !== field || !sortDir) return <ArrowUpDown size={10} style={{ opacity: 0.4, marginLeft: 4 }} />;
-        return sortDir === 'asc'
-            ? <ArrowUp size={10} style={{ marginLeft: 4, color: 'var(--accent-color)' }} />
-            : <ArrowDown size={10} style={{ marginLeft: 4, color: 'var(--accent-color)' }} />;
+    const SortIcon = ({ col }: { col: SortCol }) => (
+        sortCol !== col || !sortDir
+            ? <ArrowUpDown size={10} style={{ opacity: .35, marginLeft: 3, flexShrink: 0 }} />
+            : sortDir === 'asc'
+                ? <ArrowUp size={10} style={{ marginLeft: 3, color: 'var(--accent-color)', flexShrink: 0 }} />
+                : <ArrowDown size={10} style={{ marginLeft: 3, color: 'var(--accent-color)', flexShrink: 0 }} />
+    );
+
+    const handleDragEnd = (e: DragEndEvent) => {
+        const { active, over } = e;
+        if (!over || active.id === over.id) return;
+        setOrder(prev => arrayMove(prev, prev.indexOf(String(active.id)), prev.indexOf(String(over.id))));
+        // reset sort to natural order so user sees the new order
+        setSortCol('idx'); setSortDir('asc');
     };
 
     const updateRow = (rowIdx: number, patch: Partial<models.ColumnDef>) => {
-        setRows(prev => prev.map((r, i) =>
-            i === rowIdx ? { ...r, current: { ...r.current, ...patch } } : r
-        ));
+        setRows(prev => prev.map((r, i) => i === rowIdx ? { ...r, current: { ...r.current, ...patch } } : r));
     };
 
     const discardRow = (rowIdx: number) => {
-        setRows(prev => prev.map((r, i) =>
-            i === rowIdx ? { ...r, current: { ...r.original }, deleted: false } : r
-        ));
+        setRows(prev => prev.map((r, i) => i === rowIdx ? { ...r, current: { ...r.original }, deleted: false } : r));
         setRowErrors(e => { const ne = { ...e }; delete ne[rowIdx]; return ne; });
     };
 
@@ -187,32 +361,24 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setRowErrors({});
     };
 
-    const saveDirtyRows = async () => {
+    const saveAll = async () => {
         setSaving(true);
-        const newErrors: Record<number, string> = {};
+        const errs: Record<number, string> = {};
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
             if (r.deleted || deepEq(r.original, r.current)) continue;
-            try {
-                await AlterTableColumn(schema, table, r.original, r.current);
-            } catch (err: any) {
-                newErrors[i] = err.toString();
-            }
+            try { await AlterTableColumn(schema, table, r.original, r.current); }
+            catch (e: any) { errs[i] = e.toString(); }
         }
-        setRowErrors(newErrors);
-        if (Object.keys(newErrors).length === 0) await loadColumns();
+        setRowErrors(errs);
+        if (!Object.keys(errs).length) await load();
         setSaving(false);
     };
 
     const dirtyCount = rows.filter((r, i) => !r.deleted && !deepEq(r.original, r.current)).length;
     const deletedCount = rows.filter(r => r.deleted).length;
 
-    const thStyle: React.CSSProperties = {
-        padding: '7px 10px', textAlign: 'left', fontSize: 12, fontWeight: 600,
-        background: 'var(--bg-toolbar)', cursor: 'pointer', userSelect: 'none',
-        borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap',
-        position: 'sticky', top: 0, zIndex: 10,
-    };
+    const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
 
     const subTabs: { key: SubTab; label: string }[] = [
         { key: 'info', label: 'Info' },
@@ -221,261 +387,133 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     ];
 
     if (loading) return (
-        <div style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 8, height: '100%', boxSizing: 'border-box' }}>
-            <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading schema…
+        <div className="flex items-center gap-2 p-5 h-full" style={{ background: 'var(--bg-main)' }}>
+            <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading schema…
         </div>
     );
-
-    if (fetchError) return (
-        <div style={{ padding: 20, color: 'var(--error-color)', height: '100%', boxSizing: 'border-box' }}>{fetchError}</div>
-    );
+    if (fetchError) return <div className="p-5 h-full" style={{ color: 'var(--error-color)', background: 'var(--bg-main)' }}>{fetchError}</div>;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-main)' }}>
-            {/* Header */}
-            <div style={{ padding: '12px 16px 0', flexShrink: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Table: {tableName}</div>
+            {/* Header + sub-tabs */}
+            <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Table: {tableName}</div>
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
                     {subTabs.map(({ key, label }) => (
                         <div key={key} onClick={() => setActiveSubTab(key)} style={{
-                            padding: '7px 16px', cursor: 'pointer', fontSize: 13,
+                            padding: '6px 16px', cursor: 'pointer', fontSize: 12,
                             fontWeight: activeSubTab === key ? 600 : 'normal',
                             borderBottom: activeSubTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
                             color: activeSubTab === key ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}>
-                            {label}
-                        </div>
+                        }}>{label}</div>
                     ))}
                 </div>
             </div>
 
-            {/* Content */}
-            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {/* Scrollable table area */}
+            <div style={{ flex: 1, overflow: 'hidden' }}>
                 {activeSubTab === 'info' && (
-                    <div style={{ height: '100%', overflow: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+                    <div className="result-virtual-scroll" style={{ height: '100%' }}>
+                        <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
                             <colgroup>
-                                <col style={{ width: 36 }} />
+                                <col style={{ width: 28 }} /> {/* grip */}
+                                <col style={{ width: 36 }} /> {/* # */}
                                 <col style={{ width: '22%' }} />
                                 <col style={{ width: '20%' }} />
                                 <col style={{ width: 44 }} />
                                 <col style={{ width: 70 }} />
-                                <col style={{ width: '18%' }} />
-                                <col style={{ width: 64 }} />
+                                <col />
+                                <col style={{ width: 44 }} />
                             </colgroup>
                             <thead>
                                 <tr>
-                                    {(['#', 'Name', 'DataType', 'IsPrimaryKey', 'IsNullable', 'DefaultValue'] as SortField[]).map((f, ci) => {
-                                        const labels: Record<string, string> = {
-                                            '#': '#', Name: 'Name', DataType: 'Data Type',
-                                            IsPrimaryKey: 'PK', IsNullable: 'Nullable', DefaultValue: 'Default',
-                                        };
-                                        return (
-                                            <th key={f} style={{ ...thStyle, width: ci === 0 ? 36 : undefined }}
-                                                onClick={() => cycleSort(f)}>
-                                                <span style={{ display: 'flex', alignItems: 'center' }}>
-                                                    {labels[f]}<SortIcon field={f} />
-                                                </span>
-                                            </th>
-                                        );
-                                    })}
-                                    <th style={{ ...thStyle, width: 64, cursor: 'default' }}>Actions</th>
+                                    <th className="rt-th" />
+                                    {([
+                                        { col: 'idx' as SortCol, label: '#' },
+                                        { col: 'Name' as SortCol, label: 'Name' },
+                                        { col: 'DataType' as SortCol, label: 'Data Type' },
+                                        { col: 'IsPrimaryKey' as SortCol, label: 'PK' },
+                                        { col: 'IsNullable' as SortCol, label: 'Nullable' },
+                                        { col: 'DefaultValue' as SortCol, label: 'Default' },
+                                    ]).map(({ col, label }) => (
+                                        <th key={col} className="rt-th rt-th-sortable" style={thStyle} onClick={() => cycleSort(col)}>
+                                            <span className="rt-th-label">
+                                                {label}<SortIcon col={col} />
+                                            </span>
+                                        </th>
+                                    ))}
+                                    <th className="rt-th"><span className="rt-th-label">Actions</span></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {sortedIndices.map((rowIdx, displayIdx) => {
-                                    const r = rows[rowIdx];
-                                    const col = r.current;
-                                    const isDeleted = r.deleted;
-                                    const isDirty = !isDeleted && !deepEq(r.original, r.current);
-                                    const isEditing = editCell?.rowIdx === rowIdx;
-                                    const err = rowErrors[rowIdx];
-
-                                    const rowBg = isDeleted
-                                        ? 'rgba(var(--error-rgb,220,38,38),0.08)'
-                                        : isDirty
-                                            ? 'rgba(var(--accent-rgb,99,102,241),0.08)'
-                                            : displayIdx % 2 === 1 ? 'var(--bg-toolbar)' : 'transparent';
-
-                                    const td: React.CSSProperties = {
-                                        padding: '5px 8px', borderBottom: '1px solid var(--border-dim)',
-                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        verticalAlign: 'middle',
-                                    };
-
-                                    return (
-                                        <React.Fragment key={rowIdx}>
-                                            <tr style={{ background: rowBg, opacity: isDeleted ? 0.55 : 1 }}>
-                                                {/* # */}
-                                                <td style={{ ...td, color: 'var(--text-secondary)', textAlign: 'center', fontSize: 11 }}>{rowIdx + 1}</td>
-
-                                                {/* Name */}
-                                                <td style={td}>
-                                                    {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
-                                                        <input
-                                                            autoFocus
-                                                            style={{ width: '100%', padding: '2px 6px', border: '1px solid var(--accent-color)', borderRadius: 4, background: 'var(--bg-editor)', color: 'var(--text-primary)', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
-                                                            defaultValue={col.Name}
-                                                            onBlur={e => { updateRow(rowIdx, { Name: e.target.value }); setEditCell(null); }}
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                                                if (e.key === 'Escape') setEditCell(null);
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <span
-                                                            onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
-                                                            style={{ fontWeight: col.IsPrimaryKey ? 600 : 'normal', cursor: 'text', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                                            title={col.Name}
-                                                        >
-                                                            {col.Name}
-                                                        </span>
-                                                    )}
-                                                </td>
-
-                                                {/* DataType */}
-                                                <td style={{ ...td, padding: '4px 6px' }}>
-                                                    {isDeleted
-                                                        ? <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{col.DataType}</span>
-                                                        : <DataTypeCell
-                                                            value={col.DataType}
-                                                            types={types}
-                                                            isDirty={col.DataType !== r.original.DataType}
-                                                            onChange={v => updateRow(rowIdx, { DataType: v })}
-                                                        />
-                                                    }
-                                                </td>
-
-                                                {/* PK */}
-                                                <td style={{ ...td, textAlign: 'center' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={col.IsPrimaryKey}
-                                                        disabled={isDeleted}
-                                                        onChange={e => updateRow(rowIdx, { IsPrimaryKey: e.target.checked })}
-                                                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--accent-color)' }}
-                                                    />
-                                                </td>
-
-                                                {/* Nullable */}
-                                                <td style={{ ...td, textAlign: 'center' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={col.IsNullable}
-                                                        disabled={isDeleted}
-                                                        onChange={e => updateRow(rowIdx, { IsNullable: e.target.checked })}
-                                                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--accent-color)' }}
-                                                    />
-                                                </td>
-
-                                                {/* Default */}
-                                                <td style={{ ...td, padding: '4px 6px' }}>
-                                                    {isDeleted
-                                                        ? <span style={{ color: 'var(--text-secondary)' }}>{col.DefaultValue || '-'}</span>
-                                                        : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
-                                                            ? (
-                                                                <input
-                                                                    autoFocus
-                                                                    style={{ width: '100%', padding: '2px 6px', border: '1px solid var(--accent-color)', borderRadius: 4, background: 'var(--bg-editor)', color: 'var(--text-primary)', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
-                                                                    defaultValue={col.DefaultValue}
-                                                                    onBlur={e => { updateRow(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
-                                                                    onKeyDown={e => {
-                                                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                                                        if (e.key === 'Escape') setEditCell(null);
-                                                                    }}
-                                                                />
-                                                            )
-                                                            : (
-                                                                <span
-                                                                    style={{ color: col.DefaultValue ? 'var(--text-primary)' : 'var(--text-secondary)', cursor: 'text', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                                                    onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
-                                                                    title={col.DefaultValue || 'none'}
-                                                                >
-                                                                    {col.DefaultValue || '-'}
-                                                                </span>
-                                                            )
-                                                    }
-                                                </td>
-
-                                                {/* Actions */}
-                                                <td style={{ ...td, padding: '4px 8px' }}>
-                                                    {(isDirty || isDeleted) && (
-                                                        <button
-                                                            onClick={() => discardRow(rowIdx)}
-                                                            title="Discard row changes"
-                                                            style={{
-                                                                padding: '2px 5px', borderRadius: 3, border: '1px solid var(--border-color)',
-                                                                background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)',
-                                                            }}
-                                                        >
-                                                            <RotateCcw size={11} />
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            {err && (
-                                                <tr style={{ background: 'rgba(220,38,38,0.05)' }}>
-                                                    <td colSpan={7} style={{ padding: '3px 12px', color: 'var(--error-color)', fontSize: 11, borderBottom: '1px solid var(--border-dim)' }}>
-                                                        ⚠ {err}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                                {rows.length === 0 && (
-                                    <tr>
-                                        <td colSpan={7} style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary)' }}>No columns found.</td>
-                                    </tr>
-                                )}
-                            </tbody>
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={displayIds} strategy={verticalListSortingStrategy}>
+                                    <tbody>
+                                        {displayIds.map((id, displayIdx) => {
+                                            const rowIdx = rows.findIndex(r => r.id === id);
+                                            const row = rows[rowIdx];
+                                            if (!row) return null;
+                                            return (
+                                                <SortableRow
+                                                    key={id}
+                                                    row={row}
+                                                    rowIdx={rowIdx}
+                                                    displayIdx={displayIdx}
+                                                    types={types}
+                                                    editCell={editCell}
+                                                    setEditCell={setEditCell}
+                                                    onUpdate={updateRow}
+                                                    onDiscard={discardRow}
+                                                    rowError={rowErrors[rowIdx]}
+                                                />
+                                            );
+                                        })}
+                                        {rows.length === 0 && (
+                                            <tr><td colSpan={8} className="p-5 text-center" style={{ color: 'var(--text-secondary)' }}>No columns found.</td></tr>
+                                        )}
+                                    </tbody>
+                                </SortableContext>
+                            </DndContext>
                         </table>
                     </div>
                 )}
 
                 {activeSubTab === 'data' && (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                        <div style={{ textAlign: 'center', padding: 40, border: '1px dashed var(--border-color)', borderRadius: 6 }}>
+                    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-secondary)' }}>
+                        <div className="text-center p-10 border border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
                             (Placeholder) Data View — {tableName}
                         </div>
                     </div>
                 )}
 
                 {activeSubTab === 'erd' && (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                        <div style={{ textAlign: 'center', padding: 40, border: '1px dashed var(--border-color)', borderRadius: 6 }}>
+                    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-secondary)' }}>
+                        <div className="text-center p-10 border border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
                             (Placeholder) ERD View — {tableName}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Bottom Toolbar — fixed */}
+            {/* Bottom toolbar — fixed */}
             {activeSubTab === 'info' && (
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
-                    padding: '6px 12px', borderTop: '1px solid var(--border-color)',
-                    background: 'var(--bg-toolbar)', fontSize: 12,
-                }}>
-                    <span style={{ color: 'var(--text-secondary)', marginRight: 4 }}>
-                        {rows.length} columns
-                        {dirtyCount > 0 && <> · <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span></>}
-                        {deletedCount > 0 && <> · <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span></>}
+                <div className="result-toolbar" style={{ flexShrink: 0 }}>
+                    <span className="result-stats">
+                        <span style={{ color: 'var(--text-secondary)' }}>{rows.length} columns</span>
+                        {dirtyCount > 0 && <><span style={{ color: 'var(--text-secondary)' }}>·</span><span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span></>}
+                        {deletedCount > 0 && <><span style={{ color: 'var(--text-secondary)' }}>·</span><span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span></>}
                     </span>
-                    <span style={{ flex: 1 }} />
-                    <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Double-click to edit Name/Default · click checkbox to toggle</span>
-                    {(dirtyCount > 0 || deletedCount > 0) && (
-                        <>
-                            <button onClick={discardAll} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', fontSize: 12 }}>
-                                <RotateCcw size={12} /> Discard All
-                            </button>
-                            <button onClick={saveDirtyRows} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 4, border: '1px solid var(--accent-color)', background: 'var(--accent-color)', color: '#fff', cursor: saving ? 'wait' : 'pointer', fontSize: 12 }}>
-                                {saving ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={12} />}
-                                Apply Changes
-                            </button>
-                        </>
-                    )}
+                    <span className="result-toolbar-right">
+                        {(dirtyCount > 0 || deletedCount > 0) && (
+                            <>
+                                <button onClick={discardAll} className="result-toolbar-btn">
+                                    <RotateCcw size={11} /> Discard All
+                                </button>
+                                <button onClick={saveAll} disabled={saving} className="result-toolbar-btn" style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}>
+                                    {saving ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={11} />} Apply Changes
+                                </button>
+                            </>
+                        )}
+                    </span>
                 </div>
             )}
         </div>
