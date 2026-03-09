@@ -352,3 +352,127 @@ func (d *MSSQLDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, 
 	}
 	return nil
 }
+
+// ReorderTableColumns reorders columns by recreating the table with the new column order.
+// This mirrors SSMS behaviour — it creates a temp table, copies data, drops original, renames.
+// WARNING: this is a DDL operation. Ensure no active transactions hold locks on the table.
+func (d *MSSQLDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {
+	qualified := fmt.Sprintf("[%s].[%s]", schema, table)
+	tempTable := fmt.Sprintf("[%s].[__zentro_tmp_%s]", schema, table)
+
+	// 1. Fetch current column definitions in new order
+	placeholders := make([]string, len(newOrder))
+	args := make([]any, len(newOrder)+2)
+	args[0] = schema
+	args[1] = table
+	for i, col := range newOrder {
+		placeholders[i] = fmt.Sprintf("@p%d", i+3)
+		args[i+2] = col
+	}
+
+	orderQuery := fmt.Sprintf(`
+		SELECT c.name, t.name as type_name, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity,
+		       COALESCE(object_definition(c.default_object_id), '') as default_def
+		FROM sys.columns c
+		JOIN sys.types t ON c.user_type_id = t.user_type_id
+		JOIN sys.tables tbl ON c.object_id = tbl.object_id
+		JOIN sys.schemas s ON tbl.schema_id = s.schema_id
+		WHERE s.name = @p1 AND tbl.name = @p2
+		ORDER BY CASE c.name %s END`,
+		func() string {
+			cases := ""
+			for i, col := range newOrder {
+				cases += fmt.Sprintf(" WHEN '%s' THEN %d", col, i)
+			}
+			return cases + " ELSE 999 END"
+		}(),
+	)
+
+	type colMeta struct {
+		name, typeName, defaultDef  string
+		maxLength, precision, scale int
+		isNullable, isIdentity      bool
+	}
+
+	rows, err := db.QueryContext(ctx, orderQuery, args[:2]...)
+	if err != nil {
+		return fmt.Errorf("mssql: reorder fetch cols: %w", err)
+	}
+	defer rows.Close()
+
+	var metas []colMeta
+	for rows.Next() {
+		var m colMeta
+		if err := rows.Scan(&m.name, &m.typeName, &m.maxLength, &m.precision, &m.scale, &m.isNullable, &m.isIdentity, &m.defaultDef); err != nil {
+			return fmt.Errorf("mssql: reorder scan: %w", err)
+		}
+		metas = append(metas, m)
+	}
+	rows.Close()
+
+	if len(metas) == 0 {
+		return fmt.Errorf("mssql: reorder: no columns found for %s.%s", schema, table)
+	}
+
+	// 2. Build CREATE TABLE for temp
+	colDefs := make([]string, 0, len(metas))
+	for _, m := range metas {
+		var typePart string
+		switch m.typeName {
+		case "varchar", "nvarchar", "char", "nchar", "varbinary", "binary":
+			if m.maxLength == -1 {
+				typePart = fmt.Sprintf("[%s](max)", m.typeName)
+			} else {
+				size := m.maxLength
+				if m.typeName == "nvarchar" || m.typeName == "nchar" {
+					size = m.maxLength / 2
+				}
+				typePart = fmt.Sprintf("[%s](%d)", m.typeName, size)
+			}
+		case "decimal", "numeric":
+			typePart = fmt.Sprintf("[%s](%d,%d)", m.typeName, m.precision, m.scale)
+		default:
+			typePart = fmt.Sprintf("[%s]", m.typeName)
+		}
+		null := "NOT NULL"
+		if m.isNullable {
+			null = "NULL"
+		}
+		def := ""
+		if m.defaultDef != "" {
+			def = fmt.Sprintf(" DEFAULT %s", m.defaultDef)
+		}
+		colDefs = append(colDefs, fmt.Sprintf("[%s] %s %s%s", m.name, typePart, null, def))
+	}
+
+	createSQL := fmt.Sprintf("CREATE TABLE %s (%s)", tempTable, strings.Join(colDefs, ", "))
+	if _, err := db.ExecContext(ctx, createSQL); err != nil {
+		return fmt.Errorf("mssql: reorder create temp: %w", err)
+	}
+
+	// 3. Copy data
+	colNames := make([]string, len(metas))
+	for i, m := range metas {
+		colNames[i] = fmt.Sprintf("[%s]", m.name)
+	}
+	colList := strings.Join(colNames, ", ")
+	copySQL := fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM %s", tempTable, colList, colList, qualified)
+	if _, err := db.ExecContext(ctx, copySQL); err != nil {
+		_, _ = db.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tempTable))
+		return fmt.Errorf("mssql: reorder copy data: %w", err)
+	}
+
+	// 4. Drop original
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("DROP TABLE %s", qualified)); err != nil {
+		_, _ = db.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tempTable))
+		return fmt.Errorf("mssql: reorder drop original: %w", err)
+	}
+
+	// 5. Rename temp → original
+	renameSQL := fmt.Sprintf("EXEC sp_rename '%s.__zentro_tmp_%s', '%s'", schema, table, table)
+	if _, err := db.ExecContext(ctx, renameSQL); err != nil {
+		return fmt.Errorf("mssql: reorder rename temp: %w", err)
+	}
+
+	return nil
+}

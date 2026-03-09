@@ -130,6 +130,9 @@ func (a *App) FetchTableColumns(schema, table string) ([]*models.ColumnDef, erro
 func (a *App) AlterTableColumn(schema, table string, old, updated models.ColumnDef) error {
 	return a.conn.AlterTableColumn(schema, table, old, updated)
 }
+func (a *App) ReorderTableColumns(schema, table string, newOrder []string) error {
+	return a.conn.ReorderTableColumns(schema, table, newOrder)
+}
 
 // ── Query ──────────────────────────────────────────────────────────────────
 

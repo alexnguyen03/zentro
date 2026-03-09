@@ -137,3 +137,8 @@ func (d *SQLiteDriver) FetchTableColumns(ctx context.Context, db *sql.DB, schema
 func (d *SQLiteDriver) AlterTableColumn(_ context.Context, _ *sql.DB, _, _ string, _, _ *models.ColumnDef) error {
 	return fmt.Errorf("sqlite: ALTER COLUMN is not supported — SQLite requires table recreation to alter columns")
 }
+
+// ReorderTableColumns is not supported by SQLite directly.
+func (d *SQLiteDriver) ReorderTableColumns(_ context.Context, _ *sql.DB, _, _ string, _ []string) error {
+	return fmt.Errorf("sqlite: column reorder is not supported — SQLite requires full table recreation")
+}

@@ -185,3 +185,58 @@ func (d *MySQLDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, 
 	}
 	return nil
 }
+
+// ReorderTableColumns uses MySQL's MODIFY COLUMN ... AFTER to reorder columns natively.
+// MySQL is the only major RDBMS that supports this without full table recreation.
+func (d *MySQLDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {
+	if len(newOrder) == 0 {
+		return nil
+	}
+	// Fetch column definitions for all columns (type, nullable, default)
+	q := `SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COALESCE(COLUMN_DEFAULT,''), COLUMN_KEY
+	      FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+	      ORDER BY ORDINAL_POSITION`
+	rows, err := db.QueryContext(ctx, q, table)
+	if err != nil {
+		return fmt.Errorf("mysql: reorder fetch cols: %w", err)
+	}
+	defer rows.Close()
+
+	type colMeta struct{ name, colType, nullable, defVal, key string }
+	colsByName := map[string]colMeta{}
+	for rows.Next() {
+		var m colMeta
+		if err := rows.Scan(&m.name, &m.colType, &m.nullable, &m.defVal, &m.key); err != nil {
+			return fmt.Errorf("mysql: reorder scan: %w", err)
+		}
+		colsByName[m.name] = m
+	}
+	rows.Close()
+
+	// Issue MODIFY COLUMN ... FIRST / AFTER for each column in the new order
+	for i, colName := range newOrder {
+		m, ok := colsByName[colName]
+		if !ok {
+			continue
+		}
+		nullStr := "NOT NULL"
+		if strings.ToUpper(m.nullable) == "YES" {
+			nullStr = "NULL"
+		}
+		defStr := ""
+		if m.defVal != "" {
+			defStr = fmt.Sprintf(" DEFAULT %s", m.defVal)
+		}
+		var pos string
+		if i == 0 {
+			pos = "FIRST"
+		} else {
+			pos = fmt.Sprintf("AFTER `%s`", newOrder[i-1])
+		}
+		sql := fmt.Sprintf("ALTER TABLE `%s` MODIFY COLUMN `%s` %s %s%s %s", table, m.name, m.colType, nullStr, defStr, pos)
+		if _, err := db.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("mysql: reorder column %s: %w", colName, err)
+		}
+	}
+	return nil
+}

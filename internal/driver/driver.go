@@ -34,6 +34,8 @@ type SchemaFetcher interface {
 	FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error)
 	// AlterTableColumn applies changes to a column definition via driver-specific DDL.
 	AlterTableColumn(ctx context.Context, db *sql.DB, schema, table string, old, updated *models.ColumnDef) error
+	// ReorderTableColumns reorders columns in the given table to match the provided name order.
+	ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error
 }
 
 // QueryDialect is the Port for SQL dialect differences (pagination, schema defaults).

@@ -344,3 +344,23 @@ func (s *ConnectionService) AlterTableColumn(schema, table string, old, updated 
 	s.logger.Info("altering column", "schema", schema, "table", table, "column", old.Name)
 	return d.AlterTableColumn(ctx, db, schema, table, &old, &updated)
 }
+
+func (s *ConnectionService) ReorderTableColumns(schema, table string, newOrder []string) error {
+	prof := s.getProfile()
+	if prof == nil {
+		return fmt.Errorf("no active connection")
+	}
+	db := s.getDB()
+	if db == nil {
+		return fmt.Errorf("no active connection")
+	}
+	d, ok := getDriver(prof.Driver)
+	if !ok {
+		return fmt.Errorf("driver not found")
+	}
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
+	defer cancel()
+	s.logger.Info("reordering columns", "schema", schema, "table", table, "newOrder", newOrder)
+	return d.ReorderTableColumns(ctx, db, schema, table, newOrder)
+}

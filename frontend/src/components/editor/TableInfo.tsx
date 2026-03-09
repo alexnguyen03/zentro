@@ -8,7 +8,7 @@ import {
     useSortable, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
+import { FetchTableColumns, AlterTableColumn, ReorderTableColumns } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, GripVertical } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -53,7 +53,9 @@ interface DataTypeCellProps {
 const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disabled, onCommit }) => {
     const [editing, setEditing] = useState(false);
     const [search, setSearch] = useState('');
+    const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
     const ref = React.useRef<HTMLDivElement>(null);
+    const inputRef = React.useRef<HTMLInputElement>(null);
 
     const filtered = search ? types.filter(t => t.toLowerCase().includes(search.toLowerCase())) : types;
 
@@ -66,13 +68,28 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
         return () => document.removeEventListener('mousedown', handler);
     }, [editing]);
 
-    const handleSelect = (t: string) => { onCommit(t); setEditing(false); setSearch(''); };
+    const handleSelect = (t: string) => { onCommit(t); setEditing(false); setSearch(''); setDropPos(null); };
+
+    const openEditor = () => {
+        if (disabled) return;
+        setEditing(true);
+        setSearch('');
+        // Measure position after paint
+        requestAnimationFrame(() => {
+            if (inputRef.current) {
+                const r = inputRef.current.getBoundingClientRect();
+                setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 180) });
+            }
+        });
+    };
+
+    const closeEditor = () => { setEditing(false); setSearch(''); setDropPos(null); };
 
     if (!editing) {
         return (
             <span
-                className={`font-mono text-xs block truncate ${isDirty ? 'text-[var(--accent-color)]' : ''}`}
-                onDoubleClick={() => !disabled && setEditing(true)}
+                className={`font-mono text-xs block truncate cursor-default select-none ${isDirty ? 'text-[var(--accent-color)]' : ''}`}
+                onDoubleClick={openEditor}
                 title={`${value} (double-click to edit)`}
             >
                 {value}
@@ -83,37 +100,50 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
     return (
         <div ref={ref} style={{ position: 'relative', width: '100%' }}>
             <input
+                ref={inputRef}
                 autoFocus
                 className="rt-cell-input"
-                style={{ height: 24, fontSize: 12, fontFamily: 'monospace', borderRadius: 3, padding: '0 6px' }}
+                style={{ height: 24, fontSize: 12, fontFamily: 'monospace', borderRadius: 3, padding: '0 6px', width: '100%', boxSizing: 'border-box' }}
                 value={search}
                 placeholder={value}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => {
+                    setSearch(e.target.value);
+                    if (inputRef.current) {
+                        const r = inputRef.current.getBoundingClientRect();
+                        setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 180) });
+                    }
+                }}
                 onKeyDown={e => {
                     if (e.key === 'Enter' && filtered.length > 0) handleSelect(filtered[0]);
-                    if (e.key === 'Escape') { setEditing(false); setSearch(''); }
+                    if (e.key === 'Escape') closeEditor();
                 }}
+                onBlur={() => { setTimeout(closeEditor, 120); }}
             />
-            <div style={{
-                position: 'fixed', zIndex: 99999,
-                minWidth: 180, maxHeight: 220, overflowY: 'auto',
-                background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                borderRadius: 4, boxShadow: '0 6px 20px rgba(0,0,0,.35)',
-                marginTop: 2,
-            }}>
-                {filtered.length === 0
-                    ? <div className="px-3 py-2 text-xs text-[var(--text-secondary)]">No match</div>
-                    : filtered.map(t => (
-                        <div
-                            key={t}
-                            onMouseDown={() => handleSelect(t)}
-                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${t === value ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'}`}
-                        >
-                            {t}
-                        </div>
-                    ))
-                }
-            </div>
+            {dropPos && (
+                <div style={{
+                    position: 'fixed',
+                    zIndex: 99999,
+                    top: dropPos.top,
+                    left: dropPos.left,
+                    width: dropPos.width,
+                    maxHeight: 220, overflowY: 'auto',
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                    borderRadius: 4, boxShadow: '0 6px 20px rgba(0,0,0,.35)',
+                }}>
+                    {filtered.length === 0
+                        ? <div className="px-3 py-2 text-xs text-[var(--text-secondary)]">No match</div>
+                        : filtered.map(t => (
+                            <div
+                                key={t}
+                                onMouseDown={e => { e.preventDefault(); handleSelect(t); }}
+                                className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${t === value ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'}`}
+                            >
+                                {t}
+                            </div>
+                        ))
+                    }
+                </div>
+            )}
         </div>
     );
 };
@@ -339,12 +369,24 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 : <ArrowDown size={10} style={{ marginLeft: 3, color: 'var(--accent-color)', flexShrink: 0 }} />
     );
 
-    const handleDragEnd = (e: DragEndEvent) => {
+    const handleDragEnd = async (e: DragEndEvent) => {
         const { active, over } = e;
         if (!over || active.id === over.id) return;
-        setOrder(prev => arrayMove(prev, prev.indexOf(String(active.id)), prev.indexOf(String(over.id))));
-        // reset sort to natural order so user sees the new order
+        const newOrder = arrayMove(order, order.indexOf(String(active.id)), order.indexOf(String(over.id)));
+        // optimistic UI: apply immediately
+        setOrder(newOrder);
         setSortCol('idx'); setSortDir('asc');
+        // persist to DB
+        const colNames = newOrder.map(id => rows.find(r => r.id === id)?.current.Name).filter(Boolean) as string[];
+        try {
+            await ReorderTableColumns(schema, table, colNames);
+            // reload to confirm server state
+            await load();
+        } catch (err: any) {
+            // revert order on failure
+            setOrder(order);
+            setRowErrors(e => ({ ...e, [-1]: `Reorder failed: ${err}` }));
+        }
     };
 
     const updateRow = (rowIdx: number, patch: Partial<models.ColumnDef>) => {

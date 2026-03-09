@@ -537,3 +537,76 @@ func (d *PostgresDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schem
 	}
 	return nil
 }
+
+// ReorderTableColumns reorders columns using table recreation (Postgres has no native column reorder).
+func (d *PostgresDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {
+	qualified := fmt.Sprintf(`"%s"."%s"`, schema, table)
+	tmpTable := fmt.Sprintf(`"%s"."__zentro_tmp_%s"`, schema, table)
+
+	// 1. Fetch current column meta in desired new order using CASE ordering
+	caseExpr := "CASE column_name"
+	for i, col := range newOrder {
+		caseExpr += fmt.Sprintf(" WHEN '%s' THEN %d", col, i)
+	}
+	caseExpr += " ELSE 999 END"
+
+	q := fmt.Sprintf(`
+		SELECT column_name, data_type, character_maximum_length, numeric_precision, numeric_scale,
+		       is_nullable, column_default
+		FROM information_schema.columns
+		WHERE table_schema = $1 AND table_name = $2
+		ORDER BY %s`, caseExpr)
+
+	rows, err := db.QueryContext(ctx, q, schema, table)
+	if err != nil {
+		return fmt.Errorf("postgres: reorder fetch cols: %w", err)
+	}
+	defer rows.Close()
+
+	type colInfo struct {
+		name, dataType, nullable string
+		charLen                  *int
+		numPrec, numScale        *int
+		colDefault               *string
+	}
+	var cols []colInfo
+	for rows.Next() {
+		var c colInfo
+		if err := rows.Scan(&c.name, &c.dataType, &c.charLen, &c.numPrec, &c.numScale, &c.nullable, &c.colDefault); err != nil {
+			return fmt.Errorf("postgres: reorder scan: %w", err)
+		}
+		cols = append(cols, c)
+	}
+	rows.Close()
+	if len(cols) == 0 {
+		return fmt.Errorf("postgres: reorder: no columns found for %s.%s", schema, table)
+	}
+
+	// 2. Build CREATE TABLE AS with SELECT in new order
+	selCols := make([]string, len(cols))
+	for i, c := range cols {
+		selCols[i] = fmt.Sprintf(`"%s"`, c.name)
+	}
+	createSQL := fmt.Sprintf(`CREATE TABLE %s AS SELECT %s FROM %s LIMIT 0`, tmpTable, strings.Join(selCols, ", "), qualified)
+	if _, err := db.ExecContext(ctx, createSQL); err != nil {
+		return fmt.Errorf("postgres: reorder create temp: %w", err)
+	}
+
+	// 3. Copy data
+	colList := strings.Join(selCols, ", ")
+	if _, err := db.ExecContext(ctx, fmt.Sprintf(`INSERT INTO %s (%s) SELECT %s FROM %s`, tmpTable, colList, colList, qualified)); err != nil {
+		_, _ = db.ExecContext(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tmpTable))
+		return fmt.Errorf("postgres: reorder copy data: %w", err)
+	}
+
+	// 4. Drop original and rename temp
+	if _, err := db.ExecContext(ctx, fmt.Sprintf(`DROP TABLE %s`, qualified)); err != nil {
+		_, _ = db.ExecContext(ctx, fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tmpTable))
+		return fmt.Errorf("postgres: reorder drop original: %w", err)
+	}
+	renameSQL := fmt.Sprintf(`ALTER TABLE %s RENAME TO "%s"`, tmpTable, table)
+	if _, err := db.ExecContext(ctx, renameSQL); err != nil {
+		return fmt.Errorf("postgres: reorder rename temp: %w", err)
+	}
+	return nil
+}
