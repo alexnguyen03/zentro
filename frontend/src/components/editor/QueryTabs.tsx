@@ -30,6 +30,7 @@ export const QueryTabs: React.FC = () => {
     const globalActiveTabId = globalActiveGroup?.activeTabId;
     const globalActiveTab = globalActiveGroup?.tabs.find(t => t.id === globalActiveTabId);
     const globalActiveResult = globalActiveTabId ? results[globalActiveTabId] : undefined;
+    const activeTabIsTable = globalActiveTab?.type === 'table';
 
     const handleRunGlobal = React.useCallback(async () => {
         if (!globalActiveTab || !isConnected) return;
@@ -194,7 +195,7 @@ export const QueryTabs: React.FC = () => {
                         </Allotment>
                     </Allotment.Pane>
 
-                    <Allotment.Pane preferredSize="35%" minSize={100} visible={showResultPanel}>
+                    <Allotment.Pane preferredSize="35%" minSize={100} visible={showResultPanel && !activeTabIsTable}>
                         <div className="global-result-pane" style={{ height: '100%', borderTop: '1px solid var(--border-color)' }}>
                             <ResultPanel tabId={globalActiveTabId ?? ''} result={globalActiveResult} onRun={handleRunGlobal} />
                         </div>
