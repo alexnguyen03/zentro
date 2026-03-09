@@ -68,11 +68,12 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 	}
 	prefs := s.getPrefs()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.QueryTimeout)*time.Second)
-	s.sessions[tabID] = &QuerySession{
+	session := &QuerySession{
 		TabID:      tabID,
 		CancelFunc: cancel,
 		StartedAt:  time.Now(),
 	}
+	s.sessions[tabID] = session
 	s.sessionsMu.Unlock()
 
 	emitEvent(s.ctx, "query:started", map[string]any{"tabID": tabID})
@@ -92,7 +93,9 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 		defer func() {
 			s.sessionsMu.Lock()
 			cancel()
-			delete(s.sessions, tabID)
+			if s.sessions[tabID] == session {
+				delete(s.sessions, tabID)
+			}
 			s.sessionsMu.Unlock()
 		}()
 
@@ -172,6 +175,9 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 	totalRowsFetched := 0
 
 	for rows.Next() {
+		if ctx.Err() != nil {
+			break
+		}
 		row := scanRowAsStrings(rows, colCount)
 		buf = append(buf, row)
 		totalRowsFetched++
@@ -243,18 +249,21 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 	}
 
 	ctx, cancel := context.WithCancel(s.ctx)
-	s.sessions[tabID] = &QuerySession{
+	session := &QuerySession{
 		TabID:      tabID,
 		StartedAt:  time.Now(),
 		CancelFunc: cancel,
 	}
+	s.sessions[tabID] = session
 	s.sessionsMu.Unlock()
 
 	go func() {
 		defer func() {
 			s.sessionsMu.Lock()
 			cancel()
-			delete(s.sessions, tabID)
+			if s.sessions[tabID] == session {
+				delete(s.sessions, tabID)
+			}
 			s.sessionsMu.Unlock()
 		}()
 
@@ -283,6 +292,9 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		rowCount := 0
 
 		for rows.Next() {
+			if ctx.Err() != nil {
+				break
+			}
 			row := scanRowAsStrings(rows, len(cols))
 			chunk = append(chunk, row)
 			rowCount++
