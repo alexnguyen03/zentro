@@ -219,6 +219,96 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                 setShowSaveModal(true);
             }
         }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+            if (selectedCells.size > 0) {
+                e.preventDefault();
+                let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                const cells = Array.from(selectedCells).map(c => {
+                    const [r, col] = c.split(':').map(Number);
+                    minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+                    minC = Math.min(minC, col); maxC = Math.max(maxC, col);
+                    return { r, c: col };
+                });
+
+                const matrix: string[][] = [];
+                for (let r = minR; r <= maxR; r++) {
+                    const row: string[] = [];
+                    for (let c = minC; c <= maxC; c++) {
+                        const cellId = `${r}:${c}`;
+                        if (selectedCells.has(cellId)) {
+                            row.push(editedCells.has(cellId) ? editedCells.get(cellId)! : String(result.rows[r][c] ?? ''));
+                        } else {
+                            row.push('');
+                        }
+                    }
+                    matrix.push(row);
+                }
+                const text = matrix.map(r => r.join('\t')).join('\n');
+                navigator.clipboard.writeText(text);
+                toast.success(`Copied ${cells.length} cell(s)`);
+            }
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+            if (isEditable && selectedCells.size > 0) {
+                e.preventDefault();
+                navigator.clipboard.readText().then(text => {
+                    if (!text) return;
+
+                    const lines = text.split(/\r?\n/).map(l => l.split('\t'));
+                    if (lines.length === 0 || lines[0].length === 0) return;
+
+                    let minR = Infinity, minC = Infinity;
+                    selectedCells.forEach(cellId => {
+                        const [r, c] = cellId.split(':').map(Number);
+                        minR = Math.min(minR, r);
+                        minC = Math.min(minC, c);
+                    });
+
+                    // Single value fill mode
+                    if (lines.length === 1 && lines[0].length === 1) {
+                        const val = lines[0][0];
+                        setEditedCells(prev => {
+                            const next = new Map(prev);
+                            selectedCells.forEach(cellId => {
+                                const r = Number(cellId.split(':')[0]);
+                                if (!deletedRows.has(r)) next.set(cellId, val);
+                            });
+                            return next;
+                        });
+                        return;
+                    }
+
+                    // Grid paste mode
+                    const pastedCells = new Set<string>();
+                    setEditedCells(prev => {
+                        const next = new Map(prev);
+                        for (let i = 0; i < lines.length; i++) {
+                            const r = minR + i;
+                            if (r >= result.rows.length || deletedRows.has(r)) continue;
+
+                            for (let j = 0; j < lines[i].length; j++) {
+                                const c = minC + j;
+                                if (c >= result.columns.length) break;
+
+                                const val = lines[i][j];
+                                next.set(`${r}:${c}`, val);
+                                pastedCells.add(`${r}:${c}`);
+                            }
+                        }
+                        return next;
+                    });
+
+                    if (pastedCells.size > 0) {
+                        setSelectedCells(pastedCells);
+                    }
+                }).catch(err => {
+                    console.error('Paste error:', err);
+                    toast.error("Failed to read from clipboard");
+                });
+            }
+        }
     };
 
     return (
