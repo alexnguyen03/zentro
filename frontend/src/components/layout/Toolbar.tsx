@@ -7,7 +7,6 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
-import { ShortcutHelp } from './ShortcutHelp';
 import { cn } from '../../lib/cn';
 
 export const Toolbar: React.FC = () => {
@@ -17,7 +16,6 @@ export const Toolbar: React.FC = () => {
     const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
-    const [helpOpen, setHelpOpen] = useState(false);
 
     const activeGroup = groups.find(g => g.id === activeGroupId);
     const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
@@ -134,9 +132,6 @@ export const Toolbar: React.FC = () => {
             {/* Right */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-                <button className={btnBase} title="Keyboard Shortcuts" onClick={() => setHelpOpen(true)}>
-                    <span className="text-sm font-bold">?</span>
-                </button>
                 <button className={btnBase} title="Search">
                     <Search size={14} />
                 </button>
@@ -196,8 +191,6 @@ export const Toolbar: React.FC = () => {
                     </button>
                 </div>
             </div>
-
-            <ShortcutHelp isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
         </div>
     );
 };
