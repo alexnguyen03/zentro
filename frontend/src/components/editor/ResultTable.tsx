@@ -32,7 +32,8 @@ interface TableMeta {
     editedCells: Map<string, string>;
     editingCell: string | null;
     editValue: string;
-    handleCellClick: (e: React.MouseEvent, rIdx: number, cIdx: number) => void;
+    handleCellMouseDown: (e: React.MouseEvent, rIdx: number, cIdx: number) => void;
+    handleCellMouseEnter: (rIdx: number, cIdx: number) => void;
     handleCellDoubleClick: (rIdx: number, cIdx: number, val: string) => void;
     setEditValue: (val: string) => void;
     handleCommitEdit: () => void;
@@ -59,6 +60,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
     const [lastSelected, setLastSelected] = useState<string | null>(null);
+    const [dragStart, setDragStart] = useState<{ r: number, c: number, active: boolean, append: boolean, initialSelected: Set<string> } | null>(null);
 
     // Stable ref so closures inside useMemo can always read fresh editValue
     const editValueRef = React.useRef(editValue);
@@ -74,11 +76,20 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         if (!isDone) {
             setEditingCell(null);
             setLastSelected(null);
+            setDragStart(null);
         }
     }, [isDone, rows]); // Reset on new query
 
-    const handleCellClick = React.useCallback((e: React.MouseEvent, rIdx: number, cIdx: number) => {
+    // Global mouse up
+    useEffect(() => {
+        const handleMouseUp = () => setDragStart(null);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => window.removeEventListener('mouseup', handleMouseUp);
+    }, []);
+
+    const handleCellMouseDown = React.useCallback((e: React.MouseEvent, rIdx: number, cIdx: number) => {
         if (!isDone) return;
+        if (e.button !== 0) return; // Only default left click
         const id = `${rIdx}:${cIdx}`;
 
         if (e.shiftKey && lastSelected) {
@@ -102,10 +113,40 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return newSel;
             });
         } else {
-            setSelectedCells(new Set([id]));
+            const isAppend = e.ctrlKey || e.metaKey;
+            setLastSelected(id);
+            setSelectedCells(prev => {
+                const newSel = isAppend ? new Set(prev) : new Set<string>();
+                if (isAppend && newSel.has(id)) {
+                    newSel.delete(id);
+                } else {
+                    newSel.add(id);
+                }
+                setDragStart({ r: rIdx, c: cIdx, active: true, append: isAppend, initialSelected: new Set(newSel) });
+                return newSel;
+            });
         }
-        setLastSelected(id);
     }, [isDone, lastSelected, setSelectedCells]);
+
+    const handleCellMouseEnter = React.useCallback((rIdx: number, cIdx: number) => {
+        if (!dragStart?.active) return;
+
+        setSelectedCells(() => {
+            const newSel = new Set(dragStart.initialSelected);
+            const minR = Math.min(dragStart.r, rIdx);
+            const maxR = Math.max(dragStart.r, rIdx);
+            const minC = Math.min(dragStart.c, cIdx);
+            const maxC = Math.max(dragStart.c, cIdx);
+
+            for (let r = minR; r <= maxR; r++) {
+                for (let c = minC; c <= maxC; c++) {
+                    newSel.add(`${r}:${c}`);
+                }
+            }
+            return newSel;
+        });
+        setLastSelected(`${rIdx}:${cIdx}`);
+    }, [dragStart, setSelectedCells]);
 
     const handleCellDoubleClick = React.useCallback((rIdx: number, cIdx: number, val: string) => {
         if (!isDone) return;
@@ -204,7 +245,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return (
                     <div
                         className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
-                        onClick={(e) => meta?.handleCellClick?.(e, info.row.index, colIdx)}
+                        onMouseDown={(e) => meta?.handleCellMouseDown?.(e, info.row.index, colIdx)}
+                        onMouseEnter={() => meta?.handleCellMouseEnter?.(info.row.index, colIdx)}
                         onDoubleClick={() => meta?.handleCellDoubleClick?.(info.row.index, colIdx, String(value))}
                         title={String(value)}
                     >
@@ -227,7 +269,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             editedCells,
             editingCell,
             editValue,
-            handleCellClick,
+            handleCellMouseDown,
+            handleCellMouseEnter,
             handleCellDoubleClick,
             setEditValue,
             handleCommitEdit,

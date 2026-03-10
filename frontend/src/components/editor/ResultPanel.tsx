@@ -31,6 +31,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
     const [deletedRows, setDeletedRows] = React.useState<Set<number>>(new Set());
     const [showSaveModal, setShowSaveModal] = React.useState(false);
+    const containerRef = React.useRef<HTMLDivElement>(null);
 
     const handleCountTotal = React.useCallback(async () => {
         if (!tabId) return;
@@ -64,6 +65,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
 
                 // Automatically count in parallel
                 handleCountTotal();
+
+                // Focus container to enable keyboard shortcuts
+                setTimeout(() => {
+                    containerRef.current?.focus({ preventScroll: true });
+                }, 50);
             }
             prevIsDone.current = result.isDone;
         }
@@ -197,8 +203,32 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     const isEditable = result?.tableName && result?.primaryKeys && result.primaryKeys.every(pk => result.columns.includes(pk));
 
     // SELECT result
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+        if (e.key === 'Delete' && isEditable && selectedCells.size > 0) {
+            e.preventDefault();
+            const rowsToDelete = new Set(Array.from(selectedCells).map(cell => Number(cell.split(':')[0])));
+            setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
+            setSelectedCells(new Set());
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+            if (editedCells.size > 0 || deletedRows.size > 0) {
+                e.preventDefault();
+                setShowSaveModal(true);
+            }
+        }
+    };
+
     return (
-        <div className="result-panel result-table-container">
+        <div
+            className="result-panel result-table-container"
+            ref={containerRef}
+            tabIndex={-1}
+            onKeyDown={handleKeyDown}
+            style={{ outline: 'none' }}
+        >
             <div className="result-toolbar">
                 <div className="result-toolbar-left">
                     <span className="result-stats">
