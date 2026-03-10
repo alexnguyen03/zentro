@@ -547,22 +547,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             {/* Header: single flex row — table name | tabs | actions */}
             <div style={{ padding: '0 12px', flexShrink: 0, borderBottom: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, minHeight: 40 }}>
-                    {/* Table name + dirty badge */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingRight: 16, flexShrink: 0 }}>
+                    {/* Table name */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, paddingRight: 16 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
                             Table: {tableName}
                         </span>
-                        {activeSubTab === 'info' && hasChanges && (
-                            <span style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-                                {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
-                                {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
-                                {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
-                            </span>
-                        )}
                     </div>
 
                     {/* Sub-tabs — flush with bottom border */}
-                    <div style={{ display: 'flex', alignItems: 'stretch', flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}>
                         {subTabs.map(({ key, label }) => (
                             <div key={key} onClick={() => setActiveSubTab(key)} style={{
                                 display: 'flex', alignItems: 'center',
@@ -576,7 +569,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     </div>
 
                     {/* Action buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, flex: 1 }}>
                         {tabActions[activeSubTab].map(action => (
                             <ToolbarButton key={action.id} action={action} />
                         ))}
@@ -658,6 +651,28 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Bottom status bar */}
+            <div style={{
+                flexShrink: 0,
+                borderTop: '1px solid var(--border-color)',
+                padding: '4px 12px',
+                fontSize: 11,
+                color: 'var(--text-secondary)',
+                textAlign: 'center',
+                background: 'var(--bg-main)',
+            }}>
+                {activeSubTab === 'info' && (
+                    <span>
+                        Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                        {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
+                        {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                        {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
+                    </span>
+                )}
+                {activeSubTab === 'data' && <span>Total 0 rows</span>}
+                {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
             </div>
         </div>
     );
