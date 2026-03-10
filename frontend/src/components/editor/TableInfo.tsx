@@ -383,6 +383,7 @@ const Row: React.FC<RowProps> = ({
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
     const [loading, setLoading] = useState(true);
+    const [reloading, setReloading] = useState(false); // per-tab reload in progress
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('info');
     const [saving, setSaving] = useState(false);
@@ -396,9 +397,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const types = getTypesForDriver(driver);
     const { schema, table } = parseTableName(tableName);
 
-    const load = useCallback(async () => {
+    const loadInfo = useCallback(async (silent = false) => {
         try {
-            setLoading(true); setFetchError(null);
+            if (silent) setReloading(true); else setLoading(true);
+            setFetchError(null);
             const cols = await FetchTableColumns(schema, table);
             const rs: RowState[] = (cols || []).map((c, i) => ({
                 id: `col-${i}-${c.Name}`,
@@ -407,10 +409,25 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             setRows(rs);
             setRowErrors({});
         } catch (e: any) { setFetchError(e.toString()); }
-        finally { setLoading(false); }
+        finally { setLoading(false); setReloading(false); }
     }, [schema, table]);
 
-    useEffect(() => { load(); }, [load]);
+    // Placeholder loaders — wire up when Data/ERD views are implemented
+    const loadData = useCallback(async () => {
+        // TODO: fetch rows for data view
+    }, [schema, table]);
+
+    const loadErd = useCallback(async () => {
+        // TODO: fetch ERD relationships
+    }, [schema, table]);
+
+    const tabReload: Record<SubTab, () => void> = {
+        info: () => loadInfo(true),
+        data: loadData,
+        erd: loadErd,
+    };
+
+    useEffect(() => { loadInfo(); }, [loadInfo]);
 
     // Sorted indices (original index order within rows array)
     const displayIds = (() => {
@@ -468,7 +485,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             catch (e: any) { errs[i] = e.toString(); }
         }
         setRowErrors(errs);
-        if (!Object.keys(errs).length) await load();
+        if (!Object.keys(errs).length) await loadInfo(true);
         setSaving(false);
     };
 
@@ -480,8 +497,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         id: 'reload',
         icon: <RefreshCw size={11} />,
         label: 'Reload',
-        onClick: load,
-        loading: loading,
+        onClick: tabReload[activeSubTab],
+        loading: reloading,
     };
 
     // Registry: add per-tab actions here as the feature grows
@@ -527,37 +544,43 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-main)' }}>
-            {/* Header: table name + global actions */}
-            <div style={{ padding: '8px 12px 0', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {/* Header: single flex row — table name | tabs | actions */}
+            <div style={{ padding: '0 12px', flexShrink: 0, borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, minHeight: 40 }}>
+                    {/* Table name + dirty badge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingRight: 16, flexShrink: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
                             Table: {tableName}
                         </span>
                         {activeSubTab === 'info' && hasChanges && (
-                            <span style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
                                 {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
-                                {dirtyCount > 0 && deletedCount > 0 && ' · '}
+                                {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
                                 {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
                             </span>
                         )}
                     </div>
+
+                    {/* Sub-tabs — flush with bottom border */}
+                    <div style={{ display: 'flex', alignItems: 'stretch', flex: 1 }}>
+                        {subTabs.map(({ key, label }) => (
+                            <div key={key} onClick={() => setActiveSubTab(key)} style={{
+                                display: 'flex', alignItems: 'center',
+                                padding: '0 14px', cursor: 'pointer', fontSize: 12,
+                                fontWeight: activeSubTab === key ? 600 : 'normal',
+                                borderBottom: activeSubTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
+                                color: activeSubTab === key ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                marginBottom: -1,
+                            }}>{label}</div>
+                        ))}
+                    </div>
+
+                    {/* Action buttons */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                         {tabActions[activeSubTab].map(action => (
                             <ToolbarButton key={action.id} action={action} />
                         ))}
                     </div>
-                </div>
-                {/* Sub-tabs */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
-                    {subTabs.map(({ key, label }) => (
-                        <div key={key} onClick={() => setActiveSubTab(key)} style={{
-                            padding: '5px 14px', cursor: 'pointer', fontSize: 12,
-                            fontWeight: activeSubTab === key ? 600 : 'normal',
-                            borderBottom: activeSubTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
-                            color: activeSubTab === key ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        }}>{label}</div>
-                    ))}
                 </div>
             </div>
 
