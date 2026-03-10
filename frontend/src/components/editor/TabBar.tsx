@@ -4,6 +4,7 @@ import { Tab } from '../../stores/editorStore';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
+import { cn } from '../../lib/cn';
 
 interface TabBarProps {
     groupId: string;
@@ -66,7 +67,10 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             style={style}
             {...attributes}
             {...listeners}
-            className={`tab-item ${isActive ? 'active' : ''}`}
+            className={cn(
+                'group flex items-center h-full gap-1.5 px-2.5 pl-3.5 cursor-pointer border-r border-r-border text-xs text-text-secondary select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 flex-shrink-0 hover:text-text-primary',
+                isActive && 'bg-bg-primary text-text-primary border-t-success mb-[-1px] border-b border-b-bg-primary'
+            )}
             onClick={onActivate}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
@@ -74,7 +78,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {renamingId === tab.id ? (
                 <input
                     ref={renameInputRef}
-                    className="tab-rename-input"
+                    className="flex-1 bg-bg-tertiary border border-success text-text-primary text-xs px-1 py-[1px] rounded-sm outline-none w-full"
                     value={renameValue}
                     onChange={(e) => onRenameChange(e.target.value)}
                     onBlur={onRenameBlur}
@@ -83,14 +87,14 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
                     onPointerDown={(e) => e.stopPropagation()}
                 />
             ) : (
-                <span className="tab-label" title={tab.name}>
+                <span className="overflow-hidden text-ellipsis" title={tab.name}>
                     {tab.type === 'table' && <Table2 size={12} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} />}
                     {tab.name}
                 </span>
             )}
-            {tab.isRunning && <span className="tab-running-dot" title="Running" />}
+            {tab.isRunning && <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0 animate-pulse" title="Running" />}
             <button
-                className="tab-close-btn"
+                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-sm opacity-0 transition-opacity duration-100 flex-shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent drag start when clicking close
                 title="Close tab"
@@ -142,7 +146,8 @@ export const TabBar: React.FC<TabBarProps> = ({
     // Auto-scroll active tab into view
     useEffect(() => {
         if (!activeTabId || !tabsScrollRef.current) return;
-        const activeEl = tabsScrollRef.current.querySelector<HTMLElement>('.tab-item.active');
+        // active tab now has 'bg-bg-primary' class instead of 'active'
+        const activeEl = tabsScrollRef.current.querySelector<HTMLElement>('.bg-bg-primary');
         activeEl?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }, [activeTabId]);
 
@@ -252,8 +257,11 @@ export const TabBar: React.FC<TabBarProps> = ({
     };
 
     return (
-        <div className="tab-bar">
-            <div className="tab-bar-tabs" ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}>
+        <div className="flex items-center bg-bg-secondary border-b border-border h-9 flex-shrink-0 overflow-hidden">
+            <div
+                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border"
+                ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
+            >
                 <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
                     {tabs.map(tab => (
                         <SortableTabItem
@@ -276,19 +284,19 @@ export const TabBar: React.FC<TabBarProps> = ({
                 </SortableContext>
             </div>
 
-            <button className="tab-new-btn" onClick={onNewTab} title="New Tab (Ctrl+T)">
+            <button className="bg-transparent border-none text-text-secondary cursor-pointer px-2.5 py-1.5 flex items-center flex-shrink-0 transition-colors duration-100 hover:text-text-primary" onClick={onNewTab} title="New Tab (Ctrl+T)">
                 <Plus size={14} />
             </button>
 
             {/* Save script prompt */}
             {savePrompt && (
                 <div
-                    className="tab-save-prompt"
+                    className="flex items-center gap-1 px-2 bg-bg-secondary border-l border-border flex-shrink-0"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <input
                         ref={saveInputRef}
-                        className="tab-save-input"
+                        className="bg-bg-primary border border-success text-text-primary text-[11px] px-1.5 py-[3px] rounded-sm outline-none w-40"
                         placeholder="Script name…"
                         value={saveNameValue}
                         onChange={(e) => setSaveNameValue(e.target.value)}
@@ -305,7 +313,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                         }}
                     />
                     <button
-                        className="tab-save-confirm"
+                        className="bg-success border-none text-white text-[11px] font-semibold px-2.5 py-[3px] rounded-sm cursor-pointer transition-opacity duration-100 hover:opacity-85"
                         onClick={() => {
                             if (saveNameValue.trim()) {
                                 onSaveScript(savePrompt.tabId, saveNameValue.trim());
@@ -317,7 +325,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                         Save
                     </button>
                     <button
-                        className="tab-save-cancel"
+                        className="bg-transparent border-none text-text-secondary text-[13px] leading-none cursor-pointer px-1 py-0.5 rounded-sm transition-colors duration-100 hover:text-text-primary"
                         onClick={() => { setSavePrompt(null); setSaveNameValue(''); }}
                     >
                         ✕
@@ -327,12 +335,12 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {contextMenu && (
                 <div
-                    className="context-menu"
+                    className="fixed bg-bg-secondary border border-border shadow-[0_2px_8px_rgba(0,0,0,0.3)] py-1 rounded-[4px] z-[1000] min-w-[150px]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div
-                        className="context-menu-item"
+                        className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white"
                         onClick={() => { const t = tabs.find(t => t.id === contextMenu!.tabId); if (t) startRename(t); setContextMenu(null); }}
                     >
                         Rename
@@ -340,7 +348,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
                     {onSplit && (
                         <div
-                            className="context-menu-item"
+                            className="px-4 py-1.5 text-[13px] cursor-pointer flex items-center hover:bg-success hover:text-white"
                             onClick={() => { onSplit(contextMenu!.tabId); setContextMenu(null); }}
                         >
                             <SplitSquareHorizontal size={11} style={{ marginRight: 5 }} />
@@ -349,7 +357,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                     )}
 
                     <div
-                        className="context-menu-item context-menu-item--save"
+                        className="px-4 py-1.5 text-[13px] cursor-pointer flex items-center text-success hover:bg-success hover:text-white"
                         onClick={() => {
                             const tab = tabs.find(t => t.id === contextMenu!.tabId);
                             setSaveNameValue(tab?.name ?? '');
@@ -361,15 +369,15 @@ export const TabBar: React.FC<TabBarProps> = ({
                         Save Script
                     </div>
 
-                    <div className="context-menu-separator" />
+                    <div className="h-px bg-border my-1" />
 
-                    <div className="context-menu-item" onClick={() => { onClose(contextMenu!.tabId); setContextMenu(null); }}>
+                    <div className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white" onClick={() => { onClose(contextMenu!.tabId); setContextMenu(null); }}>
                         Close
                     </div>
-                    <div className="context-menu-item" onClick={() => closeOthers(contextMenu!.tabId)}>
+                    <div className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white" onClick={() => closeOthers(contextMenu!.tabId)}>
                         Close Others
                     </div>
-                    <div className="context-menu-item" onClick={closeAll}>
+                    <div className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white" onClick={closeAll}>
                         Close All
                     </div>
                 </div>

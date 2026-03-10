@@ -234,7 +234,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
 
     if (!result) {
         return (
-            <div className="result-panel result-empty">
+            <div className="flex items-center justify-center h-full text-[13px] text-text-secondary">
                 <span>Run a query (Ctrl+Enter) to see results</span>
             </div>
         );
@@ -242,7 +242,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
 
     if (result.error) {
         return (
-            <div className="result-panel result-error-state">
+            <div className="flex items-center justify-center h-full text-[13px] text-error gap-2">
                 <AlertCircle size={16} />
                 <span>{result.error}</span>
             </div>
@@ -251,7 +251,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
 
     if (!result.isSelect) {
         return (
-            <div className="result-panel result-success">
+            <div className="flex items-center justify-center h-full text-[13px] text-success gap-2">
                 <CheckCircle size={16} />
                 <span>{result.affected} rows affected · {formatDuration(result.duration)}</span>
             </div>
@@ -406,20 +406,20 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
 
     return (
         <div
-            className="result-panel result-table-container"
+            className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden"
             ref={containerRef}
             tabIndex={-1}
             onKeyDown={handleKeyDown}
             style={{ outline: 'none' }}
         >
             {!result.isDone ? (
-                <div className="result-loading result-loading-inline">
-                    <div className="result-loading-inner">
-                        <Loader size={18} className="result-spinner" />
+                <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
+                    <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border flex-shrink-0">
+                        <Loader size={18} className="animate-spin" />
                         <span>Streaming… {result.rows.length > 0 ? `${result.rows.length.toLocaleString()} rows received` : 'executing query'}</span>
                     </div>
-                    <div className="result-skeleton">
-                        <div className="result-skeleton-header" />
+                    <div className="flex-1 overflow-hidden py-2">
+                        <div className="h-[22px] rounded-[3px] mx-3 my-1.5 bg-bg-tertiary mb-3 w-[60%]" />
                         {Array.from({ length: 8 }).map((_, i) => (
                             <div key={i} className="result-skeleton-row" style={{ opacity: 1 - i * 0.1 }} />
                         ))}
@@ -440,12 +440,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 />
             )}
             {/* Bottom status bar */}
-            <div className="result-toolbar result-toolbar-bottom">
-                <div className="result-toolbar-left">
-                    <span className="result-stats">
+            <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border flex-shrink-0">
+                <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
                         Showing <strong>{result.rows.length.toLocaleString()}</strong> of&nbsp;
                         <select
-                            className="result-limit-select"
+                            className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-[1px] rounded-[3px] cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
                             value={defaultLimit}
                             onChange={handleLimitChange}
                             title="Row limit for next query"
@@ -457,29 +457,29 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
                     </span>
                     {displayTotalCount !== undefined ? (
-                        <span className="result-stats">
+                        <span className="flex items-center gap-1">
                             (Total: <strong>{displayTotalCount.toLocaleString()}</strong>)
                         </span>
                     ) : totalCount === -1 ? (
-                        <span className="result-stats" style={{ color: 'var(--color-warning)' }} title="Failed to count total rows in background">
+                        <span className="flex items-center gap-1 text-warning" title="Failed to count total rows in background">
                             (Total: ?)
                         </span>
                     ) : isCounting ? (
-                        <span className="result-stats" style={{ opacity: 0.7 }}>
-                            <Loader size={12} className="result-spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />
+                        <span className="flex items-center gap-1 opacity-70">
+                            <Loader size={12} className="animate-spin inline-block align-middle mr-1" />
                             Counting...
                         </span>
                     ) : null}
                 </div>
-                <div className="result-toolbar-center">
+                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
                     {hasChanges && (
-                        <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center' }}>
+                        <span className="text-[11px] text-warning flex items-center">
                             {editedCells.size + deletedRows.size} pending change(s)
                         </span>
                     )}
                 </div>
-                <div className="result-toolbar-right">
-                    <button className="result-toolbar-btn" onClick={handleExport} title="Export as CSV">
+                <div className="flex items-center gap-3">
+                    <button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={handleExport} title="Export as CSV">
                         <Download size={13} />
                         <span>Export</span>
                     </button>

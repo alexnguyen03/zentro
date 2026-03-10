@@ -34,11 +34,10 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
         onClick={action.onClick}
         disabled={action.disabled || action.loading}
         title={action.label}
-        className="result-toolbar-btn"
-        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+        className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border disabled:opacity-50 disabled:cursor-not-allowed"
     >
         {action.loading
-            ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} />
+            ? <Loader size={11} className="animate-spin" />
             : action.icon
         }
         <span>{action.label}</span>

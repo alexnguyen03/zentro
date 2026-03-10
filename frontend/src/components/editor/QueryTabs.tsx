@@ -18,6 +18,7 @@ import {
     useSensors,
     closestCenter
 } from '@dnd-kit/core';
+import { cn } from '../../lib/cn';
 
 export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag } = useEditorStore();
@@ -151,14 +152,17 @@ export const QueryTabs: React.FC = () => {
     // ── Empty state ───────────────────────────────────────────────────────
     if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
         return (
-            <div className="empty-editor-state">
-                <div className="empty-editor-content">
-                    <h2>No open queries</h2>
-                    <p>Press <kbd>Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+            <div className="flex items-center justify-center h-full text-text-secondary">
+                <div className="text-center max-w-[320px]">
+                    <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-[3px] px-1.5 py-[1px] text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
-                        <p className="empty-editor-hint">Connect to a database using the sidebar first.</p>
+                        <p className="text-xs">Connect to a database using the sidebar first.</p>
                     )}
-                    <button className="btn primary" onClick={() => addTab()} style={{ marginTop: 16 }}>
+                    <button
+                        className="mt-4 bg-success text-white px-3 py-1.5 rounded text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
+                        onClick={() => addTab()}
+                    >
                         New Query
                     </button>
                 </div>
@@ -173,18 +177,16 @@ export const QueryTabs: React.FC = () => {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="query-tabs-root" style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className="flex flex-col h-full w-full overflow-hidden">
                 <Allotment vertical>
                     <Allotment.Pane>
                         <Allotment separator={false}>
                             {groups.map((group, index) => (
                                 <Allotment.Pane key={group.id} minSize={300}>
-                                    <div style={{
-                                        height: '100%',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        borderLeft: index > 0 ? '1px solid var(--border-color)' : 'none'
-                                    }}>
+                                    <div className={cn(
+                                        "flex flex-col h-full",
+                                        index > 0 && "border-l border-border"
+                                    )}>
                                         <QueryGroup
                                             group={group}
                                             isActiveGroup={group.id === activeGroupId}
@@ -196,7 +198,7 @@ export const QueryTabs: React.FC = () => {
                     </Allotment.Pane>
 
                     <Allotment.Pane preferredSize="35%" minSize={100} visible={showResultPanel && !activeTabIsTable}>
-                        <div className="global-result-pane" style={{ height: '100%', borderTop: '1px solid var(--border-color)' }}>
+                        <div className="h-full border-t border-border">
                             <ResultPanel tabId={globalActiveTabId ?? ''} result={globalActiveResult} onRun={handleRunGlobal} />
                         </div>
                     </Allotment.Pane>
@@ -206,8 +208,8 @@ export const QueryTabs: React.FC = () => {
             {/* Drag Overlay for smooth visual feedback while dragging outside the flow */}
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
                 {activeDragTab ? (
-                    <div className="tab-item active" style={{ cursor: 'grabbing', opacity: 0.9, width: 120 }}>
-                        <span className="tab-label">{activeDragTab.name}</span>
+                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-bg-primary text-text-primary border-t-2 border-t-success border-b border-b-bg-primary text-xs cursor-grabbing opacity-90 w-[120px]">
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap">{activeDragTab.name}</span>
                     </div>
                 ) : null}
             </DragOverlay>

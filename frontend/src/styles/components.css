@@ -223,3 +223,8 @@
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+/* -- Drag to Split Zones (QueryGroup.tsx) -------------- */
+.split-snap-preview { position: absolute; top: 0; bottom: 0; width: 50%; background-color: var(--success-color); opacity: 0.2; z-index: 999; pointer-events: none; animation: fadeIn 0.15s ease-out; }
+.split-snap-preview.left { left: 0; }
+.split-snap-preview.right { right: 0; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 0.2; } }

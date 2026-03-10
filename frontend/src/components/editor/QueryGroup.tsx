@@ -7,6 +7,7 @@ import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { useDroppable } from '@dnd-kit/core';
+import { cn } from '../../lib/cn';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -78,9 +79,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
 
     return (
         <div
-            className={`query-group ${isActiveGroup ? 'active-group' : ''}`}
+            className={cn('flex flex-col h-full w-full', isActiveGroup && 'active-group')}
             onClickCapture={handleGroupClick}
-            style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
         >
             <TabBar
                 groupId={groupId}
@@ -94,26 +94,26 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                 onSplit={handleSplit}
             />
 
-            <div className={`query-tabs-body ${isActiveGroup ? 'active-group-body' : ''}`} style={{ flex: 1, position: 'relative' }}>
+            <div className={cn('flex-1 relative flex flex-col overflow-hidden', isActiveGroup && 'active-group-body')}>
                 {isDraggingTab && (
                     <>
-                        <div ref={setLeftNodeRef} className="split-drop-zone left" />
-                        <div ref={setRightNodeRef} className="split-drop-zone right" />
+                        <div ref={setLeftNodeRef} className="absolute top-0 bottom-0 left-0 w-1/4 z-[1000]" />
+                        <div ref={setRightNodeRef} className="absolute top-0 bottom-0 right-0 w-1/4 z-[1000]" />
                     </>
                 )}
                 {isLeftOver && <div className="split-snap-preview left" />}
                 {isRightOver && <div className="split-snap-preview right" />}
 
                 {tabs.length === 0 ? (
-                    <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>
+                    <div className="p-5 text-center text-[#888]">
                         No open tabs in this group.
                     </div>
                 ) : (
-                    <div className="editor-pane" style={{ height: '100%' }}>
+                    <div className="flex-1 overflow-hidden" style={{ height: '100%' }}>
                         {tabs.map(tab => (
                             <div
                                 key={tab.id}
-                                style={{ display: tab.id === activeTabId ? 'flex' : 'none', height: '100%', flexDirection: 'column', backgroundColor: 'var(--bg-main)' }}
+                                className={cn('h-full flex-col bg-bg-primary', tab.id === activeTabId ? 'flex' : 'hidden')}
                             >
                                 {tab.type === 'table' ? (
                                     <TableInfo tabId={tab.id} tableName={tab.content || ''} />
