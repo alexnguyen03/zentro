@@ -117,10 +117,9 @@
 
 /* ─── Primary "New Connection" sticky button ────────────── */
 .ws-new-btn-container {
-    padding: 12px 10%;
+    padding: 8px 10%;
     /* Center 80% button */
     background: var(--bg-main);
-    border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: center;
 }
@@ -140,7 +139,7 @@
 
 .ws-new-btn:hover {
     filter: brightness(1.1);
-    transform: translateY(-1px);
+    opacity: 0.9;
 }
 
 .ws-new-btn:active {
