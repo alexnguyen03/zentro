@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import {
     DndContext, closestCenter, PointerSensor,
     useSensor, useSensors, type DragEndEvent,
@@ -52,38 +53,98 @@ interface DataTypeCellProps {
 
 const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disabled, onCommit }) => {
     const [editing, setEditing] = useState(false);
-    const [search, setSearch] = useState('');
+    const [text, setText] = useState(value);
     const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
-    const ref = React.useRef<HTMLDivElement>(null);
+    const wrapRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
-    const filtered = search ? types.filter(t => t.toLowerCase().includes(search.toLowerCase())) : types;
+    const filtered = text
+        ? types.filter(t => t.toLowerCase().includes(text.toLowerCase()))
+        : types;
 
+    // Close on outside click — must also allow clicks inside the portal dropdown
     useEffect(() => {
         if (!editing) return;
         const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) { setEditing(false); setSearch(''); }
+            const target = e.target as Node;
+            const insideWrap = wrapRef.current?.contains(target);
+            // portal dropdown has data-dtype-drop attribute
+            const insideDrop = (target as Element).closest?.('[data-dtype-drop]');
+            if (!insideWrap && !insideDrop) commitAndClose(text);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [editing]);
+    }, [editing, text]);
 
-    const handleSelect = (t: string) => { onCommit(t); setEditing(false); setSearch(''); setDropPos(null); };
+    // useLayoutEffect: runs synchronously after DOM paint — guarantees correct rect
+    useLayoutEffect(() => {
+        if (!editing || !inputRef.current) return;
+        const r = inputRef.current.getBoundingClientRect();
+        setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 180) });
+    }, [editing]);
 
     const openEditor = () => {
         if (disabled) return;
+        setText(value);
         setEditing(true);
-        setSearch('');
-        // Measure position after paint
+    };
+
+    const commitAndClose = (v: string) => {
+        const trimmed = v.trim();
+        if (trimmed && trimmed !== value) onCommit(trimmed);
+        setEditing(false);
+        setDropPos(null);
+    };
+
+    const closeWithoutCommit = () => {
+        setEditing(false);
+        setDropPos(null);
+    };
+
+    const handleSuggestionClick = (t: string) => {
+        setText(t);
         requestAnimationFrame(() => {
             if (inputRef.current) {
+                inputRef.current.focus();
+                inputRef.current.select();
                 const r = inputRef.current.getBoundingClientRect();
                 setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 180) });
             }
         });
     };
 
-    const closeEditor = () => { setEditing(false); setSearch(''); setDropPos(null); };
+    const dropdown = dropPos && filtered.length > 0
+        ? ReactDOM.createPortal(
+            <div
+                data-dtype-drop
+                style={{
+                    position: 'fixed',
+                    zIndex: 99999,
+                    top: dropPos.top,
+                    left: dropPos.left,
+                    width: dropPos.width,
+                    maxHeight: 220,
+                    overflowY: 'auto',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 4,
+                    boxShadow: '0 6px 20px rgba(0,0,0,.35)',
+                }}
+            >
+                {filtered.map(t => (
+                    <div
+                        key={t}
+                        onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
+                        className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${t === text ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'
+                            }`}
+                    >
+                        {t}
+                    </div>
+                ))}
+            </div>,
+            document.body
+        )
+        : null;
 
     if (!editing) {
         return (
@@ -98,52 +159,22 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
     }
 
     return (
-        <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+        <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
             <input
                 ref={inputRef}
                 autoFocus
                 className="rt-cell-input"
                 style={{ height: 24, fontSize: 12, fontFamily: 'monospace', borderRadius: 3, padding: '0 6px', width: '100%', boxSizing: 'border-box' }}
-                value={search}
-                placeholder={value}
-                onChange={e => {
-                    setSearch(e.target.value);
-                    if (inputRef.current) {
-                        const r = inputRef.current.getBoundingClientRect();
-                        setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 180) });
-                    }
-                }}
+                value={text}
+                onChange={e => { setText(e.target.value); }}
                 onKeyDown={e => {
-                    if (e.key === 'Enter' && filtered.length > 0) handleSelect(filtered[0]);
-                    if (e.key === 'Escape') closeEditor();
+                    if (e.key === 'Enter') { commitAndClose(text); }
+                    if (e.key === 'Escape') { closeWithoutCommit(); }
+                    if (e.key === 'Tab') { commitAndClose(text); }
                 }}
-                onBlur={() => { setTimeout(closeEditor, 120); }}
+                onBlur={() => { setTimeout(() => commitAndClose(text), 150); }}
             />
-            {dropPos && (
-                <div style={{
-                    position: 'fixed',
-                    zIndex: 99999,
-                    top: dropPos.top,
-                    left: dropPos.left,
-                    width: dropPos.width,
-                    maxHeight: 220, overflowY: 'auto',
-                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                    borderRadius: 4, boxShadow: '0 6px 20px rgba(0,0,0,.35)',
-                }}>
-                    {filtered.length === 0
-                        ? <div className="px-3 py-2 text-xs text-[var(--text-secondary)]">No match</div>
-                        : filtered.map(t => (
-                            <div
-                                key={t}
-                                onMouseDown={e => { e.preventDefault(); handleSelect(t); }}
-                                className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${t === value ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'}`}
-                            >
-                                {t}
-                            </div>
-                        ))
-                    }
-                </div>
-            )}
+            {dropdown}
         </div>
     );
 };
@@ -455,39 +486,39 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             {/* Scrollable table area */}
             <div style={{ flex: 1, overflow: 'hidden' }}>
                 {activeSubTab === 'info' && (
-                    <div className="result-virtual-scroll" style={{ height: '100%' }}>
-                        <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
-                            <colgroup>
-                                <col style={{ width: 28 }} /> {/* grip */}
-                                <col style={{ width: 36 }} /> {/* # */}
-                                <col style={{ width: '22%' }} />
-                                <col style={{ width: '20%' }} />
-                                <col style={{ width: 44 }} />
-                                <col style={{ width: 70 }} />
-                                <col />
-                                <col style={{ width: 44 }} />
-                            </colgroup>
-                            <thead>
-                                <tr>
-                                    <th className="rt-th" />
-                                    {([
-                                        { col: 'idx' as SortCol, label: '#' },
-                                        { col: 'Name' as SortCol, label: 'Name' },
-                                        { col: 'DataType' as SortCol, label: 'Data Type' },
-                                        { col: 'IsPrimaryKey' as SortCol, label: 'PK' },
-                                        { col: 'IsNullable' as SortCol, label: 'Nullable' },
-                                        { col: 'DefaultValue' as SortCol, label: 'Default' },
-                                    ]).map(({ col, label }) => (
-                                        <th key={col} className="rt-th rt-th-sortable" style={thStyle} onClick={() => cycleSort(col)}>
-                                            <span className="rt-th-label">
-                                                {label}<SortIcon col={col} />
-                                            </span>
-                                        </th>
-                                    ))}
-                                    <th className="rt-th"><span className="rt-th-label">Actions</span></th>
-                                </tr>
-                            </thead>
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <div className="result-virtual-scroll" style={{ height: '100%' }}>
+                            <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
+                                <colgroup>
+                                    <col style={{ width: 28 }} /> {/* grip */}
+                                    <col style={{ width: 36 }} /> {/* # */}
+                                    <col style={{ width: '22%' }} />
+                                    <col style={{ width: '20%' }} />
+                                    <col style={{ width: 44 }} />
+                                    <col style={{ width: 70 }} />
+                                    <col />
+                                    <col style={{ width: 44 }} />
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th className="rt-th" />
+                                        {([
+                                            { col: 'idx' as SortCol, label: '#' },
+                                            { col: 'Name' as SortCol, label: 'Name' },
+                                            { col: 'DataType' as SortCol, label: 'Data Type' },
+                                            { col: 'IsPrimaryKey' as SortCol, label: 'PK' },
+                                            { col: 'IsNullable' as SortCol, label: 'Nullable' },
+                                            { col: 'DefaultValue' as SortCol, label: 'Default' },
+                                        ]).map(({ col, label }) => (
+                                            <th key={col} className="rt-th rt-th-sortable" style={thStyle} onClick={() => cycleSort(col)}>
+                                                <span className="rt-th-label">
+                                                    {label}<SortIcon col={col} />
+                                                </span>
+                                            </th>
+                                        ))}
+                                        <th className="rt-th"><span className="rt-th-label">Actions</span></th>
+                                    </tr>
+                                </thead>
                                 <SortableContext items={displayIds} strategy={verticalListSortingStrategy}>
                                     <tbody>
                                         {displayIds.map((id, displayIdx) => {
@@ -514,9 +545,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                         )}
                                     </tbody>
                                 </SortableContext>
-                            </DndContext>
-                        </table>
-                    </div>
+                            </table>
+                        </div>
+                    </DndContext>
                 )}
 
                 {activeSubTab === 'data' && (
