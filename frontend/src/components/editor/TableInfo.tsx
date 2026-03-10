@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import ReactDOM from 'react-dom';
 import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
-import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save } from 'lucide-react';
+import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
 
@@ -14,6 +14,32 @@ interface TableInfoProps {
 type SubTab = 'info' | 'data' | 'erd';
 type SortDir = 'asc' | 'desc' | null;
 type SortCol = 'idx' | 'Name' | 'DataType' | 'IsPrimaryKey' | 'IsNullable' | 'DefaultValue';
+
+// ── TabAction pattern — extend per sub-tab as needed ───────────
+interface TabAction {
+    id: string;
+    icon: React.ReactNode;
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+}
+
+const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
+    <button
+        onClick={action.onClick}
+        disabled={action.disabled || action.loading}
+        title={action.label}
+        className="result-toolbar-btn"
+        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+    >
+        {action.loading
+            ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} />
+            : action.icon
+        }
+        <span>{action.label}</span>
+    </button>
+);
 
 interface RowState {
     id: string; // stable dnd id
@@ -448,6 +474,41 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const dirtyCount = rows.filter((r, i) => !r.deleted && !deepEq(r.original, r.current)).length;
     const deletedCount = rows.filter(r => r.deleted).length;
+    const hasChanges = dirtyCount > 0 || deletedCount > 0;
+
+    const reloadAction: TabAction = {
+        id: 'reload',
+        icon: <RefreshCw size={11} />,
+        label: 'Reload',
+        onClick: load,
+        loading: loading,
+    };
+
+    // Registry: add per-tab actions here as the feature grows
+    const tabActions: Record<SubTab, TabAction[]> = {
+        info: [
+            ...(hasChanges ? [
+                {
+                    id: 'discard',
+                    icon: <RotateCcw size={11} />,
+                    label: 'Discard',
+                    onClick: discardAll,
+                    disabled: saving,
+                },
+                {
+                    id: 'save',
+                    icon: <Save size={11} />,
+                    label: 'Save',
+                    onClick: saveAll,
+                    disabled: saving,
+                    loading: saving,
+                },
+            ] : []),
+            reloadAction,
+        ],
+        data: [reloadAction],
+        erd: [reloadAction],
+    };
 
     const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
 
@@ -466,13 +527,32 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-main)' }}>
-            {/* Header + sub-tabs */}
-            <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Table: {tableName}</div>
+            {/* Header: table name + global actions */}
+            <div style={{ padding: '8px 12px 0', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            Table: {tableName}
+                        </span>
+                        {activeSubTab === 'info' && hasChanges && (
+                            <span style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
+                                {dirtyCount > 0 && deletedCount > 0 && ' · '}
+                                {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
+                            </span>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                        {tabActions[activeSubTab].map(action => (
+                            <ToolbarButton key={action.id} action={action} />
+                        ))}
+                    </div>
+                </div>
+                {/* Sub-tabs */}
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
                     {subTabs.map(({ key, label }) => (
                         <div key={key} onClick={() => setActiveSubTab(key)} style={{
-                            padding: '6px 16px', cursor: 'pointer', fontSize: 12,
+                            padding: '5px 14px', cursor: 'pointer', fontSize: 12,
                             fontWeight: activeSubTab === key ? 600 : 'normal',
                             borderBottom: activeSubTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
                             color: activeSubTab === key ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -556,29 +636,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     </div>
                 )}
             </div>
-
-            {/* Bottom toolbar — fixed */}
-            {activeSubTab === 'info' && (
-                <div className="result-toolbar" style={{ flexShrink: 0 }}>
-                    <span className="result-stats">
-                        <span style={{ color: 'var(--text-secondary)' }}>{rows.length} columns</span>
-                        {dirtyCount > 0 && <><span style={{ color: 'var(--text-secondary)' }}>·</span><span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span></>}
-                        {deletedCount > 0 && <><span style={{ color: 'var(--text-secondary)' }}>·</span><span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span></>}
-                    </span>
-                    <span className="result-toolbar-right">
-                        {(dirtyCount > 0 || deletedCount > 0) && (
-                            <>
-                                <button onClick={discardAll} className="result-toolbar-btn">
-                                    <RotateCcw size={11} /> Discard All
-                                </button>
-                                <button onClick={saveAll} disabled={saving} className="result-toolbar-btn" style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}>
-                                    {saving ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={11} />} Apply Changes
-                                </button>
-                            </>
-                        )}
-                    </span>
-                </div>
-            )}
         </div>
     );
 };
