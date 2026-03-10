@@ -49,7 +49,7 @@ export const ConnectionTree: React.FC = () => {
     }
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
             <div className="explorer-filter-bar">
                 <div className="explorer-search-wrap">
                     <Search size={11} className="explorer-search-icon" />
@@ -60,6 +60,7 @@ export const ConnectionTree: React.FC = () => {
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Escape' && setFilter('')}
                     />
                 </div>
                 {filter && (
@@ -69,7 +70,7 @@ export const ConnectionTree: React.FC = () => {
                 )}
             </div>
 
-            <div style={{ padding: '8px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
                 <DatabaseNode
                     dbName={activeProfile.db_name}
                     profileName={activeProfile.name!}
@@ -97,7 +98,6 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
     const isLoading = useSchemaStore(s => s.loadingKeys.has(key));
     const setTree = useSchemaStore(s => s.setTree);
     const setLoading = useSchemaStore(s => s.setLoading);
-    const { addTab } = useEditorStore();
 
     useEffect(() => {
         const unsub = onSchemaLoaded((data) => {
@@ -131,43 +131,13 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
         }
     };
 
-    const handleAddTab = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        addTab({
-            type: 'query',
-            name: `Query - ${dbName}`,
-            content: `Query - ${dbName}`,
-            query: ''
-        });
-    };
-
     return (
         <div>
-            <div className="tree-node" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleExpand(); }} style={{ position: 'relative' }}>
+            <div className="tree-node" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleExpand(); }}>
                 {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <Server size={14} color="var(--success-color)" />
                 <span style={{ fontWeight: 600 }}>{dbName}</span>
                 {isLoading && <Loader size={12} style={{ marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
-                <button
-                    onClick={handleAddTab}
-                    title="New Query Tab"
-                    style={{
-                        position: 'absolute',
-                        right: 8,
-                        background: 'var(--accent-color)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 3,
-                        width: 18,
-                        height: 18,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer'
-                    }}
-                >
-                    <span style={{ fontSize: 13, fontWeight: 'bold', lineHeight: 1 }}>+</span>
-                </button>
             </div>
 
             {expanded && (

@@ -78,6 +78,7 @@ export const HistoryPanel: React.FC = () => {
                         placeholder="Filter history…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Escape' && setSearch('')}
                     />
                 </div>
                 {entries.length > 0 && (

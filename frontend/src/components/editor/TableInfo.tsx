@@ -394,6 +394,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [filterCol, setFilterCol] = useState('');
     const filterInputRef = useRef<HTMLInputElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const { activeProfile } = useConnectionStore();
     const { activeGroupId, groups } = useEditorStore();
@@ -432,6 +433,11 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     };
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
+
+    // Auto-focus the container so Ctrl+F can detect this tab is active
+    useEffect(() => {
+        containerRef.current?.focus({ preventScroll: true });
+    }, []);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -571,7 +577,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     if (fetchError) return <div className="p-5 h-full" style={{ color: 'var(--error-color)', background: 'var(--bg-main)' }}>{fetchError}</div>;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-main)' }}>
+        <div ref={containerRef} tabIndex={-1} style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--bg-main)', outline: 'none' }}>
             {/* Header: single flex row — table name | tabs | actions */}
             <div style={{ padding: '0 12px', flexShrink: 0, borderBottom: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, minHeight: 40 }}>
@@ -718,6 +724,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 placeholder="Filter columns..."
                                 value={filterCol}
                                 onChange={(e) => setFilterCol(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
                                 style={{
                                     fontSize: 11,
                                     padding: '2px 6px 2px 20px',
