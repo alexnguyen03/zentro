@@ -186,3 +186,42 @@
     font-style: italic;
     background: var(--bg-tertiary);
 }
+
+.row-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.row-detail-action-btn.active {
+    background: var(--bg-tertiary);
+    color: var(--color-primary, #7c6af7);
+}
+
+.row-detail-checkbox {
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--color-primary, #7c6af7);
+}
+
+.row-detail-field-selected {
+    background: rgba(124, 106, 247, 0.05);
+}
+
+.row-detail-json-view {
+    height: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 12px;
+    overflow: auto;
+}
+
+.row-detail-json-view pre {
+    margin: 0;
+    font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-all;
+}

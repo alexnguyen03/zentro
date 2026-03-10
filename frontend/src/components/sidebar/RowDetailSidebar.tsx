@@ -1,7 +1,7 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { X, Copy, AlignLeft, FileJson } from 'lucide-react';
+import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces } from 'lucide-react';
 import { useToast } from '../layout/Toast';
 import './RowDetailSidebar.css';
 
@@ -14,13 +14,18 @@ export const RowDetailSidebar: React.FC = () => {
     const [width, setWidth] = useState(300);
     const isResizing = useRef(false);
 
+    // View modes
+    const [viewMode, setViewMode] = useState<'form' | 'json'>('form');
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+
     const startResizing = useCallback(() => { isResizing.current = true; }, []);
     const stopResizing = useCallback(() => { isResizing.current = false; }, []);
 
     const resize = useCallback((e: MouseEvent) => {
         if (isResizing.current) {
             const newWidth = window.innerWidth - e.clientX;
-            if (newWidth > 200 && newWidth < 800) {
+            if (newWidth > 200 && newWidth < 1000) {
                 setWidth(newWidth);
             }
         }
@@ -35,38 +40,80 @@ export const RowDetailSidebar: React.FC = () => {
         };
     }, [resize, stopResizing]);
 
+    // Clear selections when switching rows
+    React.useEffect(() => {
+        setSelectedFields(new Set());
+    }, [detail?.row]);
+
+    const getJsonData = useCallback(() => {
+        if (!detail) return {};
+        const obj: Record<string, any> = {};
+
+        const hasSelection = isSelectMode && selectedFields.size > 0;
+
+        detail.columns.forEach((col, idx) => {
+            if (!hasSelection || selectedFields.has(col)) {
+                let val = detail.row[idx];
+
+                // Try to parse JSON strings to make the output prettier
+                if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+                    try {
+                        val = JSON.parse(val);
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+                obj[col] = val ?? null;
+            }
+        });
+        return obj;
+    }, [detail, isSelectMode, selectedFields]);
+
+    const handleCopyJson = useCallback(() => {
+        if (!detail) return;
+        const data = getJsonData();
+        navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+
+        const msg = (isSelectMode && selectedFields.size > 0)
+            ? `Copied ${selectedFields.size} fields as JSON`
+            : 'Copied full row as JSON';
+        toast.success(msg);
+    }, [detail, getJsonData, toast, isSelectMode, selectedFields.size]);
+
     // Double-click on tab header → copy as JSON
     const lastTabClickTime = useRef(0);
     const handleTabHeaderClick = useCallback(() => {
         if (!detail) return;
         const now = Date.now();
         if (now - lastTabClickTime.current < 400) {
-            // Double-click → copy as JSON
-            const obj: Record<string, string | null> = {};
-            detail.columns.forEach((col, idx) => {
-                obj[col] = detail.row[idx] ?? null;
-            });
-            navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
-            toast.success('Row copied as JSON');
+            handleCopyJson();
             lastTabClickTime.current = 0;
         } else {
             lastTabClickTime.current = now;
         }
-    }, [detail, toast]);
+    }, [detail, handleCopyJson]);
 
     const copyValue = (val: string) => {
         navigator.clipboard.writeText(val);
         toast.success('Copied to clipboard');
     };
 
-    const copyAsJson = () => {
-        if (!detail) return;
-        const obj: Record<string, string | null> = {};
-        detail.columns.forEach((col, idx) => {
-            obj[col] = detail.row[idx] ?? null;
+    const toggleFieldSelection = (col: string) => {
+        setSelectedFields(prev => {
+            const next = new Set(prev);
+            if (next.has(col)) next.delete(col);
+            else next.add(col);
+            return next;
         });
-        navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
-        toast.success('Row copied as JSON');
+    };
+
+    const toggleSelectMode = () => {
+        setIsSelectMode(prev => {
+            if (prev) {
+                setSelectedFields(new Set()); // clear when exiting select mode
+            }
+            return !prev;
+        });
     };
 
     const EmptyState = (
@@ -114,37 +161,66 @@ export const RowDetailSidebar: React.FC = () => {
                             Row Detail {tableName && <span className="row-detail-table-name" style={{ marginLeft: 4 }}>— {tableName}</span>}
                         </span>
                     </button>
-                    <button
-                        className="row-detail-action-btn"
-                        title="Copy row as JSON"
-                        onClick={copyAsJson}
-                    >
-                        <FileJson size={13} />
-                    </button>
-                    <button className="row-detail-close" onClick={() => setShowRightSidebar(false)}>
-                        <X size={14} />
-                    </button>
-                </div>
-                <div className="sidebar-content row-detail-content">
-                    {columns.map((col, idx) => {
-                        const val = row[idx];
-                        const isNull = val === null || val === undefined;
-                        const isPK = primaryKeys?.includes(col) ?? false;
-                        const displayVal = isNull ? 'null' : (val === '' ? '' : val);
 
-                        return (
-                            <RowDetailField
-                                key={`${col}-${idx}`}
-                                col={col}
-                                val={displayVal}
-                                isNull={isNull}
-                                isPK={isPK}
-                                colIdx={idx}
-                                onCopy={() => !isNull && copyValue(val)}
-                                onSave={onSave}
-                            />
-                        );
-                    })}
+                    <div className="row-detail-actions">
+                        {viewMode === 'form' && (
+                            <button
+                                className={`row-detail-action-btn ${isSelectMode ? 'active' : ''}`}
+                                title="Toggle selection mode for custom JSON copy"
+                                onClick={toggleSelectMode}
+                            >
+                                <CheckSquare size={13} />
+                            </button>
+                        )}
+                        <button
+                            className={`row-detail-action-btn ${viewMode === 'json' ? 'active' : ''}`}
+                            title="Toggle JSON view"
+                            onClick={() => setViewMode(v => v === 'form' ? 'json' : 'form')}
+                        >
+                            <Braces size={13} />
+                        </button>
+                        <button
+                            className="row-detail-action-btn"
+                            title={isSelectMode && selectedFields.size > 0 ? "Copy selected fields as JSON" : "Copy row as JSON"}
+                            onClick={handleCopyJson}
+                        >
+                            <FileJson size={13} />
+                        </button>
+                        <button className="row-detail-close" onClick={() => setShowRightSidebar(false)}>
+                            <X size={14} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="sidebar-content row-detail-content">
+                    {viewMode === 'json' ? (
+                        <div className="row-detail-json-view">
+                            <pre>{JSON.stringify(getJsonData(), null, 2)}</pre>
+                        </div>
+                    ) : (
+                        columns.map((col, idx) => {
+                            const val = row[idx];
+                            const isNull = val === null || val === undefined;
+                            const isPK = primaryKeys?.includes(col) ?? false;
+                            const displayVal = isNull ? 'null' : (val === '' ? '' : val);
+
+                            return (
+                                <RowDetailField
+                                    key={`${col}-${idx}`}
+                                    col={col}
+                                    val={displayVal}
+                                    isNull={isNull}
+                                    isPK={isPK}
+                                    colIdx={idx}
+                                    onCopy={() => !isNull && copyValue(val)}
+                                    onSave={onSave}
+                                    isSelectMode={isSelectMode}
+                                    isSelected={selectedFields.has(col)}
+                                    onToggleSelect={() => toggleFieldSelection(col)}
+                                />
+                            );
+                        })
+                    )}
                 </div>
             </div>
         </>
@@ -159,9 +235,15 @@ interface RowDetailFieldProps {
     colIdx: number;
     onCopy: () => void;
     onSave?: (colIdx: number, newVal: string) => void;
+    isSelectMode: boolean;
+    isSelected: boolean;
+    onToggleSelect: () => void;
 }
 
-const RowDetailField: React.FC<RowDetailFieldProps> = ({ col, val, isNull, isPK, colIdx, onCopy, onSave }) => {
+const RowDetailField: React.FC<RowDetailFieldProps> = ({
+    col, val, isNull, isPK, colIdx, onCopy, onSave,
+    isSelectMode, isSelected, onToggleSelect
+}) => {
     const [editVal, setEditVal] = useState(val);
     const [isDirty, setIsDirty] = useState(false);
 
@@ -193,12 +275,22 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({ col, val, isNull, isPK,
     };
 
     return (
-        <div className={`row-detail-field ${isDirty ? 'row-detail-field-dirty' : ''}`}>
+        <div className={`row-detail-field ${isDirty ? 'row-detail-field-dirty' : ''} ${isSelected ? 'row-detail-field-selected' : ''}`}>
             <div className="row-detail-key">
-                <span className={isPK ? 'row-detail-pk-label' : ''}>
-                    {isPK && <span className="row-detail-pk-badge">PK</span>}
-                    {col}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                    {isSelectMode && (
+                        <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={onToggleSelect}
+                            className="row-detail-checkbox"
+                        />
+                    )}
+                    <span className={isPK ? 'row-detail-pk-label' : ''}>
+                        {isPK && <span className="row-detail-pk-badge">PK</span>}
+                        {col}
+                    </span>
+                </div>
                 <button
                     className="row-detail-copy-btn"
                     onClick={onCopy}
@@ -209,7 +301,9 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({ col, val, isNull, isPK,
                 </button>
             </div>
             {isPK ? (
-                <div className={`row-detail-value row-detail-pk-value ${isNull ? 'row-detail-null' : ''}`}>
+                <div className={`row-detail-value row-detail-pk-value ${isNull ? 'row-detail-null' : ''}`}
+                    onClick={isSelectMode ? onToggleSelect : undefined}
+                    style={{ cursor: isSelectMode ? 'pointer' : 'default' }}>
                     {isNull ? 'null' : val}
                 </div>
             ) : (
@@ -220,8 +314,13 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({ col, val, isNull, isPK,
                     onBlur={commit}
                     onKeyDown={handleKeyDown}
                     rows={Math.max(1, Math.min(6, (editVal || '').split('\n').length))}
-                    disabled={!onSave}
-                    title={onSave ? 'Click to edit · Enter to save · Esc to cancel' : 'Read-only (no primary key)'}
+                    disabled={!onSave || isSelectMode}
+                    title={
+                        isSelectMode ? 'Click to select field' :
+                            onSave ? 'Click to edit · Enter to save · Esc to cancel' :
+                                'Read-only (no primary key)'
+                    }
+                    onClick={isSelectMode ? (e) => { e.preventDefault(); onToggleSelect(); } : undefined}
                 />
             )}
         </div>
