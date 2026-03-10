@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Database, Edit, Trash2, Plug, PlugZap,
     ChevronRight, ChevronDown,
     Table2, Link2, Eye, Layers, Hash,
     Zap, List, Type, Sigma,
-    Server, Loader,
+    Server, Loader, Search
 } from 'lucide-react';
-import { models } from '../../../wailsjs/go/models';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
-import { Connect, DeleteConnection, FetchDatabaseSchema, LoadConnections, Disconnect } from '../../../wailsjs/go/app/App';
+import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
-
-type ConnectionProfile = models.ConnectionProfile;
 
 // Extended schema node type matching the Go model
 interface SchemaNodeData {
@@ -29,134 +25,56 @@ interface SchemaNodeData {
     AggregateFunctions: string[];
 }
 
-interface ConnectionTreeProps {
-    onEdit: (profile: ConnectionProfile) => void;
-}
+export const ConnectionTree: React.FC = () => {
+    const { isConnected, activeProfile } = useConnectionStore();
+    const [filter, setFilter] = useState('');
 
-// ── ConnectionTree ─────────────────────────────────────────────────────────────
-
-export const ConnectionTree: React.FC<ConnectionTreeProps> = ({ onEdit }) => {
-    const { connections, isConnected, activeProfile, databases, setConnections } = useConnectionStore();
-    const setIsConnected = useConnectionStore(s => s.setIsConnected);
-    const setActiveProfile = useConnectionStore(s => s.setActiveProfile);
-    const setDatabases = useConnectionStore(s => s.setDatabases);
-
-    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; profile: ConnectionProfile } | null>(null);
-
-    useEffect(() => {
-        const handleClick = () => setContextMenu(null);
-        window.addEventListener('click', handleClick);
-        return () => window.removeEventListener('click', handleClick);
-    }, []);
-
-    const handleContextMenu = (e: React.MouseEvent, profile: ConnectionProfile) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, profile });
-    };
-
-    const handleConnect = async (profileName: string) => {
-        try {
-            await Connect(profileName);
-        } catch (err: any) {
-            alert(`Connection error: ${err.toString()}`);
-        }
-    };
-
-    const handleDisconnect = async () => {
-        try {
-            await Disconnect();
-            setIsConnected(false);
-            setActiveProfile(null);
-            setDatabases([]);
-        } catch (err: any) {
-            alert(err.toString());
-        }
-    };
-
-    const handleDelete = async (profileName: string) => {
-        if (!confirm(`Delete connection "${profileName}"?`)) return;
-        try {
-            await DeleteConnection(profileName);
-            const data = await LoadConnections();
-            setConnections(data || []);
-        } catch (err: any) {
-            alert(err.toString());
-        }
-    };
+    if (!isConnected || !activeProfile || !activeProfile.db_name) {
+        return null;
+    }
 
     return (
-        <div>
-            {connections.map(c => {
-                const isActive = activeProfile?.name === c.name;
-                const showDatabases = isActive && isConnected && databases.length > 0;
-                return (
-                    <div key={c.name}>
-                        {/* Connection profile row */}
-                        <div
-                            className={`tree-node ${isActive ? 'active' : ''}`}
-                            onContextMenu={(e) => handleContextMenu(e, c)}
-                            onClick={() => handleConnect(c.name!)}
-                        >
-                            {showDatabases ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            <Database
-                                size={14}
-                                color={isActive && isConnected ? 'var(--success-color)' : 'currentColor'}
-                            />
-                            <span style={{ fontWeight: isActive ? 600 : 400 }}>{c.name}</span>
-                            {isActive && isConnected && (
-                                <span className="connection-active-dot" title="Connected" />
-                            )}
-                        </div>
+        <div style={{ padding: '0 8px' }}>
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+                <Search size={12} style={{ position: 'absolute', left: 6, top: 6, color: 'var(--text-muted)' }} />
+                <input
+                    type="text"
+                    placeholder="Filter tables..."
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    style={{
+                        width: '100%',
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 4,
+                        padding: '4px 6px 4px 22px',
+                        fontSize: 12,
+                        color: 'var(--text-primary)',
+                        outline: 'none'
+                    }}
+                />
+            </div>
 
-                        {/* Databases group */}
-                        {showDatabases && (
-                            <div className="tree-children">
-                                <div className="tree-group-label"><span>Databases</span></div>
-                                {databases.map(db => (
-                                    <DatabaseNode key={db} dbName={db} profileName={c.name!} />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-
-            {/* Context menu */}
-            {contextMenu && (
-                <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
-                    <div className="context-menu-item"
-                        onClick={(e) => { e.stopPropagation(); handleConnect(contextMenu.profile.name!); setContextMenu(null); }}>
-                        <Plug size={12} style={{ marginRight: 6 }} /> Connect
-                    </div>
-                    {activeProfile?.name === contextMenu.profile.name && isConnected && (
-                        <div className="context-menu-item"
-                            onClick={(e) => { e.stopPropagation(); handleDisconnect(); setContextMenu(null); }}
-                            style={{ color: 'var(--accent-color)' }}>
-                            <PlugZap size={12} style={{ marginRight: 6 }} /> Disconnect
-                        </div>
-                    )}
-                    <div className="context-menu-separator" />
-                    <div className="context-menu-item"
-                        onClick={(e) => { e.stopPropagation(); onEdit(contextMenu.profile); setContextMenu(null); }}>
-                        <Edit size={12} style={{ marginRight: 6 }} /> Edit
-                    </div>
-                    <div className="context-menu-item"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(contextMenu.profile.name!); setContextMenu(null); }}
-                        style={{ color: 'var(--error-color)' }}>
-                        <Trash2 size={12} style={{ marginRight: 6 }} /> Delete
-                    </div>
-                </div>
-            )}
+            <DatabaseNode
+                dbName={activeProfile.db_name}
+                profileName={activeProfile.name!}
+                filter={filter.toLowerCase()}
+            />
         </div>
     );
 };
 
 // ── DatabaseNode ───────────────────────────────────────────────────────────────
 
-interface DatabaseNodeProps { dbName: string; profileName: string; }
+interface DatabaseNodeProps {
+    dbName: string;
+    profileName: string;
+    filter: string;
+}
 
-const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
-    const [expanded, setExpanded] = useState(false);
+const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter }) => {
+    // Automatically expand the root DB node
+    const [expanded, setExpanded] = useState(true);
 
     const key = `${profileName}:${dbName}`;
     const schemas = useSchemaStore(s => s.trees[key]);
@@ -173,31 +91,28 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
         return () => unsub();
     }, [profileName, dbName, setTree]);
 
-    const handleExpand = async () => {
-        const next = !expanded;
-        setExpanded(next);
-        if (next && !schemas && !isLoading) {
+    // Force load if not loaded yet
+    useEffect(() => {
+        if (!schemas && !isLoading) {
             setLoading(profileName, dbName, true);
-            try {
-                await FetchDatabaseSchema(profileName, dbName);
-            } catch {
+            FetchDatabaseSchema(profileName, dbName).catch(() => {
                 setLoading(profileName, dbName, false);
-            }
+            });
         }
-    };
+    }, [profileName, dbName, schemas, isLoading, setLoading]);
 
     return (
         <div>
-            <div className="tree-node" onClick={(e) => { e.stopPropagation(); handleExpand(); }}>
+            <div className="tree-node" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
                 {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <Server size={14} />
-                <span>{dbName}</span>
+                <Server size={14} color="var(--success-color)" />
+                <span style={{ fontWeight: 600 }}>{dbName}</span>
                 {isLoading && <Loader size={12} style={{ marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
             </div>
 
             {expanded && (
                 <div className="tree-children">
-                    {isLoading && (
+                    {isLoading && !schemas && (
                         <div className="tree-node" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
                             Loading schemas…
                         </div>
@@ -207,12 +122,10 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
                             No schemas found
                         </div>
                     )}
-                    {/* Schemas group label */}
                     {schemas && schemas.length > 0 && (
                         <>
-                            <div className="tree-group-label"><span>Schemas</span></div>
                             {(schemas as SchemaNodeData[]).map((schema: SchemaNodeData) => (
-                                <SchemaNode key={schema.Name} schema={schema} />
+                                <SchemaNode key={schema.Name} schema={schema} filter={filter} />
                             ))}
                         </>
                     )}
@@ -224,13 +137,24 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName }) => {
 
 // ── SchemaNode ─────────────────────────────────────────────────────────────────
 
-interface SchemaNodeProps { schema: SchemaNodeData; }
+interface SchemaNodeProps {
+    schema: SchemaNodeData;
+    filter: string;
+}
 
-const SchemaNode: React.FC<SchemaNodeProps> = ({ schema }) => {
-    const [expanded, setExpanded] = useState(false);
+const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
+    // If filter is active, auto expand, otherwise default to closed (unless it's 'public' or something)
+    const [expanded, setExpanded] = useState(schema.Name === 'public' || schema.Name === 'dbo');
 
-    const categories = buildCategories(schema);
+    useEffect(() => {
+        if (filter) setExpanded(true);
+    }, [filter]);
+
+    const categories = buildCategories(schema, filter);
     const hasItems = categories.some(c => c.items.length > 0);
+
+    // If filter is active and schema has no matching items, hide the schema completely
+    if (filter && !hasItems) return null;
 
     return (
         <div>
@@ -268,7 +192,7 @@ interface CategoryDef {
 }
 
 const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, schemaName }) => {
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const { addTab } = useEditorStore();
 
     const handleItemDoubleClick = (item: string) => {
@@ -277,7 +201,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                 type: 'table',
                 name: `${schemaName}.${item}`,
                 content: `${schemaName}.${item}`,
-                query: '' // TableInfo tab might not need a query, but it's required in the interface
+                query: ''
             });
         }
     };
@@ -313,18 +237,24 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function buildCategories(s: SchemaNodeData): CategoryDef[] {
+function buildCategories(s: SchemaNodeData, filter: string): CategoryDef[] {
     const iconSize = 12;
     const iconStyle = { opacity: 0.75, flexShrink: 0 as const };
+
+    const filterFn = (items: string[]) => {
+        if (!filter) return items || [];
+        return (items || []).filter(item => item.toLowerCase().includes(filter));
+    };
+
     return [
-        { label: 'Tables', icon: <Table2 size={iconSize} style={iconStyle} />, itemIcon: <Table2 size={iconSize} style={iconStyle} />, items: s.Tables ?? [] },
-        { label: 'Foreign Tables', icon: <Link2 size={iconSize} style={iconStyle} />, itemIcon: <Link2 size={iconSize} style={iconStyle} />, items: s.ForeignTables ?? [] },
-        { label: 'Views', icon: <Eye size={iconSize} style={iconStyle} />, itemIcon: <Eye size={iconSize} style={iconStyle} />, items: s.Views ?? [] },
-        { label: 'Materialized Views', icon: <Layers size={iconSize} style={iconStyle} />, itemIcon: <Layers size={iconSize} style={iconStyle} />, items: s.MaterializedViews ?? [] },
-        { label: 'Indexes', icon: <Hash size={iconSize} style={iconStyle} />, itemIcon: <Hash size={iconSize} style={iconStyle} />, items: s.Indexes ?? [] },
-        { label: 'Functions', icon: <Zap size={iconSize} style={iconStyle} />, itemIcon: <Zap size={iconSize} style={iconStyle} />, items: s.Functions ?? [] },
-        { label: 'Sequences', icon: <List size={iconSize} style={iconStyle} />, itemIcon: <List size={iconSize} style={iconStyle} />, items: s.Sequences ?? [] },
-        { label: 'Data types', icon: <Type size={iconSize} style={iconStyle} />, itemIcon: <Type size={iconSize} style={iconStyle} />, items: s.DataTypes ?? [] },
-        { label: 'Aggregate functions', icon: <Sigma size={iconSize} style={iconStyle} />, itemIcon: <Sigma size={iconSize} style={iconStyle} />, items: s.AggregateFunctions ?? [] },
+        { label: 'Tables', icon: <Table2 size={iconSize} style={iconStyle} />, itemIcon: <Table2 size={iconSize} style={iconStyle} />, items: filterFn(s.Tables) },
+        { label: 'Foreign Tables', icon: <Link2 size={iconSize} style={iconStyle} />, itemIcon: <Link2 size={iconSize} style={iconStyle} />, items: filterFn(s.ForeignTables) },
+        { label: 'Views', icon: <Eye size={iconSize} style={iconStyle} />, itemIcon: <Eye size={iconSize} style={iconStyle} />, items: filterFn(s.Views) },
+        { label: 'Materialized Views', icon: <Layers size={iconSize} style={iconStyle} />, itemIcon: <Layers size={iconSize} style={iconStyle} />, items: filterFn(s.MaterializedViews) },
+        { label: 'Indexes', icon: <Hash size={iconSize} style={iconStyle} />, itemIcon: <Hash size={iconSize} style={iconStyle} />, items: filterFn(s.Indexes) },
+        { label: 'Functions', icon: <Zap size={iconSize} style={iconStyle} />, itemIcon: <Zap size={iconSize} style={iconStyle} />, items: filterFn(s.Functions) },
+        { label: 'Sequences', icon: <List size={iconSize} style={iconStyle} />, itemIcon: <List size={iconSize} style={iconStyle} />, items: filterFn(s.Sequences) },
+        { label: 'Data types', icon: <Type size={iconSize} style={iconStyle} />, itemIcon: <Type size={iconSize} style={iconStyle} />, items: filterFn(s.DataTypes) },
+        { label: 'Aggregate functions', icon: <Sigma size={iconSize} style={iconStyle} />, itemIcon: <Sigma size={iconSize} style={iconStyle} />, items: filterFn(s.AggregateFunctions) },
     ];
 }

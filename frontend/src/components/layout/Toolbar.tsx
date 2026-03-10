@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Plus, Play, Square, Settings, ChevronDown, Search, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -6,7 +6,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
-import { ConnectionPicker } from './ConnectionPicker';
+import { WorkspaceModal } from './WorkspaceModal';
 import { ShortcutHelp } from './ShortcutHelp';
 
 export const Toolbar: React.FC = () => {
@@ -23,6 +23,18 @@ export const Toolbar: React.FC = () => {
     const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
     const activeTabId = activeGroup?.activeTabId;
     const isRunning = activeTab?.isRunning ?? false;
+
+    // Listen to Ctrl+Shift+P
+    useEffect(() => {
+        const handleKd = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                setPickerOpen(true);
+            }
+        };
+        window.addEventListener('keydown', handleKd);
+        return () => window.removeEventListener('keydown', handleKd);
+    }, []);
 
     const handleRun = async () => {
         if (!activeTab || !isConnected) return;
@@ -82,12 +94,8 @@ export const Toolbar: React.FC = () => {
 
             {/* Drag region — fills center, allows dragging the frameless window */}
             <div className="toolbar-drag-region">
-                <div ref={breadcrumbRef}>
-                    <div
-                        className={`connection-breadcrumb ${pickerOpen ? 'active' : ''} ${isConnected ? 'connected' : 'disconnected'}`}
-                        onClick={() => setPickerOpen(prev => !prev)}
-                        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
-                    >
+                <div className="breadcrumb-container" onClick={() => setPickerOpen(true)} style={{ '--wails-draggable': 'no-drag' } as any}>
+                    <div className={`connection-breadcrumb ${pickerOpen ? 'active' : ''} ${isConnected ? 'connected' : 'disconnected'}`}>
                         <div className="connection-status-dot" />
                         <span className="connection-label">{breadcrumbLabel}</span>
                         <ChevronDown size={14} className="breadcrumb-chevron" />
@@ -95,10 +103,7 @@ export const Toolbar: React.FC = () => {
                 </div>
 
                 {pickerOpen && (
-                    <ConnectionPicker
-                        onClose={() => setPickerOpen(false)}
-                        anchorRef={breadcrumbRef}
-                    />
+                    <WorkspaceModal onClose={() => setPickerOpen(false)} />
                 )}
             </div>
 

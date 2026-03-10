@@ -10,13 +10,11 @@ import { models } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import '../layout/Sidebar.css';
 
-type SidebarTab = 'connections' | 'history' | 'scripts';
+type SidebarTab = 'explorer' | 'history' | 'scripts';
 
 export const Sidebar: React.FC = () => {
-    const { setConnections, connections } = useConnectionStore();
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [editProfile, setEditProfile] = useState<models.ConnectionProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<SidebarTab>('connections');
+    const { setConnections, connections, isConnected } = useConnectionStore();
+    const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
     const { toast } = useToast();
 
     const loadConns = async (isInitial = false) => {
@@ -49,21 +47,17 @@ export const Sidebar: React.FC = () => {
 
     useEffect(() => { loadConns(true); }, []);
 
-    const openNew = () => { setEditProfile(null); setIsDialogOpen(true); };
-    const handleEdit = (profile: models.ConnectionProfile) => { setEditProfile(profile); setIsDialogOpen(true); };
-    const handleSave = () => loadConns(false);
-
     return (
         <div className="sidebar" style={{ width: '100%' }}>
             {/* Tab switcher */}
             <div className="sidebar-tab-bar">
                 <button
-                    className={`sidebar-tab-btn ${activeTab === 'connections' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('connections')}
+                    className={`sidebar-tab-btn ${activeTab === 'explorer' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('explorer')}
                     title="Database Explorer"
                 >
                     <Database size={13} />
-                    <span>Connections</span>
+                    <span>Explorer</span>
                 </button>
                 <button
                     className={`sidebar-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
@@ -82,34 +76,19 @@ export const Sidebar: React.FC = () => {
                     <span>Scripts</span>
                 </button>
 
-                {activeTab === 'connections' && (
-                    <button
-                        className="sidebar-add-btn"
-                        onClick={openNew}
-                        title="Add connection"
-                        style={{ marginLeft: 'auto' }}
-                    >
-                        <Plus size={14} />
-                    </button>
-                )}
+
             </div>
 
             <div className="sidebar-content">
-                {activeTab === 'connections' ? (
-                    connections.length === 0 ? (
+                {activeTab === 'explorer' ? (
+                    !isConnected ? (
                         <div className="sidebar-empty">
-                            <div className="sidebar-empty-icon">⚡</div>
-                            <p>No connections yet</p>
-                            <button
-                                className="btn primary"
-                                onClick={openNew}
-                                style={{ fontSize: 12, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 4 }}
-                            >
-                                <Plus size={13} /> Add Connection
-                            </button>
+                            <div className="sidebar-empty-icon">📁</div>
+                            <p style={{ marginBottom: 16 }}>No active database</p>
+                            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Press <kbd>Ctrl+Shift+P</kbd> to connect to a workspace.</p>
                         </div>
                     ) : (
-                        <ConnectionTree onEdit={handleEdit} />
+                        <ConnectionTree />
                     )
                 ) : activeTab === 'history' ? (
                     <HistoryPanel />
@@ -118,12 +97,6 @@ export const Sidebar: React.FC = () => {
                 )}
             </div>
 
-            <ConnectionDialog
-                isOpen={isDialogOpen}
-                profile={editProfile}
-                onClose={() => { setIsDialogOpen(false); setEditProfile(null); }}
-                onSave={handleSave}
-            />
         </div>
     );
 };

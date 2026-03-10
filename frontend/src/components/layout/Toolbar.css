@@ -84,7 +84,11 @@
 }
 
 /* ─── Breadcrumb ─────────────────────────────────────── */
-.connection-breadcrumb-wrapper {
+.breadcrumb-container {
+    width: calc(100vw / 3);
+    max-width: 400px;
+    display: flex;
+    justify-content: center;
     position: relative;
 }
 
@@ -98,6 +102,8 @@
     color: var(--text-secondary);
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 100%;
     gap: 8px;
     cursor: pointer;
     user-select: none;
@@ -106,11 +112,12 @@
 }
 
 .connection-label {
-    max-width: 300px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     display: inline-block;
+    flex: 1;
+    text-align: center;
 }
 
 .connection-breadcrumb:hover {
