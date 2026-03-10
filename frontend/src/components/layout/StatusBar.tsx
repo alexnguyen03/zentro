@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
 import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
+import { cn } from '../../lib/cn';
 
 export const StatusBar: React.FC = () => {
     const { connectionLabel, status, message, setStatus, setConnectionLabel, setMessage } = useStatusStore();
 
     useEffect(() => {
-        // StatusBar listens to connection changes independently to update its own label/color.
-        // connectionStore state (isConnected, activeProfile) is managed centrally in App.tsx.
         const unsub = onConnectionChanged((data) => {
             if (data.status === 'connected' && data.profile) {
                 setStatus('connected');
@@ -27,23 +26,22 @@ export const StatusBar: React.FC = () => {
         return () => clearTimeout(timer);
     }, [message, setMessage]);
 
-    // Status color mapping
-    const getStatusColor = () => {
-        switch (status) {
-            case 'connected': return 'var(--success-color)';
-            case 'connecting': return 'var(--success-color)';
-            case 'error': return 'var(--error-color)';
-            default: return 'var(--bg-tertiary)';
-        }
-    };
+    const barColor = {
+        connected: 'bg-success',
+        connecting: 'bg-success',
+        error: 'bg-error',
+        disconnected: 'bg-bg-tertiary',
+    }[status] ?? 'bg-bg-tertiary';
 
     return (
-        <div className="statusbar" style={{ backgroundColor: getStatusColor() }}>
-            <div className="statusbar-left">
+        <div className={cn('flex items-center justify-between px-3 h-5 flex-shrink-0 text-[11px] text-white font-medium', barColor)}>
+            <div className="flex items-center gap-2">
                 <span>{status === 'connected' ? '●' : '○'} {connectionLabel}</span>
-                {message && <span className="statusbar-message" style={{ marginLeft: 16, opacity: 0.9 }}>{message}</span>}
+                {message && (
+                    <span className="opacity-90 ml-4">{message}</span>
+                )}
             </div>
-            <div className="statusbar-right">
+            <div>
                 <span>Zentro 0.2.0</span>
             </div>
         </div>

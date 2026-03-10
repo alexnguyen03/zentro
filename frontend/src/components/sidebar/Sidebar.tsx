@@ -6,9 +6,8 @@ import { ConnectionDialog } from './ConnectionDialog';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
 import { LoadConnections, Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
-import { models } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
-import '../layout/Sidebar.css';
+import { cn } from '../../lib/cn';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
@@ -34,7 +33,6 @@ export const Sidebar: React.FC = () => {
                             }
                         } catch (err) {
                             toast.error(`Auto-connect to ${profile.name} failed: ${err}`);
-                            // Xóa lastProfileName nếu connect lỗi để k bị loop lỗi
                             useConnectionStore.setState({ lastProfileName: null, lastDatabaseName: null });
                         }
                     }
@@ -47,45 +45,36 @@ export const Sidebar: React.FC = () => {
 
     useEffect(() => { loadConns(true); }, []);
 
+    const tabBtn = (tab: SidebarTab) =>
+        cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] border-b-2 border-transparent cursor-pointer bg-transparent border-t-0 border-l-0 border-r-0 text-text-secondary transition-colors duration-100 flex-shrink-0',
+            activeTab === tab
+                ? 'text-text-primary border-b-success'
+                : 'hover:text-text-primary'
+        );
+
     return (
-        <div className="sidebar" style={{ width: '100%' }}>
+        <div className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary border-r border-border">
             {/* Tab switcher */}
-            <div className="sidebar-tab-bar">
-                <button
-                    className={`sidebar-tab-btn ${activeTab === 'explorer' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('explorer')}
-                    title="Database Explorer"
-                >
-                    <Database size={13} />
-                    <span>Explorer</span>
+            <div className="flex items-center flex-shrink-0 border-b border-border bg-bg-secondary">
+                <button className={tabBtn('explorer')} onClick={() => setActiveTab('explorer')} title="Database Explorer">
+                    <Database size={13} /><span>Explorer</span>
                 </button>
-                <button
-                    className={`sidebar-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('history')}
-                    title="Query History"
-                >
-                    <Clock size={13} />
-                    <span>History</span>
+                <button className={tabBtn('history')} onClick={() => setActiveTab('history')} title="Query History">
+                    <Clock size={13} /><span>History</span>
                 </button>
-                <button
-                    className={`sidebar-tab-btn ${activeTab === 'scripts' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('scripts')}
-                    title="Saved Scripts"
-                >
-                    <BookMarked size={13} />
-                    <span>Scripts</span>
+                <button className={tabBtn('scripts')} onClick={() => setActiveTab('scripts')} title="Saved Scripts">
+                    <BookMarked size={13} /><span>Scripts</span>
                 </button>
-
-
             </div>
 
-            <div className="sidebar-content">
+            <div className="flex-1 overflow-y-auto">
                 {activeTab === 'explorer' ? (
                     !isConnected ? (
-                        <div className="sidebar-empty">
-                            <div className="sidebar-empty-icon">📁</div>
-                            <p style={{ marginBottom: 16 }}>No active database</p>
-                            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Press <kbd>Ctrl+Shift+P</kbd> to connect to a workspace.</p>
+                        <div className="flex flex-col items-center justify-center gap-2.5 h-full min-h-[200px] p-6 text-center text-text-secondary text-xs">
+                            <div className="text-3xl opacity-30">📁</div>
+                            <p className="m-0 mb-4">No active database</p>
+                            <p className="m-0 text-[11px]">Press <kbd className="bg-bg-tertiary px-1 py-0.5 rounded text-[10px]">Ctrl+Shift+P</kbd> to connect to a workspace.</p>
                         </div>
                     ) : (
                         <ConnectionTree />
@@ -96,7 +85,6 @@ export const Sidebar: React.FC = () => {
                     <SavedScriptsPanel />
                 )}
             </div>
-
         </div>
     );
 };

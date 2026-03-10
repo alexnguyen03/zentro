@@ -1,0 +1,225 @@
+/* ─────────────────────────────────────────────────────────
+   components.css — Global escape-hatch CSS
+   Only styles that CANNOT be expressed with Tailwind utilities
+   live here. All other styles must use Tailwind classes in TSX.
+   ───────────────────────────────────────────────────────── */
+
+/* ── Resizer (drag handles) ────────────────────────────── */
+.resizer {
+    width: 4px;
+    background-color: transparent;
+    cursor: col-resize;
+    transition: background-color 0.2s;
+    flex-shrink: 0;
+}
+
+.resizer:hover,
+.resizer.active {
+    background-color: var(--success-color);
+}
+
+/* ── Virtual scroll container ──────────────────────────── */
+.result-virtual-scroll {
+    flex: 1;
+    overflow: auto;
+    contain: strict;
+}
+
+/* ── Table cell input (inline editing) ─────────────────── */
+.rt-cell-input {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--success-color);
+    outline: none;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0 7px;
+}
+
+/* ── Result table (ResultTable.tsx — migrated separately) ─ */
+.result-table-tanstack {
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    width: max-content;
+    min-width: 100%;
+}
+
+.result-table-tanstack thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.rt-th {
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    padding: 0;
+    text-align: left;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.rt-th-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 8px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.rt-th-sortable {
+    cursor: pointer;
+}
+
+.rt-th-sortable:hover .rt-th-label {
+    color: var(--text-primary);
+}
+
+.rt-th-sorted .rt-th-label {
+    color: var(--success-color);
+}
+
+.rt-sort-icon {
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.result-table-tanstack td {
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    padding: 0;
+    height: 30px;
+    vertical-align: middle;
+}
+
+.result-table-tanstack tr.rt-row-alt td {
+    background: var(--bg-secondary);
+}
+
+.result-table-tanstack tr:hover td {
+    background: rgba(0, 122, 204, 0.1);
+}
+
+.rt-cell-content {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    height: 100%;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid transparent;
+    user-select: none;
+}
+
+.rt-cell-selected {
+    background: rgba(0, 122, 204, 0.2) !important;
+    border: 1px dashed var(--success-color);
+}
+
+.rt-cell-dirty {
+    background: rgba(137, 209, 133, 0.1) !important;
+    border-left: 2px solid var(--success-color);
+}
+
+.row-num-col {
+    color: var(--text-secondary);
+    font-size: 11px;
+    user-select: none;
+    min-width: 40px;
+    justify-content: flex-end;
+}
+
+.rt-row-deleted td {
+    opacity: 0.5;
+    background: rgba(244, 135, 113, 0.1) !important;
+    text-decoration: line-through;
+}
+
+.result-table-tanstack tr.rt-row-selected td {
+    background: rgba(0, 122, 204, 0.06);
+}
+
+.result-table-tanstack tr.rt-row-selected td:first-child {
+    border-left: 2px solid var(--success-color);
+}
+
+/* ── Skeleton shimmer animation ────────────────────────── */
+.result-skeleton-row {
+    height: 18px;
+    border-radius: 3px;
+    margin: 6px 12px;
+    background: linear-gradient(90deg,
+            var(--bg-tertiary) 25%,
+            rgba(255, 255, 255, 0.06) 50%,
+            var(--bg-tertiary) 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s infinite linear;
+}
+
+/* ── Select (custom appearance) ────────────────────────── */
+.result-limit-select {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 1px 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+    appearance: auto;
+    transition: border-color 0.1s, background 0.1s;
+}
+
+.result-limit-select:hover {
+    border-color: var(--border-color);
+    background: var(--bg-tertiary);
+}
+
+.result-limit-select:focus {
+    border-color: var(--success-color);
+}
+
+/* ── Explorer search input ─────────────────────────────── */
+.explorer-search {
+    width: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 4px 6px 4px 22px;
+    border-radius: 3px;
+    outline: none;
+}
+
+.explorer-search:focus {
+    border-color: var(--success-color);
+}
+
+/* ── Scrollbar overrides ────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}

@@ -156,9 +156,9 @@ function App() {
     }, [toggleSidebar, toggleResultPanel, toggleRightSidebar]);
 
     return (
-        <div className="app-container">
+        <div className="flex flex-col h-full w-full">
             <Toolbar />
-            <div className="main-content">
+            <div className="flex flex-1 overflow-hidden">
                 {showSidebar && (
                     <>
                         <div style={{ width: sidebarWidth, flexShrink: 0 }}>
@@ -167,13 +167,13 @@ function App() {
                         <div className="resizer" onMouseDown={startResizing} />
                     </>
                 )}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div className="editor-area">
+                <div className="flex flex-1 flex-col overflow-hidden">
+                    <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
                         {!isConnected ? (
-                            <div className="empty-state">
-                                <span className="empty-icon">🔌</span>
-                                <h3>No active connection</h3>
-                                <p>Select or add a connection from the sidebar to begin.</p>
+                            <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
+                                <span className="text-3xl">🔌</span>
+                                <h3 className="m-0 text-sm font-semibold text-text-primary">No active connection</h3>
+                                <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
                             </div>
                         ) : (
                             <QueryTabs />
