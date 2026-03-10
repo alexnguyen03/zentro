@@ -41,7 +41,7 @@
 }
 
 .scripts-search:focus {
-    border-color: var(--accent-color);
+    border-color: var(--success-color);
 }
 
 .scripts-list {
@@ -85,7 +85,7 @@
 }
 
 .script-item-icon {
-    color: var(--accent-color);
+    color: var(--success-color);
     flex-shrink: 0;
     opacity: 0.7;
 }
@@ -155,11 +155,11 @@
 }
 
 .scripts-save-input:focus {
-    border-color: var(--accent-color);
+    border-color: var(--success-color);
 }
 
 .scripts-save-confirm {
-    background: var(--accent-color);
+    background: var(--success-color);
     border: none;
     color: #fff;
     font-size: 11px;

@@ -41,7 +41,7 @@
 }
 
 .history-search:focus {
-    border-color: var(--accent-color);
+    border-color: var(--success-color);
 }
 
 .history-clear-btn {

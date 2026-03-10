@@ -13,7 +13,7 @@
 }
 
 .vsplit-divider:hover {
-    background: var(--accent-color);
+    background: var(--success-color);
 }
 
 .result-pane {

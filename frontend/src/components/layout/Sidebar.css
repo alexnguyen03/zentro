@@ -110,7 +110,7 @@
 
 .resizer:hover,
 .resizer.active {
-    background-color: var(--accent-color);
+    background-color: var(--success-color);
 }
 
 /* ─── Explorer Filter Bar ────────────────────────────── */
@@ -149,7 +149,7 @@
 }
 
 .explorer-search:focus {
-    border-color: var(--accent-color);
+    border-color: var(--success-color);
 }
 
 .explorer-clear-btn {

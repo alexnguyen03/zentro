@@ -66,7 +66,7 @@
 }
 
 .toolbar-btn.primary:hover:not(:disabled) {
-    background-color: var(--accent-hover);
+    background-color: var(--success-hover);
 }
 
 .toolbar-btn:disabled {
@@ -128,7 +128,7 @@
 
 .connection-breadcrumb.active {
     background: var(--bg-hover, rgba(255, 255, 255, 0.1));
-    border-color: var(--accent-color, #3b82f6);
+    border-color: var(--success-color, #3b82f6);
     color: var(--text-primary);
 }
 

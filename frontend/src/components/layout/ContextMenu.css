@@ -17,7 +17,7 @@
 }
 
 .context-menu-item:hover {
-    background: var(--accent-color);
+    background: var(--success-color);
     color: white;
 }
 

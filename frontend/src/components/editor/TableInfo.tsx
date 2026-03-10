@@ -169,7 +169,7 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
                         <div
                             key={t}
                             onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
-                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${isSelected ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'
+                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--success-color)] hover:text-white ${isSelected ? 'bg-[var(--success-color)] text-white' : 'text-[var(--text-primary)]'
                                 }`}
                         >
                             {t}
@@ -184,7 +184,7 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
     if (!editing) {
         return (
             <span
-                className={`font-mono text-xs block truncate cursor-default select-none ${isDirty ? 'text-[var(--accent-color)]' : ''}`}
+                className={`font-mono text-xs block truncate cursor-default select-none ${isDirty ? 'text-[var(--success-color)]' : ''}`}
                 onDoubleClick={openEditor}
                 title={`${value} (double-click to edit)`}
             >
@@ -311,7 +311,7 @@ const Row: React.FC<RowProps> = ({
                         />
                     ) : (
                         <span
-                            className={`block truncate ${isDirty && col.Name !== row.original.Name ? 'text-[var(--accent-color)] font-semibold' : col.IsPrimaryKey ? 'font-semibold' : ''}`}
+                            className={`block truncate ${isDirty && col.Name !== row.original.Name ? 'text-[var(--success-color)] font-semibold' : col.IsPrimaryKey ? 'font-semibold' : ''}`}
                             onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
                             title={col.Name}
                         >
@@ -335,14 +335,14 @@ const Row: React.FC<RowProps> = ({
                 <td style={{ ...td, width: 44, textAlign: 'center' }}>
                     <input type="checkbox" checked={col.IsPrimaryKey} disabled={isDeleted}
                         onChange={e => onUpdate(rowIdx, { IsPrimaryKey: e.target.checked })}
-                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--accent-color)' }} />
+                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--success-color)' }} />
                 </td>
 
                 {/* Nullable */}
                 <td style={{ ...td, width: 68, textAlign: 'center' }}>
                     <input type="checkbox" checked={col.IsNullable} disabled={isDeleted}
                         onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
-                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--accent-color)' }} />
+                        style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--success-color)' }} />
                 </td>
 
                 {/* Default */}
@@ -359,7 +359,7 @@ const Row: React.FC<RowProps> = ({
                                     if (e.key === 'Escape') setEditCell(null);
                                 }} />
                             : <span
-                                className={`block truncate cursor-text ${col.DefaultValue ? '' : 'text-[var(--text-secondary)]'} ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-[var(--accent-color)]' : ''}`}
+                                className={`block truncate cursor-text ${col.DefaultValue ? '' : 'text-[var(--text-secondary)]'} ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-[var(--success-color)]' : ''}`}
                                 onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
                                 title={col.DefaultValue || 'none'}
                             >
@@ -490,8 +490,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         sortCol !== col || !sortDir
             ? <ArrowUpDown size={10} style={{ opacity: .35, marginLeft: 3, flexShrink: 0 }} />
             : sortDir === 'asc'
-                ? <ArrowUp size={10} style={{ marginLeft: 3, color: 'var(--accent-color)', flexShrink: 0 }} />
-                : <ArrowDown size={10} style={{ marginLeft: 3, color: 'var(--accent-color)', flexShrink: 0 }} />
+                ? <ArrowUp size={10} style={{ marginLeft: 3, color: 'var(--success-color)', flexShrink: 0 }} />
+                : <ArrowDown size={10} style={{ marginLeft: 3, color: 'var(--success-color)', flexShrink: 0 }} />
     );
 
 
@@ -595,7 +595,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 display: 'flex', alignItems: 'center',
                                 padding: '0 14px', cursor: 'pointer', fontSize: 12,
                                 fontWeight: activeSubTab === key ? 600 : 'normal',
-                                borderBottom: activeSubTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
+                                borderBottom: activeSubTab === key ? '2px solid var(--success-color)' : '2px solid transparent',
                                 color: activeSubTab === key ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 marginBottom: -1,
                             }}>{label}</div>
@@ -704,7 +704,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     {activeSubTab === 'info' && (
                         <span>
                             Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
-                            {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
+                            {dirtyCount > 0 && <span style={{ color: 'var(--success-color)' }}>{dirtyCount} modified</span>}
                             {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
                             {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
                         </span>

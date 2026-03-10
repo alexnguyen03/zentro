@@ -102,7 +102,7 @@
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: var(--accent-color);
+    border-color: var(--success-color);
 }
 
 .form-group-checkbox {
@@ -124,7 +124,7 @@
     width: 14px;
     height: 14px;
     cursor: pointer;
-    accent-color: var(--accent-color);
+    accent-color: var(--success-color);
 }
 
 .form-hint {
@@ -182,13 +182,13 @@
 }
 
 .btn.primary {
-    background-color: var(--accent-color);
+    background-color: var(--success-color);
     color: white;
     border-color: transparent;
 }
 
 .btn.primary:hover:not(:disabled) {
-    background-color: var(--accent-hover);
+    background-color: var(--success-hover);
 }
 
 .btn-success {

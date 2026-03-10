@@ -31,7 +31,7 @@ export const StatusBar: React.FC = () => {
     const getStatusColor = () => {
         switch (status) {
             case 'connected': return 'var(--success-color)';
-            case 'connecting': return 'var(--accent-color)';
+            case 'connecting': return 'var(--success-color)';
             case 'error': return 'var(--error-color)';
             default: return 'var(--bg-tertiary)';
         }

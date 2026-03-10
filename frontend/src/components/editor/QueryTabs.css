@@ -100,7 +100,7 @@
 .tab-rename-input {
     flex: 1;
     background: var(--bg-tertiary);
-    border: 1px solid var(--accent-color);
+    border: 1px solid var(--success-color);
     color: var(--text-primary);
     font-size: 12px;
     padding: 1px 4px;
@@ -113,7 +113,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: var(--success-color);
     animation: pulse 1s ease-in-out infinite;
     flex-shrink: 0;
 }
@@ -170,7 +170,7 @@
 
 .tab-save-input {
     background: var(--bg-primary);
-    border: 1px solid var(--accent-color);
+    border: 1px solid var(--success-color);
     color: var(--text-primary);
     font-size: 11px;
     padding: 3px 7px;
@@ -180,7 +180,7 @@
 }
 
 .tab-save-confirm {
-    background: var(--accent-color);
+    background: var(--success-color);
     border: none;
     color: #fff;
     font-size: 11px;
@@ -215,7 +215,7 @@
 .context-menu-item--save {
     display: flex;
     align-items: center;
-    color: var(--accent-color);
+    color: var(--success-color);
 }
 
 /* ─── Drag to Split Zones ────────────────────────────── */
@@ -240,7 +240,7 @@
     top: 0;
     bottom: 0;
     width: 50%;
-    background-color: var(--accent-color);
+    background-color: var(--success-color);
     opacity: 0.2;
     z-index: 999;
     pointer-events: none;

@@ -9,8 +9,8 @@
   --color-bg-tertiary: var(--bg-tertiary);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
-  --color-accent: var(--accent-color);
-  --color-accent-hover: var(--accent-hover);
+  --color-accent: var(--success-color);
+  --color-accent-hover: var(--success-hover);
   --color-border: var(--border-color);
   --color-error: var(--error-color);
   --color-success: var(--success-color);
