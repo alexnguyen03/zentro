@@ -120,6 +120,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     const [saveNameValue, setSaveNameValue] = useState('');
     const renameInputRef = useRef<HTMLInputElement>(null);
     const saveInputRef = useRef<HTMLInputElement>(null);
+    const tabsScrollRef = useRef<HTMLDivElement>(null);
 
     // Make the empty space droppable for cross-group drags to an empty pane
     const { setNodeRef: setDroppableRef } = useDroppable({
@@ -137,6 +138,43 @@ export const TabBar: React.FC<TabBarProps> = ({
             renameInputRef.current.select();
         }
     }, [renamingId]);
+
+    // Auto-scroll active tab into view
+    useEffect(() => {
+        if (!activeTabId || !tabsScrollRef.current) return;
+        const activeEl = tabsScrollRef.current.querySelector<HTMLElement>('.tab-item.active');
+        activeEl?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }, [activeTabId]);
+
+    // Convert vertical wheel to horizontal scroll (VS Code style)
+    useEffect(() => {
+        const el = tabsScrollRef.current;
+        if (!el) return;
+        const onWheel = (e: WheelEvent) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                el.scrollLeft += e.deltaY;
+            }
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+    }, []);
+
+    // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs in this group
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (!e.ctrlKey || e.key !== 'Tab') return;
+            if (tabs.length < 2) return;
+            e.preventDefault();
+            const idx = tabs.findIndex(t => t.id === activeTabId);
+            const next = e.shiftKey
+                ? (idx - 1 + tabs.length) % tabs.length
+                : (idx + 1) % tabs.length;
+            onActivate(tabs[next].id);
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [tabs, activeTabId, onActivate]);
 
     // Auto-focus save prompt input
     useEffect(() => {
@@ -215,7 +253,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
     return (
         <div className="tab-bar">
-            <div className="tab-bar-tabs" ref={setDroppableRef}>
+            <div className="tab-bar-tabs" ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}>
                 <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
                     {tabs.map(tab => (
                         <SortableTabItem

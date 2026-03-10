@@ -617,7 +617,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     <div className="result-virtual-scroll" style={{ height: '100%' }}>
                         <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
                             <colgroup>
-                                <col style={{ width: 36 }} /> {/* # */}
+                                <col style={{ width: 36 }} />
                                 <col style={{ width: '22%' }} />
                                 <col style={{ width: '24%' }} />
                                 <col style={{ width: 44 }} />

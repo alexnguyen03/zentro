@@ -60,11 +60,12 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         const suggestions: { label: string; kind: number }[] = [];
         Object.entries(trees).forEach(([key, schemas]) => {
             if (!key.startsWith(profileKey)) return;
-            schemas.forEach(schema => {
-                schema.Tables.forEach(t => {
+            (schemas ?? []).forEach(schema => {
+                if (!schema) return;
+                (schema.Tables ?? []).forEach(t => {
                     suggestions.push({ label: t, kind: monaco.languages.CompletionItemKind.Module });
                 });
-                schema.Views.forEach(v => {
+                (schema.Views ?? []).forEach(v => {
                     suggestions.push({ label: v, kind: monaco.languages.CompletionItemKind.Field });
                 });
             });
