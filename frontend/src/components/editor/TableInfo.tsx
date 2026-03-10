@@ -232,8 +232,20 @@ const SortableRow: React.FC<SortableRowProps> = ({
                     <GripVertical size={13} style={{ opacity: 0.35, display: 'block', margin: 'auto' }} />
                 </td>
 
-                {/* # */}
-                <td style={{ ...td, width: 36, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 11 }}>
+                {/* # — double-click to discard changes */}
+                <td
+                    style={{
+                        ...td,
+                        width: 36,
+                        textAlign: 'center',
+                        fontSize: 11,
+                        color: (isDirty || isDeleted) ? 'var(--error-color)' : 'var(--text-secondary)',
+                        cursor: (isDirty || isDeleted) ? 'pointer' : 'default',
+                        userSelect: 'none',
+                    }}
+                    onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
+                    title={(isDirty || isDeleted) ? 'Double-click to discard changes' : undefined}
+                >
                     {rowIdx + 1}
                 </td>
 
@@ -310,20 +322,10 @@ const SortableRow: React.FC<SortableRowProps> = ({
                     }
                 </td>
 
-                {/* Actions */}
-                <td style={{ ...td, width: 44, padding: '4px 6px' }}>
-                    {(isDirty || isDeleted) && (
-                        <button onClick={() => onDiscard(rowIdx)} title="Discard"
-                            className="rt-th-sortable"
-                            style={{ padding: '2px 5px', borderRadius: 3, border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                            <RotateCcw size={11} />
-                        </button>
-                    )}
-                </td>
             </tr>
             {rowError && (
                 <tr style={{ background: 'rgba(220,38,38,.06)' }}>
-                    <td colSpan={8} style={{ padding: '3px 12px', color: 'var(--error-color)', fontSize: 11, borderBottom: '1px solid var(--border-color)' }}>
+                    <td colSpan={7} style={{ padding: '3px 12px', color: 'var(--error-color)', fontSize: 11, borderBottom: '1px solid var(--border-color)' }}>
                         ⚠ {rowError}
                     </td>
                 </tr>
@@ -497,7 +499,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                     <col style={{ width: 44 }} />
                                     <col style={{ width: 70 }} />
                                     <col />
-                                    <col style={{ width: 44 }} />
                                 </colgroup>
                                 <thead>
                                     <tr>
@@ -516,7 +517,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                                 </span>
                                             </th>
                                         ))}
-                                        <th className="rt-th"><span className="rt-th-label">Actions</span></th>
                                     </tr>
                                 </thead>
                                 <SortableContext items={displayIds} strategy={verticalListSortingStrategy}>
@@ -541,7 +541,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                             );
                                         })}
                                         {rows.length === 0 && (
-                                            <tr><td colSpan={8} className="p-5 text-center" style={{ color: 'var(--text-secondary)' }}>No columns found.</td></tr>
+                                            <tr><td colSpan={7} className="p-5 text-center" style={{ color: 'var(--text-secondary)' }}>No columns found.</td></tr>
                                         )}
                                     </tbody>
                                 </SortableContext>
