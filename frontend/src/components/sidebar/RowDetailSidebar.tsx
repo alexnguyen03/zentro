@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces } from 'lucide-react';
+import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces, RefreshCcw } from 'lucide-react';
 import { useToast } from '../layout/Toast';
 import './RowDetailSidebar.css';
 
@@ -116,6 +116,19 @@ export const RowDetailSidebar: React.FC = () => {
         });
     };
 
+    const invertSelection = useCallback(() => {
+        if (!detail) return;
+        setSelectedFields(prev => {
+            const next = new Set<string>();
+            detail.columns.forEach(col => {
+                if (!prev.has(col)) {
+                    next.add(col);
+                }
+            });
+            return next;
+        });
+    }, [detail]);
+
     const EmptyState = (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
@@ -163,6 +176,15 @@ export const RowDetailSidebar: React.FC = () => {
                     </button>
 
                     <div className="row-detail-actions">
+                        {viewMode === 'form' && isSelectMode && (
+                            <button
+                                className="row-detail-action-btn"
+                                title="Invert selection"
+                                onClick={invertSelection}
+                            >
+                                <RefreshCcw size={13} />
+                            </button>
+                        )}
                         {viewMode === 'form' && (
                             <button
                                 className={`row-detail-action-btn ${isSelectMode ? 'active' : ''}`}
@@ -281,15 +303,20 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     {isSelectMode && (
                         <input
                             type="checkbox"
+                            id={`row-cb-${colIdx}`}
                             checked={isSelected}
                             onChange={onToggleSelect}
                             className="row-detail-checkbox"
                         />
                     )}
-                    <span className={isPK ? 'row-detail-pk-label' : ''}>
+                    <label
+                        htmlFor={isSelectMode ? `row-cb-${colIdx}` : undefined}
+                        className={isPK ? 'row-detail-pk-label' : ''}
+                        style={{ cursor: isSelectMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', margin: 0, gap: '4px' }}
+                    >
                         {isPK && <span className="row-detail-pk-badge">PK</span>}
                         {col}
-                    </span>
+                    </label>
                 </div>
                 <button
                     className="row-detail-copy-btn"
