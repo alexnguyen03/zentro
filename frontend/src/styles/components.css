@@ -166,65 +166,33 @@
     animation: shimmer 1.4s infinite linear;
 }
 
-/* ── Select (custom appearance) ────────────────────────── */
-.result-limit-select {
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text-secondary);
-    font-size: 11px;
-    padding: 1px 2px;
-    border-radius: 3px;
-    cursor: pointer;
-    outline: none;
-    appearance: auto;
-    transition: border-color 0.1s, background 0.1s;
-}
-
-.result-limit-select:hover {
-    border-color: var(--border-color);
-    background: var(--bg-tertiary);
-}
-
-.result-limit-select:focus {
-    border-color: var(--success-color);
-}
-
-/* ── Explorer search input ─────────────────────────────── */
-.explorer-search {
-    width: 100%;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    font-size: 11px;
-    padding: 4px 6px 4px 22px;
-    border-radius: 3px;
-    outline: none;
-}
-
-.explorer-search:focus {
-    border-color: var(--success-color);
-}
-
-/* ── Scrollbar overrides ────────────────────────────────── */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
-}
 /* -- Drag to Split Zones (QueryGroup.tsx) -------------- */
-.split-snap-preview { position: absolute; top: 0; bottom: 0; width: 50%; background-color: var(--success-color); opacity: 0.2; z-index: 999; pointer-events: none; animation: fadeIn 0.15s ease-out; }
-.split-snap-preview.left { left: 0; }
-.split-snap-preview.right { right: 0; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 0.2; } }
+.split-snap-preview {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background-color: var(--success-color);
+    opacity: 0.2;
+    z-index: 999;
+    pointer-events: none;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.split-snap-preview.left {
+    left: 0;
+}
+
+.split-snap-preview.right {
+    right: 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 0.2;
+    }
+}
