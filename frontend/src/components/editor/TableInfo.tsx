@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import ReactDOM from 'react-dom';
 import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
-import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw } from 'lucide-react';
+import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
 
@@ -391,6 +391,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [editCell, setEditCell] = useState<{ rowIdx: number; field: 'Name' | 'DefaultValue' } | null>(null);
     const [sortCol, setSortCol] = useState<SortCol>('idx');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const [filterCol, setFilterCol] = useState('');
 
     const { activeProfile } = useConnectionStore();
     const driver = activeProfile?.driver ?? 'sqlserver';
@@ -431,10 +432,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     // Sorted indices (original index order within rows array)
     const displayIds = (() => {
-        if (!sortDir || sortCol === 'idx') {
-            return rows.map(r => r.id);
+        let filteredRows = rows;
+        if (filterCol.trim() !== '') {
+            const f = filterCol.trim().toLowerCase();
+            filteredRows = rows.filter(r => r.current.Name.toLowerCase().includes(f));
         }
-        const ids = rows.map(r => r.id);
+
+        if (!sortDir || sortCol === 'idx') {
+            return filteredRows.map(r => r.id);
+        }
+        const ids = filteredRows.map(r => r.id);
         return ids.sort((aid, bid) => {
             const a = rows.find(r => r.id === aid)!;
             const b = rows.find(r => r.id === bid)!;
@@ -660,19 +667,49 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 padding: '4px 12px',
                 fontSize: 11,
                 color: 'var(--text-secondary)',
-                textAlign: 'center',
                 background: 'var(--bg-main)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
             }}>
-                {activeSubTab === 'info' && (
-                    <span>
-                        Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
-                        {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
-                        {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
-                        {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
-                    </span>
-                )}
-                {activeSubTab === 'data' && <span>Total 0 rows</span>}
-                {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
+                {/* Left: Info */}
+                <div style={{ display: 'flex', alignItems: 'center', minHeight: 24 }}>
+                    {activeSubTab === 'info' && (
+                        <span>
+                            Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                            {dirtyCount > 0 && <span style={{ color: 'var(--accent-color)' }}>{dirtyCount} modified</span>}
+                            {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                            {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
+                        </span>
+                    )}
+                    {activeSubTab === 'data' && <span>Total 0 rows</span>}
+                    {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
+                </div>
+
+                {/* Right: Actions/Filters depending on tab */}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {activeSubTab === 'info' && (
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <Search size={11} style={{ position: 'absolute', left: 6, color: 'var(--text-secondary)' }} />
+                            <input
+                                type="text"
+                                placeholder="Filter columns..."
+                                value={filterCol}
+                                onChange={(e) => setFilterCol(e.target.value)}
+                                style={{
+                                    fontSize: 11,
+                                    padding: '2px 6px 2px 20px',
+                                    borderRadius: 4,
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-input)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none',
+                                    width: 150,
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
