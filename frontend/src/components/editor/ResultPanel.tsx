@@ -236,10 +236,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                             className="result-toolbar-btn result-reload-btn"
                             onClick={() => {
                                 const rowsToDelete = new Set(Array.from(selectedCells).map(cell => Number(cell.split(':')[0])));
-                                if (window.confirm(`Are you sure you want to mark ${rowsToDelete.size} row(s) for deletion?`)) {
-                                    setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
-                                    setSelectedCells(new Set());
-                                }
+                                setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
+                                setSelectedCells(new Set());
                             }}
                             title="Delete Selected Rows"
                             style={{ color: 'var(--color-error)' }}
