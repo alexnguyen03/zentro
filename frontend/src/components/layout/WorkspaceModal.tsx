@@ -104,7 +104,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                         </div>
                         <div className="ws-new-btn-container">
                             <button className="ws-new-btn" onClick={() => setShowNewDialog(true)}>
-                                new connection
+                                New connection
                             </button>
                         </div>
                     </div>

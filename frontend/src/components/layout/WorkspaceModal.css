@@ -96,18 +96,15 @@
 }
 
 .ws-item:hover {
-    background: var(--bg-hover);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
-.ws-item.selected {
+.ws-item.selected,
+.ws-item.active {
     background: var(--bg-hover);
     border-left: 3px solid var(--success-color);
     color: var(--success-color);
-    font-weight: 500;
-}
-
-.ws-item.active {
-    background: var(--bg-hover);
     font-weight: 500;
 }
 
@@ -120,26 +117,34 @@
 
 /* ─── Primary "New Connection" sticky button ────────────── */
 .ws-new-btn-container {
-    padding: 8px;
+    padding: 12px 10%;
+    /* Center 80% button */
     background: var(--bg-main);
     border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
 }
 
 .ws-new-btn {
     width: 100%;
-    background: var(--accent-color);
+    background: var(--success-color);
     color: white;
     border: none;
-    padding: 10px;
+    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.1s;
 }
 
 .ws-new-btn:hover {
-    background: var(--accent-hover);
+    background: var(--success-hover);
+    transform: translateY(-1px);
+}
+
+.ws-new-btn:active {
+    transform: translateY(1px);
 }
 
 @keyframes fadeIn {
