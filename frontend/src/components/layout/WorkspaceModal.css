@@ -135,11 +135,11 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    transition: background 0.2s, transform 0.1s;
+    transition: filter 0.2s, transform 0.1s;
 }
 
 .ws-new-btn:hover {
-    background: var(--success-hover);
+    filter: brightness(1.1);
     transform: translateY(-1px);
 }
 
