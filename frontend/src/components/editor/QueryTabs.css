@@ -87,7 +87,7 @@
 .tab-item.active {
     background: var(--bg-primary);
     color: var(--text-primary);
-    border-top: 2px solid var(--accent-color);
+    border-top: 2px solid var(--success-color);
     margin-bottom: -1px;
     border-bottom: 1px solid var(--bg-primary);
 }

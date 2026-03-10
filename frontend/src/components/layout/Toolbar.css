@@ -61,7 +61,7 @@
 }
 
 .toolbar-btn.primary {
-    background-color: var(--accent-color);
+    background-color: var(--success-color);
     color: white;
 }
 

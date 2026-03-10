@@ -28,7 +28,7 @@
 
 .sidebar-tab-btn.active {
     color: var(--text-primary);
-    border-bottom-color: var(--accent-color);
+    border-bottom-color: var(--success-color);
 }
 
 /* ─── Sidebar shell ──────────────────────────────────── */
