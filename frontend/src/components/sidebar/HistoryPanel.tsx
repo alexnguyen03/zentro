@@ -3,7 +3,7 @@ import { Clock, Trash2, Search, CheckCircle, AlertCircle, ChevronRight } from 'l
 import { GetHistory, ClearHistory } from '../../../wailsjs/go/app/App';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
-import './HistoryPanel.css';
+import { cn } from '../../lib/cn';
 
 interface HistoryEntry {
     id: string;
@@ -69,12 +69,12 @@ export const HistoryPanel: React.FC = () => {
     );
 
     return (
-        <div className="history-panel">
-            <div className="history-toolbar">
-                <div className="history-search-wrap">
-                    <Search size={11} className="history-search-icon" />
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0 bg-bg-secondary">
+                <div className="flex-1 relative flex items-center min-w-0">
+                    <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
-                        className="history-search"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
                         placeholder="Filter history…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -83,7 +83,10 @@ export const HistoryPanel: React.FC = () => {
                 </div>
                 {entries.length > 0 && (
                     <button
-                        className={`history-clear-btn ${confirmClear ? 'confirm' : ''}`}
+                        className={cn(
+                            "bg-transparent border border-transparent text-text-secondary cursor-pointer flex items-center gap-1 px-1.5 py-1 rounded-[3px] text-[11px] transition-all hover:text-error hover:border-error hover:bg-[#f48771]/10 shrink-0",
+                            confirmClear && "text-error border-error bg-[#f48771]/10"
+                        )}
                         onClick={handleClear}
                         title={confirmClear ? 'Click again to confirm' : 'Clear all history'}
                         onBlur={() => setConfirmClear(false)}
@@ -94,37 +97,40 @@ export const HistoryPanel: React.FC = () => {
                 )}
             </div>
 
-            <div className="history-list">
+            <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                    <div className="history-empty">
-                        <Clock size={24} opacity={0.3} />
-                        <p>{search ? 'No matches' : 'No history yet'}</p>
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs">
+                        <Clock size={24} className="opacity-30" />
+                        <p className="m-0">{search ? 'No matches' : 'No history yet'}</p>
                     </div>
                 ) : (
                     filtered.map(e => (
                         <div
                             key={e.id}
-                            className={`history-item ${e.error ? 'history-item-error' : ''}`}
+                            className={cn(
+                                "group px-2.5 py-1.5 border-b border-white/5 cursor-pointer transition-colors duration-100 hover:bg-bg-tertiary",
+                                e.error && "border-l-2 border-l-error"
+                            )}
                             onClick={() => pasteQuery(e.query)}
                             title="Click to paste into editor"
                         >
-                            <div className="history-item-header">
-                                <span className="history-item-status">
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <span className={cn("flex", e.error ? "text-error" : "text-success")}>
                                     {e.error
                                         ? <AlertCircle size={11} />
                                         : <CheckCircle size={11} />
                                     }
                                 </span>
-                                <span className="history-item-meta">
+                                <span className="flex-1 text-[10px] text-text-secondary font-mono overflow-hidden text-ellipsis whitespace-nowrap">
                                     {e.profile}{e.database ? `/${e.database}` : ''}
                                 </span>
-                                <span className="history-item-dur">{formatDuration(e.duration_ms)}</span>
-                                <span className="history-item-time">{formatTime(e.executed_at)}</span>
-                                <ChevronRight size={11} className="history-item-arrow" />
+                                <span className="text-[10px] text-text-secondary shrink-0">{formatDuration(e.duration_ms)}</span>
+                                <span className="text-[10px] text-text-secondary shrink-0">{formatTime(e.executed_at)}</span>
+                                <ChevronRight size={11} className="text-text-secondary opacity-0 shrink-0 transition-opacity duration-100 group-hover:opacity-100" />
                             </div>
-                            <div className="history-item-query">{e.query}</div>
+                            <div className="text-[11px] font-mono text-text-primary whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{e.query}</div>
                             {e.error && (
-                                <div className="history-item-err-msg">{e.error}</div>
+                                <div className="text-[10px] text-error mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{e.error}</div>
                             )}
                         </div>
                     ))

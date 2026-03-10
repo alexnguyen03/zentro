@@ -3,7 +3,7 @@ import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces, RefreshCcw } from 'lucide-react';
 import { useToast } from '../layout/Toast';
-import './RowDetailSidebar.css';
+import { cn } from '../../lib/cn';
 
 export const RowDetailSidebar: React.FC = () => {
     const { detail, clearDetail } = useRowDetailStore();
@@ -117,23 +117,24 @@ export const RowDetailSidebar: React.FC = () => {
         });
     }, [detail]);
 
+    const actionBtnClass = "bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary";
+    const actionBtnActiveClass = "bg-bg-tertiary text-[#7c6af7]";
+
     const EmptyState = (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar row-detail-sidebar" style={{ width }}>
-                <div className="sidebar-tab-bar" style={{ justifyContent: 'space-between', paddingRight: '8px' }}>
-                    <button className="sidebar-tab-btn active" title="Row Detail">
+            <div className="sidebar flex flex-col h-full bg-bg-secondary border-l border-border shrink-0" style={{ width }}>
+                <div className="flex items-center justify-between pr-2 border-b border-border bg-bg-secondary min-h-[35px]">
+                    <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-text-primary border-b-2 border-success bg-transparent opacity-100" title="Row Detail">
                         <AlignLeft size={13} />
                         <span>Row Detail</span>
                     </button>
-                    <button className="row-detail-close" onClick={() => setShowRightSidebar(false)}>
+                    <button className={actionBtnClass} onClick={() => setShowRightSidebar(false)}>
                         <X size={14} />
                     </button>
                 </div>
-                <div className="sidebar-content">
-                    <div className="row-detail-empty">
-                        <p>No row selected</p>
-                    </div>
+                <div className="flex-1 flex items-center justify-center text-text-muted text-xs h-full">
+                    <p>No row selected</p>
                 </div>
             </div>
         </>
@@ -146,26 +147,22 @@ export const RowDetailSidebar: React.FC = () => {
     return (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar row-detail-sidebar" style={{ width }}>
-                <div
-                    className="sidebar-tab-bar row-detail-tab-bar"
-                    style={{ justifyContent: 'space-between', paddingRight: '8px' }}
-                >
+            <div className="sidebar flex flex-col h-full bg-bg-secondary border-l border-border shrink-0" style={{ width }}>
+                <div className="flex items-center justify-between pr-2 border-b border-border bg-bg-secondary min-h-[35px]">
                     <button
-                        className="sidebar-tab-btn active"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-text-primary border-b-2 border-success bg-transparent opacity-100 flex-1 justify-start overflow-hidden"
                         title={`${tableName ? `Table: ${tableName} — ` : ''}`}
-                        style={{ flex: 1, justifyContent: 'flex-start', overflow: 'hidden' }}
                     >
-                        <AlignLeft size={13} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            Row Detail {tableName && <span className="row-detail-table-name" style={{ marginLeft: 4 }}>— {tableName}</span>}
+                        <AlignLeft size={13} className="shrink-0" />
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                            Row Detail {tableName && <span className="text-text-secondary font-normal normal-case ml-1">— {tableName}</span>}
                         </span>
                     </button>
 
-                    <div className="row-detail-actions">
+                    <div className="flex items-center gap-1">
                         {viewMode === 'form' && isSelectMode && (
                             <button
-                                className="row-detail-action-btn"
+                                className={actionBtnClass}
                                 title="Invert selection"
                                 onClick={invertSelection}
                             >
@@ -174,7 +171,7 @@ export const RowDetailSidebar: React.FC = () => {
                         )}
                         {viewMode === 'form' && (
                             <button
-                                className={`row-detail-action-btn ${isSelectMode ? 'active' : ''}`}
+                                className={cn(actionBtnClass, isSelectMode && actionBtnActiveClass)}
                                 title="Toggle selection mode for custom JSON copy"
                                 onClick={toggleSelectMode}
                             >
@@ -182,36 +179,36 @@ export const RowDetailSidebar: React.FC = () => {
                             </button>
                         )}
                         <button
-                            className={`row-detail-action-btn ${viewMode === 'json' ? 'active' : ''}`}
+                            className={cn(actionBtnClass, viewMode === 'json' && actionBtnActiveClass)}
                             title="Toggle JSON view"
                             onClick={() => setViewMode(v => v === 'form' ? 'json' : 'form')}
                         >
                             <Braces size={13} />
                         </button>
                         <button
-                            className="row-detail-action-btn"
+                            className={actionBtnClass}
                             title={isSelectMode && selectedFields.size > 0 ? "Copy selected fields as JSON" : "Copy row as JSON"}
                             onClick={handleCopyJson}
                         >
                             <FileJson size={13} />
                         </button>
-                        <button className="row-detail-close" onClick={() => setShowRightSidebar(false)}>
+                        <button className={actionBtnClass} onClick={() => setShowRightSidebar(false)}>
                             <X size={14} />
                         </button>
                     </div>
                 </div>
 
-                <div className="sidebar-content row-detail-content">
+                <div className="flex-1 overflow-y-auto p-1 flex flex-col gap-1.25">
                     {viewMode === 'json' ? (
-                        <div className="row-detail-json-view">
-                            <pre>{JSON.stringify(getJsonData(), null, 2)}</pre>
+                        <div className="h-full bg-bg-primary border border-border rounded p-1 overflow-auto">
+                            <pre className="m-0 text-xs font-mono text-text-primary whitespace-pre-wrap break-all">{JSON.stringify(getJsonData(), null, 2)}</pre>
                         </div>
                     ) : (
                         columns.map((col, idx) => {
                             const val = row[idx];
                             const isNull = val === null || val === undefined;
                             const isPK = primaryKeys?.includes(col) ?? false;
-                            const displayVal = isNull ? 'null' : (val === '' ? '' : val);
+                            const displayVal = isNull ? 'null' : (val === '' ? '' : String(val));
 
                             return (
                                 <RowDetailField
@@ -284,8 +281,12 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
     };
 
     return (
-        <div className={`row-detail-field ${isDirty ? 'row-detail-field-dirty' : ''} ${isSelected ? 'row-detail-field-selected' : ''}`}>
-            <div className="row-detail-key">
+        <div className={cn(
+            "flex flex-col gap-1 rounded p-0.5 transition-colors duration-150",
+            isDirty && "bg-warning/10",
+            isSelected && "bg-success/12"
+        )}>
+            <div className="group text-[11px] text-text-secondary font-semibold flex items-center justify-between gap-1">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                     {isSelectMode && (
                         <input
@@ -293,20 +294,20 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                             id={`row-cb-${colIdx}`}
                             checked={isSelected}
                             onChange={onToggleSelect}
-                            className="row-detail-checkbox"
+                            className="m-0 cursor-pointer accent-success shrink-0"
                         />
                     )}
                     <label
                         htmlFor={isSelectMode ? `row-cb-${colIdx}` : undefined}
-                        className={isPK ? 'row-detail-pk-label' : ''}
-                        style={{ cursor: isSelectMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', margin: 0, gap: '4px' }}
+                        className={cn("flex items-center gap-1 shrink-0", isPK && "text-[#7c6af7]")}
+                        style={{ cursor: isSelectMode ? 'pointer' : 'default', margin: 0 }}
                     >
-                        {isPK && <span className="row-detail-pk-badge">PK</span>}
+                        {isPK && <span className="text-[9px] font-bold tracking-[0.04em] bg-[#7c6af7]/20 text-[#7c6af7] border border-[#7c6af7]/40 rounded-[3px] px-1 py-[1px]">PK</span>}
                         {col}
                     </label>
                 </div>
                 <button
-                    className="row-detail-copy-btn"
+                    className="bg-transparent border-none text-text-muted cursor-pointer p-0.5 rounded-[3px] opacity-0 transition-opacity duration-200 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-0 disabled:cursor-default"
                     onClick={onCopy}
                     title="Copy value"
                     disabled={isNull}
@@ -315,14 +316,21 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                 </button>
             </div>
             {isPK ? (
-                <div className={`row-detail-value row-detail-pk-value ${isNull ? 'row-detail-null' : ''}`}
+                <div className={cn(
+                    "bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] cursor-default opacity-85 select-text",
+                    isNull && "text-text-muted italic bg-bg-tertiary"
+                )}
                     onClick={isSelectMode ? onToggleSelect : undefined}
                     style={{ cursor: isSelectMode ? 'pointer' : 'default' }}>
                     {isNull ? 'null' : val}
                 </div>
             ) : (
                 <textarea
-                    className={`row-detail-value row-detail-textarea ${isNull ? 'row-detail-null' : ''} ${isDirty ? 'row-detail-dirty' : ''}`}
+                    className={cn(
+                        "bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] w-full box-border resize-y cursor-text outline-none leading-normal transition-all duration-150 focus:border-[#7c6af7] focus:shadow-[0_0_0_2px_rgba(124,106,247,0.2)] disabled:opacity-70 disabled:cursor-default disabled:resize-none",
+                        isNull && "text-text-muted italic bg-bg-tertiary",
+                        isDirty && "!border-warning"
+                    )}
                     value={editVal}
                     onChange={(e) => handleChange(e.target.value)}
                     onBlur={commit}

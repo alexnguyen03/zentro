@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { cn } from '../../lib/cn';
 
 interface ConnectionPickerProps {
     onClose: () => void;
@@ -66,61 +67,77 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
     const top = anchorRect ? anchorRect.bottom + 8 : 40;
     const left = anchorRect ? anchorRect.left + anchorRect.width / 2 : '50%';
 
+    const itemBaseClass = "px-3.5 py-2 text-[13px] cursor-pointer border-b border-white/5 text-text-primary transition-colors duration-100 whitespace-nowrap overflow-hidden text-ellipsis last:border-none hover:bg-bg-tertiary";
+
     return (
         <>
             {/* Overlay */}
-            <div className="cp-overlay" onClick={onClose} />
+            <div className="fixed inset-0 bg-black/45 z-[1100] backdrop-blur-[2px]" onClick={onClose} />
 
             {/* Panel */}
             <div
-                className="cp-panel"
+                className="fixed z-[1101] flex bg-bg-secondary border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
                 style={{ top, left, transform: 'translateX(-50%)' }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Connections column */}
-                <div className="cp-col">
-                    <div className="cp-col-header">Connection</div>
-                    <div className="cp-list">
-                        {connections.map((conn) => (
-                            <div
-                                key={conn.name}
-                                className={`cp-item ${selectedConn === conn.name ? 'selected' : ''} ${activeProfile?.name === conn.name ? 'active' : ''}`}
-                                onClick={() => handleSelectConn(conn.name)}
-                            >
-                                {conn.name}
-                            </div>
-                        ))}
+                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] uppercase text-text-secondary bg-black/15 border-b border-border shrink-0">Connection</div>
+                    <div className="overflow-y-auto flex-1">
+                        {connections.map((conn) => {
+                            const isSelected = selectedConn === conn.name;
+                            const isActive = activeProfile?.name === conn.name;
+                            return (
+                                <div
+                                    key={conn.name}
+                                    className={cn(
+                                        itemBaseClass,
+                                        isSelected && "bg-white/5",
+                                        isActive && "border-l-2 border-l-success bg-[#89d185]/10 text-success font-medium hover:bg-[#89d185]/10"
+                                    )}
+                                    onClick={() => handleSelectConn(conn.name)}
+                                >
+                                    {conn.name}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
                 {/* Divider */}
-                <div className="cp-divider" />
+                <div className="w-[1px] bg-border shrink-0" />
 
                 {/* Databases column */}
-                <div className="cp-col">
-                    <div className="cp-col-header">Database</div>
-                    <div className="cp-list">
+                <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] uppercase text-text-secondary bg-black/15 border-b border-border shrink-0">Database</div>
+                    <div className="overflow-y-auto flex-1">
                         {connecting ? (
-                            <div className="cp-empty cp-loading">
-                                <Loader size={14} className="cp-spinner" />
+                            <div className="px-3.5 py-4 text-xs text-text-secondary flex items-center gap-2">
+                                <Loader size={14} className="animate-spin opacity-60" />
                                 Connecting…
                             </div>
                         ) : error ? (
-                            <div className="cp-empty" style={{ color: 'var(--error-color, #ef4444)', whiteSpace: 'normal', padding: '12px', lineHeight: 1.4, textAlign: 'center' }}>
+                            <div className="px-3.5 py-3 text-[13px] text-error whitespace-normal leading-[1.4] text-center">
                                 {error}
                             </div>
                         ) : pickerDbs.length === 0 ? (
-                            <div className="cp-empty">No databases</div>
+                            <div className="px-3.5 py-4 text-xs text-text-secondary">No databases</div>
                         ) : (
-                            pickerDbs.map((db) => (
-                                <div
-                                    key={db}
-                                    className={`cp-item ${activeProfile?.db_name === db ? 'active' : ''}`}
-                                    onClick={() => handleSelectDb(db)}
-                                >
-                                    {db}
-                                </div>
-                            ))
+                            pickerDbs.map((db) => {
+                                const isActive = activeProfile?.db_name === db;
+                                return (
+                                    <div
+                                        key={db}
+                                        className={cn(
+                                            itemBaseClass,
+                                            isActive && "border-l-2 border-l-success bg-[#89d185]/10 text-success font-medium hover:bg-[#89d185]/10"
+                                        )}
+                                        onClick={() => handleSelectDb(db)}
+                                    >
+                                        {db}
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
                 </div>

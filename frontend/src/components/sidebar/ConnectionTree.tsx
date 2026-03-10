@@ -10,6 +10,7 @@ import { useSchemaStore } from '../../stores/schemaStore';
 import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
+import { cn } from '../../lib/cn';
 
 // Extended schema node type matching the Go model
 interface SchemaNodeData {
@@ -49,14 +50,14 @@ export const ConnectionTree: React.FC = () => {
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-            <div className="explorer-filter-bar">
-                <div className="explorer-search-wrap">
-                    <Search size={11} className="explorer-search-icon" />
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0 bg-bg-secondary">
+                <div className="flex-1 relative flex items-center min-w-0">
+                    <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
                         ref={filterInputRef}
                         type="text"
-                        className="explorer-search"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
@@ -64,13 +65,13 @@ export const ConnectionTree: React.FC = () => {
                     />
                 </div>
                 {filter && (
-                    <button className="explorer-clear-btn" onClick={() => setFilter('')} title="Clear filter">
-                        <Trash2 size={12} />
+                    <button className="bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded flex items-center justify-center hover:bg-error/10 hover:text-error shrink-0 transition-colors" onClick={() => setFilter('')} title="Clear filter">
+                        <Trash2 size={13} />
                     </button>
                 )}
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+            <div className="flex-1 overflow-auto p-2">
                 <DatabaseNode
                     dbName={activeProfile.db_name}
                     profileName={activeProfile.name!}
@@ -133,22 +134,26 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
 
     return (
         <div>
-            <div className="tree-node" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleExpand(); }}>
+            <div
+                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none")}
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); handleExpand(); }}
+            >
                 {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <Server size={14} color="var(--success-color)" />
-                <span style={{ fontWeight: 600 }}>{dbName}</span>
-                {isLoading && <Loader size={12} style={{ marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
+                <Server size={14} className="text-success" />
+                <span className="font-semibold">{dbName}</span>
+                {isLoading && <Loader size={12} className="ml-1 animate-spin" />}
             </div>
 
             {expanded && (
-                <div className="tree-children">
+                <div className="pl-4">
                     {isLoading && !schemas && (
-                        <div className="tree-node" tabIndex={0} style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-[3px] outline-none" tabIndex={0}>
                             Loading schemas…
                         </div>
                     )}
                     {schemas && schemas.length === 0 && (
-                        <div className="tree-node" tabIndex={0} style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-[3px] outline-none" tabIndex={0}>
                             No schemas found
                         </div>
                     )}
@@ -189,20 +194,20 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
     return (
         <div>
             <div
-                className="tree-node"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); if (hasItems) setExpanded(!expanded); }}
             >
                 {hasItems
                     ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
-                    : <span style={{ width: 14, display: 'inline-block' }} />
+                    : <span className="w-3.5 inline-block" />
                 }
-                <Layers size={13} style={{ opacity: 0.8 }} />
-                <span style={{ fontSize: 12 }}>{schema.Name}</span>
+                <Layers size={13} className="opacity-80" />
+                <span className="text-xs">{schema.Name}</span>
             </div>
 
             {expanded && (
-                <div className="tree-children">
+                <div className="pl-4">
                     {categories.map(cat => cat.items.length > 0 && (
                         <CategoryNode key={cat.label} {...cat} schemaName={schema.Name} />
                     ))}
@@ -239,24 +244,27 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
     return (
         <div>
-            <div className="tree-node" tabIndex={0} onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
+            <div
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            >
                 {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                 {icon}
-                <span style={{ fontSize: 12 }}>{label}</span>
-                <span className="tree-count-badge">{items.length}</span>
+                <span className="text-xs">{label}</span>
+                <span className="ml-auto text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">{items.length}</span>
             </div>
 
             {expanded && (
-                <div className="tree-children">
+                <div className="pl-4">
                     {items.map(item => (
                         <div
                             key={item}
-                            className="tree-node tree-leaf"
+                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none"
                             tabIndex={0}
-                            style={{ fontSize: 12 }}
                             onDoubleClick={() => handleItemDoubleClick(item)}
                         >
-                            <span style={{ width: 13, display: 'inline-block' }} />
+                            <span className="w-3.5 inline-block" />
                             {itemIcon}
                             <span>{item}</span>
                         </div>
@@ -271,7 +279,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
 function buildCategories(s: SchemaNodeData, filter: string): CategoryDef[] {
     const iconSize = 12;
-    const iconStyle = { opacity: 0.75, flexShrink: 0 as const };
+    const iconClass = "opacity-75 shrink-0";
 
     const filterFn = (items: string[]) => {
         if (!filter) return items || [];
@@ -279,14 +287,14 @@ function buildCategories(s: SchemaNodeData, filter: string): CategoryDef[] {
     };
 
     return [
-        { label: 'Tables', icon: <Table2 size={iconSize} style={iconStyle} />, itemIcon: <Table2 size={iconSize} style={iconStyle} />, items: filterFn(s.Tables) },
-        { label: 'Foreign Tables', icon: <Link2 size={iconSize} style={iconStyle} />, itemIcon: <Link2 size={iconSize} style={iconStyle} />, items: filterFn(s.ForeignTables) },
-        { label: 'Views', icon: <Eye size={iconSize} style={iconStyle} />, itemIcon: <Eye size={iconSize} style={iconStyle} />, items: filterFn(s.Views) },
-        { label: 'Materialized Views', icon: <Layers size={iconSize} style={iconStyle} />, itemIcon: <Layers size={iconSize} style={iconStyle} />, items: filterFn(s.MaterializedViews) },
-        { label: 'Indexes', icon: <Hash size={iconSize} style={iconStyle} />, itemIcon: <Hash size={iconSize} style={iconStyle} />, items: filterFn(s.Indexes) },
-        { label: 'Functions', icon: <Zap size={iconSize} style={iconStyle} />, itemIcon: <Zap size={iconSize} style={iconStyle} />, items: filterFn(s.Functions) },
-        { label: 'Sequences', icon: <List size={iconSize} style={iconStyle} />, itemIcon: <List size={iconSize} style={iconStyle} />, items: filterFn(s.Sequences) },
-        { label: 'Data types', icon: <Type size={iconSize} style={iconStyle} />, itemIcon: <Type size={iconSize} style={iconStyle} />, items: filterFn(s.DataTypes) },
-        { label: 'Aggregate functions', icon: <Sigma size={iconSize} style={iconStyle} />, itemIcon: <Sigma size={iconSize} style={iconStyle} />, items: filterFn(s.AggregateFunctions) },
+        { label: 'Tables', icon: <Table2 size={iconSize} className={iconClass} />, itemIcon: <Table2 size={iconSize} className={iconClass} />, items: filterFn(s.Tables) },
+        { label: 'Foreign Tables', icon: <Link2 size={iconSize} className={iconClass} />, itemIcon: <Link2 size={iconSize} className={iconClass} />, items: filterFn(s.ForeignTables) },
+        { label: 'Views', icon: <Eye size={iconSize} className={iconClass} />, itemIcon: <Eye size={iconSize} className={iconClass} />, items: filterFn(s.Views) },
+        { label: 'Materialized Views', icon: <Layers size={iconSize} className={iconClass} />, itemIcon: <Layers size={iconSize} className={iconClass} />, items: filterFn(s.MaterializedViews) },
+        { label: 'Indexes', icon: <Hash size={iconSize} className={iconClass} />, itemIcon: <Hash size={iconSize} className={iconClass} />, items: filterFn(s.Indexes) },
+        { label: 'Functions', icon: <Zap size={iconSize} className={iconClass} />, itemIcon: <Zap size={iconSize} className={iconClass} />, items: filterFn(s.Functions) },
+        { label: 'Sequences', icon: <List size={iconSize} className={iconClass} />, itemIcon: <List size={iconSize} className={iconClass} />, items: filterFn(s.Sequences) },
+        { label: 'Data types', icon: <Type size={iconSize} className={iconClass} />, itemIcon: <Type size={iconSize} className={iconClass} />, items: filterFn(s.DataTypes) },
+        { label: 'Aggregate functions', icon: <Sigma size={iconSize} className={iconClass} />, itemIcon: <Sigma size={iconSize} className={iconClass} />, items: filterFn(s.AggregateFunctions) },
     ];
 }

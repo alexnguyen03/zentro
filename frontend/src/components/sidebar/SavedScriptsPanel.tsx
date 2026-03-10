@@ -3,7 +3,7 @@ import { FileCode, Search, Trash2, BookMarked } from 'lucide-react';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import './SavedScriptsPanel.css';
+import { cn } from '../../lib/cn';
 
 function formatDate(iso: string): string {
     try {
@@ -58,23 +58,23 @@ export const SavedScriptsPanel: React.FC = () => {
 
     if (!connectionName) {
         return (
-            <div className="scripts-panel">
-                <div className="scripts-empty">
-                    <BookMarked size={24} opacity={0.3} />
-                    <p>No active connection</p>
-                    <p className="scripts-empty-hint">Connect to a database to manage saved scripts</p>
+            <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs text-center">
+                    <BookMarked size={24} className="opacity-30" />
+                    <p className="m-0">No active connection</p>
+                    <p className="m-0 text-[11px] opacity-60">Connect to a database to manage saved scripts</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="scripts-panel">
-            <div className="scripts-toolbar">
-                <div className="scripts-search-wrap">
-                    <Search size={11} className="scripts-search-icon" />
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0 bg-bg-secondary">
+                <div className="flex-1 relative flex items-center min-w-0">
+                    <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
-                        className="scripts-search"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
                         placeholder="Filter scripts…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -82,13 +82,13 @@ export const SavedScriptsPanel: React.FC = () => {
                 </div>
             </div>
 
-            <div className="scripts-list">
+            <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                    <div className="scripts-empty">
-                        <FileCode size={24} opacity={0.3} />
-                        <p>{search ? 'No matches' : 'No saved scripts'}</p>
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs text-center">
+                        <FileCode size={24} className="opacity-30" />
+                        <p className="m-0">{search ? 'No matches' : 'No saved scripts'}</p>
                         {!search && (
-                            <p className="scripts-empty-hint">
+                            <p className="m-0 text-[11px] opacity-60">
                                 Right-click a tab → "Save Script" to save your query
                             </p>
                         )}
@@ -97,25 +97,28 @@ export const SavedScriptsPanel: React.FC = () => {
                     filtered.map(script => (
                         <div
                             key={script.id}
-                            className="script-item"
+                            className="group flex items-center px-2.5 py-1.5 border-b border-white/5 cursor-pointer transition-colors duration-100 gap-1.5 hover:bg-bg-tertiary"
                             onClick={() => handleOpen(script.id, script.name)}
                             title={`Open "${script.name}" in new tab`}
                             onMouseLeave={() => setConfirmDelete(null)}
                         >
-                            <FileCode size={13} className="script-item-icon" />
-                            <div className="script-item-body">
-                                <div className="script-item-name">{script.name}</div>
-                                <div className="script-item-date">{formatDate(script.updated_at as any)}</div>
+                            <FileCode size={13} className="text-success shrink-0 opacity-70" />
+                            <div className="flex-1 overflow-hidden">
+                                <div className="text-xs text-text-primary whitespace-nowrap overflow-hidden text-ellipsis font-medium">{script.name}</div>
+                                <div className="text-[10px] text-text-secondary mt-0.5">{formatDate(script.updated_at as any)}</div>
                             </div>
                             <button
-                                className="script-item-delete"
+                                className={cn(
+                                    "bg-transparent border-none text-text-secondary cursor-pointer p-[3px] rounded-[3px] flex items-center shrink-0 transition-all duration-100 hover:text-error hover:bg-[#f48771]/10",
+                                    confirmDelete === script.id ? "opacity-100 text-error" : "opacity-0 group-hover:opacity-100"
+                                )}
                                 title={confirmDelete === script.id ? 'Click again to confirm' : 'Delete script'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleDelete(script.id);
                                 }}
                             >
-                                <Trash2 size={12} style={confirmDelete === script.id ? { color: 'var(--error-color)' } : {}} />
+                                <Trash2 size={12} />
                             </button>
                         </div>
                     ))
