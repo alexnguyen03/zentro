@@ -25,6 +25,7 @@ interface ResultTableProps {
     selectedCells: Set<string>;
     setSelectedCells: React.Dispatch<React.SetStateAction<Set<string>>>;
     deletedRows?: Set<number>;
+    setDeletedRows?: React.Dispatch<React.SetStateAction<Set<number>>>;
 }
 
 interface TableMeta {
@@ -38,9 +39,10 @@ interface TableMeta {
     setEditValue: (val: string) => void;
     handleCommitEdit: () => void;
     setEditingCell: (cellId: string | null) => void;
+    handleRevertRow: (rIdx: number) => void;
 }
 
-export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows }) => {
+export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows, setDeletedRows }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
@@ -202,11 +204,18 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             ),
             enableSorting: false,
             size: 52,
-            cell: ({ row }) => (
-                <div className="rt-cell-content row-num-col">
-                    {row.index + 1}
-                </div>
-            ),
+            cell: ({ row, table }) => {
+                const meta = table.options.meta as TableMeta | undefined;
+                return (
+                    <div
+                        className="rt-cell-content row-num-col"
+                        onDoubleClick={() => meta?.handleRevertRow?.(row.index)}
+                        title="Double-click to revert changes to this row"
+                    >
+                        {row.index + 1}
+                    </div>
+                );
+            },
         };
 
         const dataCols: ColumnDef<any>[] = columns.map((col, colIdx) => ({
@@ -274,7 +283,26 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             handleCellDoubleClick,
             setEditValue,
             handleCommitEdit,
-            setEditingCell
+            setEditingCell,
+            handleRevertRow: (rIdx: number) => {
+                setEditedCells(prev => {
+                    const next = new Map(prev);
+                    for (const key of Array.from(next.keys())) {
+                        if (key.startsWith(`${rIdx}:`)) {
+                            next.delete(key);
+                        }
+                    }
+                    return next;
+                });
+
+                if (setDeletedRows && deletedRows?.has(rIdx)) {
+                    setDeletedRows(prev => {
+                        const next = new Set(prev);
+                        next.delete(rIdx);
+                        return next;
+                    });
+                }
+            }
         },
         onSortingChange: canSortClientSide ? setSorting : undefined,
         getCoreRowModel: getCoreRowModel(),

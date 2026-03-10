@@ -224,7 +224,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
             if (selectedCells.size > 0) {
                 e.preventDefault();
                 let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-                const cells = Array.from(selectedCells).map(c => {
+                Array.from(selectedCells).map(c => {
                     const [r, col] = c.split(':').map(Number);
                     minR = Math.min(minR, r); maxR = Math.max(maxR, r);
                     minC = Math.min(minC, col); maxC = Math.max(maxC, col);
@@ -246,7 +246,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                 }
                 const text = matrix.map(r => r.join('\t')).join('\n');
                 navigator.clipboard.writeText(text);
-                toast.success(`Copied ${cells.length} cell(s)`);
             }
         }
 
@@ -435,6 +434,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                     selectedCells={selectedCells}
                     setSelectedCells={setSelectedCells}
                     deletedRows={deletedRows}
+                    setDeletedRows={setDeletedRows}
                 />
             )}
 
