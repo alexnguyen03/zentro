@@ -55,12 +55,25 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(value);
     const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
+    const [selectedIndex, setSelectedIndex] = useState(-1);
     const wrapRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
+    const listRef = React.useRef<HTMLDivElement>(null);
 
     const filtered = text
         ? types.filter(t => t.toLowerCase().includes(text.toLowerCase()))
         : types;
+
+    useEffect(() => {
+        setSelectedIndex(-1);
+    }, [text]);
+
+    useEffect(() => {
+        if (selectedIndex >= 0 && listRef.current) {
+            const el = listRef.current.children[selectedIndex] as HTMLDivElement;
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        }
+    }, [selectedIndex]);
 
     // Close on outside click — must also allow clicks inside the portal dropdown
     useEffect(() => {
@@ -116,6 +129,7 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
     const dropdown = dropPos && filtered.length > 0
         ? ReactDOM.createPortal(
             <div
+                ref={listRef}
                 data-dtype-drop
                 style={{
                     position: 'fixed',
@@ -131,16 +145,19 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
                     boxShadow: '0 6px 20px rgba(0,0,0,.35)',
                 }}
             >
-                {filtered.map(t => (
-                    <div
-                        key={t}
-                        onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
-                        className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${t === text ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'
-                            }`}
-                    >
-                        {t}
-                    </div>
-                ))}
+                {filtered.map((t, index) => {
+                    const isSelected = index === selectedIndex || (selectedIndex === -1 && t === text);
+                    return (
+                        <div
+                            key={t}
+                            onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
+                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--accent-color)] hover:text-white ${isSelected ? 'bg-[var(--accent-color)] text-white' : 'text-[var(--text-primary)]'
+                                }`}
+                        >
+                            {t}
+                        </div>
+                    );
+                })}
             </div>,
             document.body
         )
@@ -163,14 +180,35 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
             <input
                 ref={inputRef}
                 autoFocus
+                onFocus={(e) => e.target.select()}
                 className="rt-cell-input"
                 style={{ height: 24, fontSize: 12, fontFamily: 'monospace', borderRadius: 3, padding: '0 6px', width: '100%', boxSizing: 'border-box' }}
                 value={text}
                 onChange={e => { setText(e.target.value); }}
                 onKeyDown={e => {
-                    if (e.key === 'Enter') { commitAndClose(text); }
-                    if (e.key === 'Escape') { closeWithoutCommit(); }
-                    if (e.key === 'Tab') { commitAndClose(text); }
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (filtered.length > 0) {
+                            setSelectedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                        }
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (filtered.length > 0) {
+                            setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+                        }
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (selectedIndex >= 0 && selectedIndex < filtered.length) {
+                            handleSuggestionClick(filtered[selectedIndex]);
+                        } else {
+                            commitAndClose(text);
+                        }
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeWithoutCommit();
+                    } else if (e.key === 'Tab') {
+                        commitAndClose(text);
+                    }
                 }}
                 onBlur={() => { setTimeout(() => commitAndClose(text), 150); }}
             />
@@ -240,7 +278,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
                         textAlign: 'center',
                         fontSize: 11,
                         color: (isDirty || isDeleted) ? 'var(--error-color)' : 'var(--text-secondary)',
-                        cursor: (isDirty || isDeleted) ? 'pointer' : 'default',
+                        cursor: 'pointer',
                         userSelect: 'none',
                     }}
                     onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
@@ -254,6 +292,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
                     {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
                         <input
                             autoFocus
+                            onFocus={e => e.target.select()}
                             className="rt-cell-input"
                             style={{ height: 24, fontSize: 12, borderRadius: 3, padding: '0 6px', width: '100%' }}
                             defaultValue={col.Name}
@@ -304,7 +343,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
                     {isDeleted
                         ? <span className="text-[var(--text-secondary)]">{col.DefaultValue || '–'}</span>
                         : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
-                            ? <input autoFocus className="rt-cell-input"
+                            ? <input autoFocus onFocus={e => e.target.select()} className="rt-cell-input"
                                 style={{ height: 24, fontSize: 12, borderRadius: 3, padding: '0 6px', width: '100%' }}
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
