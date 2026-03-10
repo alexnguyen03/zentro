@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Calculator, Save, Undo, Play, Copy, FilePlus, Trash } from 'lucide-react';
+import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Save, Undo, Play, Copy, FilePlus } from 'lucide-react';
 import { TabResult, useResultStore } from '../../stores/resultStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -10,15 +10,27 @@ import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import { Modal } from '../layout/Modal';
 
+export interface ResultPanelAction {
+    id: string;
+    icon: React.ReactNode;
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    loading?: boolean;
+    danger?: boolean;
+}
+
 interface ResultPanelProps {
     tabId: string;
     result?: TabResult;
     onRun?: () => void;
+    /** Called whenever the set of available toolbar actions changes. Parent uses this to render actions in its own header. */
+    onActionsChange?: (actions: ResultPanelAction[]) => void;
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
-export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }) => {
+export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onActionsChange }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const addTab = useEditorStore(s => s.addTab);
     const { toast } = useToast();
@@ -74,6 +86,41 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
             prevIsDone.current = result.isDone;
         }
     }, [result?.isDone, handleCountTotal]);
+
+    // Publish actions to parent whenever relevant state changes
+    const hasChanges = editedCells.size > 0 || deletedRows.size > 0;
+    const isEditable = result?.tableName && result?.primaryKeys && result.primaryKeys.every(pk => result.columns.includes(pk));
+
+    React.useEffect(() => {
+        if (!onActionsChange) return;
+        const actions: ResultPanelAction[] = [];
+
+        if (hasChanges) {
+            actions.push({
+                id: 'discard',
+                icon: <Undo size={11} />,
+                label: 'Discard',
+                onClick: () => { setEditedCells(new Map()); setDeletedRows(new Set()); },
+            });
+            actions.push({
+                id: 'save',
+                icon: <Save size={11} />,
+                label: 'Save',
+                onClick: () => setShowSaveModal(true),
+            });
+        }
+
+        if (!hasChanges && onRun) {
+            actions.push({
+                id: 'reload',
+                icon: <RotateCcw size={11} />,
+                label: 'Reload',
+                onClick: onRun,
+            });
+        }
+
+        onActionsChange(actions);
+    }, [hasChanges, onRun, onActionsChange]);
 
     const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newLimit = parseInt(e.target.value) || 1000;
@@ -199,8 +246,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     } else if (result.isDone && !result.hasMore) {
         displayTotalCount = result.rows.length;
     }
-
-    const isEditable = result?.tableName && result?.primaryKeys && result.primaryKeys.every(pk => result.columns.includes(pk));
 
     // SELECT result
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -350,57 +395,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                     ) : null}
                 </div>
                 <div className="result-toolbar-center">
-                    {isEditable && selectedCells.size > 0 && (
-                        <button
-                            className="result-toolbar-btn result-reload-btn"
-                            onClick={() => {
-                                const rowsToDelete = new Set(Array.from(selectedCells).map(cell => Number(cell.split(':')[0])));
-                                setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
-                                setSelectedCells(new Set());
-                            }}
-                            title="Delete Selected Rows"
-                            style={{ color: 'var(--color-error)' }}
-                        >
-                            <Trash size={12} />
-                            <span>Delete</span>
-                        </button>
-                    )}
-                    {(editedCells.size > 0 || deletedRows.size > 0) && (
-                        <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>
-                            <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center' }}>
-                                {editedCells.size + deletedRows.size} pending change(s)
-                            </span>
-                            <button
-                                className="result-toolbar-btn result-reload-btn"
-                                onClick={() => setShowSaveModal(true)}
-                                title="Review and Save Changes"
-                                style={{ color: 'var(--color-success)' }}
-                            >
-                                <Save size={12} />
-                                <span>Save</span>
-                            </button>
-                            <button
-                                className="result-toolbar-btn result-reload-btn"
-                                onClick={() => {
-                                    setEditedCells(new Map());
-                                    setDeletedRows(new Set());
-                                }}
-                                title="Discard Changes"
-                            >
-                                <Undo size={12} />
-                                <span>Reverse</span>
-                            </button>
-                        </div>
-                    )}
-                    {onRun && editedCells.size === 0 && deletedRows.size === 0 && (
-                        <button
-                            className="result-toolbar-btn result-reload-btn"
-                            onClick={onRun}
-                            title="Re-run query (Ctrl+Enter)"
-                        >
-                            <RotateCcw size={12} />
-                            <span>Reload</span>
-                        </button>
+                    {hasChanges && (
+                        <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center' }}>
+                            {editedCells.size + deletedRows.size} pending change(s)
+                        </span>
                     )}
                 </div>
                 <div className="result-toolbar-right">

@@ -7,7 +7,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
-import { ResultPanel } from './ResultPanel';
+import { ResultPanel, type ResultPanelAction } from './ResultPanel';
 
 interface TableInfoProps {
     tabId: string;
@@ -26,6 +26,7 @@ interface TabAction {
     onClick: () => void;
     disabled?: boolean;
     loading?: boolean;
+    danger?: boolean;
 }
 
 const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
@@ -397,6 +398,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [filterCol, setFilterCol] = useState('');
     const filterInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
 
     const { activeProfile } = useConnectionStore();
     const { activeGroupId, groups } = useEditorStore();
@@ -547,7 +549,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         loading: reloading,
     };
 
-    // Registry: add per-tab actions here as the feature grows
     const tabActions: Record<SubTab, TabAction[]> = {
         info: [
             ...(hasChanges ? [
@@ -569,7 +570,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             ] : []),
             reloadAction,
         ],
-        data: [reloadAction],
+        data: dataTabActions,
         erd: [reloadAction],
     };
 
@@ -684,7 +685,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
                 {activeSubTab === 'data' && (
                     <div className="flex-1" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                        <ResultPanel tabId={dataTabId} onRun={loadData} result={dataResult} />
+                        <ResultPanel
+                            tabId={dataTabId}
+                            onRun={loadData}
+                            result={dataResult}
+                            onActionsChange={setDataTabActions}
+                        />
                     </div>
                 )}
 
