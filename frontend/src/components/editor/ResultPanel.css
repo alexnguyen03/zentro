@@ -233,7 +233,7 @@
 }
 
 .result-table-tanstack td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--border-color);
     border-right: 1px solid var(--border-color);
     padding: 0;
     height: 30px;
@@ -241,7 +241,7 @@
 }
 
 .result-table-tanstack tr.rt-row-alt td {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-secondary);
 }
 
 .result-table-tanstack tr:hover td {
