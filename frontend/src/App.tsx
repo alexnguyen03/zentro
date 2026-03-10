@@ -23,6 +23,7 @@ import {
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { ForceQuit } from '../wailsjs/go/app/App';
+import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
 
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
@@ -180,12 +181,7 @@ function App() {
                     </div>
                 </div>
                 {showRightSidebar && (
-                    <>
-                        <div className="resizer" style={{ cursor: 'e-resize' }} />
-                        <div style={{ width: 250, flexShrink: 0, backgroundColor: 'var(--bg-panel)', borderLeft: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                            Right Sidebar
-                        </div>
-                    </>
+                    <RowDetailSidebar />
                 )}
             </div>
             <StatusBar />

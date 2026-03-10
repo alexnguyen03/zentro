@@ -12,6 +12,8 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FetchMoreRows } from '../../../wailsjs/go/app/App';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
+import { useRowDetailStore } from '../../stores/rowDetailStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 import { useToast } from '../layout/Toast';
 import { ArrowUp, ArrowDown, Lock, Unlock } from 'lucide-react';
 
@@ -44,6 +46,7 @@ interface TableMeta {
 
 export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows, setDeletedRows }) => {
     const { results, setOffset } = useResultStore();
+    const { openDetail } = useRowDetailStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
 
@@ -127,8 +130,19 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 setDragStart({ r: rIdx, c: cIdx, active: true, append: isAppend, initialSelected: new Set(newSel) });
                 return newSel;
             });
+
+            // Update row detail directly
+            openDetail({
+                columns: columns,
+                row: rows[rIdx],
+                tableName: resultState?.tableName
+            });
+            const layoutStore = useLayoutStore.getState();
+            if (!layoutStore.showRightSidebar) {
+                layoutStore.setShowRightSidebar(true);
+            }
         }
-    }, [isDone, lastSelected, setSelectedCells]);
+    }, [isDone, lastSelected, setSelectedCells, columns, rows, resultState?.tableName, openDetail]);
 
     const handleCellMouseEnter = React.useCallback((rIdx: number, cIdx: number) => {
         if (!dragStart?.active) return;

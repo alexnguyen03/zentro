@@ -59,9 +59,27 @@ export const useEditorStore = create<EditorState>()(
             activeGroupId: 'group-1',
 
             addTab: (tabInit, targetGroupId) => {
-                const id = tabInit?.id || crypto.randomUUID();
+                let id = tabInit?.id || crypto.randomUUID();
 
                 set((state) => {
+                    const targetId = targetGroupId || state.activeGroupId || state.groups[0].id;
+                    const groupIndex = state.groups.findIndex(g => g.id === targetId);
+                    if (groupIndex === -1) return state;
+
+                    // If it's a table tab, verify if one already exists with the same content
+                    if (tabInit?.type === 'table' && tabInit.content) {
+                        for (const g of state.groups) {
+                            const existingTab = g.tabs.find(t => t.type === 'table' && t.content === tabInit.content);
+                            if (existingTab) {
+                                id = existingTab.id;
+                                return {
+                                    groups: state.groups.map(grp => grp.id === g.id ? { ...grp, activeTabId: existingTab.id } : grp),
+                                    activeGroupId: g.id,
+                                };
+                            }
+                        }
+                    }
+
                     const name = tabInit?.name || getNextTabName(state.groups);
                     const newTab: Tab = {
                         id,
@@ -72,8 +90,6 @@ export const useEditorStore = create<EditorState>()(
                         content: tabInit?.content,
                         ...tabInit
                     };
-
-                    const targetId = targetGroupId || state.activeGroupId || state.groups[0].id;
 
                     const newGroups = state.groups.map(g => {
                         if (g.id === targetId) {

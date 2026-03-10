@@ -363,51 +363,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             onKeyDown={handleKeyDown}
             style={{ outline: 'none' }}
         >
-            <div className="result-toolbar">
-                <div className="result-toolbar-left">
-                    <span className="result-stats">
-                        Showing <strong>{result.rows.length.toLocaleString()}</strong> of&nbsp;
-                        <select
-                            className="result-limit-select"
-                            value={defaultLimit}
-                            onChange={handleLimitChange}
-                            title="Row limit for next query"
-                        >
-                            {LIMIT_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n.toLocaleString()}</option>
-                            ))}
-                        </select>
-                        &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
-                    </span>
-                    {displayTotalCount !== undefined ? (
-                        <span className="result-stats" style={{ marginLeft: 8 }}>
-                            (Total: <strong>{displayTotalCount.toLocaleString()}</strong>)
-                        </span>
-                    ) : totalCount === -1 ? (
-                        <span className="result-stats" style={{ marginLeft: 8, color: 'var(--color-warning)' }} title="Failed to count total rows in background">
-                            (Total: ?)
-                        </span>
-                    ) : isCounting ? (
-                        <span className="result-stats" style={{ marginLeft: 8, opacity: 0.7 }}>
-                            <Loader size={12} className="result-spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />
-                            Counting...
-                        </span>
-                    ) : null}
-                </div>
-                <div className="result-toolbar-center">
-                    {hasChanges && (
-                        <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center' }}>
-                            {editedCells.size + deletedRows.size} pending change(s)
-                        </span>
-                    )}
-                </div>
-                <div className="result-toolbar-right">
-                    <button className="result-toolbar-btn" onClick={handleExport} title="Export as CSV">
-                        <Download size={13} />
-                        <span>Export</span>
-                    </button>
-                </div>
-            </div>
             {!result.isDone ? (
                 <div className="result-loading result-loading-inline">
                     <div className="result-loading-inner">
@@ -435,6 +390,52 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                     setDeletedRows={setDeletedRows}
                 />
             )}
+            {/* Bottom status bar */}
+            <div className="result-toolbar result-toolbar-bottom">
+                <div className="result-toolbar-left">
+                    <span className="result-stats">
+                        Showing <strong>{result.rows.length.toLocaleString()}</strong> of&nbsp;
+                        <select
+                            className="result-limit-select"
+                            value={defaultLimit}
+                            onChange={handleLimitChange}
+                            title="Row limit for next query"
+                        >
+                            {LIMIT_OPTIONS.map(n => (
+                                <option key={n} value={n}>{n.toLocaleString()}</option>
+                            ))}
+                        </select>
+                        &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
+                    </span>
+                    {displayTotalCount !== undefined ? (
+                        <span className="result-stats">
+                            (Total: <strong>{displayTotalCount.toLocaleString()}</strong>)
+                        </span>
+                    ) : totalCount === -1 ? (
+                        <span className="result-stats" style={{ color: 'var(--color-warning)' }} title="Failed to count total rows in background">
+                            (Total: ?)
+                        </span>
+                    ) : isCounting ? (
+                        <span className="result-stats" style={{ opacity: 0.7 }}>
+                            <Loader size={12} className="result-spinner" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />
+                            Counting...
+                        </span>
+                    ) : null}
+                </div>
+                <div className="result-toolbar-center">
+                    {hasChanges && (
+                        <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center' }}>
+                            {editedCells.size + deletedRows.size} pending change(s)
+                        </span>
+                    )}
+                </div>
+                <div className="result-toolbar-right">
+                    <button className="result-toolbar-btn" onClick={handleExport} title="Export as CSV">
+                        <Download size={13} />
+                        <span>Export</span>
+                    </button>
+                </div>
+            </div>
 
             {/* Save Confirmation Modal */}
             <Modal

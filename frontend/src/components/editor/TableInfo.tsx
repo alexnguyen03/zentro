@@ -704,57 +704,59 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             </div>
 
             {/* Bottom status bar */}
-            <div style={{
-                flexShrink: 0,
-                borderTop: '1px solid var(--border-color)',
-                padding: '4px 12px',
-                fontSize: 11,
-                color: 'var(--text-secondary)',
-                background: 'var(--bg-main)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-            }}>
-                {/* Left: Info */}
-                <div style={{ display: 'flex', alignItems: 'center', minHeight: 24 }}>
-                    {activeSubTab === 'info' && (
-                        <span>
-                            Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
-                            {dirtyCount > 0 && <span style={{ color: 'var(--success-color)' }}>{dirtyCount} modified</span>}
-                            {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
-                            {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
-                        </span>
-                    )}
-                    {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
-                </div>
+            {activeSubTab !== 'data' && (
+                <div style={{
+                    flexShrink: 0,
+                    borderTop: '1px solid var(--border-color)',
+                    padding: '4px 12px',
+                    fontSize: 11,
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-main)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    {/* Left: Info */}
+                    <div style={{ display: 'flex', alignItems: 'center', minHeight: 24 }}>
+                        {activeSubTab === 'info' && (
+                            <span>
+                                Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                                {dirtyCount > 0 && <span style={{ color: 'var(--success-color)' }}>{dirtyCount} modified</span>}
+                                {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                                {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
+                            </span>
+                        )}
+                        {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
+                    </div>
 
-                {/* Right: Actions/Filters depending on tab */}
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {activeSubTab === 'info' && (
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                            <Search size={11} style={{ position: 'absolute', left: 6, color: 'var(--text-secondary)' }} />
-                            <input
-                                ref={filterInputRef}
-                                type="text"
-                                placeholder="Filter columns..."
-                                value={filterCol}
-                                onChange={(e) => setFilterCol(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
-                                style={{
-                                    fontSize: 11,
-                                    padding: '2px 6px 2px 20px',
-                                    borderRadius: 4,
-                                    border: '1px solid var(--border-color)',
-                                    background: 'var(--bg-input)',
-                                    color: 'var(--text-primary)',
-                                    outline: 'none',
-                                    width: 150,
-                                }}
-                            />
-                        </div>
-                    )}
+                    {/* Right: Actions/Filters depending on tab */}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {activeSubTab === 'info' && (
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <Search size={11} style={{ position: 'absolute', left: 6, color: 'var(--text-secondary)' }} />
+                                <input
+                                    ref={filterInputRef}
+                                    type="text"
+                                    placeholder="Filter columns..."
+                                    value={filterCol}
+                                    onChange={(e) => setFilterCol(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
+                                    style={{
+                                        fontSize: 11,
+                                        padding: '2px 6px 2px 20px',
+                                        borderRadius: 4,
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-input)',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                        width: 150,
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

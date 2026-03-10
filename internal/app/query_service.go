@@ -436,6 +436,8 @@ func scanRowAsStrings(rows *sql.Rows, colCount int) []string {
 	for i, v := range raw {
 		if v == nil {
 			result[i] = ""
+		} else if b, ok := v.([]byte); ok {
+			result[i] = string(b)
 		} else {
 			result[i] = fmt.Sprintf("%v", v)
 		}

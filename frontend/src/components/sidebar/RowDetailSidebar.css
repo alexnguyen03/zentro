@@ -1,0 +1,108 @@
+.row-detail-sidebar {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.row-detail-table-name {
+    color: var(--text-secondary);
+    font-weight: normal;
+    text-transform: none;
+}
+
+.row-detail-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.row-detail-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.row-detail-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.row-detail-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.row-detail-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.row-detail-key {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.row-detail-copy-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.row-detail-key:hover .row-detail-copy-btn {
+    opacity: 1;
+}
+
+.row-detail-copy-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.row-detail-copy-btn:disabled {
+    opacity: 0 !important;
+    cursor: default;
+}
+
+.row-detail-value {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-height: 28px;
+}
+
+.row-detail-null {
+    color: var(--text-muted);
+    font-style: italic;
+    background: var(--bg-tertiary);
+}
