@@ -109,5 +109,5 @@ func logDatabaseTree(logger *slog.Logger, dbs []*models.DatabaseInfo) {
 		}
 	}
 	sb.WriteString("=====================")
-	logger.Info("schema tree loaded", "tree", sb.String())
+	// logger.Info("schema tree loaded", "tree", sb.String())
 }
