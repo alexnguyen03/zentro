@@ -80,18 +80,6 @@ export const RowDetailSidebar: React.FC = () => {
         toast.success(msg);
     }, [detail, getJsonData, toast, isSelectMode, selectedFields.size]);
 
-    // Double-click on tab header → copy as JSON
-    const lastTabClickTime = useRef(0);
-    const handleTabHeaderClick = useCallback(() => {
-        if (!detail) return;
-        const now = Date.now();
-        if (now - lastTabClickTime.current < 400) {
-            handleCopyJson();
-            lastTabClickTime.current = 0;
-        } else {
-            lastTabClickTime.current = now;
-        }
-    }, [detail, handleCopyJson]);
 
     const copyValue = (val: string) => {
         navigator.clipboard.writeText(val);
@@ -165,9 +153,8 @@ export const RowDetailSidebar: React.FC = () => {
                 >
                     <button
                         className="sidebar-tab-btn active"
-                        title={`${tableName ? `Table: ${tableName} — ` : ''}Double-click to copy as JSON`}
+                        title={`${tableName ? `Table: ${tableName} — ` : ''}`}
                         style={{ flex: 1, justifyContent: 'flex-start', overflow: 'hidden' }}
-                        onClick={handleTabHeaderClick}
                     >
                         <AlignLeft size={13} />
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
