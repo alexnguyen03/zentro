@@ -26,6 +26,7 @@
 
 .tab-bar-tabs {
     display: flex;
+    height: 100%;
     align-items: stretch;
     overflow-x: auto;
     flex: 1;

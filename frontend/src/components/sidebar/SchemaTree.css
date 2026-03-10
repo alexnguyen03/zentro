@@ -38,7 +38,7 @@
 }
 
 .tree-leaf {
-    cursor: default;
+    cursor: pointer;
 }
 
 .tree-leaf:hover {
