@@ -1,17 +1,8 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import {
-    DndContext, closestCenter, PointerSensor,
-    useSensor, useSensors, type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-    SortableContext, verticalListSortingStrategy,
-    useSortable, arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { FetchTableColumns, AlterTableColumn, ReorderTableColumns } from '../../../wailsjs/go/app/App';
+import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
-import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, GripVertical } from 'lucide-react';
+import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
 
@@ -217,8 +208,8 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
     );
 };
 
-// ── SortableRow ────────────────────────────────────────────────
-interface SortableRowProps {
+// ── Row ────────────────────────────────────────────────────────
+interface RowProps {
     row: RowState;
     rowIdx: number;
     displayIdx: number;
@@ -230,25 +221,20 @@ interface SortableRowProps {
     rowError: string | undefined;
 }
 
-const SortableRow: React.FC<SortableRowProps> = ({
+const Row: React.FC<RowProps> = ({
     row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError
 }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
     const col = row.current;
     const isDeleted = row.deleted;
     const isDirty = !isDeleted && !deepEq(row.original, row.current);
 
     const style: React.CSSProperties = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : isDeleted ? 0.55 : 1,
+        opacity: isDeleted ? 0.55 : 1,
         background: isDeleted
             ? 'rgba(220,38,38,.08)'
             : isDirty
                 ? 'rgba(var(--accent-rgb,99,102,241),.09)'
                 : displayIdx % 2 === 1 ? 'var(--bg-secondary)' : undefined,
-        position: 'relative',
-        zIndex: isDragging ? 999 : undefined,
     };
 
     const td: React.CSSProperties = {
@@ -263,13 +249,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
 
     return (
         <>
-            <tr ref={setNodeRef} style={style}>
-                {/* Drag handle */}
-                <td style={{ ...td, width: 28, textAlign: 'center', padding: '4px 4px', cursor: 'grab' }}
-                    {...attributes} {...listeners}>
-                    <GripVertical size={13} style={{ opacity: 0.35, display: 'block', margin: 'auto' }} />
-                </td>
-
+            <tr style={style}>
                 {/* # — double-click to discard changes */}
                 <td
                     style={{
@@ -364,7 +344,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
             </tr>
             {rowError && (
                 <tr style={{ background: 'rgba(220,38,38,.06)' }}>
-                    <td colSpan={7} style={{ padding: '3px 12px', color: 'var(--error-color)', fontSize: 11, borderBottom: '1px solid var(--border-color)' }}>
+                    <td colSpan={6} style={{ padding: '3px 12px', color: 'var(--error-color)', fontSize: 11, borderBottom: '1px solid var(--border-color)' }}>
                         ⚠ {rowError}
                     </td>
                 </tr>
@@ -376,7 +356,6 @@ const SortableRow: React.FC<SortableRowProps> = ({
 // ── Main TableInfo ─────────────────────────────────────────────
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
-    const [order, setOrder] = useState<string[]>([]); // dnd order by row.id
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('info');
@@ -391,8 +370,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const types = getTypesForDriver(driver);
     const { schema, table } = parseTableName(tableName);
 
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
     const load = useCallback(async () => {
         try {
             setLoading(true); setFetchError(null);
@@ -402,7 +379,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 original: { ...c }, current: { ...c }, deleted: false,
             }));
             setRows(rs);
-            setOrder(rs.map(r => r.id));
             setRowErrors({});
         } catch (e: any) { setFetchError(e.toString()); }
         finally { setLoading(false); }
@@ -413,10 +389,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     // Sorted indices (original index order within rows array)
     const displayIds = (() => {
         if (!sortDir || sortCol === 'idx') {
-            // use DnD order
-            return order.filter(id => rows.find(r => r.id === id));
+            return rows.map(r => r.id);
         }
-        return [...order].sort((aid, bid) => {
+        const ids = rows.map(r => r.id);
+        return ids.sort((aid, bid) => {
             const a = rows.find(r => r.id === aid)!;
             const b = rows.find(r => r.id === bid)!;
             let av: any = a.current[sortCol as keyof models.ColumnDef];
@@ -441,25 +417,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 : <ArrowDown size={10} style={{ marginLeft: 3, color: 'var(--accent-color)', flexShrink: 0 }} />
     );
 
-    const handleDragEnd = async (e: DragEndEvent) => {
-        const { active, over } = e;
-        if (!over || active.id === over.id) return;
-        const newOrder = arrayMove(order, order.indexOf(String(active.id)), order.indexOf(String(over.id)));
-        // optimistic UI: apply immediately
-        setOrder(newOrder);
-        setSortCol('idx'); setSortDir('asc');
-        // persist to DB
-        const colNames = newOrder.map(id => rows.find(r => r.id === id)?.current.Name).filter(Boolean) as string[];
-        try {
-            await ReorderTableColumns(schema, table, colNames);
-            // reload to confirm server state
-            await load();
-        } catch (err: any) {
-            // revert order on failure
-            setOrder(order);
-            setRowErrors(e => ({ ...e, [-1]: `Reorder failed: ${err}` }));
-        }
-    };
 
     const updateRow = (rowIdx: number, patch: Partial<models.ColumnDef>) => {
         setRows(prev => prev.map((r, i) => i === rowIdx ? { ...r, current: { ...r.current, ...patch } } : r));
@@ -527,66 +484,60 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             {/* Scrollable table area */}
             <div style={{ flex: 1, overflow: 'hidden' }}>
                 {activeSubTab === 'info' && (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <div className="result-virtual-scroll" style={{ height: '100%' }}>
-                            <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
-                                <colgroup>
-                                    <col style={{ width: 28 }} /> {/* grip */}
-                                    <col style={{ width: 36 }} /> {/* # */}
-                                    <col style={{ width: '22%' }} />
-                                    <col style={{ width: '20%' }} />
-                                    <col style={{ width: 44 }} />
-                                    <col style={{ width: 70 }} />
-                                    <col />
-                                </colgroup>
-                                <thead>
-                                    <tr>
-                                        <th className="rt-th" />
-                                        {([
-                                            { col: 'idx' as SortCol, label: '#' },
-                                            { col: 'Name' as SortCol, label: 'Name' },
-                                            { col: 'DataType' as SortCol, label: 'Data Type' },
-                                            { col: 'IsPrimaryKey' as SortCol, label: 'PK' },
-                                            { col: 'IsNullable' as SortCol, label: 'Nullable' },
-                                            { col: 'DefaultValue' as SortCol, label: 'Default' },
-                                        ]).map(({ col, label }) => (
-                                            <th key={col} className="rt-th rt-th-sortable" style={thStyle} onClick={() => cycleSort(col)}>
-                                                <span className="rt-th-label">
-                                                    {label}<SortIcon col={col} />
-                                                </span>
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <SortableContext items={displayIds} strategy={verticalListSortingStrategy}>
-                                    <tbody>
-                                        {displayIds.map((id, displayIdx) => {
-                                            const rowIdx = rows.findIndex(r => r.id === id);
-                                            const row = rows[rowIdx];
-                                            if (!row) return null;
-                                            return (
-                                                <SortableRow
-                                                    key={id}
-                                                    row={row}
-                                                    rowIdx={rowIdx}
-                                                    displayIdx={displayIdx}
-                                                    types={types}
-                                                    editCell={editCell}
-                                                    setEditCell={setEditCell}
-                                                    onUpdate={updateRow}
-                                                    onDiscard={discardRow}
-                                                    rowError={rowErrors[rowIdx]}
-                                                />
-                                            );
-                                        })}
-                                        {rows.length === 0 && (
-                                            <tr><td colSpan={7} className="p-5 text-center" style={{ color: 'var(--text-secondary)' }}>No columns found.</td></tr>
-                                        )}
-                                    </tbody>
-                                </SortableContext>
-                            </table>
-                        </div>
-                    </DndContext>
+                    <div className="result-virtual-scroll" style={{ height: '100%' }}>
+                        <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
+                            <colgroup>
+                                <col style={{ width: 36 }} /> {/* # */}
+                                <col style={{ width: '22%' }} />
+                                <col style={{ width: '24%' }} />
+                                <col style={{ width: 44 }} />
+                                <col style={{ width: 70 }} />
+                                <col />
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    {([
+                                        { col: 'idx' as SortCol, label: '#' },
+                                        { col: 'Name' as SortCol, label: 'Name' },
+                                        { col: 'DataType' as SortCol, label: 'Data Type' },
+                                        { col: 'IsPrimaryKey' as SortCol, label: 'PK' },
+                                        { col: 'IsNullable' as SortCol, label: 'Nullable' },
+                                        { col: 'DefaultValue' as SortCol, label: 'Default' },
+                                    ]).map(({ col, label }) => (
+                                        <th key={col} className="rt-th rt-th-sortable" style={thStyle} onClick={() => cycleSort(col)}>
+                                            <span className="rt-th-label">
+                                                {label}<SortIcon col={col} />
+                                            </span>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {displayIds.map((id, displayIdx) => {
+                                    const rowIdx = rows.findIndex(r => r.id === id);
+                                    const row = rows[rowIdx];
+                                    if (!row) return null;
+                                    return (
+                                        <Row
+                                            key={id}
+                                            row={row}
+                                            rowIdx={rowIdx}
+                                            displayIdx={displayIdx}
+                                            types={types}
+                                            editCell={editCell}
+                                            setEditCell={setEditCell}
+                                            onUpdate={updateRow}
+                                            onDiscard={discardRow}
+                                            rowError={rowErrors[rowIdx]}
+                                        />
+                                    );
+                                })}
+                                {rows.length === 0 && (
+                                    <tr><td colSpan={6} className="p-5 text-center" style={{ color: 'var(--text-secondary)' }}>No columns found.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
 
                 {activeSubTab === 'data' && (
