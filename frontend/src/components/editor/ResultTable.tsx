@@ -22,6 +22,9 @@ interface ResultTableProps {
     isDone: boolean;
     editedCells: Map<string, string>;
     setEditedCells: React.Dispatch<React.SetStateAction<Map<string, string>>>;
+    selectedCells: Set<string>;
+    setSelectedCells: React.Dispatch<React.SetStateAction<Set<string>>>;
+    deletedRows?: Set<number>;
 }
 
 interface TableMeta {
@@ -36,7 +39,7 @@ interface TableMeta {
     setEditingCell: (cellId: string | null) => void;
 }
 
-export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells }) => {
+export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
@@ -53,7 +56,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     const parentRef = React.useRef<HTMLDivElement>(null);
 
     // Batch Edit States
-    const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
     const [lastSelected, setLastSelected] = useState<string | null>(null);
@@ -70,7 +72,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
 
     useEffect(() => {
         if (!isDone) {
-            setSelectedCells(new Set());
             setEditingCell(null);
             setLastSelected(null);
         }
@@ -104,7 +105,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             setSelectedCells(new Set([id]));
         }
         setLastSelected(id);
-    }, [isDone, lastSelected]);
+    }, [isDone, lastSelected, setSelectedCells]);
 
     const handleCellDoubleClick = React.useCallback((rIdx: number, cIdx: number, val: string) => {
         if (!isDone) return;
@@ -120,7 +121,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             setLastSelected(id);
             return new Set([id]);
         });
-    }, [isDone, isEditable, toast]);
+    }, [isDone, isEditable, toast, setSelectedCells]);
 
     const handleCommitEdit = React.useCallback(() => {
         const currentEditingCell = editingCellRef.current;
@@ -255,7 +256,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     // Infinite Scroll trigger with debounce
     useEffect(() => {
         if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore || fetchMoreRef.current) return;
-        
+
         const lastItem = virtualItems[virtualItems.length - 1];
         if (lastItem.index >= tableRows.length - 15) {
             fetchMoreRef.current = true;
@@ -272,7 +273,10 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         isDone,
         resultState?.hasMore,
         resultState?.isFetchingMore,
-        rows.length
+        rows.length,
+        tabId,
+        setOffset,
+        tableRows.length
     ]);
 
     const totalHeight = virtualizer.getTotalSize();
@@ -316,8 +320,10 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     )}
                     {virtualItems.map((virtualRow) => {
                         const row = tableRows[virtualRow.index];
+                        const isDeleted = deletedRows?.has(virtualRow.index);
+                        const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
                         return (
-                            <tr key={row.id} className={virtualRow.index % 2 === 0 ? '' : 'rt-row-alt'}>
+                            <tr key={row.id} className={`${altClass} ${isDeleted ? 'rt-row-deleted' : ''}`}>
                                 {row.getVisibleCells().map((cell) => (
                                     <td key={cell.id} style={{ width: cell.column.getSize() }}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -331,15 +337,15 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     )}
                     {resultState?.isFetchingMore && (
                         <tr>
-                            <td colSpan={columns.length + 1} style={{ 
-                                textAlign: 'center', 
+                            <td colSpan={columns.length + 1} style={{
+                                textAlign: 'center',
                                 padding: '8px',
                                 background: 'var(--bg-primary)'
                             }}>
-                                <div className="loading-spinner" style={{ 
-                                    display: 'inline-block', 
-                                    width: 16, 
-                                    height: 16, 
+                                <div className="loading-spinner" style={{
+                                    display: 'inline-block',
+                                    width: 16,
+                                    height: 16,
                                     border: '2px solid var(--border-color)',
                                     borderTopColor: 'var(--color-primary)',
                                     borderRadius: '50%',

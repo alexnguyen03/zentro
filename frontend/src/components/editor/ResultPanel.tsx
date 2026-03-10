@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Calculator, Save, Undo, Play, Copy, FilePlus } from 'lucide-react';
+import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Calculator, Save, Undo, Play, Copy, FilePlus, Trash } from 'lucide-react';
 import { TabResult, useResultStore } from '../../stores/resultStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -28,6 +28,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
 
     // Inline edit states
     const [editedCells, setEditedCells] = React.useState<Map<string, string>>(new Map());
+    const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
+    const [deletedRows, setDeletedRows] = React.useState<Set<number>>(new Set());
     const [showSaveModal, setShowSaveModal] = React.useState(false);
 
     const handleCountTotal = React.useCallback(async () => {
@@ -56,6 +58,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                 setTotalCount(null);
                 setIsCounting(false);
                 setEditedCells(new Map());
+                setSelectedCells(new Set());
+                setDeletedRows(new Set());
                 setShowSaveModal(false);
 
                 // Automatically count in parallel
@@ -75,25 +79,41 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
     };
 
     const generateUpdateScript = React.useCallback(() => {
-        if (!result?.tableName || !result?.primaryKeys || editedCells.size === 0) return '';
+        if (!result?.tableName || !result?.primaryKeys || (editedCells.size === 0 && deletedRows.size === 0)) return '';
 
+        const sqlStmts: string[] = [];
+
+        // 1. DELETE statements
+        Array.from(deletedRows).sort((a, b) => b - a).forEach(r => {
+            const where = result.primaryKeys!.map(pk => {
+                let v = result.rows[r][result.columns.indexOf(pk)];
+                return typeof v === 'string' ? `"${pk}" = '${v.replace(/'/g, "''")}'` : `"${pk}" = ${v}`;
+            }).join(' AND ');
+            sqlStmts.push(`DELETE FROM "${result.tableName}" WHERE ${where};`);
+        });
+
+        // 2. UPDATE statements
         const updatesByRow = new Map<number, { col: string, val: string }[]>();
         editedCells.forEach((val, cellId) => {
-            const [r, c] = cellId.split(':').map(Number);
+            const [rStr, cStr] = cellId.split(':');
+            const r = Number(rStr);
+            if (deletedRows.has(r)) return; // Skip edits for deleted rows
+            const c = Number(cStr);
             if (!updatesByRow.has(r)) updatesByRow.set(r, []);
             updatesByRow.get(r)!.push({ col: result.columns[c], val });
         });
 
-        const sqlStmts = Array.from(updatesByRow.entries()).map(([r, edits]) => {
+        updatesByRow.forEach((edits, r) => {
             const where = result.primaryKeys!.map(pk => {
                 let v = result.rows[r][result.columns.indexOf(pk)];
                 return typeof v === 'string' ? `"${pk}" = '${v.replace(/'/g, "''")}'` : `"${pk}" = ${v}`;
             }).join(' AND ');
             const sets = edits.map(e => `"${e.col}" = '${e.val.replace(/'/g, "''")}'`).join(', ');
-            return `UPDATE "${result.tableName}" SET ${sets} WHERE ${where};`;
+            sqlStmts.push(`UPDATE "${result.tableName}" SET ${sets} WHERE ${where};`);
         });
+
         return sqlStmts.join('\n');
-    }, [result, editedCells]);
+    }, [result, editedCells, deletedRows]);
 
     const handleCopyScript = () => {
         navigator.clipboard.writeText(generateUpdateScript());
@@ -104,6 +124,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
         addTab({ name: `Update ${result?.tableName}`, query: generateUpdateScript() });
         setShowSaveModal(false);
         setEditedCells(new Map());
+        setDeletedRows(new Set());
         toast.success("Script opened in a new tab.");
     };
 
@@ -115,8 +136,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
         try {
             setShowSaveModal(false);
             const affected = await ExecuteUpdateSync(script);
-            applyEdits(tabId, editedCells);
+            applyEdits(tabId, editedCells, deletedRows);
             setEditedCells(new Map());
+            setDeletedRows(new Set());
             toast.success(`Update executed successfully (${affected} row${affected !== 1 ? 's' : ''} modified).`);
         } catch (err: any) {
             toast.error(`Update failed: ${err}`);
@@ -172,6 +194,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
         displayTotalCount = result.rows.length;
     }
 
+    const isEditable = result?.tableName && result?.primaryKeys && result.primaryKeys.every(pk => result.columns.includes(pk));
+
     // SELECT result
     return (
         <div className="result-panel result-table-container">
@@ -207,10 +231,27 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                     ) : null}
                 </div>
                 <div className="result-toolbar-center">
-                    {editedCells.size > 0 && (
-                        <div style={{ display: 'flex', gap: '8px', background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>
+                    {isEditable && selectedCells.size > 0 && (
+                        <button
+                            className="result-toolbar-btn result-reload-btn"
+                            onClick={() => {
+                                const rowsToDelete = new Set(Array.from(selectedCells).map(cell => Number(cell.split(':')[0])));
+                                if (window.confirm(`Are you sure you want to mark ${rowsToDelete.size} row(s) for deletion?`)) {
+                                    setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
+                                    setSelectedCells(new Set());
+                                }
+                            }}
+                            title="Delete Selected Rows"
+                            style={{ color: 'var(--color-error)' }}
+                        >
+                            <Trash size={12} />
+                            <span>Delete</span>
+                        </button>
+                    )}
+                    {(editedCells.size > 0 || deletedRows.size > 0) && (
+                        <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px' }}>
                             <span style={{ fontSize: '11px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center' }}>
-                                {editedCells.size} cell(s) edited
+                                {editedCells.size + deletedRows.size} pending change(s)
                             </span>
                             <button
                                 className="result-toolbar-btn result-reload-btn"
@@ -223,7 +264,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                             </button>
                             <button
                                 className="result-toolbar-btn result-reload-btn"
-                                onClick={() => setEditedCells(new Map())}
+                                onClick={() => {
+                                    setEditedCells(new Map());
+                                    setDeletedRows(new Set());
+                                }}
                                 title="Discard Changes"
                             >
                                 <Undo size={12} />
@@ -231,7 +275,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                             </button>
                         </div>
                     )}
-                    {onRun && editedCells.size === 0 && (
+                    {onRun && editedCells.size === 0 && deletedRows.size === 0 && (
                         <button
                             className="result-toolbar-btn result-reload-btn"
                             onClick={onRun}
@@ -270,6 +314,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun }
                     isDone={true}
                     editedCells={editedCells}
                     setEditedCells={setEditedCells}
+                    selectedCells={selectedCells}
+                    setSelectedCells={setSelectedCells}
+                    deletedRows={deletedRows}
                 />
             )}
 

@@ -289,3 +289,9 @@
     min-width: 40px;
     justify-content: flex-end;
 }
+
+.rt-row-deleted td {
+    opacity: 0.5;
+    background: rgba(244, 135, 113, 0.1) !important;
+    text-decoration: line-through;
+}

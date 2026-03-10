@@ -1,11 +1,13 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
+import { FetchTableColumns, AlterTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useResultStore } from '../../stores/resultStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
+import { ResultPanel } from './ResultPanel';
 
 interface TableInfoProps {
     tabId: string;
@@ -402,6 +404,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const types = getTypesForDriver(driver);
     const { schema, table } = parseTableName(tableName);
 
+    const dataTabId = `data-${tabId}`;
+    const dataResult = useResultStore(s => s.results[dataTabId]);
+
     const loadInfo = useCallback(async (silent = false) => {
         try {
             if (silent) setReloading(true); else setLoading(true);
@@ -417,10 +422,17 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         finally { setLoading(false); setReloading(false); }
     }, [schema, table]);
 
-    // Placeholder loaders — wire up when Data/ERD views are implemented
     const loadData = useCallback(async () => {
-        // TODO: fetch rows for data view
-    }, [schema, table]);
+        if (!activeGroupId) return;
+        const query = `SELECT * FROM "${schema}"."${table}"`;
+        ExecuteQuery(dataTabId, query).catch(console.error);
+    }, [schema, table, activeGroupId, dataTabId]);
+
+    useEffect(() => {
+        if (activeSubTab === 'data' && !dataResult) {
+            loadData();
+        }
+    }, [activeSubTab, dataResult, loadData]);
 
     const loadErd = useCallback(async () => {
         // TODO: fetch ERD relationships
@@ -671,10 +683,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 )}
 
                 {activeSubTab === 'data' && (
-                    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-secondary)' }}>
-                        <div className="text-center p-10 border border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
-                            (Placeholder) Data View — {tableName}
-                        </div>
+                    <div className="flex-1" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <ResultPanel tabId={dataTabId} onRun={loadData} result={dataResult} />
                     </div>
                 )}
 
@@ -709,7 +719,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                             {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
                         </span>
                     )}
-                    {activeSubTab === 'data' && <span>Total 0 rows</span>}
                     {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
                 </div>
 

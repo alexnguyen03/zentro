@@ -30,7 +30,7 @@ interface ResultState {
     setOffset: (tabId: string, offset: number) => void;
     clearResult: (tabId: string) => void;
     isDone: (tabId: string) => boolean;
-    applyEdits: (tabId: string, edits: Map<string, string>) => void;
+    applyEdits: (tabId: string, edits: Map<string, string>, deletedRows?: Set<number>) => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -117,11 +117,11 @@ export const useResultStore = create<ResultState>((set, get) => ({
         return { results: newResults };
     }),
 
-    applyEdits: (tabId, edits) => set((state) => {
+    applyEdits: (tabId, edits, deletedRows) => set((state) => {
         const prev = state.results[tabId];
         if (!prev) return state;
 
-        const newRows = [...prev.rows];
+        let newRows = [...prev.rows];
         edits.forEach((val, cellId) => {
             const [rIdx, cIdx] = cellId.split(':').map(Number);
             if (newRows[rIdx]) {
@@ -130,6 +130,10 @@ export const useResultStore = create<ResultState>((set, get) => ({
                 newRows[rIdx] = newRow;
             }
         });
+
+        if (deletedRows && deletedRows.size > 0) {
+            newRows = newRows.filter((_, idx) => !deletedRows.has(idx));
+        }
 
         return {
             results: {
