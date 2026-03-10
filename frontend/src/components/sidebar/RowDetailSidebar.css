@@ -30,6 +30,24 @@
     color: var(--text-primary);
 }
 
+.row-detail-action-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 5px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s;
+}
+
+.row-detail-action-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
 .row-detail-empty {
     flex: 1;
     display: flex;
@@ -45,13 +63,21 @@
     padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .row-detail-field {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    border-radius: 4px;
+    padding: 2px;
+    transition: background 0.15s;
+}
+
+.row-detail-field-dirty {
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+    border-radius: 4px;
 }
 
 .row-detail-key {
@@ -61,6 +87,25 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 4px;
+}
+
+.row-detail-pk-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-primary, #7c6af7);
+}
+
+.row-detail-pk-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: color-mix(in srgb, var(--color-primary, #7c6af7) 18%, transparent);
+    color: var(--color-primary, #7c6af7);
+    border: 1px solid color-mix(in srgb, var(--color-primary, #7c6af7) 40%, transparent);
+    border-radius: 3px;
+    padding: 1px 4px;
 }
 
 .row-detail-copy-btn {
@@ -72,6 +117,7 @@
     border-radius: 3px;
     opacity: 0;
     transition: opacity 0.2s;
+    flex-shrink: 0;
 }
 
 .row-detail-key:hover .row-detail-copy-btn {
@@ -88,6 +134,7 @@
     cursor: default;
 }
 
+/* Shared base for value display */
 .row-detail-value {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
@@ -99,6 +146,39 @@
     white-space: pre-wrap;
     word-break: break-all;
     min-height: 28px;
+}
+
+/* PK fields: plain read-only look */
+.row-detail-pk-value {
+    cursor: default;
+    opacity: 0.85;
+    user-select: text;
+}
+
+/* Editable textarea */
+.row-detail-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    cursor: text;
+    outline: none;
+    line-height: 1.5;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.row-detail-textarea:focus {
+    border-color: var(--color-primary, #7c6af7);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #7c6af7) 20%, transparent);
+}
+
+.row-detail-textarea:disabled {
+    opacity: 0.7;
+    cursor: default;
+    resize: none;
+}
+
+.row-detail-dirty {
+    border-color: var(--color-warning) !important;
 }
 
 .row-detail-null {

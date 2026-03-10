@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
     useReactTable,
     getCoreRowModel,
@@ -6,14 +6,10 @@ import {
     flexRender,
     type ColumnDef,
     type SortingState,
-    type Row,
-    type Cell,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FetchMoreRows } from '../../../wailsjs/go/app/App';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
-import { useRowDetailStore } from '../../stores/rowDetailStore';
-import { useLayoutStore } from '../../stores/layoutStore';
 import { useToast } from '../layout/Toast';
 import { ArrowUp, ArrowDown, Lock, Unlock } from 'lucide-react';
 
@@ -46,7 +42,6 @@ interface TableMeta {
 
 export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows, setDeletedRows }) => {
     const { results, setOffset } = useResultStore();
-    const { openDetail } = useRowDetailStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
 
@@ -131,18 +126,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return newSel;
             });
 
-            // Update row detail directly
-            openDetail({
-                columns: columns,
-                row: rows[rIdx],
-                tableName: resultState?.tableName
-            });
-            const layoutStore = useLayoutStore.getState();
-            if (!layoutStore.showRightSidebar) {
-                layoutStore.setShowRightSidebar(true);
-            }
         }
-    }, [isDone, lastSelected, setSelectedCells, columns, rows, resultState?.tableName, openDetail]);
+    }, [isDone, lastSelected, setSelectedCells]);
 
     const handleCellMouseEnter = React.useCallback((rIdx: number, cIdx: number) => {
         if (!dragStart?.active) return;
@@ -407,8 +392,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                         const row = tableRows[virtualRow.index];
                         const isDeleted = deletedRows?.has(virtualRow.index);
                         const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
+                        const hasRowSel = selectedCells.size > 0 && Array.from(selectedCells).some(k => k.startsWith(`${virtualRow.index}:`));
                         return (
-                            <tr key={row.id} className={`${altClass} ${isDeleted ? 'rt-row-deleted' : ''}`}>
+                            <tr key={row.id} className={`${altClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
                                 {row.getVisibleCells().map((cell) => (
                                     <td key={cell.id} style={{ width: cell.column.getSize() }}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

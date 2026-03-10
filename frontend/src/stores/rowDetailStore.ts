@@ -4,6 +4,8 @@ export interface RowDetail {
     columns: string[];
     row: string[];
     tableName?: string;
+    primaryKeys?: string[];
+    onSave?: (colIdx: number, newVal: string) => void;
 }
 
 interface RowDetailState {

@@ -296,3 +296,11 @@
     background: rgba(244, 135, 113, 0.1) !important;
     text-decoration: line-through;
 }
+
+.result-table-tanstack tr.rt-row-selected td {
+    background: rgba(0, 122, 204, 0.06);
+}
+
+.result-table-tanstack tr.rt-row-selected td:first-child {
+    border-left: 2px solid var(--success-color);
+}

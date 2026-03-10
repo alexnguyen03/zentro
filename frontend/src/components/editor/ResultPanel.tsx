@@ -9,6 +9,8 @@ import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync } from '../../../wails
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import { Modal } from '../layout/Modal';
+import { useRowDetailStore } from '../../stores/rowDetailStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 
 export interface ResultPanelAction {
     id: string;
@@ -44,6 +46,28 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
     const [deletedRows, setDeletedRows] = React.useState<Set<number>>(new Set());
     const [showSaveModal, setShowSaveModal] = React.useState(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
+
+    const { openDetail } = useRowDetailStore();
+    const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
+    const lastTabTime = React.useRef(0);
+
+    // Helper: build and push detail for a given row index
+    const openRowDetail = React.useCallback((rIdx: number) => {
+        if (!result?.columns || !result?.rows?.[rIdx]) return;
+        openDetail({
+            columns: result.columns,
+            row: result.rows[rIdx],
+            tableName: result.tableName,
+            primaryKeys: result.primaryKeys,
+            onSave: (colIdx, newVal) => {
+                setEditedCells(prev => {
+                    const next = new Map(prev);
+                    next.set(`${rIdx}:${colIdx}`, newVal);
+                    return next;
+                });
+            }
+        });
+    }, [result, openDetail, setEditedCells]);
 
     const handleCountTotal = React.useCallback(async () => {
         if (!tabId) return;
@@ -86,6 +110,15 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             prevIsDone.current = result.isDone;
         }
     }, [result?.isDone, handleCountTotal]);
+
+    // Auto-load row detail when sidebar is already open and user clicks any cell
+    React.useEffect(() => {
+        if (!showRightSidebar || selectedCells.size === 0 || !result?.isDone) return;
+        const firstCell = Array.from(selectedCells)[0];
+        const rIdx = Number(firstCell.split(':')[0]);
+        openRowDetail(rIdx);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCells]);
 
     // Publish actions to parent whenever relevant state changes
     const hasChanges = editedCells.size > 0 || deletedRows.size > 0;
@@ -247,9 +280,25 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         displayTotalCount = result.rows.length;
     }
 
-    // SELECT result
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+        if (e.key === 'Tab') {
+            if (selectedCells.size > 0 && result.columns && result.rows) {
+                e.preventDefault();
+                const now = Date.now();
+                if (now - lastTabTime.current < 400) {
+                    // Double tab — open sidebar if not open
+                    const firstCell = Array.from(selectedCells)[0];
+                    const rIdx = Number(firstCell.split(':')[0]);
+                    openRowDetail(rIdx);
+                    setShowRightSidebar(true);
+                    lastTabTime.current = 0; // reset
+                } else {
+                    lastTabTime.current = now;
+                }
+            }
+        }
 
         if (e.key === 'Delete' && isEditable && selectedCells.size > 0) {
             e.preventDefault();
