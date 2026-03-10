@@ -112,3 +112,62 @@
 .resizer.active {
     background-color: var(--accent-color);
 }
+
+/* ─── Explorer Filter Bar ────────────────────────────── */
+.explorer-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.explorer-search-wrap {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.explorer-search-icon {
+    position: absolute;
+    left: 6px;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
+.explorer-search {
+    width: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 11px;
+    padding: 4px 6px 4px 22px;
+    border-radius: 3px;
+    outline: none;
+}
+
+.explorer-search:focus {
+    border-color: var(--accent-color);
+}
+
+.explorer-clear-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    transition: all 0.1s;
+    flex-shrink: 0;
+}
+
+.explorer-clear-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}

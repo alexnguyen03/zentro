@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronRight, ChevronDown,
     Table2, Link2, Eye, Layers, Hash,
     Zap, List, Type, Sigma,
-    Server, Loader, Search
+    Server, Loader, Search, Trash2
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
@@ -28,38 +28,54 @@ interface SchemaNodeData {
 export const ConnectionTree: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
     const [filter, setFilter] = useState('');
+    const filterInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const handleKd = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+                const activeEl = document.activeElement;
+                if (activeEl?.closest('.sidebar')) {
+                    e.preventDefault();
+                    filterInputRef.current?.focus();
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKd);
+        return () => window.removeEventListener('keydown', handleKd);
+    }, []);
 
     if (!isConnected || !activeProfile || !activeProfile.db_name) {
         return null;
     }
 
     return (
-        <div style={{ padding: '0 8px' }}>
-            <div style={{ position: 'relative', marginBottom: 8 }}>
-                <Search size={12} style={{ position: 'absolute', left: 6, top: 6, color: 'var(--text-muted)' }} />
-                <input
-                    type="text"
-                    placeholder="Filter tables..."
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    style={{
-                        width: '100%',
-                        background: 'var(--bg-input)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 4,
-                        padding: '4px 6px 4px 22px',
-                        fontSize: 12,
-                        color: 'var(--text-primary)',
-                        outline: 'none'
-                    }}
-                />
+        <div style={{ position: 'relative' }}>
+            <div className="explorer-filter-bar">
+                <div className="explorer-search-wrap">
+                    <Search size={11} className="explorer-search-icon" />
+                    <input
+                        ref={filterInputRef}
+                        type="text"
+                        className="explorer-search"
+                        placeholder="Filter objects..."
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                    />
+                </div>
+                {filter && (
+                    <button className="explorer-clear-btn" onClick={() => setFilter('')} title="Clear filter">
+                        <Trash2 size={12} />
+                    </button>
+                )}
             </div>
 
-            <DatabaseNode
-                dbName={activeProfile.db_name}
-                profileName={activeProfile.name!}
-                filter={filter.toLowerCase()}
-            />
+            <div style={{ padding: '8px' }}>
+                <DatabaseNode
+                    dbName={activeProfile.db_name}
+                    profileName={activeProfile.name!}
+                    filter={filter.toLowerCase()}
+                />
+            </div>
         </div>
     );
 };
@@ -81,6 +97,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
     const isLoading = useSchemaStore(s => s.loadingKeys.has(key));
     const setTree = useSchemaStore(s => s.setTree);
     const setLoading = useSchemaStore(s => s.setLoading);
+    const { addTab } = useEditorStore();
 
     useEffect(() => {
         const unsub = onSchemaLoaded((data) => {
@@ -101,24 +118,67 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
         }
     }, [profileName, dbName, schemas, isLoading, setLoading]);
 
+    const handleExpand = async () => {
+        const next = !expanded;
+        setExpanded(next);
+        if (next && !schemas && !isLoading) {
+            setLoading(profileName, dbName, true);
+            try {
+                await FetchDatabaseSchema(profileName, dbName);
+            } catch {
+                setLoading(profileName, dbName, false);
+            }
+        }
+    };
+
+    const handleAddTab = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        addTab({
+            type: 'query',
+            name: `Query - ${dbName}`,
+            content: `Query - ${dbName}`,
+            query: ''
+        });
+    };
+
     return (
         <div>
-            <div className="tree-node" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
+            <div className="tree-node" tabIndex={0} onClick={(e) => { e.stopPropagation(); handleExpand(); }} style={{ position: 'relative' }}>
                 {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <Server size={14} color="var(--success-color)" />
                 <span style={{ fontWeight: 600 }}>{dbName}</span>
                 {isLoading && <Loader size={12} style={{ marginLeft: 4, animation: 'spin 1s linear infinite' }} />}
+                <button
+                    onClick={handleAddTab}
+                    title="New Query Tab"
+                    style={{
+                        position: 'absolute',
+                        right: 8,
+                        background: 'var(--accent-color)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 3,
+                        width: 18,
+                        height: 18,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer'
+                    }}
+                >
+                    <span style={{ fontSize: 13, fontWeight: 'bold', lineHeight: 1 }}>+</span>
+                </button>
             </div>
 
             {expanded && (
                 <div className="tree-children">
                     {isLoading && !schemas && (
-                        <div className="tree-node" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        <div className="tree-node" tabIndex={0} style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
                             Loading schemas…
                         </div>
                     )}
                     {schemas && schemas.length === 0 && (
-                        <div className="tree-node" style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        <div className="tree-node" tabIndex={0} style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
                             No schemas found
                         </div>
                     )}
@@ -160,6 +220,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
         <div>
             <div
                 className="tree-node"
+                tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); if (hasItems) setExpanded(!expanded); }}
             >
                 {hasItems
@@ -208,7 +269,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
     return (
         <div>
-            <div className="tree-node" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
+            <div className="tree-node" tabIndex={0} onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
                 {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                 {icon}
                 <span style={{ fontSize: 12 }}>{label}</span>
@@ -221,6 +282,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                         <div
                             key={item}
                             className="tree-node tree-leaf"
+                            tabIndex={0}
                             style={{ fontSize: 12 }}
                             onDoubleClick={() => handleItemDoubleClick(item)}
                         >

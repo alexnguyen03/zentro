@@ -1,9 +1,10 @@
-import React, { useEffect, useLayoutEffect, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { FetchTableColumns, AlterTableColumn } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
 
 interface TableInfoProps {
@@ -392,8 +393,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [sortCol, setSortCol] = useState<SortCol>('idx');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [filterCol, setFilterCol] = useState('');
+    const filterInputRef = useRef<HTMLInputElement>(null);
 
     const { activeProfile } = useConnectionStore();
+    const { activeGroupId, groups } = useEditorStore();
     const driver = activeProfile?.driver ?? 'sqlserver';
     const types = getTypesForDriver(driver);
     const { schema, table } = parseTableName(tableName);
@@ -429,6 +432,24 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     };
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+                const activeEl = document.activeElement;
+                if (activeEl?.closest('.sidebar')) return; // Let sidebar handle its own search
+
+                const activeGroup = groups.find(g => g.id === activeGroupId);
+                if (activeGroup?.activeTabId === tabId) {
+                    e.preventDefault();
+                    if (activeSubTab !== 'info') setActiveSubTab('info');
+                    setTimeout(() => filterInputRef.current?.focus(), 10);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [groups, activeGroupId, tabId, activeSubTab]);
 
     // Sorted indices (original index order within rows array)
     const displayIds = (() => {
@@ -692,6 +713,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                             <Search size={11} style={{ position: 'absolute', left: 6, color: 'var(--text-secondary)' }} />
                             <input
+                                ref={filterInputRef}
                                 type="text"
                                 placeholder="Filter columns..."
                                 value={filterCol}

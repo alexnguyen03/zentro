@@ -1,7 +1,10 @@
 /* ─── Workspace Modal (Ctrl+Shift+P) ────────────────── */
 .ws-overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(0, 0, 0, 0.4);
     z-index: 9999;
     display: flex;
@@ -115,7 +118,7 @@
     font-size: 12px;
 }
 
-/* ─── Red "New Connection" sticky button ────────────── */
+/* ─── Primary "New Connection" sticky button ────────────── */
 .ws-new-btn-container {
     padding: 8px;
     background: var(--bg-main);
@@ -124,7 +127,7 @@
 
 .ws-new-btn {
     width: 100%;
-    background: #ef4444; /* Red color defined by user */
+    background: var(--accent-color);
     color: white;
     border: none;
     padding: 10px;
@@ -136,15 +139,27 @@
 }
 
 .ws-new-btn:hover {
-    background: #dc2626;
+    background: var(--accent-hover);
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slideUp {
-    from { transform: translateY(10px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
