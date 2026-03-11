@@ -5,9 +5,10 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useResultStore } from '../../stores/resultStore';
-import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery, CancelQuery, Connect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
+import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
 
@@ -52,7 +53,7 @@ export const Toolbar: React.FC = () => {
     }
 
     return (
-        <div className="h-12 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
+        <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
             {/* Left */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
@@ -99,13 +100,13 @@ export const Toolbar: React.FC = () => {
                 style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}
             >
                 <div
-                    className="flex justify-center relative"
+                    className="flex justify-center relative h-10/12 my-1"
                     style={{ width: 'min(400px, 33vw)', ['--wails-draggable' as any]: 'no-drag' }}
                 >
                     <div
                         className={cn(
-                            'flex items-center gap-2 w-full px-3 py-1.5 rounded-full border text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
-                            'bg-bg-tertiary border-border',
+                            'flex items-center gap-2 w-full px-3 rounded-lg text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
+                            'bg-success/10',
                             pickerOpen && 'border-success text-text-primary',
                             !pickerOpen && 'hover:text-text-primary hover:border-border',
                         )}
@@ -113,7 +114,7 @@ export const Toolbar: React.FC = () => {
                     >
                         <span
                             className={cn(
-                                'w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300',
+                                'w-2 h-2 rounded-full shrink-0 transition-all duration-300',
                                 connectionStatus === 'connected' ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]' :
                                     connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_6px_rgba(255,95,87,0.5)] animate-pulse' :
                                         'bg-text-secondary'
@@ -121,10 +122,35 @@ export const Toolbar: React.FC = () => {
                             title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
                         />
                         <span className="flex-1 text-center truncate">{breadcrumbLabel}</span>
-                        <ChevronDown
-                            size={14}
-                            className={cn('opacity-50 transition-transform duration-200', pickerOpen && 'rotate-180 opacity-100')}
-                        />
+                        {activeProfile ? (
+                            <button
+                                className={cn(
+                                    "w-5 h-5 flex items-center justify-center rounded-sm transition-colors opacity-100 hover:opacity-80",
+                                    connectionStatus !== 'connected' ? 'bg-bg-tertiary hover:bg-bg-primary' : 'hover:bg-bg-primary'
+                                )}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (connectionStatus === 'error' || connectionStatus === 'disconnected') {
+                                        Connect(activeProfile.name);
+                                    } else {
+                                        setPickerOpen(true);
+                                    }
+                                }}
+                                title={connectionStatus === 'error' ? 'Click to reconnect' : 'Connection provider'}
+                            >
+                                <img
+                                    src={getProvider(activeProfile.driver).icon}
+                                    alt={activeProfile.driver}
+                                    className={cn('w-[15px] h-[15px] shrink-0 transition-all duration-300', isConnected ? 'grayscale-0' : 'grayscale')}
+                                />
+                            </button>
+                        ) : (
+                            <ChevronDown
+                                size={14}
+                                strokeWidth={pickerOpen ? 2.5 : 2}
+                                className={cn('opacity-50 transition-transform duration-200', pickerOpen && 'rotate-180 opacity-100 text-accent')}
+                            />
+                        )}
                     </div>
                 </div>
 
@@ -148,27 +174,27 @@ export const Toolbar: React.FC = () => {
                 {/* Layout toggles */}
                 <Button
                     variant="ghost" size="icon"
-                    className={cn(showSidebar && "bg-bg-tertiary border-border")}
+                    className={cn(showSidebar && "text-accent")}
                     title="Toggle Sidebar (Ctrl+B)"
                     onClick={toggleSidebar}
                 >
-                    <PanelLeft size={14} />
+                    <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
                 </Button>
                 <Button
                     variant="ghost" size="icon"
-                    className={cn(showResultPanel && "bg-bg-tertiary border-border")}
+                    className={cn(showResultPanel && "text-accent")}
                     title="Toggle Result Panel (Ctrl+J)"
                     onClick={toggleResultPanel}
                 >
-                    <PanelBottom size={14} />
+                    <PanelBottom size={14} strokeWidth={showResultPanel ? 2.5 : 2} />
                 </Button>
                 <Button
                     variant="ghost" size="icon"
-                    className={cn(showRightSidebar && "bg-bg-tertiary border-border")}
+                    className={cn(showRightSidebar && "text-accent")}
                     title="Toggle Right Sidebar (Ctrl+Alt+B)"
                     onClick={toggleRightSidebar}
                 >
-                    <PanelRight size={14} />
+                    <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                 </Button>
 
                 <Divider orientation="vertical" className="h-5" />
