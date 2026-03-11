@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Loader, Search, ArrowLeft, X } from 'lucide-react';
+import { Loader, Search, ArrowLeft, X, Info } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { models } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
 import { makeDefaultForm } from '../../lib/providers';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
 
+type ConnectionProfile = models.ConnectionProfile;
 type View = 'list' | 'new-connection';
 
 interface WorkspaceModalProps { onClose: () => void; }
@@ -19,6 +21,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     const existingNames = existingConnections.map(c => c.name!).filter(Boolean);
 
     const [view, setView] = useState<View>('list');
+    const [editProfile, setEditProfile] = useState<ConnectionProfile | null>(null);
     const [selectedConn, setSelectedConn] = useState<string>(activeProfile?.name ?? '');
     const [connecting, setConnecting] = useState(false);
     const [connError, setConnError] = useState<string | null>(null);
@@ -28,8 +31,10 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const form = useConnectionForm({
+        profile: editProfile,
         existingNames,
-        onSaved: () => setView('list'),
+        onSaved: () => { setView('list'); setEditProfile(null); },
+        onClose: () => { setView('list'); setEditProfile(null); }
     });
 
     useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
@@ -61,6 +66,13 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
 
     const handleOpenNewConnection = () => {
         form.resetForm();
+        setEditProfile(null);
+        setView('new-connection');
+    };
+
+    const handleOpenEditConnection = (e: React.MouseEvent, conn: ConnectionProfile) => {
+        e.stopPropagation();
+        setEditProfile(conn);
         setView('new-connection');
     };
 
@@ -100,8 +112,20 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                             </div>
                             <div className={listClass}>
                                 {filteredConns.map(conn => (
-                                    <div key={conn.name} className={cn(itemClass, selectedConn === conn.name && itemActiveClass)} onClick={() => handleSelectConn(conn.name!)}>
-                                        {conn.name}
+                                    <div
+                                        key={conn.name}
+                                        className={cn(itemClass, selectedConn === conn.name && itemActiveClass, "group flex items-center justify-between py-[3px]! pr-[5px]!")}
+                                        onClick={() => handleSelectConn(conn.name!)}
+                                    >
+                                        <span className="truncate flex-1 py-1">{conn.name}</span>
+                                        <button
+                                            type="button"
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-primary transition-all rounded"
+                                            onClick={(e) => handleOpenEditConnection(e, conn)}
+                                            title="Edit Connection"
+                                        >
+                                            <Info size={13} />
+                                        </button>
                                     </div>
                                 ))}
                                 {filteredConns.length === 0 && <div className={itemEmptyClass}>No connections found</div>}
@@ -147,13 +171,14 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                             <div className={headerClass}>Provider</div>
                             <ProviderGrid
                                 selected={form.selectedProvider}
+                                locked={form.isEditing}
                                 onSelect={form.handleDriverChange}
                             />
                             <div className="px-3 py-2 bg-bg-primary shrink-0">
                                 <button
                                     type="button"
                                     className="w-full flex items-center justify-center gap-1.5 border border-border text-text-secondary px-4 py-2 rounded cursor-pointer text-[13px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary"
-                                    onClick={() => setView('list')}
+                                    onClick={() => { setView('list'); setEditProfile(null); }}
                                 >
                                     <ArrowLeft size={13} /> Back
                                 </button>
@@ -163,7 +188,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                         {/* Right — form */}
                         <div className={cn(colClass, 'bg-bg-primary')}>
                             <div className={cn(headerClass, 'flex items-center justify-between')}>
-                                <span>New Connection</span>
+                                <span>{form.isEditing ? `Edit — ${editProfile?.name}` : 'New Connection'}</span>
                                 <button className="text-text-muted hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-0.5 rounded" onClick={onClose}>
                                     <X size={12} />
                                 </button>
@@ -176,13 +201,13 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                 testResult={form.testResult}
                                 errorMsg={form.errorMsg}
                                 successMsg={form.successMsg}
-                                isEditing={false}
-                                showUriField
+                                isEditing={form.isEditing}
+                                showUriField={!form.isEditing}
                                 onChange={form.handleChange}
                                 onConnStringChange={form.handleParseConnectionString}
                                 onTest={form.handleTest}
                                 onSave={form.handleSave}
-                                onCancel={() => setView('list')}
+                                onCancel={() => { setView('list'); setEditProfile(null); }}
                             />
                         </div>
                     </div>
