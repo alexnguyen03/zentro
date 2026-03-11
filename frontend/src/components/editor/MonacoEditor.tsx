@@ -9,7 +9,7 @@ interface MonacoEditorProps {
     tabId: string;
     value: string;
     onChange: (val: string) => void;
-    onRun: () => void;
+    onRun: (query: string) => void;
     isActive?: boolean;
     onFocus?: () => void;
 }
@@ -38,6 +38,102 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         }
     }, [isActive]);
 
+    const runQueryRef = useRef<() => void>();
+
+    const runQuery = useCallback(() => {
+        if (!editorRef.current) return;
+        const editor = editorRef.current;
+        const selection = editor.getSelection();
+        const model = editor.getModel();
+        if (!model) return;
+
+        let textToRun = '';
+        if (selection && !selection.isEmpty()) {
+            textToRun = model.getValueInRange(selection);
+        } else {
+            // Find current block separated by empty lines
+            const position = editor.getPosition();
+            if (position) {
+                const currentLine = position.lineNumber;
+                const lineCount = model.getLineCount();
+
+                // If currently on an empty line, look up to find the nearest block
+                let searchLine = currentLine;
+                while (searchLine > 0 && model.getLineContent(searchLine).trim() === '') {
+                    searchLine--;
+                }
+
+                // If nothing above, look down
+                if (searchLine === 0) {
+                    searchLine = currentLine;
+                    while (searchLine <= lineCount && model.getLineContent(searchLine).trim() === '') {
+                        searchLine++;
+                    }
+                    if (searchLine > lineCount) searchLine = 0;
+                }
+
+                if (searchLine > 0) {
+                    let startLine = searchLine;
+                    while (startLine > 1) {
+                        if (model.getLineContent(startLine - 1).trim() === '') {
+                            break;
+                        }
+                        startLine--;
+                    }
+
+                    let endLine = searchLine;
+                    while (endLine < lineCount) {
+                        if (model.getLineContent(endLine + 1).trim() === '') {
+                            break;
+                        }
+                        endLine++;
+                    }
+
+                    const blockText = model.getValueInRange({
+                        startLineNumber: startLine,
+                        startColumn: 1,
+                        endLineNumber: endLine,
+                        endColumn: model.getLineMaxColumn(endLine)
+                    });
+
+                    if (blockText.trim()) {
+                        textToRun = blockText;
+
+                        // Visually select the executed block to give feedback
+                        editor.setSelection({
+                            startLineNumber: startLine,
+                            startColumn: 1,
+                            endLineNumber: endLine,
+                            endColumn: model.getLineMaxColumn(endLine)
+                        });
+                    }
+                }
+            }
+        }
+
+        // Fallback to full file run if for some reason extracted text is still empty
+        if (!textToRun.trim()) {
+            textToRun = model.getValue();
+        }
+
+        textToRun = textToRun.trim().replace(/;+$/, '');
+        if (!textToRun) return;
+        onRunRef.current(textToRun);
+    }, []);
+
+    runQueryRef.current = runQuery;
+
+    // Listen to global run action from Toolbar
+    useEffect(() => {
+        const handleGlobalRun = (e: any) => {
+            if (e.detail?.tabId === tabId && isActiveRef.current) {
+                runQuery();
+            }
+        };
+        window.addEventListener('run-query-action', handleGlobalRun);
+        return () => window.removeEventListener('run-query-action', handleGlobalRun);
+    }, [tabId, runQuery]);
+
     const activeProfile = useConnectionStore(s => s.activeProfile);
     const trees = useSchemaStore(s => s.trees);
     const { fontSize, theme } = useSettingsStore();
@@ -53,7 +149,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     useEffect(() => {
         if (!monaco) return;
         registerContextAwareSQLCompletion(monaco);
-    }, [monaco]); 
+    }, [monaco]);
 
 
     const handleMount: OnMount = useCallback((editor, monacoInstance) => {
@@ -80,7 +176,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
             precondition: `isEditorFocused_${safeId}`,
             run: () => {
-                onRunRef.current();
+                if (runQueryRef.current) runQueryRef.current();
             }
         });
 

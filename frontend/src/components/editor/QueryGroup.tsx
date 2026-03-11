@@ -43,11 +43,11 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     }, [tabs, removeTab, groupId]);
 
     // ── Run / Cancel ──────────────────────────────────────────────────────
-    const handleRun = useCallback(async () => {
+    const handleRun = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected) return;
         useResultStore.getState().setFilterExpr(activeTab.id, '');
         try {
-            await ExecuteQuery(activeTab.id, activeTab.query);
+            await ExecuteQuery(activeTab.id, queryToRun);
         } catch (err: any) {
             console.error('ExecuteQuery error:', err);
         }

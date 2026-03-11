@@ -38,8 +38,7 @@ export const Toolbar: React.FC = () => {
 
     const handleRun = async () => {
         if (!activeTab || !isConnected) return;
-        useResultStore.getState().setFilterExpr(activeTab.id, '');
-        try { await ExecuteQuery(activeTab.id, activeTab.query); } catch { /* event-driven */ }
+        window.dispatchEvent(new CustomEvent('run-query-action', { detail: { tabId: activeTab.id } }));
     };
 
     const handleCancel = async () => {
