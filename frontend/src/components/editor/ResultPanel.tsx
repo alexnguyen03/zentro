@@ -470,7 +470,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         )}
 
                         {/* Table — always visible, slightly dimmed while reloading */}
-                        <div style={{ flex: 1, overflow: 'hidden', opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
                             <ResultTable
                                 tabId={tabId}
                                 columns={result.columns}
