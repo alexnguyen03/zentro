@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Save, Undo, Play, Copy, FilePlus } from 'lucide-react';
+import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Save, RefreshCw, Play, Copy, FilePlus } from 'lucide-react';
 import { TabResult, useResultStore } from '../../stores/resultStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -146,7 +146,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         if (hasChanges) {
             actions.push({
                 id: 'discard',
-                icon: <Undo size={11} />,
+                icon: <RotateCcw size={11} />,
                 label: 'Discard',
                 title: 'Discard',
                 onClick: () => { setEditedCells(new Map()); setDeletedRows(new Set()); },
@@ -164,7 +164,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         if (!hasChanges && onRun) {
             actions.push({
                 id: 'reload',
-                icon: <RotateCcw size={11} />,
+                icon: <RefreshCw size={11} />,
                 label: 'Reload',
                 title: 'Reload',
                 onClick: onRun,
