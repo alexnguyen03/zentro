@@ -23,7 +23,7 @@ export const Modal: React.FC<ModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-modal backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-modal backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
             <div
                 className="bg-bg-secondary border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] overflow-hidden"
                 style={{ width, maxWidth: '90vw' }}

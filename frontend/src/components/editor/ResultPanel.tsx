@@ -10,6 +10,7 @@ import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync } from '../../../wails
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import { Modal } from '../layout/Modal';
+import { Button } from '../ui';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 
@@ -559,19 +560,16 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 title="Confirm Changes"
                 width={600}
                 footer={
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                        <button className="btn" onClick={() => setShowSaveModal(false)}>Cancel</button>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="btn" onClick={handleCopyScript}>
-                                <Copy size={14} style={{ marginRight: 6 }} /> Copy
-                            </button>
-                            <button className="btn" onClick={handleOpenInNewTab}>
-                                <FilePlus size={14} style={{ marginRight: 6 }} /> Open in New Tab
-                            </button>
-                            <button className="btn primary" onClick={handleDirectExecute}>
-                                <Play size={14} style={{ marginRight: 6 }} /> Execute Update
-                            </button>
-                        </div>
+                    <div className="flex w-full items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={handleCopyScript} title="Copy Script">
+                            <Copy size={14} />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab">
+                            <FilePlus size={14} />
+                        </Button>
+                        <Button variant="primary" size="icon" onClick={handleDirectExecute} title="Execute Update" autoFocus>
+                            <Play size={14} />
+                        </Button>
                     </div>
                 }
             >
