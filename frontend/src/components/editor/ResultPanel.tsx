@@ -147,6 +147,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             actions.push({
                 id: 'discard',
                 icon: <Undo size={11} />,
+                label: 'Discard',
                 title: 'Discard',
                 onClick: () => { setEditedCells(new Map()); setDeletedRows(new Set()); },
                 danger: true,
@@ -154,6 +155,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             actions.push({
                 id: 'save',
                 icon: <Save size={11} />,
+                label: 'Save',
                 title: 'Save',
                 onClick: () => setShowSaveModal(true),
             });
@@ -163,6 +165,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             actions.push({
                 id: 'reload',
                 icon: <RotateCcw size={11} />,
+                label: 'Reload',
                 title: 'Reload',
                 onClick: onRun,
             });
