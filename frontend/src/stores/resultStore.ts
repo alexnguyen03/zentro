@@ -14,6 +14,8 @@ export interface TabResult {
     tableName?: string;
     primaryKeys?: string[];
     filterExpr: string;
+    /** The actual query that was last executed — used for filter tooltip display */
+    lastExecutedQuery?: string;
 }
 
 interface ResultState {
@@ -33,6 +35,7 @@ interface ResultState {
     isDone: (tabId: string) => boolean;
     applyEdits: (tabId: string, edits: Map<string, string>, deletedRows?: Set<number>) => void;
     setFilterExpr: (tabId: string, filterExpr: string) => void;
+    setLastExecutedQuery: (tabId: string, query: string) => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -56,7 +59,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
                     isFetchingMore: false,
                     tableName: prev?.tableName,
                     primaryKeys: prev?.primaryKeys,
-                    filterExpr: prev?.filterExpr || ''
+                    filterExpr: prev?.filterExpr || '',
+                    lastExecutedQuery: prev?.lastExecutedQuery,
                 }
             }
         };
@@ -163,10 +167,18 @@ export const useResultStore = create<ResultState>((set, get) => ({
         return {
             results: {
                 ...state.results,
-                [tabId]: {
-                    ...prev,
-                    filterExpr
-                }
+                [tabId]: { ...prev, filterExpr }
+            }
+        };
+    }),
+
+    setLastExecutedQuery: (tabId, query) => set((state) => {
+        const prev = state.results[tabId];
+        if (!prev) return state;
+        return {
+            results: {
+                ...state.results,
+                [tabId]: { ...prev, lastExecutedQuery: query }
             }
         };
     }),

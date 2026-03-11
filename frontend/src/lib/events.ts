@@ -63,6 +63,7 @@ export interface SchemaErrorPayload {
 
 export interface QueryStartedPayload {
     tabID: string;
+    query: string;
 }
 
 export interface QueryChunkPayload {

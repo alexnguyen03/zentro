@@ -19,6 +19,7 @@ import {
     closestCenter
 } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
+import { buildFilterQuery } from '../../lib/queryBuilder';
 
 export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
@@ -46,23 +47,29 @@ export const QueryTabs: React.FC = () => {
     const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
         if (!globalActiveTab || !isConnected) return;
 
-        let queryToRun = globalActiveTab.query;
-        if (filter.trim() !== '') {
-            const base = globalActiveTab.query.replace(/;\s*$/, '');
-            queryToRun = `SELECT * FROM (\n${base}\n) AS _zentro_filter\nWHERE ${filter}`;
-        }
+        // Use lastExecutedQuery (= the query the backend actually ran) as filter base
+        const baseForFilter = globalActiveResult?.lastExecutedQuery || globalActiveTab.query;
+        const queryToRun = filter.trim() !== ''
+            ? buildFilterQuery(baseForFilter, filter)
+            : baseForFilter;
 
         try {
             await ExecuteQuery(globalActiveTab.id, queryToRun);
         } catch (err: any) {
             console.error('ExecuteQuery (filter) error:', err);
         }
-    }, [globalActiveTab, isConnected]);
+    }, [globalActiveTab, isConnected, globalActiveResult]);
 
     const handleAppendToQuery = React.useCallback((fullQuery: string) => {
         if (!globalActiveTabId) return;
-        updateTabQuery(globalActiveTabId, fullQuery);
-    }, [globalActiveTabId, updateTabQuery]);
+        const currentQuery = globalActiveGroup?.tabs.find(t => t.id === globalActiveTabId)?.query ?? '';
+        const sep = currentQuery.trimEnd() ? '\n\n' : '';
+        updateTabQuery(globalActiveTabId, currentQuery.trimEnd() + sep + fullQuery);
+    }, [globalActiveTabId, globalActiveGroup, updateTabQuery]);
+
+    const handleOpenFilterInNewTab = React.useCallback((fullQuery: string) => {
+        addTab({ name: 'New Query', query: fullQuery });
+    }, [addTab]);
 
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<any>(null);
@@ -226,8 +233,9 @@ export const QueryTabs: React.FC = () => {
                                 result={globalActiveResult}
                                 onRun={handleRunGlobal}
                                 onFilterRun={handleFilterRunGlobal}
-                                baseQuery={globalActiveTab?.query}
+                                baseQuery={globalActiveResult?.lastExecutedQuery || globalActiveTab?.query}
                                 onAppendToQuery={handleAppendToQuery}
+                                onOpenInNewTab={handleOpenFilterInNewTab}
                             />
                         </div>
                     </Allotment.Pane>

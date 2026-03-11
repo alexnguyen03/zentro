@@ -32,13 +32,15 @@ interface ResultPanelProps {
     onActionsChange?: (actions: ResultPanelAction[]) => void;
     /** The base query being wrapped */
     baseQuery?: string;
-    /** Action to append to the active editor */
+    /** Appends generated filter SQL to the end of the active editor */
     onAppendToQuery?: (fullQuery: string) => void;
+    /** Opens generated filter SQL in a new query tab */
+    onOpenInNewTab?: (fullQuery: string) => void;
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
-export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onActionsChange, baseQuery, onAppendToQuery }) => {
+export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onActionsChange, baseQuery, onAppendToQuery, onOpenInNewTab }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const addTab = useEditorStore(s => s.addTab);
     const { toast } = useToast();
@@ -471,6 +473,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                                 onChange={setFilterExpr}
                                 baseQuery={baseQuery}
                                 onAppendToQuery={onAppendToQuery}
+                                onOpenInNewTab={onOpenInNewTab}
                                 onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
                                 onClear={() => {
                                     setFilterExpr('');

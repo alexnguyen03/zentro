@@ -1,6 +1,8 @@
 import React, { useRef, useEffect } from 'react';
-import { Play, ExternalLink, X } from 'lucide-react';
+import { Copy, PlusSquare, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { buildFilterQuery, getQueryShape } from '../../lib/queryBuilder';
+import { useToast } from '../layout/Toast';
 
 interface ResultFilterBarProps {
     value: string;
@@ -10,12 +12,11 @@ interface ResultFilterBarProps {
     onClear: () => void;
     /** The base query being wrapped */
     baseQuery?: string;
-    /** Action to append the generated filter SQL into the active editor */
+    /** Appends the generated filter SQL as new lines at the end of the active editor */
     onAppendToQuery?: (fullQuery: string) => void;
+    /** Opens the generated filter SQL in a new query tab */
+    onOpenInNewTab?: (fullQuery: string) => void;
 }
-
-import { Copy, PlusSquare } from 'lucide-react';
-import { useToast } from '../layout/Toast';
 
 export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     value,
@@ -24,11 +25,12 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     onClear,
     baseQuery,
     onAppendToQuery,
+    onOpenInNewTab,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
     const [showTooltip, setShowTooltip] = React.useState(false);
-    let tooltipTimeout = useRef<number>();
+    const tooltipTimeout = useRef<number>();
 
     // ESC → clear
     useEffect(() => {
@@ -41,15 +43,45 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
         return () => el.removeEventListener('keydown', onKey);
     }, [onClear]);
 
-    const btnClass = cn(
-        'flex items-center justify-center gap-1 px-2 py-[3px] border border-transparent rounded text-[11px]',
-        'text-text-secondary hover:border-border hover:bg-bg-tertiary hover:text-text-primary',
+    const iconBtn = cn(
+        'flex items-center justify-center p-1 border border-transparent rounded',
+        'text-text-secondary hover:border-border hover:bg-bg-secondary hover:text-text-primary',
         'transition-colors cursor-pointer shrink-0'
     );
 
+    const renderQueryPreview = (q: string) => {
+        const shape = getQueryShape(q);
+        const cond = value || '<condition>';
+
+        if (shape === 'bare') {
+            return <>
+                {q} <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter<br />
+                <span className="text-success font-semibold">WHERE</span> {cond}
+            </>;
+        }
+
+        if (shape === 'has-where') {
+            const whereIdx = q.search(/\bwhere\b/i);
+            const beforeWhere = q.slice(0, whereIdx).trimEnd();
+            const existingCond = q.slice(whereIdx + 5).trim();
+            return <>
+                {beforeWhere} <span className="text-pink-600 dark:text-pink-400">WHERE</span> ({existingCond})<br />
+                <span className="pl-4 inline-block text-pink-600 dark:text-pink-400">AND</span> ({cond})
+            </>;
+        }
+
+        // complex — subquery wrap
+        return <>
+            <span className="text-pink-600 dark:text-pink-400">SELECT</span> * <span className="text-pink-600 dark:text-pink-400">FROM</span> (<br />
+            <span className="pl-4 inline-block">{q}</span><br />
+            ) <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter<br />
+            <span className="text-success font-semibold">WHERE</span> {cond}
+        </>;
+    };
+
     return (
         <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-bg-secondary shrink-0 relative">
-            {/* Label with Hover Tooltip */}
+            {/* WHERE label — hover shows tooltip */}
             <div
                 className="relative flex items-center"
                 onMouseEnter={() => {
@@ -66,41 +98,55 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
 
                 {/* Tooltip Popup */}
                 {showTooltip && baseQuery && (
-                    <div className="absolute top-full left-0 mt-2 z-50 w-[450px] bg-bg-primary border border-border rounded-md shadow-lg flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                    <div className="absolute top-full left-0 mt-2 z-50 w-[480px] bg-bg-primary border border-border rounded-md shadow-lg flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
                         <div className="px-3 py-2 bg-bg-tertiary flex items-center justify-between border-b border-border">
                             <span className="text-xs font-semibold text-text-primary">Current Query (Filtered)</span>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-0.5">
+                                {/* Copy */}
                                 <button
-                                    className="flex items-center gap-1 px-1.5 py-1 text-[10px] text-text-secondary hover:text-text-primary hover:bg-bg-secondary rounded border border-transparent hover:border-border transition-colors cursor-pointer"
+                                    className={iconBtn}
+                                    title="Copy query"
                                     onClick={() => {
-                                        const queryToCopy = `SELECT * FROM (\n${baseQuery.replace(/;\s*$/, '')}\n) AS _zentro_filter\nWHERE ${value || '<condition>'}`;
-                                        navigator.clipboard.writeText(queryToCopy);
+                                        navigator.clipboard.writeText(
+                                            buildFilterQuery(baseQuery, value || '<condition>')
+                                        );
                                         toast.success('Query copied to clipboard');
                                     }}
                                 >
-                                    <Copy size={10} />
-                                    <span>Copy</span>
+                                    <Copy size={12} />
                                 </button>
+
+                                {/* Append to editor */}
                                 {onAppendToQuery && (
                                     <button
-                                        className="flex items-center gap-1 px-1.5 py-1 text-[10px] text-success hover:bg-success/10 rounded border border-transparent hover:border-success/30 transition-colors cursor-pointer"
+                                        className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
+                                        title="Append to current tab (last line)"
                                         onClick={() => {
-                                            const queryToAppend = `SELECT * FROM (\n${baseQuery.replace(/;\s*$/, '')}\n) AS _zentro_filter\nWHERE ${value || '<condition>'}`;
-                                            onAppendToQuery(queryToAppend);
+                                            onAppendToQuery(buildFilterQuery(baseQuery, value || '<condition>'));
                                             setShowTooltip(false);
                                         }}
                                     >
-                                        <PlusSquare size={10} />
-                                        <span>Append</span>
+                                        <PlusSquare size={12} />
+                                    </button>
+                                )}
+
+                                {/* Open in new tab */}
+                                {onOpenInNewTab && (
+                                    <button
+                                        className={cn(iconBtn, 'text-text-secondary hover:text-text-primary')}
+                                        title="Open in new tab"
+                                        onClick={() => {
+                                            onOpenInNewTab(buildFilterQuery(baseQuery, value || '<condition>'));
+                                            setShowTooltip(false);
+                                        }}
+                                    >
+                                        <ExternalLink size={12} />
                                     </button>
                                 )}
                             </div>
                         </div>
                         <div className="p-3 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-text-secondary">
-                            <span className="text-pink-600 dark:text-pink-400">SELECT</span> * <span className="text-pink-600 dark:text-pink-400">FROM</span> (<br />
-                            <span className="pl-4 inline-block">{baseQuery.replace(/;\s*$/, '')}</span><br />
-                            ) <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter<br />
-                            <span className="text-success font-semibold">WHERE</span> {value || '<condition>'}
+                            {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim())}
                         </div>
                     </div>
                 )}

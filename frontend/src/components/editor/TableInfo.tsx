@@ -7,6 +7,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
+import { buildFilterQuery } from '../../lib/queryBuilder';
 import { ResultPanel, type ResultPanelAction } from './ResultPanel';
 
 interface TableInfoProps {
@@ -425,8 +426,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const loadData = useCallback(async (filter?: string) => {
         if (!activeGroupId) return;
-        let query = `SELECT * FROM "${schema}"."${table}"`;
-        if (filter?.trim()) query = `SELECT * FROM (\n${query}\n) AS _zentro_filter\nWHERE ${filter}`;
+        const baseTableQuery = `SELECT * FROM "${schema}"."${table}"`;
+        const query = filter?.trim()
+            ? buildFilterQuery(baseTableQuery, filter)
+            : baseTableQuery;
+        // Track the base query so the tooltip reflects the actual executed query
+        useResultStore.getState().setLastExecutedQuery(dataTabId, baseTableQuery);
         ExecuteQuery(dataTabId, query).catch(console.error);
     }, [schema, table, activeGroupId, dataTabId]);
 
@@ -693,6 +698,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                             result={dataResult}
                             onActionsChange={setDataTabActions}
                             onFilterRun={(filter) => loadData(filter)}
+                            baseQuery={dataResult?.lastExecutedQuery || `SELECT * FROM "${schema}"."${table}"`}
                         />
                     </div>
                 )}

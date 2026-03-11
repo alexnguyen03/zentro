@@ -91,9 +91,14 @@ function App() {
                 console.warn('[zentro] schema:error', data);
                 toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
             }),
-            onQueryStarted(({ tabID }) => {
+            onQueryStarted(({ tabID, query }) => {
                 setTabRunning(tabID, true);
                 initTab(tabID);
+                // Store the original query for tooltip/filter — skip filter-wrapped queries
+                // so the base stays as the user's original query
+                if (query && !query.includes('_zentro_filter')) {
+                    useResultStore.getState().setLastExecutedQuery(tabID, query);
+                }
             }),
             onQueryChunk(({ tabID, columns, rows, tableName, primaryKeys }) => {
                 appendRows(tabID, columns, rows, tableName, primaryKeys);

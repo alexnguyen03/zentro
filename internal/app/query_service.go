@@ -76,7 +76,7 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 	s.sessions[tabID] = session
 	s.sessionsMu.Unlock()
 
-	emitEvent(s.ctx, "query:started", map[string]any{"tabID": tabID})
+	emitEvent(s.ctx, "query:started", map[string]any{"tabID": tabID, "query": query})
 	s.logger.Info("executing query", "tab", tabID)
 
 	if dbpkg.IsSelectQuery(query) {
@@ -437,7 +437,25 @@ func scanRowAsStrings(rows *sql.Rows, colCount int) []string {
 		if v == nil {
 			result[i] = ""
 		} else if b, ok := v.([]byte); ok {
-			result[i] = string(b)
+			// MSSQL uniqueidentifier is returned as 16 raw bytes in mixed-endian order.
+			// Format: Data1(4LE) Data2(2LE) Data3(2LE) Data4(8BE)
+			if len(b) == 16 {
+				result[i] = fmt.Sprintf(
+					"%08x-%04x-%04x-%04x-%012x",
+					// Data1: bytes 0-3 little-endian
+					uint32(b[3])<<24|uint32(b[2])<<16|uint32(b[1])<<8|uint32(b[0]),
+					// Data2: bytes 4-5 little-endian
+					uint16(b[5])<<8|uint16(b[4]),
+					// Data3: bytes 6-7 little-endian
+					uint16(b[7])<<8|uint16(b[6]),
+					// Data4a: bytes 8-9 big-endian
+					[]byte{b[8], b[9]},
+					// Data4b: bytes 10-15 big-endian
+					[]byte{b[10], b[11], b[12], b[13], b[14], b[15]},
+				)
+			} else {
+				result[i] = string(b)
+			}
 		} else {
 			result[i] = fmt.Sprintf("%v", v)
 		}

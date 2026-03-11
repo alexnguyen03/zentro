@@ -1,0 +1,8 @@
+fix(query): refine result filter bar and mssql uuid display
+
+- Introduce queryBuilder.ts to smartly append WHERE clauses based on query shape.
+- Fix multi-statement filter application by extracting the last SELECT query.
+- Track lastExecutedQuery via backend events to ensure accurate filter tooltips.
+- Add 'Open in New Tab' feature and use icon-only buttons in the filter bar.
+- Fix TableInfo Data view to correctly show the filter tooltip.
+- Fix MSSQL uniqueidentifier displaying as garbled binary by properly mapping bytes to standard UUID format.
