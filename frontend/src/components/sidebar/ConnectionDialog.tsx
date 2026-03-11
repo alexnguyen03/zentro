@@ -34,7 +34,7 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({
 
     if (!isOpen) return null;
 
-    const headerClass = 'px-4 py-3 bg-bg-tertiary text-[11px] font-semibold uppercase text-text-secondary border-b border-border shrink-0';
+    const headerClass = 'px-4 py-3 bg-bg-tertiary text-[11px] font-semibold text-text-secondary border-b border-border shrink-0';
 
     return (
         <div

@@ -82,7 +82,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
             >
                 {/* Connections column */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] uppercase text-text-secondary bg-black/15 border-b border-border shrink-0">Connection</div>
+                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-text-secondary bg-black/15 border-b border-border shrink-0">Connection</div>
                     <div className="overflow-y-auto flex-1">
                         {connections.map((conn) => {
                             const isSelected = selectedConn === conn.name;
@@ -109,7 +109,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
 
                 {/* Databases column */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] uppercase text-text-secondary bg-black/15 border-b border-border shrink-0">Database</div>
+                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-text-secondary bg-black/15 border-b border-border shrink-0">Database</div>
                     <div className="overflow-y-auto flex-1">
                         {connecting ? (
                             <div className="px-3.5 py-4 text-xs text-text-secondary flex items-center gap-2">

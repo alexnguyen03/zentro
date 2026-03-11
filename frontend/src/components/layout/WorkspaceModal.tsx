@@ -82,7 +82,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
 
     // ── Style tokens ──────────────────────────────────────────────────────────
     const colClass = 'flex-1 flex flex-col overflow-hidden';
-    const headerClass = 'px-4 py-3 bg-bg-tertiary text-[11px] font-semibold uppercase text-text-secondary border-b border-border shrink-0';
+    const headerClass = 'px-4 py-3 bg-bg-tertiary text-[14px] font-semibold text-text-secondary border-b border-border shrink-0';
     const filterContainerClass = 'px-3 py-2 border-b border-border bg-bg-primary flex items-center shrink-0';
     const searchInputClass = 'w-full bg-transparent border-none text-text-primary outline-none text-[13px] px-1 placeholder:text-text-muted';
     const listClass = 'flex-1 overflow-y-auto py-2 bg-bg-primary';
