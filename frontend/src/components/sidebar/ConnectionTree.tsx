@@ -135,14 +135,15 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
     return (
         <div>
             <div
-                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none")}
+                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden")}
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); handleExpand(); }}
+                title={dbName}
             >
-                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <Server size={14} className="text-success" />
-                <span className="font-semibold">{dbName}</span>
-                {isLoading && <Loader size={12} className="ml-1 animate-spin" />}
+                {expanded ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
+                <Server size={14} className="text-success shrink-0" />
+                <span className="font-semibold truncate flex-1">{dbName}</span>
+                {isLoading && <Loader size={12} className="ml-1 animate-spin shrink-0" />}
             </div>
 
             {expanded && (
@@ -194,16 +195,16 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
     return (
         <div>
             <div
-                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); if (hasItems) setExpanded(!expanded); }}
+                title={schema.Name}
             >
-                {hasItems
-                    ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
-                    : <span className="w-3.5 inline-block" />
-                }
-                <Layers size={13} className="opacity-80" />
-                <span className="text-xs">{schema.Name}</span>
+                <div className="flex items-center justify-center shrink-0 w-[14px]">
+                    {hasItems ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
+                </div>
+                <Layers size={13} className="opacity-80 shrink-0" />
+                <span className="text-xs truncate flex-1">{schema.Name}</span>
             </div>
 
             {expanded && (
@@ -245,13 +246,13 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
     return (
         <div>
             <div
-                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             >
-                {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                {icon}
-                <span className="text-xs">{label}</span>
+                {expanded ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
+                <div className="shrink-0">{icon}</div>
+                <span className="text-xs truncate">{label}</span>
                 <span className="ml-auto text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">{items.length}</span>
             </div>
 
@@ -260,13 +261,14 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                     {items.map(item => (
                         <div
                             key={item}
-                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none"
+                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                             tabIndex={0}
                             onDoubleClick={() => handleItemDoubleClick(item)}
+                            title={item}
                         >
-                            <span className="w-3.5 inline-block" />
+                            <span className="w-[13px] shrink-0 inline-block" />
                             {itemIcon}
-                            <span>{item}</span>
+                            <span className="truncate flex-1">{item}</span>
                         </div>
                     ))}
                 </div>

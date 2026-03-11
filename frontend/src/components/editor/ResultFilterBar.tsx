@@ -83,7 +83,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
         <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-bg-secondary shrink-0 relative">
             {/* WHERE label — hover shows tooltip */}
             <div
-                className="relative flex items-center"
+                className="relative flex items-center border-r pr-1"
                 onMouseEnter={() => {
                     tooltipTimeout.current && clearTimeout(tooltipTimeout.current);
                     setShowTooltip(true);
