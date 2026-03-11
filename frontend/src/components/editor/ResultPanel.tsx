@@ -30,18 +30,27 @@ interface ResultPanelProps {
     /** Called with a WHERE filter expression; parent wraps base query and re-runs. */
     onFilterRun?: (filter: string) => void;
     onActionsChange?: (actions: ResultPanelAction[]) => void;
+    /** The base query being wrapped */
+    baseQuery?: string;
+    /** Action to append to the active editor */
+    onAppendToQuery?: (fullQuery: string) => void;
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
-export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onActionsChange }) => {
+export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onActionsChange, baseQuery, onAppendToQuery }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const addTab = useEditorStore(s => s.addTab);
     const { toast } = useToast();
 
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
-    const [filterExpr, setFilterExpr] = React.useState('');
+
+    // Bind filter expr to result store so "Run" can clear it externally
+    const filterExpr = result?.filterExpr || '';
+    const setFilterExpr = React.useCallback((val: string) => {
+        useResultStore.getState().setFilterExpr(tabId, val);
+    }, [tabId]);
 
     // Inline edit states
     const [editedCells, setEditedCells] = React.useState<Map<string, string>>(new Map());
@@ -460,6 +469,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                             <ResultFilterBar
                                 value={filterExpr}
                                 onChange={setFilterExpr}
+                                baseQuery={baseQuery}
+                                onAppendToQuery={onAppendToQuery}
                                 onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
                                 onClear={() => {
                                     setFilterExpr('');

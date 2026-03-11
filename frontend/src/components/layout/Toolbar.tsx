@@ -4,6 +4,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useResultStore } from '../../stores/resultStore';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
@@ -35,6 +36,7 @@ export const Toolbar: React.FC = () => {
 
     const handleRun = async () => {
         if (!activeTab || !isConnected) return;
+        useResultStore.getState().setFilterExpr(activeTab.id, '');
         try { await ExecuteQuery(activeTab.id, activeTab.query); } catch { /* event-driven */ }
     };
 

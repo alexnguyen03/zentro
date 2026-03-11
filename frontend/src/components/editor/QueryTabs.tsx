@@ -21,7 +21,7 @@ import {
 import { cn } from '../../lib/cn';
 
 export const QueryTabs: React.FC = () => {
-    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag } = useEditorStore();
+    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
     const { results } = useResultStore();
     const { isConnected } = useConnectionStore();
     const { showResultPanel } = useLayoutStore();
@@ -35,6 +35,7 @@ export const QueryTabs: React.FC = () => {
 
     const handleRunGlobal = React.useCallback(async () => {
         if (!globalActiveTab || !isConnected) return;
+        useResultStore.getState().setFilterExpr(globalActiveTab.id, '');
         try {
             await ExecuteQuery(globalActiveTab.id, globalActiveTab.query);
         } catch (err: any) {
@@ -57,6 +58,11 @@ export const QueryTabs: React.FC = () => {
             console.error('ExecuteQuery (filter) error:', err);
         }
     }, [globalActiveTab, isConnected]);
+
+    const handleAppendToQuery = React.useCallback((fullQuery: string) => {
+        if (!globalActiveTabId) return;
+        updateTabQuery(globalActiveTabId, fullQuery);
+    }, [globalActiveTabId, updateTabQuery]);
 
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<any>(null);
@@ -220,6 +226,8 @@ export const QueryTabs: React.FC = () => {
                                 result={globalActiveResult}
                                 onRun={handleRunGlobal}
                                 onFilterRun={handleFilterRunGlobal}
+                                baseQuery={globalActiveTab?.query}
+                                onAppendToQuery={handleAppendToQuery}
                             />
                         </div>
                     </Allotment.Pane>

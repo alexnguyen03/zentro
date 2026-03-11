@@ -13,6 +13,7 @@ export interface TabResult {
     isFetchingMore: boolean;
     tableName?: string;
     primaryKeys?: string[];
+    filterExpr: string;
 }
 
 interface ResultState {
@@ -31,6 +32,7 @@ interface ResultState {
     clearResult: (tabId: string) => void;
     isDone: (tabId: string) => boolean;
     applyEdits: (tabId: string, edits: Map<string, string>, deletedRows?: Set<number>) => void;
+    setFilterExpr: (tabId: string, filterExpr: string) => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -53,7 +55,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
                     offset: 0,
                     isFetchingMore: false,
                     tableName: prev?.tableName,
-                    primaryKeys: prev?.primaryKeys
+                    primaryKeys: prev?.primaryKeys,
+                    filterExpr: prev?.filterExpr || ''
                 }
             }
         };
@@ -149,6 +152,20 @@ export const useResultStore = create<ResultState>((set, get) => ({
                 [tabId]: {
                     ...prev,
                     rows: newRows
+                }
+            }
+        };
+    }),
+
+    setFilterExpr: (tabId, filterExpr) => set((state) => {
+        const prev = state.results[tabId];
+        if (!prev) return state;
+        return {
+            results: {
+                ...state.results,
+                [tabId]: {
+                    ...prev,
+                    filterExpr
                 }
             }
         };

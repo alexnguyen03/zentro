@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
+import { useResultStore } from '../../stores/resultStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
@@ -44,6 +45,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     // ── Run / Cancel ──────────────────────────────────────────────────────
     const handleRun = useCallback(async () => {
         if (!activeTab || !isConnected) return;
+        useResultStore.getState().setFilterExpr(activeTab.id, '');
         try {
             await ExecuteQuery(activeTab.id, activeTab.query);
         } catch (err: any) {
