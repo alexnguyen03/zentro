@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, ArrowLeft, X, Info } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { Connect, SwitchDatabase, LoadConnections } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
 import { makeDefaultForm } from '../../lib/providers';
@@ -17,7 +17,7 @@ type View = 'list' | 'new-connection';
 interface WorkspaceModalProps { onClose: () => void; }
 
 export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
-    const { connections, databases, activeProfile } = useConnectionStore();
+    const { connections, databases, activeProfile, setConnections } = useConnectionStore();
     const existingConnections = useConnectionStore(s => s.connections);
     const existingNames = existingConnections.map(c => c.name!).filter(Boolean);
 
@@ -31,14 +31,23 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
 
     const inputRef = useRef<HTMLInputElement>(null);
 
+    const refreshConnections = useCallback(async () => {
+        try {
+            const data = await LoadConnections();
+            setConnections(data || []);
+        } catch (e) {
+            console.error('Failed to refresh connections:', e);
+        }
+    }, [setConnections]);
+
     const form = useConnectionForm({
         profile: editProfile,
         existingNames,
-        onSaved: () => { setView('list'); setEditProfile(null); },
+        onSaved: async () => { await refreshConnections(); setView('list'); setEditProfile(null); },
         onClose: () => { setView('list'); setEditProfile(null); }
     });
 
-    useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
+    useEffect(() => { refreshConnections(); if (inputRef.current) inputRef.current.focus(); }, []);
     useEffect(() => { if (activeProfile?.name) setSelectedConn(activeProfile.name); }, [activeProfile?.name]);
     useEffect(() => {
         if (view !== 'list') return;
@@ -94,7 +103,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     // ── Render ────────────────────────────────────────────────────────────────
     return ReactDOM.createPortal(
         <div
-            className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center animate-in fade-in duration-150"
+            className="fixed inset-0 bg-black/40 z-9999 flex items-center justify-center animate-in fade-in duration-150"
             onClick={view === 'list' ? onClose : undefined}
         >
             <div
