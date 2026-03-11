@@ -418,44 +418,75 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             onKeyDown={handleKeyDown}
             style={{ outline: 'none' }}
         >
-            {!result.isDone ? (
-                <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
-                    <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border flex-shrink-0">
-                        <Loader size={18} className="animate-spin" />
-                        <span>Streaming… {result.rows.length > 0 ? `${result.rows.length.toLocaleString()} rows received` : 'executing query'}</span>
+            {/* Progressive rendering: keep old table visible while reloading */}
+            {(() => {
+                const hasData = result.columns.length > 0;
+                const isLoading = !result.isDone;
+
+                // First run with NO data yet — show minimal streaming indicator
+                if (isLoading && !hasData) {
+                    return (
+                        <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
+                            <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border shrink-0">
+                                <Loader size={14} className="animate-spin" />
+                                <span className="text-text-secondary">
+                                    {result.rows.length > 0
+                                        ? `Streaming… ${result.rows.length.toLocaleString()} rows`
+                                        : 'Executing query…'}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                }
+
+                // Has data (either done or reloading over existing data)
+                return (
+                    <div className={`flex flex-col flex-1 overflow-hidden min-h-0 relative ${!isLoading ? 'rt-rows-fadein' : ''}`}>
+                        {/* Thin progress bar on reload */}
+                        {isLoading && (
+                            <div
+                                className="absolute top-0 left-0 right-0 z-10"
+                                style={{ height: 2, background: 'var(--success-color)', opacity: 0.7 }}
+                            >
+                                <div style={{
+                                    height: '100%',
+                                    width: '40%',
+                                    background: 'rgba(255,255,255,0.6)',
+                                    animation: 'shimmer 1.2s infinite linear',
+                                    backgroundSize: '400px 100%',
+                                }} />
+                            </div>
+                        )}
+
+                        {/* Filter bar */}
+                        {result.isSelect && result.isDone && (
+                            <ResultFilterBar
+                                value={filterExpr}
+                                onChange={setFilterExpr}
+                                onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
+                                onClear={() => setFilterExpr('')}
+                                onOpenInTab={() => { if (filterExpr.trim()) onFilterOpenInTab?.(filterExpr); }}
+                            />
+                        )}
+
+                        {/* Table — always visible, slightly dimmed while reloading */}
+                        <div style={{ flex: 1, overflow: 'hidden', opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
+                            <ResultTable
+                                tabId={tabId}
+                                columns={result.columns}
+                                rows={result.rows}
+                                isDone={result.isDone}
+                                editedCells={editedCells}
+                                setEditedCells={setEditedCells}
+                                selectedCells={selectedCells}
+                                setSelectedCells={setSelectedCells}
+                                deletedRows={deletedRows}
+                                setDeletedRows={setDeletedRows}
+                            />
+                        </div>
                     </div>
-                    <div className="flex-1 overflow-hidden py-2">
-                        <div className="h-[22px] rounded-[3px] mx-3 my-1.5 bg-bg-tertiary mb-3 w-[60%]" />
-                        {Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i} className="result-skeleton-row" style={{ opacity: 1 - i * 0.1 }} />
-                        ))}
-                    </div>
-                </div>
-            ) : (
-                <>
-                    {result.isSelect && result.isDone && (
-                        <ResultFilterBar
-                            value={filterExpr}
-                            onChange={setFilterExpr}
-                            onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
-                            onClear={() => setFilterExpr('')}
-                            onOpenInTab={() => { if (filterExpr.trim()) onFilterOpenInTab?.(filterExpr); }}
-                        />
-                    )}
-                    <ResultTable
-                        tabId={tabId}
-                        columns={result.columns}
-                        rows={result.rows}
-                        isDone={true}
-                        editedCells={editedCells}
-                        setEditedCells={setEditedCells}
-                        selectedCells={selectedCells}
-                        setSelectedCells={setSelectedCells}
-                        deletedRows={deletedRows}
-                        setDeletedRows={setDeletedRows}
-                    />
-                </>
-            )}
+                );
+            })()}
             {/* Bottom status bar */}
             <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border flex-shrink-0">
                 <div className="flex items-center gap-3">
