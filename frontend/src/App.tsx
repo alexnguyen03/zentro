@@ -26,7 +26,7 @@ import { ForceQuit } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
 
 function App() {
-    const { isConnected, setIsConnected, setActiveProfile, setDatabases } = useConnectionStore();
+    const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus } = useConnectionStore();
     const { setTabRunning, addTab } = useEditorStore();
     const { initTab, appendRows, setDone, results } = useResultStore();
     const { setQueryStats } = useStatusStore();
@@ -73,12 +73,17 @@ function App() {
                 console.log('[zentro] connection:changed', data);
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
+                    setConnectionStatus('connected');
                     setActiveProfile(data.profile as any);
                     setDatabases(data.databases ?? []);
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
+                    setConnectionStatus('disconnected');
                     setActiveProfile(null);
                     setDatabases([]);
+                } else if (data.status === 'error') {
+                    setConnectionStatus('error');
+                    toast.error(`Connection timed out or lost. Reconnecting...`);
                 } else {
                     toast.error(`Connection failed`);
                 }

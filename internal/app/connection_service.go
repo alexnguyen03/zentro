@@ -15,12 +15,13 @@ import (
 )
 
 type ConnectionService struct {
-	ctx        context.Context
-	logger     *slog.Logger
-	getPrefs   func() utils.Preferences
-	getDB      func() *sql.DB
-	getProfile func() *models.ConnectionProfile
-	setDB      func(*sql.DB, *models.ConnectionProfile)
+	ctx             context.Context
+	logger          *slog.Logger
+	getPrefs        func() utils.Preferences
+	getDB           func() *sql.DB
+	getProfile      func() *models.ConnectionProfile
+	setDB           func(*sql.DB, *models.ConnectionProfile)
+	keepAliveCancel context.CancelFunc
 }
 
 func NewConnectionService(
@@ -121,7 +122,16 @@ func (s *ConnectionService) Connect(name string) error {
 		_ = previousDB.Close()
 	}
 
+	if s.keepAliveCancel != nil {
+		s.keepAliveCancel()
+		s.keepAliveCancel = nil
+	}
+
 	s.setDB(db, prof)
+
+	kaCtx, kaCancel := context.WithCancel(context.Background())
+	s.keepAliveCancel = kaCancel
+	go s.startKeepAlive(kaCtx, db, prof)
 
 	emitEvent(s.ctx, "connection:changed", map[string]any{
 		"profile": prof,
@@ -172,7 +182,16 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 		_ = previousDB.Close()
 	}
 
+	if s.keepAliveCancel != nil {
+		s.keepAliveCancel()
+		s.keepAliveCancel = nil
+	}
+
 	s.setDB(db, &clone)
+
+	kaCtx, kaCancel := context.WithCancel(context.Background())
+	s.keepAliveCancel = kaCancel
+	go s.startKeepAlive(kaCtx, db, &clone)
 
 	s.logger.Info("switched database ok")
 	emitEvent(s.ctx, "connection:changed", map[string]any{
@@ -185,6 +204,10 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 }
 
 func (s *ConnectionService) Disconnect() {
+	if s.keepAliveCancel != nil {
+		s.keepAliveCancel()
+		s.keepAliveCancel = nil
+	}
 	db := s.getDB()
 	if db != nil {
 		_ = db.Close()
@@ -193,6 +216,55 @@ func (s *ConnectionService) Disconnect() {
 	emitEvent(s.ctx, "connection:changed", map[string]any{"status": "disconnected"})
 	runtime.WindowSetTitle(s.ctx, "Zentro")
 	s.logger.Info("disconnected")
+}
+
+func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof *models.ConnectionProfile) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	currentState := "connected"
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Run ping in a goroutine with a result channel.
+			// This way the keep-alive loop is NEVER blocked by a stalled TCP connection;
+			// we hard-cut after 5s regardless of OS-level TCP timeout (can be 2 min+).
+			type pingResult struct{ err error }
+			result := make(chan pingResult, 1)
+			go func() {
+				pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				result <- pingResult{err: db.PingContext(pingCtx)}
+			}()
+
+			var pingErr error
+			select {
+			case r := <-result:
+				pingErr = r.err
+			case <-time.After(5 * time.Second):
+				pingErr = fmt.Errorf("ping timed out")
+			case <-ctx.Done():
+				return
+			}
+
+			newState := "connected"
+			if pingErr != nil {
+				newState = "error"
+				s.logger.Warn("keep-alive ping failed", "profile", prof.Name, "err", pingErr)
+			}
+
+			if newState != currentState {
+				currentState = newState
+				emitEvent(s.ctx, "connection:changed", map[string]any{
+					"profile": prof,
+					"status":  currentState,
+				})
+			}
+		}
+	}
 }
 
 func (s *ConnectionService) fetchDatabaseList(db *sql.DB, prof *models.ConnectionProfile) {

@@ -20,7 +20,7 @@ export const EVENT = {
 // ── Payload types ─────────────────────────────────────────────────────────
 
 export interface ConnectionChangedPayload {
-    status: 'connected' | 'disconnected' | 'failed';
+    status: 'connected' | 'disconnected' | 'failed' | 'error';
     databases?: string[];
     profile?: {
         name: string;

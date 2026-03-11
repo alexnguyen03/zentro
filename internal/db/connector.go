@@ -20,7 +20,18 @@ func OpenConnection(p *models.ConnectionProfile) (*sql.DB, error) {
 	if !ok {
 		return nil, fmt.Errorf("connector: unsupported driver %q", p.Driver)
 	}
-	return d.Open(p)
+	db, err := d.Open(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add pool configuration to prevent firewall cuts
+	// Best practice: close idle connections before external constraints (usually 5 mins)
+	db.SetConnMaxIdleTime(2 * time.Minute)
+	// Optionally set max lifetime to recycle connections fully (e.g. 1 hour)
+	db.SetConnMaxLifetime(1 * time.Hour)
+
+	return db, nil
 }
 
 // TestConnection verifies a connection is reachable via Ping (10s timeout).

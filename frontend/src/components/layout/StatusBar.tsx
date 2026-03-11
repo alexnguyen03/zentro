@@ -11,6 +11,9 @@ export const StatusBar: React.FC = () => {
             if (data.status === 'connected' && data.profile) {
                 setStatus('connected');
                 setConnectionLabel(`${data.profile.name} (${data.profile.driver})`);
+            } else if (data.status === 'error') {
+                setStatus('error');
+                setConnectionLabel('Connection lost — reconnecting...');
             } else {
                 setStatus('disconnected');
                 setConnectionLabel('No Connection');
@@ -29,14 +32,14 @@ export const StatusBar: React.FC = () => {
     const barColor = {
         connected: 'bg-success',
         connecting: 'bg-success',
-        error: 'bg-error',
-        disconnected: 'bg-bg-tertiary',
+        error: 'bg-red-500',
+        disconnected: 'bg-yellow-500',
     }[status] ?? 'bg-bg-tertiary';
 
     return (
-        <div className={cn('flex items-center justify-between px-3 h-5 flex-shrink-0 text-[11px] text-white font-medium', barColor)}>
+        <div className={cn('flex items-center justify-between px-3 h-5 shrink-0 text-[11px] text-white font-medium', barColor)}>
             <div className="flex items-center gap-2">
-                <span>{status === 'connected' ? '●' : '○'} {connectionLabel}</span>
+                <span>{status === 'connected' ? '●' : status === 'error' ? '⚠' : '○'} {connectionLabel}</span>
                 {message && (
                     <span className="opacity-90 ml-4">{message}</span>
                 )}

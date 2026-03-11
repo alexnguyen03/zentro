@@ -8,6 +8,7 @@ interface ConnectionState {
     connections: ConnectionProfile[];
     activeProfile: ConnectionProfile | null;
     isConnected: boolean;
+    connectionStatus: 'disconnected' | 'connected' | 'error';
     databases: string[];
     lastProfileName: string | null;
     lastDatabaseName: string | null;
@@ -15,6 +16,7 @@ interface ConnectionState {
     setConnections: (conns: ConnectionProfile[]) => void;
     setActiveProfile: (profile: ConnectionProfile | null) => void;
     setIsConnected: (connected: boolean) => void;
+    setConnectionStatus: (status: 'disconnected' | 'connected' | 'error') => void;
     setDatabases: (dbs: string[]) => void;
 }
 
@@ -24,6 +26,7 @@ export const useConnectionStore = create<ConnectionState>()(
             connections: [],
             activeProfile: null,
             isConnected: false,
+            connectionStatus: 'disconnected',
             databases: [],
             lastProfileName: null,
             lastDatabaseName: null,
@@ -35,6 +38,7 @@ export const useConnectionStore = create<ConnectionState>()(
                 lastDatabaseName: profile ? profile.db_name : state.lastDatabaseName
             })),
             setIsConnected: (connected) => set({ isConnected: connected }),
+            setConnectionStatus: (status) => set({ connectionStatus: status }),
             setDatabases: (dbs) => set({ databases: dbs })
         }),
         {

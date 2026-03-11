@@ -12,7 +12,7 @@ import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
 
 export const Toolbar: React.FC = () => {
-    const { isConnected, activeProfile } = useConnectionStore();
+    const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const { groups, activeGroupId, addTab } = useEditorStore();
     const { openModal } = useSettingsStore();
     const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
@@ -111,10 +111,15 @@ export const Toolbar: React.FC = () => {
                         )}
                         onClick={() => setPickerOpen(true)}
                     >
-                        <span className={cn(
-                            'w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300',
-                            isConnected ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]' : 'bg-text-secondary'
-                        )} />
+                        <span
+                            className={cn(
+                                'w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300',
+                                connectionStatus === 'connected' ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]' :
+                                    connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_6px_rgba(255,95,87,0.5)] animate-pulse' :
+                                        'bg-text-secondary'
+                            )}
+                            title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
+                        />
                         <span className="flex-1 text-center truncate">{breadcrumbLabel}</span>
                         <ChevronDown
                             size={14}
