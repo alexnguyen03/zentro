@@ -6,7 +6,7 @@ interface ResultFilterBarProps {
     value: string;
     onChange: (v: string) => void;
     onRun: () => void;
-    onOpenInTab: () => void;
+    /** Clears the filter and re-runs the original query */
     onClear: () => void;
 }
 
@@ -14,7 +14,6 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     value,
     onChange,
     onRun,
-    onOpenInTab,
     onClear,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -31,8 +30,8 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     }, [onClear]);
 
     const btnClass = cn(
-        'flex items-center justify-center gap-1 px-2 py-[3px] border border-border rounded text-[11px]',
-        'text-text-secondary bg-bg-primary hover:bg-bg-tertiary hover:text-text-primary',
+        'flex items-center justify-center gap-1 px-2 py-[3px] border border-transparent rounded text-[11px]',
+        'text-text-secondary hover:border-border hover:bg-bg-tertiary hover:text-text-primary',
         'transition-colors cursor-pointer shrink-0'
     );
 
@@ -57,29 +56,13 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             {value && (
                 <button
                     type="button"
-                    className={cn(btnClass, 'border-transparent hover:border-border')}
-                    title="Clear filter (Esc)"
+                    className={btnClass}
+                    title="Clear filter and query original data (Esc)"
                     onClick={onClear}
                 >
                     <X size={11} />
                 </button>
             )}
-
-            {/* Open filtered query in new tab */}
-            <button type="button" className={btnClass} title="Open filtered query in new tab" onClick={onOpenInTab}>
-                <ExternalLink size={11} />
-            </button>
-
-            {/* Run */}
-            <button
-                type="button"
-                className={cn(btnClass, 'text-success border-success/40 hover:bg-success/10 hover:border-success')}
-                title="Run filter (Enter)"
-                onClick={onRun}
-            >
-                <Play size={10} />
-                <span>Run</span>
-            </button>
         </div>
     );
 };

@@ -29,14 +29,12 @@ interface ResultPanelProps {
     onRun?: () => void;
     /** Called with a WHERE filter expression; parent wraps base query and re-runs. */
     onFilterRun?: (filter: string) => void;
-    /** Called with the filter expr to open the filtered query in a new editor tab. */
-    onFilterOpenInTab?: (filter: string) => void;
     onActionsChange?: (actions: ResultPanelAction[]) => void;
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
-export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onFilterOpenInTab, onActionsChange }) => {
+export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onActionsChange }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const addTab = useEditorStore(s => s.addTab);
     const { toast } = useToast();
@@ -463,8 +461,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                                 value={filterExpr}
                                 onChange={setFilterExpr}
                                 onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
-                                onClear={() => setFilterExpr('')}
-                                onOpenInTab={() => { if (filterExpr.trim()) onFilterOpenInTab?.(filterExpr); }}
+                                onClear={() => {
+                                    setFilterExpr('');
+                                    onFilterRun?.('');
+                                }}
                             />
                         )}
 

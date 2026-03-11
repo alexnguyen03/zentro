@@ -693,11 +693,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                             result={dataResult}
                             onActionsChange={setDataTabActions}
                             onFilterRun={(filter) => loadData(filter)}
-                            onFilterOpenInTab={(filter) => {
-                                const base = `SELECT * FROM "${schema}"."${table}"`;
-                                const wrapped = `SELECT * FROM (\n${base}\n) AS _zentro_filter\nWHERE ${filter}`;
-                                addTab({ name: `Filter — ${tableName}`, query: wrapped });
-                            }}
                         />
                     </div>
                 )}
