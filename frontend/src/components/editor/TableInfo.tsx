@@ -423,11 +423,14 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         finally { setLoading(false); setReloading(false); }
     }, [schema, table]);
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (filter?: string) => {
         if (!activeGroupId) return;
-        const query = `SELECT * FROM "${schema}"."${table}"`;
+        let query = `SELECT * FROM "${schema}"."${table}"`;
+        if (filter?.trim()) query = `SELECT * FROM (\n${query}\n) AS _zentro_filter\nWHERE ${filter}`;
         ExecuteQuery(dataTabId, query).catch(console.error);
     }, [schema, table, activeGroupId, dataTabId]);
+
+    const { addTab } = useEditorStore();
 
     useEffect(() => {
         if (activeSubTab === 'data' && !dataResult) {
@@ -689,6 +692,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                             onRun={loadData}
                             result={dataResult}
                             onActionsChange={setDataTabActions}
+                            onFilterRun={(filter) => loadData(filter)}
+                            onFilterOpenInTab={(filter) => {
+                                const base = `SELECT * FROM "${schema}"."${table}"`;
+                                const wrapped = `SELECT * FROM (\n${base}\n) AS _zentro_filter\nWHERE ${filter}`;
+                                addTab({ name: `Filter — ${tableName}`, query: wrapped });
+                            }}
                         />
                     </div>
                 )}

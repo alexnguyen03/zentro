@@ -42,6 +42,24 @@ export const QueryTabs: React.FC = () => {
         }
     }, [globalActiveTab, isConnected]);
 
+    const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
+        if (!globalActiveTab || !isConnected) return;
+        const base = globalActiveTab.query.replace(/;\s*$/, '');
+        const wrapped = `SELECT * FROM (\n${base}\n) AS _zentro_filter\nWHERE ${filter}`;
+        try {
+            await ExecuteQuery(globalActiveTab.id, wrapped);
+        } catch (err: any) {
+            console.error('ExecuteQuery (filter) error:', err);
+        }
+    }, [globalActiveTab, isConnected]);
+
+    const handleFilterOpenInTab = React.useCallback((filter: string) => {
+        if (!globalActiveTab) return;
+        const base = globalActiveTab.query.replace(/;\s*$/, '');
+        const wrapped = `SELECT * FROM (\n${base}\n) AS _zentro_filter\nWHERE ${filter}`;
+        addTab({ name: `Filter — ${globalActiveTab.name}`, query: wrapped });
+    }, [globalActiveTab, addTab]);
+
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<any>(null);
 
@@ -199,7 +217,13 @@ export const QueryTabs: React.FC = () => {
 
                     <Allotment.Pane preferredSize="35%" minSize={100} visible={showResultPanel && !activeTabIsTable}>
                         <div className="h-full border-t border-border">
-                            <ResultPanel tabId={globalActiveTabId ?? ''} result={globalActiveResult} onRun={handleRunGlobal} />
+                            <ResultPanel
+                                tabId={globalActiveTabId ?? ''}
+                                result={globalActiveResult}
+                                onRun={handleRunGlobal}
+                                onFilterRun={handleFilterRunGlobal}
+                                onFilterOpenInTab={handleFilterOpenInTab}
+                            />
                         </div>
                     </Allotment.Pane>
                 </Allotment>

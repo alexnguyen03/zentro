@@ -13,6 +13,26 @@ import { useResultStore, type TabResult } from '../../stores/resultStore';
 import { useToast } from '../layout/Toast';
 import { ArrowUp, ArrowDown, Lock, Unlock } from 'lucide-react';
 
+// ── Datetime helpers ──────────────────────────────────────────────────────────
+// Matches: 2025-12-07 12:35:59, 2025-12-07T12:35:59.193..., with optional tz.
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
+
+const isDatetimeLike = (val: string): boolean => DATETIME_RE.test(val.trim());
+
+/** Strip timezone suffix (+0700 +07, +07:00, Z, etc.) and convert separator to 'T' for datetime-local input. */
+const toDatetimeLocalValue = (val: string): string => {
+    // Normalise separator
+    let s = val.trim().replace(' ', 'T');
+    // Trim timezone: everything from the first +/- after seconds, or trailing Z
+    s = s.replace(/[+-]\d{2}:?\d{2}(\s+\S+)?$/, '').replace(/Z$/, '').trim();
+    // Ensure precision max 3 decimal places (datetime-local limit)
+    s = s.replace(/(\d{2}:\d{2}:\d{2}\.)(\d{3})\d*/, '$1$2');
+    return s;
+};
+
+/** Convert datetime-local value back to DB-compatible format (with space separator). */
+const fromDatetimeLocalValue = (val: string): string => val.replace('T', ' ');
+
 interface ResultTableProps {
     tabId: string;
     columns: string[];
@@ -157,7 +177,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
         }
         const id = `${rIdx}:${cIdx}`;
         setEditingCell(id);
-        setEditValue(val);
+        // For datetime values, strip timezone for datetime-local input
+        setEditValue(isDatetimeLike(val) ? toDatetimeLocalValue(val) : val);
         setSelectedCells(prev => {
             if (prev.has(id)) return prev;
             setLastSelected(id);
@@ -234,17 +255,28 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 const value = isDirty && editedValue !== undefined ? editedValue : origVal;
 
                 if (isEditing) {
+                    const dtLike = isDatetimeLike(origVal);
                     return (
                         <input
                             autoFocus
                             className="rt-cell-input"
+                            type={dtLike ? 'datetime-local' : 'text'}
+                            step={dtLike ? '0.001' : undefined}
                             value={meta?.editValue ?? ''}
                             onChange={(e) => meta?.setEditValue?.(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') meta?.handleCommitEdit?.();
-                                else if (e.key === 'Escape') meta?.setEditingCell?.(null);
+                                if (e.key === 'Enter') {
+                                    // Convert datetime-local value back to DB format
+                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(e.currentTarget.value));
+                                    meta?.handleCommitEdit?.();
+                                } else if (e.key === 'Escape') {
+                                    meta?.setEditingCell?.(null);
+                                }
                             }}
-                            onBlur={() => meta?.handleCommitEdit?.()}
+                            onBlur={(e) => {
+                                if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(e.currentTarget.value));
+                                meta?.handleCommitEdit?.();
+                            }}
                             onClick={e => e.stopPropagation()}
                         />
                     );

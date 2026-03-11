@@ -5,6 +5,7 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { ResultTable } from './ResultTable';
+import { ResultFilterBar } from './ResultFilterBar';
 import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync } from '../../../wailsjs/go/app/App';
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
@@ -26,19 +27,23 @@ interface ResultPanelProps {
     tabId: string;
     result?: TabResult;
     onRun?: () => void;
-    /** Called whenever the set of available toolbar actions changes. Parent uses this to render actions in its own header. */
+    /** Called with a WHERE filter expression; parent wraps base query and re-runs. */
+    onFilterRun?: (filter: string) => void;
+    /** Called with the filter expr to open the filtered query in a new editor tab. */
+    onFilterOpenInTab?: (filter: string) => void;
     onActionsChange?: (actions: ResultPanelAction[]) => void;
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
-export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onActionsChange }) => {
+export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onFilterOpenInTab, onActionsChange }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const addTab = useEditorStore(s => s.addTab);
     const { toast } = useToast();
 
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
+    const [filterExpr, setFilterExpr] = React.useState('');
 
     // Inline edit states
     const [editedCells, setEditedCells] = React.useState<Map<string, string>>(new Map());
@@ -98,6 +103,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 setSelectedCells(new Set());
                 setDeletedRows(new Set());
                 setShowSaveModal(false);
+                setFilterExpr(''); // Clear filter on new query
 
                 // Automatically count in parallel
                 handleCountTotal();
@@ -426,18 +432,29 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                     </div>
                 </div>
             ) : (
-                <ResultTable
-                    tabId={tabId}
-                    columns={result.columns}
-                    rows={result.rows}
-                    isDone={true}
-                    editedCells={editedCells}
-                    setEditedCells={setEditedCells}
-                    selectedCells={selectedCells}
-                    setSelectedCells={setSelectedCells}
-                    deletedRows={deletedRows}
-                    setDeletedRows={setDeletedRows}
-                />
+                <>
+                    {result.isSelect && result.isDone && (
+                        <ResultFilterBar
+                            value={filterExpr}
+                            onChange={setFilterExpr}
+                            onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
+                            onClear={() => setFilterExpr('')}
+                            onOpenInTab={() => { if (filterExpr.trim()) onFilterOpenInTab?.(filterExpr); }}
+                        />
+                    )}
+                    <ResultTable
+                        tabId={tabId}
+                        columns={result.columns}
+                        rows={result.rows}
+                        isDone={true}
+                        editedCells={editedCells}
+                        setEditedCells={setEditedCells}
+                        selectedCells={selectedCells}
+                        setSelectedCells={setSelectedCells}
+                        deletedRows={deletedRows}
+                        setDeletedRows={setDeletedRows}
+                    />
+                </>
             )}
             {/* Bottom status bar */}
             <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border flex-shrink-0">
