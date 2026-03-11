@@ -1,4 +1,0 @@
-style(sidebar): truncate long table names in connection tree
-
-- Add 'truncate flex-1' and 'shrink-0' classes to ConnectionTree nodes to prevent long table names from breaking the UI layout.
-- Add 'title' attribute to show full name on hover.
