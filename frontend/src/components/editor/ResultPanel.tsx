@@ -16,7 +16,8 @@ import { useLayoutStore } from '../../stores/layoutStore';
 export interface ResultPanelAction {
     id: string;
     icon: React.ReactNode;
-    label: string;
+    label?: string;
+    title?: string;
     onClick: () => void;
     disabled?: boolean;
     loading?: boolean;
@@ -146,13 +147,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             actions.push({
                 id: 'discard',
                 icon: <Undo size={11} />,
-                label: 'Discard',
+                title: 'Discard',
                 onClick: () => { setEditedCells(new Map()); setDeletedRows(new Set()); },
+                danger: true,
             });
             actions.push({
                 id: 'save',
                 icon: <Save size={11} />,
-                label: 'Save',
+                title: 'Save',
                 onClick: () => setShowSaveModal(true),
             });
         }
@@ -161,7 +163,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             actions.push({
                 id: 'reload',
                 icon: <RotateCcw size={11} />,
-                label: 'Reload',
+                title: 'Reload',
                 onClick: onRun,
             });
         }

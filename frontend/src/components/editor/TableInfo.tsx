@@ -9,6 +9,7 @@ import { useResultStore } from '../../stores/resultStore';
 import { getTypesForDriver } from '../../lib/dbTypes';
 import { buildFilterQuery } from '../../lib/queryBuilder';
 import { ResultPanel, type ResultPanelAction } from './ResultPanel';
+import { Button, Spinner } from '../ui';
 
 interface TableInfoProps {
     tabId: string;
@@ -23,7 +24,8 @@ type SortCol = 'idx' | 'Name' | 'DataType' | 'IsPrimaryKey' | 'IsNullable' | 'De
 interface TabAction {
     id: string;
     icon: React.ReactNode;
-    label: string;
+    label?: string;
+    title?: string;
     onClick: () => void;
     disabled?: boolean;
     loading?: boolean;
@@ -31,18 +33,16 @@ interface TabAction {
 }
 
 const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
-    <button
+    <Button
+        variant={action.danger ? 'danger' : 'ghost'}
+        className="h-[26px] px-2 text-[11px] gap-1.5 rounded-sm"
         onClick={action.onClick}
         disabled={action.disabled || action.loading}
-        title={action.label}
-        className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border disabled:opacity-50 disabled:cursor-not-allowed"
+        title={action.title || action.label}
     >
-        {action.loading
-            ? <Loader size={11} className="animate-spin" />
-            : action.icon
-        }
-        <span>{action.label}</span>
-    </button>
+        {action.loading ? <Spinner size={11} /> : action.icon}
+        {action.label && <span>{action.label}</span>}
+    </Button>
 );
 
 interface RowState {
@@ -565,6 +565,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     label: 'Discard',
                     onClick: discardAll,
                     disabled: saving,
+                    danger: true,
                 },
                 {
                     id: 'save',
