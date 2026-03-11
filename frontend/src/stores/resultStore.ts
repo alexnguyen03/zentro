@@ -36,29 +36,35 @@ interface ResultState {
 export const useResultStore = create<ResultState>((set, get) => ({
     results: {},
 
-    initTab: (tabId) => set((state) => ({
-        results: {
-            ...state.results,
-            [tabId]: {
-                columns: [],
-                rows: [],
-                isDone: false,
-                affected: 0,
-                duration: 0,
-                isSelect: true,
-                error: undefined,
-                hasMore: true,
-                offset: 0,
-                isFetchingMore: false,
-                tableName: undefined,
-                primaryKeys: undefined
+    initTab: (tabId) => set((state) => {
+        const prev = state.results[tabId];
+        return {
+            results: {
+                ...state.results,
+                [tabId]: {
+                    columns: prev?.columns || [],
+                    rows: prev?.rows || [],
+                    isDone: false,
+                    affected: 0,
+                    duration: 0,
+                    isSelect: true,
+                    error: undefined,
+                    hasMore: true,
+                    offset: 0,
+                    isFetchingMore: false,
+                    tableName: prev?.tableName,
+                    primaryKeys: prev?.primaryKeys
+                }
             }
-        }
-    })),
+        };
+    }),
 
     appendRows: (tabId, columns, rows, tableName, primaryKeys) => set((state) => {
         const prev = state.results[tabId];
         if (!prev) return state; // Should be initialized
+
+        const isFirstChunk = columns !== undefined && columns.length > 0;
+        const newRows = isFirstChunk ? rows : [...prev.rows, ...rows];
 
         return {
             results: {
@@ -66,7 +72,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
                 [tabId]: {
                     ...prev,
                     columns: columns || prev.columns,
-                    rows: [...prev.rows, ...rows],
+                    rows: newRows,
                     tableName: tableName || prev.tableName,
                     primaryKeys: primaryKeys || prev.primaryKeys,
                 }
@@ -91,6 +97,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
                     error,
                     hasMore,
                     isFetchingMore: false,
+                    rows: isSelect ? prev.rows : [],
+                    columns: isSelect ? prev.columns : [],
                 }
             }
         };

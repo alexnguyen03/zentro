@@ -103,7 +103,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 setSelectedCells(new Set());
                 setDeletedRows(new Set());
                 setShowSaveModal(false);
-                setFilterExpr(''); // Clear filter on new query
 
                 // Automatically count in parallel
                 handleCountTotal();
@@ -458,8 +457,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                             </div>
                         )}
 
-                        {/* Filter bar */}
-                        {result.isSelect && result.isDone && (
+                        {/* Filter bar - always visible if it's a select context */}
+                        {(result.isSelect || filterExpr !== '') && (
                             <ResultFilterBar
                                 value={filterExpr}
                                 onChange={setFilterExpr}
