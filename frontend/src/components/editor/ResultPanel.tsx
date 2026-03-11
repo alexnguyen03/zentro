@@ -438,7 +438,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
 
                 // Has data (either done or reloading over existing data)
                 return (
-                    <div className={`flex flex-col flex-1 overflow-hidden min-h-0 relative ${!isLoading ? 'rt-rows-fadein' : ''}`}>
+                    <div className="flex flex-col flex-1 overflow-hidden min-h-0 relative">
                         {/* Thin progress bar on reload */}
                         {isLoading && (
                             <div
@@ -469,7 +469,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         )}
 
                         {/* Table — always visible, slightly dimmed while reloading */}
-                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1, transition: 'opacity 0.15s ease' }}>
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1 }}>
                             <ResultTable
                                 tabId={tabId}
                                 columns={result.columns}
