@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Loader } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
 import { cn } from '../../lib/cn';
+import { Spinner } from '../ui';
 
 interface ConnectionPickerProps {
     onClose: () => void;
@@ -113,7 +113,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                     <div className="overflow-y-auto flex-1">
                         {connecting ? (
                             <div className="px-3.5 py-4 text-xs text-text-secondary flex items-center gap-2">
-                                <Loader size={14} className="animate-spin opacity-60" />
+                                <Spinner size={14} className="opacity-60" />
                                 Connecting…
                             </div>
                         ) : error ? (

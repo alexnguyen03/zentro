@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Loader, Search, ArrowLeft, X, Info } from 'lucide-react';
+import { Search, ArrowLeft, X, Info } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
@@ -9,6 +9,7 @@ import { makeDefaultForm } from '../../lib/providers';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
+import { Button, Spinner } from '../ui';
 
 type ConnectionProfile = models.ConnectionProfile;
 type View = 'list' | 'new-connection';
@@ -118,22 +119,23 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                         onClick={() => handleSelectConn(conn.name!)}
                                     >
                                         <span className="truncate flex-1 py-1">{conn.name}</span>
-                                        <button
-                                            type="button"
-                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-primary transition-all rounded"
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="w-6 h-6 opacity-0 group-hover:opacity-100"
                                             onClick={(e) => handleOpenEditConnection(e, conn)}
                                             title="Edit Connection"
                                         >
                                             <Info size={13} />
-                                        </button>
+                                        </Button>
                                     </div>
                                 ))}
                                 {filteredConns.length === 0 && <div className={itemEmptyClass}>No connections found</div>}
                             </div>
                             <div className="px-[10%] py-2 bg-bg-primary shrink-0">
-                                <button className="w-full bg-success text-white border-none px-4 py-2 rounded cursor-pointer text-[13px] font-medium transition-all duration-100 hover:brightness-110 active:translate-y-px" onClick={handleOpenNewConnection}>
+                                <Button variant="success" className="w-full" onClick={handleOpenNewConnection}>
                                     New connection
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -147,7 +149,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                             <div className={listClass}>
                                 {connecting ? (
                                     <div className={cn(itemEmptyClass, 'flex items-center justify-center')}>
-                                        <Loader size={13} className="mr-2 animate-spin" /> Connecting...
+                                        <Spinner size={13} className="mr-2" /> Connecting...
                                     </div>
                                 ) : connError ? (
                                     <div className={cn(itemEmptyClass, 'text-error')}>{connError}</div>
@@ -175,13 +177,13 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                 onSelect={form.handleDriverChange}
                             />
                             <div className="px-3 py-2 bg-bg-primary shrink-0">
-                                <button
-                                    type="button"
-                                    className="w-full flex items-center justify-center gap-1.5 border border-border text-text-secondary px-4 py-2 rounded cursor-pointer text-[13px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary"
+                                <Button
+                                    variant="solid"
+                                    className="w-full flex items-center justify-center gap-1.5"
                                     onClick={() => { setView('list'); setEditProfile(null); }}
                                 >
                                     <ArrowLeft size={13} /> Back
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -189,9 +191,9 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                         <div className={cn(colClass, 'bg-bg-primary')}>
                             <div className={cn(headerClass, 'flex items-center justify-between')}>
                                 <span>{form.isEditing ? `Edit — ${editProfile?.name}` : 'New Connection'}</span>
-                                <button className="text-text-muted hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-0.5 rounded" onClick={onClose}>
+                                <Button variant="ghost" size="icon" className="w-5 h-5" onClick={onClose}>
                                     <X size={12} />
-                                </button>
+                                </Button>
                             </div>
                             <ConnectionForm
                                 formData={form.formData}

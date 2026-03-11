@@ -5,6 +5,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
+import { Button } from '../ui';
 
 type ConnectionProfile = models.ConnectionProfile;
 
@@ -52,13 +53,13 @@ export const ConnectionDialog: React.FC<ConnectionDialogProps> = ({
                         onSelect={form.handleDriverChange}
                     />
                     <div className="px-3 py-2 bg-bg-primary shrink-0">
-                        <button
-                            type="button"
+                        <Button
+                            variant="solid"
+                            className="w-full flex items-center justify-center gap-1.5"
                             onClick={onClose}
-                            className="w-full flex items-center justify-center gap-1.5 border border-border text-text-secondary px-4 py-2 rounded cursor-pointer text-[13px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary"
                         >
                             <X size={13} /> Close
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

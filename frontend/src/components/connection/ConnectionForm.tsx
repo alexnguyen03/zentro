@@ -1,19 +1,18 @@
 import React from 'react';
-import { CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import { TestResult } from '../../hooks/useConnectionForm';
 import { models } from '../../../wailsjs/go/models';
+import { Button, Spinner } from '../ui';
 
 type ConnectionProfile = models.ConnectionProfile;
 
 // ── Style tokens (shared, defined once) ──────────────────────────────────────
 export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded text-[12px] outline-none focus:border-success transition-colors w-full';
 export const lbl = 'text-[11px] text-text-secondary block mb-0.5';
-export const btnBase = 'bg-bg-tertiary border border-border text-text-primary px-3 py-1.5 rounded cursor-pointer text-[12px] transition-colors disabled:opacity-50 flex items-center justify-center gap-1';
-export const btnPrimary = 'bg-success text-white border-transparent w-6/12 hover:not-disabled:brightness-110';
-export const btnOk = 'bg-[#89d185]/15 border-success text-success';
-export const btnErr = 'bg-[#f48771]/15 border-error text-error';
+export const btnOk = 'bg-[#89d185]/15 border-success text-success hover:bg-[#89d185]/20';
+export const btnErr = 'bg-[#f48771]/15 border-error text-error hover:bg-[#f48771]/20';
 
 interface ConnectionFormProps {
     formData: Partial<ConnectionProfile>;
@@ -224,22 +223,23 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
             {/* Actions */}
             <div className="flex gap-1.5 mt-auto pt-2.5">
-                <button
+                <Button
                     type="button"
-                    className={cn(btnBase, testResult === 'ok' ? btnOk : testResult === 'error' ? btnErr : '')}
+                    variant="solid"
+                    className={testResult === 'ok' ? btnOk : testResult === 'error' ? btnErr : ''}
                     onClick={onTest}
                     disabled={testing}
                 >
                     {testing
-                        ? <><Loader size={11} className="animate-spin" /> Testing…</>
+                        ? <><Spinner size={11} className="mr-1" /> Testing…</>
                         : testResult === 'ok'
-                            ? <><CheckCircle size={11} /> OK</>
+                            ? <><CheckCircle size={11} className="mr-1" /> OK</>
                             : 'Test'}
-                </button>
+                </Button>
                 <div className="flex-1" />
-                <button type="submit" className={cn(btnBase, btnPrimary)} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save'}
-                </button>
+                <Button type="submit" variant="success" className="w-6/12" disabled={saving}>
+                    {saving ? <><Spinner size={11} className="text-white mr-1" /> Saving…</> : 'Save'}
+                </Button>
             </div>
         </form>
     );

@@ -3,6 +3,7 @@ import { Save } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { utils } from '../../../wailsjs/go/models';
 import { Modal } from './Modal';
+import { Button } from '../ui';
 import { cn } from '../../lib/cn';
 
 export const SettingsDialog: React.FC = () => {
@@ -37,18 +38,12 @@ export const SettingsDialog: React.FC = () => {
 
     const footer = (
         <>
-            <button
-                className="bg-transparent border border-border text-text-primary px-4 py-1.5 rounded cursor-pointer text-[13px] transition-colors hover:bg-bg-tertiary"
-                onClick={closeModal}
-            >
+            <Button variant="solid" onClick={closeModal}>
                 Cancel
-            </button>
-            <button
-                className="bg-success text-white border-none px-4 py-1.5 rounded cursor-pointer text-[13px] font-medium transition-colors flex items-center gap-1.5 hover:brightness-110 active:translate-y-px"
-                onClick={handleSave}
-            >
-                <Save size={14} /> Save
-            </button>
+            </Button>
+            <Button variant="success" onClick={handleSave}>
+                <Save size={14} className="mr-1.5" /> Save
+            </Button>
         </>
     );
 

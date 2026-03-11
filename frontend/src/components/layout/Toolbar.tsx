@@ -9,6 +9,7 @@ import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
 import { cn } from '../../lib/cn';
+import { Button, Divider } from '../ui';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
@@ -50,28 +51,24 @@ export const Toolbar: React.FC = () => {
         breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name} `;
     }
 
-    // Shared classes
-    const btnBase = 'flex items-center justify-center gap-1.5 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-text-primary cursor-pointer transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:bg-bg-tertiary hover:enabled:border-border';
-    const btnActive = 'bg-bg-tertiary border-border';
-
     return (
         <div className="h-12 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
             {/* Left */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button className={btnBase} title="Toggle Safe Mode">
+                <Button variant="ghost" size="icon" title="Toggle Safe Mode">
                     <Lock size={14} />
-                </button>
-                <button className={btnBase} title="Refresh">
+                </Button>
+                <Button variant="ghost" size="icon" title="Refresh">
                     <RefreshCw size={14} />
-                </button>
+                </Button>
 
-                <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+                <Divider orientation="vertical" className="h-5" />
 
-                <button className={btnBase} title="New Tab (Ctrl+T)" onClick={() => addTab()}>
+                <Button variant="ghost" size="icon" title="New Tab (Ctrl+T)" onClick={() => addTab()}>
                     <Plus size={16} />
-                </button>
-                <button
-                    className={btnBase}
+                </Button>
+                <Button
+                    variant="ghost" size="icon"
                     disabled={!isConnected || !activeTab || isRunning}
                     title="Run Query (Ctrl+Enter)"
                     onClick={handleRun}
@@ -81,9 +78,9 @@ export const Toolbar: React.FC = () => {
                         color={!isConnected || isRunning ? 'currentColor' : 'var(--success-color)'}
                         fill={!isConnected || isRunning ? 'none' : 'currentColor'}
                     />
-                </button>
-                <button
-                    className={btnBase}
+                </Button>
+                <Button
+                    variant="ghost" size="icon"
                     disabled={!isRunning}
                     title="Cancel Execution"
                     onClick={handleCancel}
@@ -93,7 +90,7 @@ export const Toolbar: React.FC = () => {
                         fill={isRunning ? 'currentColor' : 'none'}
                         color={isRunning ? 'var(--error-color)' : 'currentColor'}
                     />
-                </button>
+                </Button>
             </div>
 
             {/* Center drag region */}
@@ -133,40 +130,43 @@ export const Toolbar: React.FC = () => {
 
             {/* Right */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-                <button className={btnBase} title="Search">
+                <Divider orientation="vertical" className="h-5" />
+                <Button variant="ghost" size="icon" title="Search">
                     <Search size={14} />
-                </button>
-                <button className={btnBase} title="Settings" onClick={openModal}>
+                </Button>
+                <Button variant="ghost" size="icon" title="Settings" onClick={openModal}>
                     <Settings size={14} />
-                </button>
+                </Button>
 
-                <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+                <Divider orientation="vertical" className="h-5" />
 
                 {/* Layout toggles */}
-                <button
-                    className={cn(btnBase, showSidebar && btnActive)}
+                <Button
+                    variant="ghost" size="icon"
+                    className={cn(showSidebar && "bg-bg-tertiary border-border")}
                     title="Toggle Sidebar (Ctrl+B)"
                     onClick={toggleSidebar}
                 >
                     <PanelLeft size={14} />
-                </button>
-                <button
-                    className={cn(btnBase, showResultPanel && btnActive)}
+                </Button>
+                <Button
+                    variant="ghost" size="icon"
+                    className={cn(showResultPanel && "bg-bg-tertiary border-border")}
                     title="Toggle Result Panel (Ctrl+J)"
                     onClick={toggleResultPanel}
                 >
                     <PanelBottom size={14} />
-                </button>
-                <button
-                    className={cn(btnBase, showRightSidebar && btnActive)}
+                </Button>
+                <Button
+                    variant="ghost" size="icon"
+                    className={cn(showRightSidebar && "bg-bg-tertiary border-border")}
                     title="Toggle Right Sidebar (Ctrl+Alt+B)"
                     onClick={toggleRightSidebar}
                 >
                     <PanelRight size={14} />
-                </button>
+                </Button>
 
-                <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+                <Divider orientation="vertical" className="h-5" />
 
                 {/* Window controls */}
                 <div className="flex items-center gap-0.5 ml-0.5">
