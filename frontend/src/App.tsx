@@ -82,6 +82,9 @@ function App() {
                     setActiveProfile(null);
                     setDatabases([]);
                 } else if (data.status === 'error') {
+                    if (data.profile) {
+                        setActiveProfile(data.profile as any);
+                    }
                     setConnectionStatus('error');
                     toast.error(`Connection timed out or lost. Reconnecting...`);
                 } else {

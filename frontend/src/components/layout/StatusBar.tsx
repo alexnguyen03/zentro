@@ -13,7 +13,7 @@ export const StatusBar: React.FC = () => {
                 setConnectionLabel(`${data.profile.name} (${data.profile.driver})`);
             } else if (data.status === 'error') {
                 setStatus('error');
-                setConnectionLabel('Connection lost — reconnecting...');
+                setConnectionLabel('Connection error / timed out');
             } else {
                 setStatus('disconnected');
                 setConnectionLabel('No Connection');

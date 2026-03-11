@@ -48,7 +48,7 @@ export const Toolbar: React.FC = () => {
     };
 
     let breadcrumbLabel = 'No Connection';
-    if (isConnected && activeProfile) {
+    if (activeProfile) {
         breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name} `;
     }
 
@@ -141,7 +141,7 @@ export const Toolbar: React.FC = () => {
                                 <img
                                     src={getProvider(activeProfile.driver).icon}
                                     alt={activeProfile.driver}
-                                    className={cn('w-[15px] h-[15px] shrink-0 transition-all duration-300', isConnected ? 'grayscale-0' : 'grayscale')}
+                                    className={cn('w-[15px] h-[15px] shrink-0 transition-all duration-300', connectionStatus === 'connected' ? 'grayscale-0' : 'grayscale')}
                                 />
                             </button>
                         ) : (

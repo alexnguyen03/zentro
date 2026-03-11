@@ -102,10 +102,30 @@ func (s *ConnectionService) Connect(name string) error {
 		"db_name", prof.DBName,
 		"ssl_mode", prof.SSLMode,
 	)
+
+	// Clean up previous connection regardless of success to reflect the user's intent to switch
+	previousDB := s.getDB()
+	if previousDB != nil {
+		_ = previousDB.Close()
+	}
+	if s.keepAliveCancel != nil {
+		s.keepAliveCancel()
+		s.keepAliveCancel = nil
+	}
+	
+	// Set active profile immediately with nil DB. If connection fails, 
+	// it acts as the "errored" active profile.
+	s.setDB(nil, prof)
+
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
 		s.logger.Error("open connection failed", "profile", name, "err", err)
-		return dbpkg.FriendlyError(prof.Driver, err)
+		fErr := dbpkg.FriendlyError(prof.Driver, err)
+		emitEvent(s.ctx, "connection:changed", map[string]any{
+			"profile": prof,
+			"status":  "error",
+		})
+		return fErr
 	}
 
 	prefs := s.getPrefs()
@@ -114,19 +134,15 @@ func (s *ConnectionService) Connect(name string) error {
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		s.logger.Error("ping failed", "profile", name, "err", err)
-		return dbpkg.FriendlyError(prof.Driver, err)
+		fErr := dbpkg.FriendlyError(prof.Driver, err)
+		emitEvent(s.ctx, "connection:changed", map[string]any{
+			"profile": prof,
+			"status":  "error",
+		})
+		return fErr
 	}
 
-	previousDB := s.getDB()
-	if previousDB != nil {
-		_ = previousDB.Close()
-	}
-
-	if s.keepAliveCancel != nil {
-		s.keepAliveCancel()
-		s.keepAliveCancel = nil
-	}
-
+	// Connection successful, update store
 	s.setDB(db, prof)
 
 	kaCtx, kaCancel := context.WithCancel(context.Background())
@@ -162,10 +178,25 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	clone := *prof
 	clone.DBName = dbName
 
+	previousDB := s.getDB()
+	if previousDB != nil {
+		_ = previousDB.Close()
+	}
+	if s.keepAliveCancel != nil {
+		s.keepAliveCancel()
+		s.keepAliveCancel = nil
+	}
+	s.setDB(nil, &clone)
+
 	db, err := dbpkg.OpenConnection(&clone)
 	if err != nil {
 		s.logger.Error("switch database failed", "db", dbName, "err", err)
-		return dbpkg.FriendlyError(clone.Driver, err)
+		fErr := dbpkg.FriendlyError(clone.Driver, err)
+		emitEvent(s.ctx, "connection:changed", map[string]any{
+			"profile": &clone,
+			"status":  "error",
+		})
+		return fErr
 	}
 
 	prefs := s.getPrefs()
@@ -174,17 +205,12 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		s.logger.Error("ping failed on new db", "db", dbName, "err", err)
-		return dbpkg.FriendlyError(clone.Driver, err)
-	}
-
-	previousDB := s.getDB()
-	if previousDB != nil {
-		_ = previousDB.Close()
-	}
-
-	if s.keepAliveCancel != nil {
-		s.keepAliveCancel()
-		s.keepAliveCancel = nil
+		fErr := dbpkg.FriendlyError(clone.Driver, err)
+		emitEvent(s.ctx, "connection:changed", map[string]any{
+			"profile": &clone,
+			"status":  "error",
+		})
+		return fErr
 	}
 
 	s.setDB(db, &clone)
