@@ -3,6 +3,7 @@ import Editor, { OnMount, useMonaco } from '@monaco-editor/react';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -12,9 +13,6 @@ interface MonacoEditorProps {
     isActive?: boolean;
     onFocus?: () => void;
 }
-
-// Track whether the completion provider has been registered (once per app).
-let completionProviderDisposed = false;
 
 export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     tabId,
@@ -53,49 +51,10 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     // Register SQL completion provider once when monaco is ready
     useEffect(() => {
-        if (!monaco || completionProviderDisposed) return;
+        if (!monaco) return;
+        registerContextAwareSQLCompletion(monaco);
+    }, [monaco]); 
 
-        const profileKey = activeProfile?.name ?? '';
-        // Aggregate all table + column names from all loaded schemas
-        const suggestions: { label: string; kind: number }[] = [];
-        Object.entries(trees).forEach(([key, schemas]) => {
-            if (!key.startsWith(profileKey)) return;
-            (schemas ?? []).forEach(schema => {
-                if (!schema) return;
-                (schema.Tables ?? []).forEach(t => {
-                    suggestions.push({ label: t, kind: monaco.languages.CompletionItemKind.Module });
-                });
-                (schema.Views ?? []).forEach(v => {
-                    suggestions.push({ label: v, kind: monaco.languages.CompletionItemKind.Field });
-                });
-            });
-        });
-
-        const disposable = monaco.languages.registerCompletionItemProvider('sql', {
-            provideCompletionItems: (model, position) => {
-                const word = model.getWordUntilPosition(position);
-                const range = {
-                    startLineNumber: position.lineNumber,
-                    endLineNumber: position.lineNumber,
-                    startColumn: word.startColumn,
-                    endColumn: word.endColumn,
-                };
-                return {
-                    suggestions: suggestions.map(s => ({
-                        ...s,
-                        insertText: s.label,
-                        range,
-                    })),
-                };
-            },
-        });
-
-        completionProviderDisposed = false;
-        return () => {
-            disposable.dispose();
-            completionProviderDisposed = true;
-        };
-    }, [monaco, trees, activeProfile]);
 
     const handleMount: OnMount = useCallback((editor, monacoInstance) => {
         editorRef.current = editor;
@@ -149,6 +108,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 scrollBeyondLastLine: false,
                 wordWrap: 'on',
                 tabSize: 2,
+                wordBasedSuggestions: 'off',
                 suggestOnTriggerCharacters: true,
                 quickSuggestions: { other: true, comments: false, strings: false },
                 scrollbar: {

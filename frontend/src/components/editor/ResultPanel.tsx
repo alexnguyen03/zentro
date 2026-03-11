@@ -567,8 +567,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab">
                             <FilePlus size={14} />
                         </Button>
-                        <Button variant="primary" size="icon" onClick={handleDirectExecute} title="Execute Update" autoFocus>
+                        <Button variant="primary" onClick={handleDirectExecute} title="Execute Update" autoFocus>
                             <Play size={14} />
+                            Execute
                         </Button>
                     </div>
                 }
