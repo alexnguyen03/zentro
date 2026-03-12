@@ -617,12 +617,14 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         erd: [reloadAction],
     };
 
+    const hasDataChanges = (dataResult?.pendingEdits?.size ?? 0) > 0 || (dataResult?.pendingDeletions?.size ?? 0) > 0;
+
     const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
 
-    const subTabs: { key: SubTab; label: string }[] = [
-        { key: 'info', label: 'Info' },
-        { key: 'data', label: 'Data' },
-        { key: 'erd', label: 'ERD' },
+    const subTabs: { key: SubTab; label: string; isModified: boolean }[] = [
+        { key: 'info', label: 'Info', isModified: hasChanges },
+        { key: 'data', label: 'Data', isModified: hasDataChanges },
+        { key: 'erd', label: 'ERD', isModified: false },
     ];
 
     if (loading) return (
@@ -646,7 +648,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
                     {/* Sub-tabs — flush with bottom border */}
                     <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}>
-                        {subTabs.map(({ key, label }) => (
+                        {subTabs.map(({ key, label, isModified }) => (
                             <div key={key} onClick={() => setActiveSubTab(key)} style={{
                                 display: 'flex', alignItems: 'center',
                                 padding: '0 14px', cursor: 'pointer', fontSize: 12,
@@ -654,7 +656,17 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 borderBottom: activeSubTab === key ? '2px solid var(--success-color)' : '2px solid transparent',
                                 color: activeSubTab === key ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 marginBottom: -1,
-                            }}>{label}</div>
+                                gap: 6,
+                            }}>
+                                <span>{label}</span>
+                                {isModified && (
+                                    <div style={{
+                                        width: 5, height: 5, borderRadius: '50%',
+                                        background: 'var(--success-color)',
+                                        boxShadow: '0 0 6px var(--success-color)',
+                                    }} />
+                                )}
+                            </div>
                         ))}
                     </div>
 

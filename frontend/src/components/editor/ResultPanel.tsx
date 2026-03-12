@@ -56,10 +56,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         useResultStore.getState().setFilterExpr(tabId, val);
     }, [tabId]);
 
-    // Inline edit states
-    const [editedCells, setEditedCells] = React.useState<Map<string, string>>(new Map());
+    // Inline edit states — initialized from resultStore if available to persist between subtab switches
+    const [editedCells, setEditedCells] = React.useState<Map<string, string>>(() => result?.pendingEdits ? new Map(result.pendingEdits) : new Map());
     const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
-    const [deletedRows, setDeletedRows] = React.useState<Set<number>>(new Set());
+    const [deletedRows, setDeletedRows] = React.useState<Set<number>>(() => result?.pendingDeletions ? new Set(result.pendingDeletions) : new Set());
     const [showSaveModal, setShowSaveModal] = React.useState(false);
     const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -135,6 +135,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         openRowDetail(rIdx);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCells]);
+
+    // Sync local edits back to resultStore for persistence across subtab switches
+    const updatePendingEdits = useResultStore(s => s.updatePendingEdits);
+    React.useEffect(() => {
+        updatePendingEdits(tabId, editedCells, deletedRows);
+    }, [tabId, editedCells, deletedRows, updatePendingEdits]);
 
     // Publish actions to parent whenever relevant state changes
     const hasChanges = editedCells.size > 0 || deletedRows.size > 0;
@@ -507,12 +513,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 );
             })()}
             {/* Bottom status bar */}
-            <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border flex-shrink-0">
+            <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                         Showing <strong>{result.rows.length.toLocaleString()}</strong> of&nbsp;
                         <select
-                            className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-[1px] rounded-[3px] cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
+                            className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
                             value={defaultLimit}
                             onChange={handleLimitChange}
                             title="Row limit for next query"
@@ -546,7 +552,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                     )}
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={handleExport} title="Export as CSV">
+                    <button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={handleExport} title="Export as CSV">
                         <Download size={13} />
                         <span>Export</span>
                     </button>

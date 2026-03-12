@@ -16,6 +16,8 @@ export interface TabResult {
     filterExpr: string;
     /** The actual query that was last executed — used for filter tooltip display */
     lastExecutedQuery?: string;
+    pendingEdits?: Map<string, string>;
+    pendingDeletions?: Set<number>;
 }
 
 interface ResultState {
@@ -36,6 +38,7 @@ interface ResultState {
     applyEdits: (tabId: string, edits: Map<string, string>, deletedRows?: Set<number>) => void;
     setFilterExpr: (tabId: string, filterExpr: string) => void;
     setLastExecutedQuery: (tabId: string, query: string) => void;
+    updatePendingEdits: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>) => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -61,6 +64,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
                     primaryKeys: prev?.primaryKeys,
                     filterExpr: prev?.filterExpr || '',
                     lastExecutedQuery: prev?.lastExecutedQuery,
+                    pendingEdits: prev?.pendingEdits || new Map(),
+                    pendingDeletions: prev?.pendingDeletions || new Set(),
                 }
             }
         };
@@ -179,6 +184,16 @@ export const useResultStore = create<ResultState>((set, get) => ({
             results: {
                 ...state.results,
                 [tabId]: { ...prev, lastExecutedQuery: query }
+            }
+        };
+    }),
+    updatePendingEdits: (tabId, pendingEdits, pendingDeletions) => set((state) => {
+        const prev = state.results[tabId];
+        if (!prev) return state;
+        return {
+            results: {
+                ...state.results,
+                [tabId]: { ...prev, pendingEdits, pendingDeletions }
             }
         };
     }),
