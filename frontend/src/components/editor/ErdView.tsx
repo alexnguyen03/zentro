@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     ReactFlow,
     Background,
@@ -23,8 +23,6 @@ import { useSettingsStore } from '../../stores/settingsStore';
 
 interface ErdEdgeData extends Record<string, unknown> {
     label?: string;
-    sourceCardinality?: string;
-    targetCardinality?: string;
 }
 
 function getIntersection(n1: any, n2: any) {
@@ -35,7 +33,7 @@ function getIntersection(n1: any, n2: any) {
     const h = n1.measured.height / 2;
     const x1 = (n1.internals?.positionAbsolute?.x ?? n1.positionAbsolute?.x ?? n1.position?.x) + w;
     const y1 = (n1.internals?.positionAbsolute?.y ?? n1.positionAbsolute?.y ?? n1.position?.y) + h;
-    
+
     const x2 = (n2.internals?.positionAbsolute?.x ?? n2.positionAbsolute?.x ?? n2.position?.x) + n2.measured.width / 2;
     const y2 = (n2.internals?.positionAbsolute?.y ?? n2.positionAbsolute?.y ?? n2.position?.y) + n2.measured.height / 2;
 
@@ -44,13 +42,17 @@ function getIntersection(n1: any, n2: any) {
 
     if (dx === 0 && dy === 0) return { x: x1, y: y1 };
 
+    const padding = 12;
+    const wp = w + padding;
+    const hp = h + padding;
+
     let x = 0, y = 0;
-    if (Math.abs(dx) * h > Math.abs(dy) * w) {
-        x = x1 + (dx > 0 ? w : -w);
-        y = y1 + dy * Math.abs(w / dx);
+    if (Math.abs(dx) * hp > Math.abs(dy) * wp) {
+        x = x1 + (dx > 0 ? wp : -wp);
+        y = y1 + dy * Math.abs(wp / dx);
     } else {
-        y = y1 + (dy > 0 ? h : -h);
-        x = x1 + dx * Math.abs(h / dy);
+        y = y1 + (dy > 0 ? hp : -hp);
+        x = x1 + dx * Math.abs(hp / dy);
     }
     return { x, y };
 }
@@ -84,7 +86,7 @@ const ErdEdge = ({
     data,
 }: EdgeProps) => {
     const edgeData = data as ErdEdgeData;
-    
+
     const sourceNode = useStore((s: any) => s.nodeLookup?.get(source) || s.nodeInternals?.get(source));
     const targetNode = useStore((s: any) => s.nodeLookup?.get(target) || s.nodeInternals?.get(target));
 
@@ -127,11 +129,11 @@ const ErdEdge = ({
 
     return (
         <>
-            <BaseEdge 
-                path={edgePath} 
-                style={{ ...style, strokeWidth: 1.5, stroke: 'var(--text-secondary)' }} 
-                markerStart="url(#crows-foot-many)"
-                markerEnd="url(#crows-foot-one)"
+            <BaseEdge
+                path={edgePath}
+                style={{ ...style, strokeWidth: 1.5, stroke: 'var(--text-secondary)' }}
+                markerStart="url(#zentro-many)"
+                markerEnd="url(#zentro-one)"
             />
             <EdgeLabelRenderer>
                 <div
@@ -167,7 +169,7 @@ const TableNode = ({ data }: any) => {
             overflow: 'hidden'
         }}>
             <Handle type="target" position={Position.Left} style={{ visibility: 'hidden' }} />
-            
+
             <div style={{
                 background: 'var(--bg-tertiary)',
                 padding: '8px 12px',
@@ -178,7 +180,7 @@ const TableNode = ({ data }: any) => {
             }}>
                 {data.label}
             </div>
-            
+
             <div style={{ padding: '4px 0' }}>
                 {data.columns?.map((c: any, i: number) => (
                     <div key={i} style={{
@@ -188,15 +190,22 @@ const TableNode = ({ data }: any) => {
                         justifyContent: 'space-between',
                         color: 'var(--text-secondary)'
                     }}>
-                        <span style={{ color: c.isPk ? 'var(--accent-color)' : 'inherit', fontWeight: c.isPk ? 600 : 'normal' }}>
-                            {c.name}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ 
+                                color: c.isPk ? 'var(--accent-color)' : (c.isFk ? '#3b82f6' : 'inherit'), 
+                                fontWeight: (c.isPk || c.isFk) ? 600 : 'normal' 
+                            }}>
+                                {c.name}
+                            </span>
+                            {c.isPk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: 'var(--accent-color)', color: 'white' }}>PK</span>}
+                            {c.isFk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: '#3b82f6', color: 'white' }}>FK</span>}
+                        </div>
                         <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 16 }}>{c.type}</span>
                     </div>
                 ))}
                 {(!data.columns || data.columns.length === 0) && (
                     <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                        Loading columns...
+                        No columns found
                     </div>
                 )}
             </div>
@@ -227,49 +236,108 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const isMounted = useRef(true);
+    const isFetching = useRef(false);
+
+    useEffect(() => {
+        isMounted.current = true;
+        return () => { isMounted.current = false; };
+    }, []);
+
     const loadErd = useCallback(async () => {
+        if (isFetching.current) return;
+        isFetching.current = true;
+
         try {
-            setLoading(true);
-            setError('');
-            
-            const rels = await FetchTableRelationships(schema, table);
-            if (onCountChange) {
-                onCountChange(rels ? rels.length : 0);
+            if (isMounted.current) {
+                setLoading(true);
+                setError('');
             }
 
+            // 1. Initial discovery: relationships of the main table
+            const initialRels = await FetchTableRelationships(schema, table);
+            if (!isMounted.current) return;
+
             const relatedTables = new Set<string>();
-            relatedTables.add(table); 
-            if (rels) {
-                rels.forEach((r: any) => {
+            relatedTables.add(table);
+            if (initialRels) {
+                initialRels.forEach((r: any) => {
                     relatedTables.add(r.SourceTable);
                     relatedTables.add(r.TargetTable);
                 });
             }
 
-            const columnsMap = new Map<string, any[]>();
-            await Promise.all(Array.from(relatedTables).map(async (t) => {
+            // 2. Fetch ALL relationships for ALL discovered tables to find cross-links between neighbors
+            const allRelsMap = new Map<string, any>();
+            if (initialRels) {
+                initialRels.forEach(r => allRelsMap.set(r.ConstraintName, r));
+            }
+
+            // Also fetch neighboring relationships
+            for (const t of Array.from(relatedTables)) {
+                if (t === table || !isMounted.current) continue;
+
                 let s = schema;
-                if (rels && t !== table) {
-                    const r: any = rels.find((rel: any) => rel.SourceTable === t || rel.TargetTable === t);
-                    if (r) {
-                        s = r.SourceTable === t ? r.SourceSchema : r.TargetSchema;
-                    }
+                const r: any = initialRels?.find((rel: any) => rel.SourceTable === t || rel.TargetTable === t);
+                if (r) s = r.SourceTable === t ? r.SourceSchema : r.TargetSchema;
+
+                try {
+                    const neighborRels = await FetchTableRelationships(s, t);
+                    if (!isMounted.current) return;
+                    neighborRels?.forEach((nr: any) => {
+                        if (relatedTables.has(nr.SourceTable) && relatedTables.has(nr.TargetTable)) {
+                            allRelsMap.set(nr.ConstraintName, nr);
+                        }
+                    });
+                } catch (e) {
+                    console.warn(`Failed to fetch rels for ${t}`, e);
+                }
+            }
+
+            const finalRels = Array.from(allRelsMap.values());
+            console.log('ERD Discovery - Tables:', Array.from(relatedTables), 'Relationships:', finalRels);
+
+            if (onCountChange && isMounted.current) {
+                onCountChange(finalRels.length);
+            }
+
+            // 3. Fetch columns for all visible tables
+            const columnsMap = new Map<string, any[]>();
+            for (const t of Array.from(relatedTables)) {
+                if (!isMounted.current) return;
+                let s = schema;
+                if (t !== table) {
+                    const r: any = finalRels.find((rel: any) => rel.SourceTable === t || rel.TargetTable === t);
+                    if (r) s = r.SourceTable === t ? r.SourceSchema : r.TargetSchema;
                 }
                 try {
                     const cols = await FetchTableColumns(s, t);
-                    columnsMap.set(t, cols.map((c: any) => ({
-                        name: c.Name,
-                        type: c.DataType,
-                        isPk: c.IsPrimaryKey,
-                    })));
-                } catch {
+                    if (isMounted.current) {
+                        // Mark FKs based on finalRels
+                        const tableFks = new Set(
+                            finalRels
+                                .filter(r => r.SourceTable === t)
+                                .map(r => r.SourceColumn)
+                        );
+
+                        columnsMap.set(t, (cols || []).map((c: any) => ({
+                            name: c.Name,
+                            type: c.DataType,
+                            isPk: c.IsPrimaryKey,
+                            isFk: tableFks.has(c.Name)
+                        })));
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch columns for ${t} in schema ${s}`, e);
                     columnsMap.set(t, []);
                 }
-            }));
+            }
+
+            if (!isMounted.current) return;
 
             const newNodes: Node[] = [];
             const newEdges: Edge[] = [];
-            
+
             newNodes.push({
                 id: table,
                 type: 'tableNode',
@@ -281,75 +349,70 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
             let childY = 50;
             const addedNodeIds = new Set<string>([table]);
 
-            if (rels) {
-                rels.forEach((r: any) => {
-                    const edgeData = {
-                        label: `${r.SourceColumn} → ${r.TargetColumn}`,
-                        sourceCardinality: '∞',
-                        targetCardinality: '1🔑', // Key icon for PK
-                    };
+            const constraintGroups = new Map<string, any>();
+            finalRels.forEach((r: any) => {
+                if (!constraintGroups.has(r.ConstraintName)) {
+                    constraintGroups.set(r.ConstraintName, {
+                        ...r,
+                        columns: [r.SourceColumn],
+                        targets: [r.TargetColumn]
+                    });
+                } else {
+                    const group = constraintGroups.get(r.ConstraintName);
+                    group.columns.push(r.SourceColumn);
+                    group.targets.push(r.TargetColumn);
+                }
+            });
 
-                    if (r.SourceTable === table && r.TargetTable !== table) {
-                        if (!addedNodeIds.has(r.TargetTable)) {
-                            newNodes.push({
-                                id: r.TargetTable,
-                                type: 'tableNode',
-                                position: { x: 50, y: parentY },
-                                data: { label: r.TargetTable, columns: columnsMap.get(r.TargetTable) || [] },
-                            });
-                            addedNodeIds.add(r.TargetTable);
-                            parentY += 250;
-                        }
+            Array.from(constraintGroups.values()).forEach((r: any) => {
+                const sourceTableId = r.SourceTable;
+                const targetTableId = r.TargetTable;
 
-                        newEdges.push({
-                            id: r.ConstraintName,
-                            type: 'erdEdge',
-                            source: table,
-                            target: r.TargetTable,
-                            data: edgeData,
-                            style: { stroke: 'var(--text-secondary)' },
-                        });
-                    } else if (r.TargetTable === table && r.SourceTable !== table) {
-                        if (!addedNodeIds.has(r.SourceTable)) {
-                            newNodes.push({
-                                id: r.SourceTable,
-                                type: 'tableNode',
-                                position: { x: 750, y: childY },
-                                data: { label: r.SourceTable, columns: columnsMap.get(r.SourceTable) || [] },
-                            });
-                            addedNodeIds.add(r.SourceTable);
-                            childY += 250;
-                        }
+                if (!addedNodeIds.has(sourceTableId)) {
+                    newNodes.push({
+                        id: sourceTableId,
+                        type: 'tableNode',
+                        position: { x: 50, y: parentY },
+                        data: { label: sourceTableId, columns: columnsMap.get(sourceTableId) || [] },
+                    });
+                    addedNodeIds.add(sourceTableId);
+                    parentY += 250;
+                }
+                if (!addedNodeIds.has(targetTableId)) {
+                    newNodes.push({
+                        id: targetTableId,
+                        type: 'tableNode',
+                        position: { x: 750, y: childY },
+                        data: { label: targetTableId, columns: columnsMap.get(targetTableId) || [] },
+                    });
+                    addedNodeIds.add(targetTableId);
+                    childY += 250;
+                }
 
-                        newEdges.push({
-                            id: r.ConstraintName,
-                            type: 'erdEdge',
-                            source: r.SourceTable,
-                            target: table,
-                            data: edgeData,
-                            style: { stroke: 'var(--text-secondary)' },
-                        });
-                    } else if (r.SourceTable === table && r.TargetTable === table) {
-                        newEdges.push({
-                            id: r.ConstraintName,
-                            type: 'erdEdge',
-                            source: table,
-                            target: table,
-                            data: edgeData,
-                            style: { stroke: 'var(--text-secondary)' },
-                        });
-                    }
+                newEdges.push({
+                    id: r.ConstraintName,
+                    type: 'erdEdge',
+                    source: sourceTableId,
+                    target: targetTableId,
+                    data: {
+                        label: `${r.columns.join(', ')} → ${r.targets.join(', ')}`,
+                    },
+                    style: { stroke: 'var(--text-secondary)' },
                 });
-            }
+            });
 
             setNodes(newNodes);
             setEdges(newEdges);
             setLoading(false);
         } catch (e: any) {
-            setError(e.toString());
-            setLoading(false);
+            if (isMounted.current) {
+                setError(e.toString());
+                setLoading(false);
+            }
+        } finally {
+            isFetching.current = false;
         }
-    }, [schema, table, setNodes, setEdges, onCountChange]);
+    }, [schema, table, setNodes, setEdges]); // Removed onCountChange from deps
 
     useEffect(() => {
         loadErd();
@@ -357,7 +420,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
 
     if (loading) {
         return (
-            <div className="flex items-center gap-2 p-5 h-full" style={{ background: 'var(--bg-main)' }}>
+            <div className="flex items-center justify-center gap-2 p-5 h-full" style={{ background: 'var(--bg-main)' }}>
                 <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading ERD...
             </div>
         );
@@ -369,16 +432,6 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
 
     return (
         <div className="flex-1 w-full h-full min-h-0 relative" style={{ background: 'var(--bg-main)' }}>
-            <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-                <defs>
-                    <marker id="crows-foot-many" viewBox="0 -10 20 20" refX="0" refY="0" markerWidth="15" markerHeight="15" orient="auto">
-                        <path d="M 0,-6 L 10,0 M 0,6 L 10,0 M 0,0 L 10,0" stroke="var(--text-secondary)" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    </marker>
-                    <marker id="crows-foot-one" viewBox="0 -10 20 20" refX="10" refY="0" markerWidth="15" markerHeight="15" orient="auto">
-                        <path d="M 0,-6 L 0,6 M 5,-6 L 5,6" stroke="var(--text-secondary)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                    </marker>
-                </defs>
-            </svg>
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -393,9 +446,44 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                 colorMode={theme as 'light' | 'dark' | 'system'}
                 proOptions={{ hideAttribution: true }}
             >
+                <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+                    <defs>
+                        <marker
+                            id="zentro-many"
+                            viewBox="0 -10 20 20"
+                            refX="0"
+                            refY="0"
+                            markerWidth="12"
+                            markerHeight="12"
+                            orient="auto-start-reverse"
+                        >
+                            <path
+                                d="M 15,-8 L 1,0 L 15,8 M 15,0 L 1,0"
+                                stroke="var(--text-secondary)"
+                                strokeWidth="1.5"
+                                fill="none"
+                            />
+                        </marker>
+                        <marker
+                            id="zentro-one"
+                            viewBox="0 -10 20 20"
+                            refX="0"
+                            refY="0"
+                            markerWidth="12"
+                            markerHeight="12"
+                            orient="auto"
+                        >
+                            <path
+                                d="M 0,-8 L 0,8"
+                                stroke="var(--text-secondary)"
+                                strokeWidth="1.5"
+                                fill="none"
+                            />
+                        </marker>
+                    </defs>
+                </svg>
                 <Background color="var(--border-color)" gap={20} size={1} />
             </ReactFlow>
         </div>
     );
 };
-
