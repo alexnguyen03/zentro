@@ -353,6 +353,36 @@ func (d *MSSQLDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, 
 	return nil
 }
 
+// AddTableColumn implements driver.SchemaFetcher.
+func (d *MSSQLDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, table string, col *models.ColumnDef) error {
+	qualified := fmt.Sprintf("[%s].[%s]", schema, table)
+
+	nullability := "NULL"
+	if !col.IsNullable {
+		nullability = "NOT NULL"
+	}
+
+	defaultValue := ""
+	if col.DefaultValue != "" {
+		defaultValue = " DEFAULT " + col.DefaultValue
+	}
+
+	pkStr := ""
+	if col.IsPrimaryKey {
+		pkStr = " PRIMARY KEY"
+	}
+
+	sqlStr := fmt.Sprintf(
+		"ALTER TABLE %s ADD [%s] %s %s%s%s",
+		qualified, col.Name, col.DataType, nullability, defaultValue, pkStr,
+	)
+
+	if _, err := db.ExecContext(ctx, sqlStr); err != nil {
+		return fmt.Errorf("mssql: add column: %w", err)
+	}
+	return nil
+}
+
 // ReorderTableColumns reorders columns by recreating the table with the new column order.
 // This mirrors SSMS behaviour — it creates a temp table, copies data, drops original, renames.
 // WARNING: this is a DDL operation. Ensure no active transactions hold locks on the table.

@@ -538,6 +538,41 @@ func (d *PostgresDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schem
 	return nil
 }
 
+// AddTableColumn implements driver.SchemaFetcher.
+func (d *PostgresDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, table string, col *models.ColumnDef) error {
+	qualified := fmt.Sprintf(`"%s"."%s"`, schema, table)
+
+	nullability := "NULL"
+	if !col.IsNullable {
+		nullability = "NOT NULL"
+	}
+
+	defaultValue := ""
+	if col.DefaultValue != "" {
+		defaultValue = "DEFAULT " + col.DefaultValue
+	}
+
+	sqlStr := fmt.Sprintf(
+		`ALTER TABLE %s ADD COLUMN "%s" %s %s %s`,
+		qualified, col.Name, col.DataType, nullability, defaultValue,
+	)
+
+	if _, err := db.ExecContext(ctx, sqlStr); err != nil {
+		return fmt.Errorf("postgres: add column: %w", err)
+	}
+
+	// Optional: Handle PK if IsPrimaryKey is true
+	if col.IsPrimaryKey {
+		pkName := fmt.Sprintf("pk_%s_%s", table, col.Name)
+		pkSql := fmt.Sprintf(`ALTER TABLE %s ADD CONSTRAINT "%s" PRIMARY KEY ("%s")`, qualified, pkName, col.Name)
+		if _, err := db.ExecContext(ctx, pkSql); err != nil {
+			return fmt.Errorf("postgres: add PK after add column: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ReorderTableColumns reorders columns using table recreation (Postgres has no native column reorder).
 func (d *PostgresDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {
 	qualified := fmt.Sprintf(`"%s"."%s"`, schema, table)

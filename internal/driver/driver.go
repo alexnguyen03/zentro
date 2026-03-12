@@ -34,6 +34,8 @@ type SchemaFetcher interface {
 	FetchTableColumns(ctx context.Context, db *sql.DB, schema, table string) ([]*models.ColumnDef, error)
 	// AlterTableColumn applies changes to a column definition via driver-specific DDL.
 	AlterTableColumn(ctx context.Context, db *sql.DB, schema, table string, old, updated *models.ColumnDef) error
+	// AddTableColumn appends a new column to a table via driver-specific DDL.
+	AddTableColumn(ctx context.Context, db *sql.DB, schema, table string, col *models.ColumnDef) error
 	// ReorderTableColumns reorders columns in the given table to match the provided name order.
 	ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error
 }

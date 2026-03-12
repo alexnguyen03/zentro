@@ -186,6 +186,34 @@ func (d *MySQLDriver) AlterTableColumn(ctx context.Context, db *sql.DB, schema, 
 	return nil
 }
 
+// AddTableColumn implements driver.SchemaFetcher.
+func (d *MySQLDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, table string, col *models.ColumnDef) error {
+	nullability := "NULL"
+	if !col.IsNullable {
+		nullability = "NOT NULL"
+	}
+
+	defaultValue := ""
+	if col.DefaultValue != "" {
+		defaultValue = " DEFAULT " + col.DefaultValue
+	}
+
+	pkStr := ""
+	if col.IsPrimaryKey {
+		pkStr = " PRIMARY KEY"
+	}
+
+	sqlStr := fmt.Sprintf(
+		"ALTER TABLE `%s` ADD COLUMN `%s` %s %s%s%s",
+		table, col.Name, col.DataType, nullability, defaultValue, pkStr,
+	)
+
+	if _, err := db.ExecContext(ctx, sqlStr); err != nil {
+		return fmt.Errorf("mysql: add column: %w", err)
+	}
+	return nil
+}
+
 // ReorderTableColumns uses MySQL's MODIFY COLUMN ... AFTER to reorder columns natively.
 // MySQL is the only major RDBMS that supports this without full table recreation.
 func (d *MySQLDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {

@@ -142,3 +142,33 @@ func (d *SQLiteDriver) AlterTableColumn(_ context.Context, _ *sql.DB, _, _ strin
 func (d *SQLiteDriver) ReorderTableColumns(_ context.Context, _ *sql.DB, _, _ string, _ []string) error {
 	return fmt.Errorf("sqlite: column reorder is not supported — SQLite requires full table recreation")
 }
+
+// AddTableColumn implements driver.SchemaFetcher.
+func (d *SQLiteDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, table string, col *models.ColumnDef) error {
+	// SQLite restriction: Can't add PK column via ALTER TABLE
+	if col.IsPrimaryKey {
+		return fmt.Errorf("sqlite: cannot add a PRIMARY KEY column via ALTER TABLE — SQLite requires table recreation")
+	}
+
+	qualified := fmt.Sprintf(`"%s"`, table)
+
+	nullability := ""
+	if !col.IsNullable {
+		nullability = " NOT NULL"
+	}
+
+	defaultValue := ""
+	if col.DefaultValue != "" {
+		defaultValue = " DEFAULT " + col.DefaultValue
+	}
+
+	sqlStr := fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN \"%s\" %s%s%s",
+		qualified, col.Name, col.DataType, nullability, defaultValue,
+	)
+
+	if _, err := db.ExecContext(ctx, sqlStr); err != nil {
+		return fmt.Errorf("sqlite: add column: %w", err)
+	}
+	return nil
+}

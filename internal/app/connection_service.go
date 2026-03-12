@@ -462,3 +462,25 @@ func (s *ConnectionService) ReorderTableColumns(schema, table string, newOrder [
 	s.logger.Info("reordering columns", "schema", schema, "table", table, "newOrder", newOrder)
 	return d.ReorderTableColumns(ctx, db, schema, table, newOrder)
 }
+
+func (s *ConnectionService) AddTableColumn(schema, table string, col models.ColumnDef) error {
+	prof := s.getProfile()
+	if prof == nil {
+		return fmt.Errorf("no active connection")
+	}
+	db := s.getDB()
+	if db == nil {
+		return fmt.Errorf("no active connection")
+	}
+	d, ok := getDriver(prof.Driver)
+	if !ok {
+		return fmt.Errorf("driver not found")
+	}
+
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
+	defer cancel()
+
+	s.logger.Info("adding column", "schema", schema, "table", table, "column", col.Name)
+	return d.AddTableColumn(ctx, db, schema, table, &col)
+}

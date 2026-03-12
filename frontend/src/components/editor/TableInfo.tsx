@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { FetchTableColumns, AlterTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { FetchTableColumns, AlterTableColumn, AddTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
-import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search } from 'lucide-react';
+import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search, Plus } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -50,6 +50,7 @@ interface RowState {
     original: models.ColumnDef;
     current: models.ColumnDef;
     deleted: boolean;
+    isNew?: boolean;
 }
 
 function parseTableName(t: string) {
@@ -172,8 +173,7 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
                         <div
                             key={t}
                             onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
-                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-[var(--success-color)] hover:text-white ${isSelected ? 'bg-[var(--success-color)] text-white' : 'text-[var(--text-primary)]'
-                                }`}
+                            className={`px-3 py-1 text-xs font-mono cursor-pointer hover:bg-(--success-color) hover:text-white ${isSelected ? 'bg-(--success-color) text-white' : 'text-(--text-primary)'}`}
                         >
                             {t}
                         </div>
@@ -186,24 +186,23 @@ const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disa
 
     if (!editing) {
         return (
-            <span
-                className={`font-mono text-xs block truncate cursor-default select-none ${isDirty ? 'text-[var(--success-color)]' : ''}`}
+            <div
+                className={`rt-cell-content font-mono text-[11.5px] cursor-default select-none ${isDirty ? 'text-(--success-color)' : ''}`}
                 onDoubleClick={openEditor}
                 title={`${value} (double-click to edit)`}
             >
                 {value}
-            </span>
+            </div>
         );
     }
 
     return (
-        <div ref={wrapRef} style={{ position: 'relative', width: '100%' }}>
+        <div ref={wrapRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
             <input
                 ref={inputRef}
                 autoFocus
                 onFocus={(e) => e.target.select()}
-                className="rt-cell-input"
-                style={{ height: 24, fontSize: 12, fontFamily: 'monospace', borderRadius: 3, padding: '0 6px', width: '100%', boxSizing: 'border-box' }}
+                className="rt-cell-input font-mono"
                 value={text}
                 onChange={e => { setText(e.target.value); }}
                 onKeyDown={e => {
@@ -256,25 +255,24 @@ const Row: React.FC<RowProps> = ({
 }) => {
     const col = row.current;
     const isDeleted = row.deleted;
-    const isDirty = !isDeleted && !deepEq(row.original, row.current);
+    const isNew = row.isNew;
+    const isDirty = !isDeleted && !isNew && !deepEq(row.original, row.current);
 
     const style: React.CSSProperties = {
         opacity: isDeleted ? 0.55 : 1,
         background: isDeleted
             ? 'rgba(220,38,38,.08)'
-            : isDirty
-                ? 'rgba(var(--accent-rgb,99,102,241),.09)'
-                : displayIdx % 2 === 1 ? 'var(--bg-secondary)' : undefined,
+            : isNew
+                ? 'rgba(34,197,94,.08)'
+                : isDirty
+                    ? 'rgba(var(--accent-rgb,99,102,241),.09)'
+                    : displayIdx % 2 === 1 ? 'var(--bg-secondary)' : undefined,
     };
 
     const td: React.CSSProperties = {
-        padding: '4px 8px',
-        borderBottom: '1px solid var(--border-color)',
-        fontSize: 12,
+        padding: 0,
+        height: 30,
         verticalAlign: 'middle',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
     };
 
     return (
@@ -304,7 +302,6 @@ const Row: React.FC<RowProps> = ({
                             autoFocus
                             onFocus={e => e.target.select()}
                             className="rt-cell-input"
-                            style={{ height: 24, fontSize: 12, borderRadius: 3, padding: '0 6px', width: '100%' }}
                             defaultValue={col.Name}
                             onBlur={e => { onUpdate(rowIdx, { Name: e.target.value }); setEditCell(null); }}
                             onKeyDown={e => {
@@ -313,18 +310,18 @@ const Row: React.FC<RowProps> = ({
                             }}
                         />
                     ) : (
-                        <span
-                            className={`block truncate ${isDirty && col.Name !== row.original.Name ? 'text-[var(--success-color)] font-semibold' : col.IsPrimaryKey ? 'font-semibold' : ''}`}
+                        <div
+                            className={`rt-cell-content cursor-text ${isDirty && col.Name !== row.original.Name ? 'text-(--success-color) font-semibold' : col.IsPrimaryKey ? 'font-semibold' : ''}`}
                             onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
                             title={col.Name}
                         >
                             {col.Name}
-                        </span>
+                        </div>
                     )}
                 </td>
 
                 {/* DataType */}
-                <td style={{ ...td, padding: '3px 6px' }}>
+                <td style={{ ...td }}>
                     <DataTypeCell
                         value={col.DataType}
                         types={types}
@@ -342,32 +339,31 @@ const Row: React.FC<RowProps> = ({
                 </td>
 
                 {/* Nullable */}
-                <td style={{ ...td, width: 68, textAlign: 'center' }}>
+                <td style={{ ...td, width: 70, textAlign: 'center' }}>
                     <input type="checkbox" checked={col.IsNullable} disabled={isDeleted}
                         onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
                         style={{ cursor: isDeleted ? 'default' : 'pointer', accentColor: 'var(--success-color)' }} />
                 </td>
 
                 {/* Default */}
-                <td style={{ ...td, padding: '3px 6px' }}>
+                <td style={{ ...td }}>
                     {isDeleted
-                        ? <span className="text-[var(--text-secondary)]">{col.DefaultValue || '–'}</span>
+                        ? <div className="rt-cell-content text-(--text-secondary)">{col.DefaultValue || '–'}</div>
                         : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
                             ? <input autoFocus onFocus={e => e.target.select()} className="rt-cell-input"
-                                style={{ height: 24, fontSize: 12, borderRadius: 3, padding: '0 6px', width: '100%' }}
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
                                 onKeyDown={e => {
                                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                     if (e.key === 'Escape') setEditCell(null);
                                 }} />
-                            : <span
-                                className={`block truncate cursor-text ${col.DefaultValue ? '' : 'text-[var(--text-secondary)]'} ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-[var(--success-color)]' : ''}`}
+                            : <div
+                                className={`rt-cell-content cursor-text ${col.DefaultValue ? '' : 'text-(--text-secondary)'} ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-(--success-color)' : ''}`}
                                 onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
                                 title={col.DefaultValue || 'none'}
                             >
                                 {col.DefaultValue || '–'}
-                            </span>
+                            </div>
                     }
                 </td>
 
@@ -526,8 +522,31 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     };
 
     const discardAll = () => {
-        setRows(prev => prev.map(r => ({ ...r, current: { ...r.original }, deleted: false })));
+        setRows(prev => prev.filter(r => !r.isNew).map(r => ({ ...r, current: { ...r.original }, deleted: false })));
         setRowErrors({});
+    };
+
+    const addColumn = () => {
+        const newCol: models.ColumnDef = {
+            Name: `new_column_${rows.length + 1}`,
+            DataType: driver === 'postgres' ? 'varchar(255)' : driver === 'mysql' ? 'varchar(255)' : 'nvarchar(255)',
+            DefaultValue: '',
+            IsNullable: true,
+            IsPrimaryKey: false,
+        };
+        const newRow: RowState = {
+            id: `new-${Date.now()}`,
+            original: { ...newCol },
+            current: { ...newCol },
+            deleted: false,
+            isNew: true,
+        };
+        setRows(prev => [...prev, newRow]);
+        // Scroll to bottom after state update
+        setTimeout(() => {
+            const table = containerRef.current?.querySelector('.result-virtual-scroll');
+            if (table) table.scrollTop = table.scrollHeight;
+        }, 50);
     };
 
     const saveAll = async () => {
@@ -535,18 +554,27 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         const errs: Record<number, string> = {};
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
-            if (r.deleted || deepEq(r.original, r.current)) continue;
-            try { await AlterTableColumn(schema, table, r.original, r.current); }
-            catch (e: any) { errs[i] = e.toString(); }
+            if (r.deleted) continue; // Future: DropTableColumn
+            
+            try {
+                if (r.isNew) {
+                    await AddTableColumn(schema, table, r.current);
+                } else if (!deepEq(r.original, r.current)) {
+                    await AlterTableColumn(schema, table, r.original, r.current);
+                }
+            } catch (e: any) {
+                errs[i] = e.toString();
+            }
         }
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);
         setSaving(false);
     };
 
-    const dirtyCount = rows.filter((r, i) => !r.deleted && !deepEq(r.original, r.current)).length;
+    const dirtyCount = rows.filter((r, i) => !r.isNew && !r.deleted && !deepEq(r.original, r.current)).length;
+    const addedCount = rows.filter(r => r.isNew).length;
     const deletedCount = rows.filter(r => r.deleted).length;
-    const hasChanges = dirtyCount > 0 || deletedCount > 0;
+    const hasChanges = dirtyCount > 0 || addedCount > 0 || deletedCount > 0;
 
     const reloadAction: TabAction = {
         id: 'reload',
@@ -558,6 +586,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const tabActions: Record<SubTab, TabAction[]> = {
         info: [
+            {
+                id: 'add',
+                icon: <Plus size={11} />,
+                label: 'Add Column',
+                onClick: addColumn,
+                disabled: saving,
+            },
             ...(hasChanges ? [
                 {
                     id: 'discard',
@@ -731,6 +766,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         {activeSubTab === 'info' && (
                             <span>
                                 Total {rows.length} columns {hasChanges && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
+                                {addedCount > 0 && <span style={{ color: 'var(--success-color)' }}>{addedCount} added</span>}
+                                {addedCount > 0 && (dirtyCount > 0 || deletedCount > 0) && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
                                 {dirtyCount > 0 && <span style={{ color: 'var(--success-color)' }}>{dirtyCount} modified</span>}
                                 {dirtyCount > 0 && deletedCount > 0 && <span style={{ color: 'var(--text-secondary)' }}> · </span>}
                                 {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
