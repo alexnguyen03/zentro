@@ -182,3 +182,78 @@ func (d *SQLiteDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, 
 	}
 	return nil
 }
+
+// FetchTableRelationships implements driver.SchemaFetcher.
+func (d *SQLiteDriver) FetchTableRelationships(ctx context.Context, db *sql.DB, schema, table string) ([]models.TableRelationship, error) {
+	var rels []models.TableRelationship
+
+	// 1. Fetch outgoing keys
+	outQuery := fmt.Sprintf(`PRAGMA foreign_key_list("%s")`, table)
+	outRows, err := db.QueryContext(ctx, outQuery)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: pragma fg keys out: %w", err)
+	}
+	defer outRows.Close()
+
+	for outRows.Next() {
+		// PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
+		var id, seq int
+		var targetTable, sourceColumn, targetColumn, onUpdate, onDelete, match string
+		if err := outRows.Scan(&id, &seq, &targetTable, &sourceColumn, &targetColumn, &onUpdate, &onDelete, &match); err != nil {
+			return nil, fmt.Errorf("sqlite: scan fg key out: %w", err)
+		}
+		rels = append(rels, models.TableRelationship{
+			ConstraintName: fmt.Sprintf("fk_%s_%s_%s", table, targetTable, sourceColumn),
+			SourceSchema:   schema,
+			SourceTable:    table,
+			SourceColumn:   sourceColumn,
+			TargetSchema:   schema,
+			TargetTable:    targetTable,
+			TargetColumn:   targetColumn,
+		})
+	}
+
+	// 2. Fetch incoming keys by checking all other tables
+	tablesQuery := `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`
+	tRows, err := db.QueryContext(ctx, tablesQuery)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: fetch tables for incoming rels: %w", err)
+	}
+	
+	var allTables []string
+	for tRows.Next() {
+		var tName string
+		if err := tRows.Scan(&tName); err == nil && tName != table {
+			allTables = append(allTables, tName)
+		}
+	}
+	tRows.Close()
+
+	for _, t := range allTables {
+		inQuery := fmt.Sprintf(`PRAGMA foreign_key_list("%s")`, t)
+		inRows, err := db.QueryContext(ctx, inQuery)
+		if err != nil {
+			continue // ignore errors on single tables
+		}
+		for inRows.Next() {
+			var id, seq int
+			var targetTable, sourceColumn, targetColumn, onUpdate, onDelete, match string
+			if err := inRows.Scan(&id, &seq, &targetTable, &sourceColumn, &targetColumn, &onUpdate, &onDelete, &match); err == nil {
+				if targetTable == table {
+					rels = append(rels, models.TableRelationship{
+						ConstraintName: fmt.Sprintf("fk_%s_%s_%s", t, targetTable, sourceColumn),
+						SourceSchema:   schema,
+						SourceTable:    t,
+						SourceColumn:   sourceColumn,
+						TargetSchema:   schema,
+						TargetTable:    targetTable,
+						TargetColumn:   targetColumn,
+					})
+				}
+			}
+		}
+		inRows.Close()
+	}
+
+	return rels, nil
+}

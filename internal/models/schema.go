@@ -9,6 +9,18 @@ type ColumnDef struct {
 	DefaultValue string `json:"DefaultValue"`
 }
 
+// TableRelationship represents a foreign key constraint between two tables.
+// It can be outgoing (SourceTable = current table) or incoming (TargetTable = current table).
+type TableRelationship struct {
+	ConstraintName string `json:"ConstraintName"`
+	SourceSchema   string `json:"SourceSchema"`
+	SourceTable    string `json:"SourceTable"`
+	SourceColumn   string `json:"SourceColumn"`
+	TargetSchema   string `json:"TargetSchema"`
+	TargetTable    string `json:"TargetTable"`
+	TargetColumn   string `json:"TargetColumn"`
+}
+
 // DatabaseInfo represents a database and its schemas.
 type DatabaseInfo struct {
 	Name    string

@@ -582,6 +582,48 @@ func (d *PostgresDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema
 	return nil
 }
 
+// FetchTableRelationships implements driver.SchemaFetcher.
+func (d *PostgresDriver) FetchTableRelationships(ctx context.Context, db *sql.DB, schema, table string) ([]models.TableRelationship, error) {
+	query := `
+		SELECT
+			tc.constraint_name AS ConstraintName,
+			tc.table_schema AS SourceSchema,
+			tc.table_name AS SourceTable,
+			kcu.column_name AS SourceColumn,
+			ccu.table_schema AS TargetSchema,
+			ccu.table_name AS TargetTable,
+			ccu.column_name AS TargetColumn
+		FROM information_schema.table_constraints tc
+		JOIN information_schema.key_column_usage kcu
+			ON tc.constraint_name = kcu.constraint_name
+			AND tc.table_schema = kcu.table_schema
+		JOIN information_schema.constraint_column_usage ccu
+			ON ccu.constraint_name = tc.constraint_name
+			AND ccu.table_schema = tc.table_schema
+		WHERE tc.constraint_type = 'FOREIGN KEY'
+			AND (
+				(tc.table_schema = $1 AND tc.table_name = $2)
+				OR
+				(ccu.table_schema = $1 AND ccu.table_name = $2)
+			)
+	`
+	rows, err := db.QueryContext(ctx, query, schema, table)
+	if err != nil {
+		return nil, fmt.Errorf("postgres: fetch relationships: %w", err)
+	}
+	defer rows.Close()
+
+	var rels []models.TableRelationship
+	for rows.Next() {
+		var r models.TableRelationship
+		if err := rows.Scan(&r.ConstraintName, &r.SourceSchema, &r.SourceTable, &r.SourceColumn, &r.TargetSchema, &r.TargetTable, &r.TargetColumn); err != nil {
+			return nil, fmt.Errorf("postgres: scan relationship: %w", err)
+		}
+		rels = append(rels, r)
+	}
+	return rels, rows.Err()
+}
+
 // ReorderTableColumns reorders columns using table recreation (Postgres has no native column reorder).
 func (d *PostgresDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {
 	qualified := fmt.Sprintf(`"%s"."%s"`, schema, table)

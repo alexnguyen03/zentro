@@ -38,6 +38,8 @@ type SchemaFetcher interface {
 	AddTableColumn(ctx context.Context, db *sql.DB, schema, table string, col *models.ColumnDef) error
 	// DropTableColumn removes a column from a table via driver-specific DDL.
 	DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error
+	// FetchTableRelationships returns foreign key relationships for the given table.
+	FetchTableRelationships(ctx context.Context, db *sql.DB, schema, table string) ([]models.TableRelationship, error)
 	// ReorderTableColumns reorders columns in the given table to match the provided name order.
 	ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error
 }

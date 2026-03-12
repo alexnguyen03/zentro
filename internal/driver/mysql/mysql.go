@@ -214,6 +214,43 @@ func (d *MySQLDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, ta
 	return nil
 }
 
+// FetchTableRelationships implements driver.SchemaFetcher.
+func (d *MySQLDriver) FetchTableRelationships(ctx context.Context, db *sql.DB, schema, table string) ([]models.TableRelationship, error) {
+	query := `
+		SELECT
+			kcu.CONSTRAINT_NAME AS ConstraintName,
+			kcu.TABLE_SCHEMA AS SourceSchema,
+			kcu.TABLE_NAME AS SourceTable,
+			kcu.COLUMN_NAME AS SourceColumn,
+			kcu.REFERENCED_TABLE_SCHEMA AS TargetSchema,
+			kcu.REFERENCED_TABLE_NAME AS TargetTable,
+			kcu.REFERENCED_COLUMN_NAME AS TargetColumn
+		FROM information_schema.KEY_COLUMN_USAGE kcu
+		WHERE kcu.REFERENCED_TABLE_NAME IS NOT NULL
+			AND (
+				(kcu.TABLE_SCHEMA = ? AND kcu.TABLE_NAME = ?)
+				OR
+				(kcu.REFERENCED_TABLE_SCHEMA = ? AND kcu.REFERENCED_TABLE_NAME = ?)
+			)
+	`
+	rows, err := db.QueryContext(ctx, query, schema, table, schema, table)
+	if err != nil {
+		return nil, fmt.Errorf("mysql: fetch relationships: %w", err)
+	}
+	defer rows.Close()
+
+	var rels []models.TableRelationship
+	for rows.Next() {
+		var r models.TableRelationship
+		if err := rows.Scan(&r.ConstraintName, &r.SourceSchema, &r.SourceTable, &r.SourceColumn, &r.TargetSchema, &r.TargetTable, &r.TargetColumn); err != nil {
+			return nil, fmt.Errorf("mysql: scan relationship: %w", err)
+		}
+		rels = append(rels, r)
+	}
+	return rels, rows.Err()
+}
+
+
 // DropTableColumn implements driver.SchemaFetcher.
 func (d *MySQLDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error {
 	query := fmt.Sprintf("ALTER TABLE `%s` DROP COLUMN `%s`", table, column)

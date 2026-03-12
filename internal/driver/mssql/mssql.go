@@ -515,3 +515,42 @@ func (d *MSSQLDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schem
 
 	return nil
 }
+
+// FetchTableRelationships implements driver.SchemaFetcher.
+func (d *MSSQLDriver) FetchTableRelationships(ctx context.Context, db *sql.DB, schema, table string) ([]models.TableRelationship, error) {
+	query := `
+		SELECT
+			fk.name AS ConstraintName,
+			SCHEMA_NAME(t1.schema_id) AS SourceSchema,
+			t1.name AS SourceTable,
+			c1.name AS SourceColumn,
+			SCHEMA_NAME(t2.schema_id) AS TargetSchema,
+			t2.name AS TargetTable,
+			c2.name AS TargetColumn
+		FROM sys.foreign_keys fk
+		INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+		INNER JOIN sys.tables t1 ON fkc.parent_object_id = t1.object_id
+		INNER JOIN sys.columns c1 ON fkc.parent_object_id = c1.object_id AND fkc.parent_column_id = c1.column_id
+		INNER JOIN sys.tables t2 ON fkc.referenced_object_id = t2.object_id
+		INNER JOIN sys.columns c2 ON fkc.referenced_object_id = c2.object_id AND fkc.referenced_column_id = c2.column_id
+		WHERE
+			(SCHEMA_NAME(t1.schema_id) = @p1 AND t1.name = @p2)
+			OR
+			(SCHEMA_NAME(t2.schema_id) = @p1 AND t2.name = @p2)
+	`
+	rows, err := db.QueryContext(ctx, query, sql.Named("p1", schema), sql.Named("p2", table))
+	if err != nil {
+		return nil, fmt.Errorf("mssql: fetch relationships: %w", err)
+	}
+	defer rows.Close()
+
+	var rels []models.TableRelationship
+	for rows.Next() {
+		var r models.TableRelationship
+		if err := rows.Scan(&r.ConstraintName, &r.SourceSchema, &r.SourceTable, &r.SourceColumn, &r.TargetSchema, &r.TargetTable, &r.TargetColumn); err != nil {
+			return nil, fmt.Errorf("mssql: scan relationship: %w", err)
+		}
+		rels = append(rels, r)
+	}
+	return rels, rows.Err()
+}

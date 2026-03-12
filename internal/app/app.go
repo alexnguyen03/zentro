@@ -141,6 +141,9 @@ func (a *App) AddTableColumn(schema, table string, col models.ColumnDef) error {
 func (a *App) DropTableColumn(schema, table, column string) error {
 	return a.conn.DropTableColumn(schema, table, column)
 }
+func (a *App) FetchTableRelationships(schema, table string) ([]models.TableRelationship, error) {
+	return a.conn.FetchTableRelationships(schema, table)
+}
 
 // ── Query ──────────────────────────────────────────────────────────────────
 

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search, Plus, Trash2 } from 'lucide-react';
+import { ErdView } from './ErdView';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -410,6 +411,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const filterInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
+    const [erdRelCount, setErdRelCount] = useState<number | null>(null);
+    const [erdRefreshKey, setErdRefreshKey] = useState(0);
 
     const { activeProfile } = useConnectionStore();
     const { activeGroupId, groups } = useEditorStore();
@@ -522,8 +525,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     }, [activeSubTab, toggleDeleteRows]);
 
     const loadErd = useCallback(async () => {
-        // TODO: fetch ERD relationships
-    }, [schema, table]);
+        setErdRefreshKey(k => k + 1);
+    }, []);
 
     const tabReload: Record<SubTab, () => void> = {
         info: () => loadInfo(true),
@@ -714,10 +717,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
 
-    const subTabs: { key: SubTab; label: string; isModified: boolean }[] = [
+    const subTabs: { key: SubTab; label: string; isModified: boolean; count?: number | null }[] = [
         { key: 'info', label: 'Info', isModified: hasChanges },
         { key: 'data', label: 'Data', isModified: hasDataChanges },
-        { key: 'erd', label: 'ERD', isModified: false },
+        { key: 'erd', label: 'ERD', isModified: false, count: erdRelCount },
     ];
 
     if (loading) return (
@@ -741,7 +744,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
                     {/* Sub-tabs — flush with bottom border */}
                     <div style={{ display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}>
-                        {subTabs.map(({ key, label, isModified }) => (
+                        {subTabs.map(({ key, label, isModified, count }) => (
                             <div key={key} onClick={() => setActiveSubTab(key)} style={{
                                 display: 'flex', alignItems: 'center',
                                 padding: '0 14px', cursor: 'pointer', fontSize: 12,
@@ -751,7 +754,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 marginBottom: -1,
                                 gap: 6,
                             }}>
-                                <span>{label}</span>
+                                <span>{label}{count !== undefined && count !== null ? ` (${count})` : ''}</span>
                                 {isModified && (
                                     <div style={{
                                         width: 5, height: 5, borderRadius: '50%',
@@ -773,7 +776,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             </div>
 
             {/* Scrollable table area */}
-            <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {activeSubTab === 'info' && (
                     <div className="result-virtual-scroll" style={{ height: '100%' }}>
                         <table className="result-table-tanstack" style={{ tableLayout: 'fixed', minWidth: '100%', fontFamily: 'inherit' }}>
@@ -846,12 +849,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         />
                     </div>
                 )}
-
                 {activeSubTab === 'erd' && (
-                    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-secondary)' }}>
-                        <div className="text-center p-10 border border-dashed rounded-lg" style={{ borderColor: 'var(--border-color)' }}>
-                            (Placeholder) ERD View — {tableName}
-                        </div>
+                    <div className="flex-1 relative" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                        <ErdView key={erdRefreshKey} schema={schema} table={table} onCountChange={setErdRelCount} />
                     </div>
                 )}
             </div>
@@ -881,7 +881,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 {deletedCount > 0 && <span style={{ color: 'var(--error-color)' }}>{deletedCount} deleted</span>}
                             </span>
                         )}
-                        {activeSubTab === 'erd' && <span>Total 0 relationships</span>}
+                        {activeSubTab === 'erd' && (
+                            <span>Total {erdRelCount !== null ? erdRelCount : 0} relationships</span>
+                        )}
                     </div>
 
                     {/* Right: Actions/Filters depending on tab */}
