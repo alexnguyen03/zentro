@@ -383,6 +383,15 @@ func (d *MSSQLDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, ta
 	return nil
 }
 
+// DropTableColumn implements driver.SchemaFetcher.
+func (d *MSSQLDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error {
+	query := fmt.Sprintf("ALTER TABLE [%s].[%s] DROP COLUMN [%s]", schema, table, column)
+	if _, err := db.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("mssql: drop column: %w", err)
+	}
+	return nil
+}
+
 // ReorderTableColumns reorders columns by recreating the table with the new column order.
 // This mirrors SSMS behaviour — it creates a temp table, copies data, drops original, renames.
 // WARNING: this is a DDL operation. Ensure no active transactions hold locks on the table.

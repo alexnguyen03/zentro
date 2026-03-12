@@ -573,6 +573,15 @@ func (d *PostgresDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema,
 	return nil
 }
 
+// DropTableColumn implements driver.SchemaFetcher.
+func (d *PostgresDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error {
+	query := fmt.Sprintf(`ALTER TABLE "%s"."%s" DROP COLUMN "%s"`, schema, table, column)
+	if _, err := db.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("postgres: drop column: %w", err)
+	}
+	return nil
+}
+
 // ReorderTableColumns reorders columns using table recreation (Postgres has no native column reorder).
 func (d *PostgresDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {
 	qualified := fmt.Sprintf(`"%s"."%s"`, schema, table)

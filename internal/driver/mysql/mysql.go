@@ -214,6 +214,15 @@ func (d *MySQLDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, ta
 	return nil
 }
 
+// DropTableColumn implements driver.SchemaFetcher.
+func (d *MySQLDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error {
+	query := fmt.Sprintf("ALTER TABLE `%s` DROP COLUMN `%s`", table, column)
+	if _, err := db.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("mysql: drop column: %w", err)
+	}
+	return nil
+}
+
 // ReorderTableColumns uses MySQL's MODIFY COLUMN ... AFTER to reorder columns natively.
 // MySQL is the only major RDBMS that supports this without full table recreation.
 func (d *MySQLDriver) ReorderTableColumns(ctx context.Context, db *sql.DB, schema, table string, newOrder []string) error {

@@ -138,6 +138,9 @@ func (a *App) ReorderTableColumns(schema, table string, newOrder []string) error
 func (a *App) AddTableColumn(schema, table string, col models.ColumnDef) error {
 	return a.conn.AddTableColumn(schema, table, col)
 }
+func (a *App) DropTableColumn(schema, table, column string) error {
+	return a.conn.DropTableColumn(schema, table, column)
+}
 
 // ── Query ──────────────────────────────────────────────────────────────────
 

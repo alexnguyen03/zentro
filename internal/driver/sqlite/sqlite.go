@@ -172,3 +172,13 @@ func (d *SQLiteDriver) AddTableColumn(ctx context.Context, db *sql.DB, schema, t
 	}
 	return nil
 }
+
+// DropTableColumn implements driver.SchemaFetcher.
+func (d *SQLiteDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error {
+	// Supported in SQLite >= 3.35.0
+	query := fmt.Sprintf("ALTER TABLE \"%s\" DROP COLUMN \"%s\"", table, column)
+	if _, err := db.ExecContext(ctx, query); err != nil {
+		return fmt.Errorf("sqlite: drop column (requires SQLite >= 3.35.0): %w", err)
+	}
+	return nil
+}

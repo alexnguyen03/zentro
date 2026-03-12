@@ -484,3 +484,25 @@ func (s *ConnectionService) AddTableColumn(schema, table string, col models.Colu
 	s.logger.Info("adding column", "schema", schema, "table", table, "column", col.Name)
 	return d.AddTableColumn(ctx, db, schema, table, &col)
 }
+
+func (s *ConnectionService) DropTableColumn(schema, table, column string) error {
+	prof := s.getProfile()
+	if prof == nil {
+		return fmt.Errorf("no active connection")
+	}
+	db := s.getDB()
+	if db == nil {
+		return fmt.Errorf("no active connection")
+	}
+	d, ok := getDriver(prof.Driver)
+	if !ok {
+		return fmt.Errorf("driver not found")
+	}
+
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
+	defer cancel()
+
+	s.logger.Info("dropping column", "schema", schema, "table", table, "column", column)
+	return d.DropTableColumn(ctx, db, schema, table, column)
+}

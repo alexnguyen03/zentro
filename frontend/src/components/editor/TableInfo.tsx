@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { FetchTableColumns, AlterTableColumn, AddTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
-import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search, Plus } from 'lucide-react';
+import { Loader, Check, X, ArrowUp, ArrowDown, ArrowUpDown, RotateCcw, Save, RefreshCw, Search, Plus, Trash2 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -248,10 +248,13 @@ interface RowProps {
     onUpdate: (rowIdx: number, patch: Partial<models.ColumnDef>) => void;
     onDiscard: (rowIdx: number) => void;
     rowError: string | undefined;
+    isSelected: boolean;
+    onRowMouseDown: (e: React.MouseEvent, idx: number) => void;
+    onRowMouseEnter: (idx: number) => void;
 }
 
 const Row: React.FC<RowProps> = ({
-    row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError
+    row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError, isSelected, onRowMouseDown, onRowMouseEnter
 }) => {
     const col = row.current;
     const isDeleted = row.deleted;
@@ -260,13 +263,16 @@ const Row: React.FC<RowProps> = ({
 
     const style: React.CSSProperties = {
         opacity: isDeleted ? 0.55 : 1,
-        background: isDeleted
-            ? 'rgba(220,38,38,.08)'
-            : isNew
+        background: isSelected
+            ? 'rgba(var(--accent-rgb,99,102,241),.15)'
+            : isDeleted
+                ? 'rgba(220,38,38,.08)'
+                : isNew
                 ? 'rgba(34,197,94,.08)'
                 : isDirty
                     ? 'rgba(var(--accent-rgb,99,102,241),.09)'
                     : displayIdx % 2 === 1 ? 'var(--bg-secondary)' : undefined,
+        userSelect: 'none',
     };
 
     const td: React.CSSProperties = {
@@ -277,7 +283,12 @@ const Row: React.FC<RowProps> = ({
 
     return (
         <>
-            <tr style={style}>
+        <tr
+            style={style}
+            onMouseDown={(e) => onRowMouseDown(e, rowIdx)}
+            onMouseEnter={() => onRowMouseEnter(rowIdx)}
+            className={`rt-row ${isSelected ? 'selected' : ''}`}
+        >
                 {/* # — double-click to discard changes */}
                 <td
                     style={{
@@ -286,8 +297,9 @@ const Row: React.FC<RowProps> = ({
                         textAlign: 'center',
                         fontSize: 11,
                         color: (isDirty || isDeleted) ? 'var(--error-color)' : 'var(--text-secondary)',
-                        cursor: 'pointer',
+                        cursor: 'default',
                         userSelect: 'none',
+                        borderLeft: isSelected ? '2px solid var(--success-color)' : '2px solid transparent',
                     }}
                     onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
                     title={(isDirty || isDeleted) ? 'Double-click to discard changes' : undefined}
@@ -389,6 +401,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [saving, setSaving] = useState(false);
     const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
     const [editCell, setEditCell] = useState<{ rowIdx: number; field: 'Name' | 'DefaultValue' } | null>(null);
+    const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+    const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
     const [sortCol, setSortCol] = useState<SortCol>('idx');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [filterCol, setFilterCol] = useState('');
@@ -438,6 +453,73 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             loadData();
         }
     }, [activeSubTab, dataResult, loadData]);
+
+    const handleRowMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
+        if (e.button !== 0) return; // Only left click
+        setIsDragging(true);
+        setDragStartIdx(idx);
+
+        if (e.ctrlKey || e.metaKey) {
+            setSelectedRows(prev => {
+                const next = new Set(prev);
+                if (next.has(idx)) next.delete(idx); else next.add(idx);
+                return next;
+            });
+        } else if (e.shiftKey && selectedRows.size > 0) {
+            const arr = Array.from(selectedRows);
+            const start = Math.min(...arr);
+            const min = Math.min(start, idx);
+            const max = Math.max(start, idx);
+            const next = new Set<number>();
+            for (let i = min; i <= max; i++) next.add(i);
+            setSelectedRows(next);
+        } else {
+            setSelectedRows(new Set([idx]));
+        }
+    }, [selectedRows]);
+
+    const handleRowMouseEnter = useCallback((idx: number) => {
+        if (!isDragging || dragStartIdx === null) return;
+        
+        const min = Math.min(dragStartIdx, idx);
+        const max = Math.max(dragStartIdx, idx);
+        const next = new Set<number>();
+        for (let i = min; i <= max; i++) next.add(i);
+        setSelectedRows(next);
+    }, [isDragging, dragStartIdx]);
+
+    useEffect(() => {
+        const handleMouseUp = () => {
+            setIsDragging(false);
+            setDragStartIdx(null);
+        };
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => window.removeEventListener('mouseup', handleMouseUp);
+    }, []);
+
+    const toggleDeleteRows = useCallback(() => {
+        if (selectedRows.size === 0) return;
+        setRows(prev => prev.map((r, i) => {
+            if (selectedRows.has(i)) {
+                if (r.isNew) return null; // Remove new rows immediately
+                return { ...r, deleted: !r.deleted };
+            }
+            return r;
+        }).filter(Boolean) as RowState[]);
+        setSelectedRows(new Set());
+    }, [selectedRows]);
+
+    useEffect(() => {
+        if (activeSubTab !== 'info') return;
+        const handler = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) {
+                toggleDeleteRows();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [activeSubTab, toggleDeleteRows]);
 
     const loadErd = useCallback(async () => {
         // TODO: fetch ERD relationships
@@ -524,6 +606,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const discardAll = () => {
         setRows(prev => prev.filter(r => !r.isNew).map(r => ({ ...r, current: { ...r.original }, deleted: false })));
         setRowErrors({});
+        setSelectedRows(new Set());
     };
 
     const addColumn = () => {
@@ -554,10 +637,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         const errs: Record<number, string> = {};
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
-            if (r.deleted) continue; // Future: DropTableColumn
-            
             try {
-                if (r.isNew) {
+                if (r.deleted) {
+                    await DropTableColumn(schema, table, r.original.Name);
+                } else if (r.isNew) {
                     await AddTableColumn(schema, table, r.current);
                 } else if (!deepEq(r.original, r.current)) {
                     await AlterTableColumn(schema, table, r.original, r.current);
@@ -593,6 +676,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 onClick: addColumn,
                 disabled: saving,
             },
+            ...(selectedRows.size > 0 ? [
+                {
+                    id: 'delete',
+                    icon: <Trash2 size={11} />,
+                    label: 'Delete',
+                    onClick: toggleDeleteRows,
+                    disabled: saving,
+                    danger: true,
+                }
+            ] : []),
             ...(hasChanges ? [
                 {
                     id: 'discard',
@@ -727,6 +820,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                             onUpdate={updateRow}
                                             onDiscard={discardRow}
                                             rowError={rowErrors[rowIdx]}
+                                            isSelected={selectedRows.has(rowIdx)}
+                                            onRowMouseDown={handleRowMouseDown}
+                                            onRowMouseEnter={handleRowMouseEnter}
                                         />
                                     );
                                 })}
