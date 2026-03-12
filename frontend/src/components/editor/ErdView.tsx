@@ -474,7 +474,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                             orient="auto"
                         >
                             <path
-                                d="M 0,-8 L 0,8"
+                                d="M 0,0 L 12,0 M 6,-8 L 6,8"
                                 stroke="var(--text-secondary)"
                                 strokeWidth="1.5"
                                 fill="none"
