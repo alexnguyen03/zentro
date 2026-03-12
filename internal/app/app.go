@@ -35,6 +35,7 @@ type App struct {
 	query   *QueryService
 	history *HistoryService
 	scripts *ScriptService
+	templates *TemplateService
 }
 
 func NewApp() *App {
@@ -65,6 +66,7 @@ func NewApp() *App {
 	)
 
 	a.scripts = NewScriptService(nil)
+	a.templates = NewTemplateService()
 
 	return a
 }
@@ -163,6 +165,12 @@ func (a *App) DeleteScript(connectionName, scriptID string) error {
 
 func (a *App) GetHistory() []models.HistoryEntry { return a.history.GetHistory() }
 func (a *App) ClearHistory() error               { return a.history.ClearHistory() }
+
+// ── Templates ──────────────────────────────────────────────────────────────
+
+func (a *App) LoadTemplates() ([]models.Template, error) { return a.templates.LoadTemplates() }
+func (a *App) SaveTemplate(t models.Template) error      { return a.templates.SaveTemplate(t) }
+func (a *App) DeleteTemplate(id string) error           { return a.templates.DeleteTemplate(id) }
 
 // ── Preferences ────────────────────────────────────────────────────────────
 

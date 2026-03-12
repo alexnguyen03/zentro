@@ -4,6 +4,7 @@ import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
+import { EditorToolbar } from './EditorToolbar';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -189,29 +190,34 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     }, []);
 
     return (
-        <Editor
-            height="100%"
-            defaultLanguage="sql"
-            theme={getMonacoTheme()}
-            value={value}
-            onChange={(v) => onChange(v ?? '')}
-            onMount={handleMount}
-            options={{
-                automaticLayout: true,
-                minimap: { enabled: false },
-                fontSize: fontSize,
-                lineHeight: fontSize * 1.5,
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                tabSize: 2,
-                wordBasedSuggestions: 'off',
-                suggestOnTriggerCharacters: true,
-                quickSuggestions: { other: true, comments: false, strings: false },
-                scrollbar: {
-                    verticalScrollbarSize: 8,
-                    horizontalScrollbarSize: 8,
-                },
-            }}
-        />
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex-1 min-h-0">
+                <Editor
+                    height="100%"
+                    defaultLanguage="sql"
+                    theme={getMonacoTheme()}
+                    value={value}
+                    onChange={(v) => onChange(v ?? '')}
+                    onMount={handleMount}
+                    options={{
+                        automaticLayout: true,
+                        minimap: { enabled: false },
+                        fontSize: fontSize,
+                        lineHeight: fontSize * 1.5,
+                        scrollBeyondLastLine: false,
+                        wordWrap: 'on',
+                        tabSize: 2,
+                        wordBasedSuggestions: 'off',
+                        suggestOnTriggerCharacters: true,
+                        quickSuggestions: { other: true, comments: false, strings: false },
+                        scrollbar: {
+                            verticalScrollbarSize: 8,
+                            horizontalScrollbarSize: 8,
+                        },
+                    }}
+                />
+            </div>
+            <EditorToolbar isActive={isActive} />
+        </div>
     );
 };

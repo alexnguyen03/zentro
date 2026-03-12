@@ -102,6 +102,8 @@ function App() {
             onQueryStarted(({ tabID, query }) => {
                 setTabRunning(tabID, true);
                 initTab(tabID);
+                // Automatically show result panel if hidden
+                useLayoutStore.getState().setShowResultPanel(true);
                 // Store the original query for tooltip/filter — skip filter-wrapped queries
                 // so the base stays as the user's original query
                 if (query && !query.includes('_zentro_filter')) {

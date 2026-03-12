@@ -1,6 +1,7 @@
 import { languages } from 'monaco-editor';
 import { SchemaNode, useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useTemplateStore } from '../../stores/templateStore';
 
 const SQL_KEYWORDS = [
     'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN',
@@ -33,16 +34,33 @@ function extractAliases(query: string): Map<string, string> {
     return aliasMap;
 }
 
-let completionDisposable: any = null;
+// Persistent key to track all registrations across HMR and multiple mounts
+const DISPOSABLES_KEY = '__ZENTRO_SQL_COMPLETION_DISPOSABLES__';
+
+// Ensure the global disposables list exists
+if (!(window as any)[DISPOSABLES_KEY]) {
+    (window as any)[DISPOSABLES_KEY] = [];
+}
 
 export function registerContextAwareSQLCompletion(monaco: any) {
-    if (completionDisposable) {
-        completionDisposable.dispose();
+    const disposables = (window as any)[DISPOSABLES_KEY] as any[];
+    
+    // 1. Aggressively dispose of ALL existing providers from previous iterations
+    while (disposables.length > 0) {
+        const d = disposables.pop();
+        if (d && typeof d.dispose === 'function') {
+            try {
+                d.dispose();
+            } catch (e) {
+                console.error('Error disposing provider:', e);
+            }
+        }
     }
 
-    completionDisposable = monaco.languages.registerCompletionItemProvider('sql', {
+    // 2. Register a single provider
+    const provider = {
         triggerCharacters: ['.', ' '],
-        provideCompletionItems: async (model: any, position: any, context: any) => {
+        provideCompletionItems: async (model: any, position: any) => {
             const word = model.getWordUntilPosition(position);
             const range = {
                 startLineNumber: position.lineNumber,
@@ -54,8 +72,6 @@ export function registerContextAwareSQLCompletion(monaco: any) {
             const fullQuery = model.getValue();
             const lineContent = model.getLineContent(position.lineNumber);
             const textBeforeCursor = lineContent.substring(0, position.column - 1);
-            
-            // Check if we just typed a dot (e.g. `alias.`)
             const isDotTrigger = textBeforeCursor.trim().endsWith('.');
 
             const profile = useConnectionStore.getState().activeProfile;
@@ -66,24 +82,19 @@ export function registerContextAwareSQLCompletion(monaco: any) {
             const checkAndFetchColumns = useSchemaStore.getState().checkAndFetchColumns;
             
             let allSchemas: SchemaNode[] = [];
-            // Combine all schemas under the active profile
             Object.entries(trees).forEach(([key, schemas]) => {
                 if (key.startsWith(profileKey)) {
-                    allSchemas = allSchemas.concat(schemas || []);
+                    allSchemas = allSchemas.concat((schemas as SchemaNode[]) || []);
                 }
             });
 
             if (isDotTrigger) {
-                // Determine what comes before the dot
                 const match = textBeforeCursor.match(/([a-zA-Z0-9_]+)\.$/);
                 if (match) {
                     const prefix = match[1];
                     const aliasMap = extractAliases(fullQuery);
-                    
-                    // prefix might be a table alias, or an exact table name
                     const tableName = aliasMap.get(prefix.toLowerCase()) || prefix;
 
-                    // Find which schema this table belongs to
                     let targetSchema = '';
                     let foundTable = '';
                     
@@ -98,7 +109,6 @@ export function registerContextAwareSQLCompletion(monaco: any) {
                     }
 
                     if (foundTable) {
-                        // Fetch columns, utilizing cache
                         const columns = await checkAndFetchColumns(profileKey, dbName, targetSchema, foundTable);
                         if (columns && columns.length > 0) {
                             return {
@@ -113,67 +123,92 @@ export function registerContextAwareSQLCompletion(monaco: any) {
                         }
                     }
                 }
-                
-                // If it's a dot but we cannot resolve columns, return empty
-                // BUT Monaco caches these results tightly if we return INCOMPLETE: false
-                // So if we have no suggestions for dot, returning an empty list makes it stop trying
-                // until the next trigger. We'll return empty here.
                 return { suggestions: [] };
             }
 
-            // General suggestions (not after a dot)
-            const suggestions: languages.CompletionItem[] = [];
-
-            // Helper to see if the keyword matches the currently typed word
+            // Map suggestions by label for maximum deduplication across all sources
+            const suggestionMap = new Map<string, languages.CompletionItem>();
             const currentWordMatch = word.word.toUpperCase();
 
             // 1. Add Tables and Views
             allSchemas.forEach(schema => {
                 (schema.Tables || []).forEach(t => {
-                    suggestions.push({
-                        label: t,
-                        kind: monaco.languages.CompletionItemKind.Module, // Using Module for Tables
-                        detail: 'Table',
-                        insertText: t,
-                        range
-                    } as any);
+                    const key = `table-${t.toLowerCase()}`;
+                    if (!suggestionMap.has(key)) {
+                        suggestionMap.set(key, {
+                            label: t,
+                            kind: monaco.languages.CompletionItemKind.Module,
+                            detail: 'Table',
+                            insertText: t,
+                            range
+                        } as any);
+                    }
                 });
                 (schema.Views || []).forEach(v => {
-                    suggestions.push({
-                        label: v,
-                        kind: monaco.languages.CompletionItemKind.Class, // Using Class for Views
-                        detail: 'View',
-                        insertText: v,
-                        range
-                    } as any);
+                    const key = `view-${v.toLowerCase()}`;
+                    if (!suggestionMap.has(key)) {
+                        suggestionMap.set(key, {
+                            label: v,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            detail: 'View',
+                            insertText: v,
+                            range
+                        } as any);
+                    }
                 });
             });
 
             // 2. Add SQL Keywords
             SQL_KEYWORDS.forEach(kw => {
-                suggestions.push({
-                    label: kw,
-                    kind: monaco.languages.CompletionItemKind.Keyword,
-                    insertText: kw,
-                    // Provide score/sort order so keywords appear prominently
-                    sortText: (kw.startsWith(currentWordMatch) ? '0' : '1') + kw,
-                    range
-                } as any);
+                const key = `keyword-${kw.toLowerCase()}`;
+                if (!suggestionMap.has(key)) {
+                    suggestionMap.set(key, {
+                        label: kw,
+                        kind: monaco.languages.CompletionItemKind.Keyword,
+                        insertText: kw,
+                        sortText: (kw.startsWith(currentWordMatch) ? '0' : '1') + kw,
+                        range
+                    } as any);
+                }
             });
 
             // 3. Add SQL Functions
             SQL_FUNCTIONS.forEach(fn => {
-                suggestions.push({
-                    label: fn,
-                    kind: monaco.languages.CompletionItemKind.Function,
-                    insertText: `${fn}($1)`,
-                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                    sortText: '2' + fn,
-                    range
-                } as any);
+                const key = `function-${fn.toLowerCase()}`;
+                if (!suggestionMap.has(key)) {
+                    suggestionMap.set(key, {
+                        label: fn,
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: `${fn}($1)`,
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        sortText: '2' + fn.toLowerCase(),
+                        range
+                    } as any);
+                }
             });
 
-            return { suggestions };
+            // 4. Add Templates
+            const templates = useTemplateStore.getState().templates;
+            templates.forEach(t => {
+                const key = `template-${t.trigger.toLowerCase()}`;
+                if (!suggestionMap.has(key)) {
+                    suggestionMap.set(key, {
+                        label: t.trigger,
+                        kind: monaco.languages.CompletionItemKind.Snippet,
+                        detail: t.name,
+                        documentation: t.content,
+                        insertText: t.content,
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        sortText: '3' + t.trigger.toLowerCase(),
+                        range
+                    } as any);
+                }
+            });
+
+            return { suggestions: Array.from(suggestionMap.values()) };
         }
-    });
+    };
+
+    const registration = monaco.languages.registerCompletionItemProvider('sql', provider);
+    disposables.push(registration);
 }

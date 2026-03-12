@@ -5,7 +5,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase, LoadConnections } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
-import { makeDefaultForm } from '../../lib/providers';
+import { getProvider, makeDefaultForm } from '../../lib/providers';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
@@ -121,24 +121,54 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                 <input ref={inputRef} className={searchInputClass} placeholder="Search connections..." value={connFilter} onChange={e => setConnFilter(e.target.value)} />
                             </div>
                             <div className={listClass}>
-                                {filteredConns.map(conn => (
-                                    <div
-                                        key={conn.name}
-                                        className={cn(itemClass, selectedConn === conn.name && itemActiveClass, "group flex items-center justify-between py-[3px]! pr-[5px]!")}
-                                        onClick={() => handleSelectConn(conn.name!)}
-                                    >
-                                        <span className="truncate flex-1 py-1">{conn.name}</span>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="w-6 h-6 opacity-0 group-hover:opacity-100"
-                                            onClick={(e) => handleOpenEditConnection(e, conn)}
-                                            title="Edit Connection"
+                                {filteredConns.map(conn => {
+                                    const provider = getProvider(conn.driver || 'postgres');
+                                    const isActive = selectedConn === conn.name;
+
+                                    return (
+                                        <div
+                                            key={conn.name}
+                                            className={cn(
+                                                "group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors duration-200 border-l-3 border-transparent",
+                                                isActive ? "bg-bg-tertiary border-l-success" : "hover:bg-bg-tertiary/50"
+                                            )}
+                                            onClick={() => handleSelectConn(conn.name!)}
                                         >
-                                            <Info size={13} />
-                                        </Button>
-                                    </div>
-                                ))}
+                                            {/* Logo */}
+                                            <div className="w-13 h-13 rounded-md flex items-center justify-center p-1 shrink-0">
+                                                <img
+                                                    src={provider.icon}
+                                                    alt={provider.label}
+                                                    className="w-[85%] h-[85%] object-contain"
+                                                />
+                                            </div>
+
+                                            {/* Details */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className={cn(
+                                                    "font-bold truncate text-[14px] mb-0.5",
+                                                    isActive ? "text-success" : "text-text-primary"
+                                                )}>
+                                                    {conn.name}
+                                                </div>
+                                                <div className="text-[11px] text-text-muted/80 truncate font-mono">
+                                                    {provider.requiresHost ? `${conn.host}:${conn.port}` : 'Local Database'}
+                                                </div>
+                                            </div>
+
+                                            {/* Edit Button */}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="w-7 h-7 opacity-0 group-hover:opacity-100"
+                                                onClick={(e) => handleOpenEditConnection(e, conn)}
+                                                title="Edit Connection"
+                                            >
+                                                <Info size={14} className="text-text-muted" />
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
                                 {filteredConns.length === 0 && <div className={itemEmptyClass}>No connections found</div>}
                             </div>
                             <div className="px-[10%] py-2 bg-bg-primary shrink-0">
