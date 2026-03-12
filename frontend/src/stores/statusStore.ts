@@ -6,11 +6,13 @@ interface StatusState {
     rowCount: number;
     duration: number;
     message: string | null;
+    currentDriver: string;
 
     setConnectionLabel: (label: string) => void;
     setStatus: (status: StatusState['status']) => void;
     setQueryStats: (rowCount: number, duration: number) => void;
     setMessage: (message: string | null) => void;
+    setCurrentDriver: (driver: string) => void;
 }
 
 export const useStatusStore = create<StatusState>((set) => ({
@@ -19,9 +21,11 @@ export const useStatusStore = create<StatusState>((set) => ({
     rowCount: 0,
     duration: 0,
     message: null,
+    currentDriver: '',
 
     setConnectionLabel: (label) => set({ connectionLabel: label }),
     setStatus: (status) => set({ status }),
     setQueryStats: (rowCount, duration) => set({ rowCount, duration }),
     setMessage: (message) => set({ message }),
+    setCurrentDriver: (driver) => set({ currentDriver: driver }),
 }));

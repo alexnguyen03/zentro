@@ -129,13 +129,9 @@ export const Toolbar: React.FC = () => {
                                 )}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (connectionStatus === 'error' || connectionStatus === 'disconnected') {
-                                        Connect(activeProfile.name);
-                                    } else {
-                                        setPickerOpen(true);
-                                    }
+                                    setPickerOpen(true);
                                 }}
-                                title={connectionStatus === 'error' ? 'Click to reconnect' : 'Connection provider'}
+                                title="Connection details"
                             >
                                 <img
                                     src={getProvider(activeProfile.driver).icon}

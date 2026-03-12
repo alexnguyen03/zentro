@@ -36,21 +36,14 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive }) => {
     }, [isActive]);
 
     return (
-        <div className="h-8 bg-bg-secondary border-t border-border flex items-center px-4 justify-between shrink-0 select-none">
-            <div className="flex items-center gap-4 overflow-hidden">
-                <div className="flex items-center gap-1.5 text-text-muted text-[11px] font-medium mr-2">
-                    <Sparkles size={11} className="text-success/70" />
-                    <span>SQL TEMPLATES</span>
-                </div>
-            </div>
-
+        <div className="h-10 flex items-center justify-end shrink-0 select-none px-3">
             <div className="flex items-center gap-1 pl-4">
-                <Button 
+                <Button
                     ref={plusBtnRef}
-                    variant="ghost" 
-                    size="icon" 
+                    variant="ghost"
+                    size="icon"
                     className={cn(
-                        "w-6 h-6 hover:bg-success/10 hover:text-success",
+                        "hover:text-success",
                         showPopover && "bg-success/20 text-success"
                     )}
                     onClick={() => setShowPopover(!showPopover)}
@@ -61,8 +54,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive }) => {
             </div>
 
             {showPopover && (
-                <TemplatePopover 
-                    onClose={() => setShowPopover(false)} 
+                <TemplatePopover
+                    onClose={() => setShowPopover(false)}
                     anchorRect={plusBtnRef.current?.getBoundingClientRect() || null}
                 />
             )}

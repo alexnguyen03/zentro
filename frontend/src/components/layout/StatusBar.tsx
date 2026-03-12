@@ -2,25 +2,49 @@ import React, { useEffect } from 'react';
 import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
 import { cn } from '../../lib/cn';
+import { getProvider } from '../../lib/providers';
+import { Connect } from '../../../wailsjs/go/app/App';
+
+import { useConnectionStore } from '../../stores/connectionStore';
 
 export const StatusBar: React.FC = () => {
-    const { connectionLabel, status, message, setStatus, setConnectionLabel, setMessage } = useStatusStore();
+    const {
+        connectionLabel,
+        status,
+        message,
+        currentDriver,
+        setStatus,
+        setConnectionLabel,
+        setMessage,
+        setCurrentDriver
+    } = useStatusStore();
+    const { activeProfile } = useConnectionStore();
+
+    // Initial sync with activeProfile if connected
+    useEffect(() => {
+        if (activeProfile && status === 'connected') {
+            setCurrentDriver(activeProfile.driver || 'postgres');
+            setConnectionLabel(`${activeProfile.name} (${activeProfile.driver})`);
+        }
+    }, [activeProfile, status]);
 
     useEffect(() => {
         const unsub = onConnectionChanged((data) => {
             if (data.status === 'connected' && data.profile) {
                 setStatus('connected');
                 setConnectionLabel(`${data.profile.name} (${data.profile.driver})`);
+                setCurrentDriver(data.profile.driver || 'postgres');
             } else if (data.status === 'error') {
                 setStatus('error');
                 setConnectionLabel('Connection error / timed out');
             } else {
                 setStatus('disconnected');
                 setConnectionLabel('No Connection');
+                setCurrentDriver('');
             }
         });
         return () => unsub();
-    }, [setStatus, setConnectionLabel]);
+    }, [setStatus, setConnectionLabel, setCurrentDriver]);
 
     // Clear message after 4s
     useEffect(() => {
@@ -36,16 +60,48 @@ export const StatusBar: React.FC = () => {
         disconnected: 'bg-yellow-500',
     }[status] ?? 'bg-bg-tertiary';
 
+    const provider = currentDriver ? getProvider(currentDriver) : null;
+
     return (
-        <div className={cn('flex items-center justify-between px-3 h-5 shrink-0 text-[11px] text-white font-medium', barColor)}>
-            <div className="flex items-center gap-2">
-                <span>{status === 'connected' ? '●' : status === 'error' ? '⚠' : '○'} {connectionLabel}</span>
-                {message && (
-                    <span className="opacity-90 ml-4">{message}</span>
-                )}
+        <div className={cn('relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300', barColor)}>
+            <div className="flex items-center gap-1">
+                {/* Connection Info Container */}
+                <div className="relative flex items-center gap-3">
+                    {/* Floating Provider Logo - Half-sunk into the bar */}
+                    {provider && (
+                        <div
+                            className="absolute bottom-3.5 left-0 z-60 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out cursor-pointer group active:scale-95 transition-all"
+                            onDoubleClick={() => activeProfile && Connect(activeProfile.name)}
+                            title="Double-click to reconnect"
+                        >
+                            <div
+                                className={cn(
+                                    "w-12 h-12 rounded-xl flex items-center justify-center relative border transition-colors bg-bg-secondary/40 backdrop-blur-md shadow-2xl",
+                                    status === 'connected' ? "border-white/20" : "border-red-500/40"
+                                )}
+                                style={{ backgroundColor: `${provider.color}25` }}
+                            >
+                                <img
+                                    src={provider.icon}
+                                    alt={provider.label}
+                                    className="w-7 h-7 object-contain relative z-20 drop-shadow-md transition-transform duration-200 group-hover:scale-110"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2 font-medium text-[11px] text-white/90">
+                        <span className="tracking-wide uppercase text-[10px] opacity-90">{connectionLabel}</span>
+                        {message && (
+                            <span className="bg-white/10 px-2 py-0.5 rounded ml-4 animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5">
+                                {message}
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
-            <div>
-                <span>Zentro 0.2.0</span>
+            <div className="opacity-40 text-[10px] font-bold tracking-widest uppercase">
+                <span>V0.2.0</span>
             </div>
         </div>
     );
