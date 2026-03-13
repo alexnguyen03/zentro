@@ -36,9 +36,15 @@ export const StatusBar: React.FC = () => {
                 setStatus('connected');
                 setConnectionLabel(`${data.profile.name} (${data.profile.driver})`);
                 setCurrentDriver(data.profile.driver || 'postgres');
+            } else if (data.status === 'connecting' && data.profile) {
+                setStatus('connecting');
+                setConnectionLabel(`Connecting to ${data.profile.name}...`);
+                setCurrentDriver(data.profile.driver || 'postgres');
             } else if (data.status === 'error') {
                 setStatus('error');
-                setConnectionLabel('Connection error / timed out');
+                const name = data.profile?.name || 'database';
+                setConnectionLabel(`Failed to connect: ${name}`);
+                if (data.profile) setCurrentDriver(data.profile.driver || 'postgres');
             } else {
                 setStatus('disconnected');
                 setConnectionLabel('No Connection');
@@ -57,7 +63,7 @@ export const StatusBar: React.FC = () => {
 
     const barColor = {
         connected: 'bg-success',
-        connecting: 'bg-success',
+        connecting: 'bg-accent-600',
         error: 'bg-red-500',
         disconnected: 'bg-yellow-500',
     }[status] ?? 'bg-bg-tertiary';
@@ -73,21 +79,27 @@ export const StatusBar: React.FC = () => {
                     {showSidebar && provider && (
                         <div
                             className="absolute bottom-3.5 left-0 z-60 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out cursor-pointer group active:scale-95 transition-all"
-                            onDoubleClick={() => activeProfile && Connect(activeProfile.name)}
-                            title="Double-click to reconnect"
+                            onClick={() => activeProfile && Connect(activeProfile.name)}
+                            title="Click to reconnect"
                         >
                             <div
                                 className={cn(
-                                    "w-12 h-12 rounded-xl flex items-center justify-center relative border transition-colors bg-bg-secondary/40 backdrop-blur-md shadow-2xl",
-                                    status === 'connected' ? "border-white/20" : "border-red-500/40"
+                                    "w-12 h-12 rounded-xl flex items-center justify-center relative border transition-all bg-bg-secondary/40 backdrop-blur-md shadow-2xl",
+                                    status === 'connected' ? "border-white/20" : status === 'connecting' ? "border-white/50 animate-pulse scale-105" : "border-red-500/40"
                                 )}
                                 style={{ backgroundColor: `${provider.color}25` }}
                             >
                                 <img
                                     src={provider.icon}
                                     alt={provider.label}
-                                    className="w-7 h-7 object-contain relative z-20 drop-shadow-md transition-transform duration-200 group-hover:scale-110"
+                                    className={cn(
+                                        "w-7 h-7 object-contain relative z-20 drop-shadow-md transition-transform duration-200 group-hover:scale-110",
+                                        status === 'connecting' && "animate-spin duration-1000"
+                                    )}
                                 />
+                                {status === 'connecting' && (
+                                    <div className="absolute inset-0 rounded-xl border-2 border-white/30 border-t-white animate-spin" />
+                                )}
                             </div>
                         </div>
                     )}

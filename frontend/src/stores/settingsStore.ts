@@ -10,6 +10,8 @@ interface SettingsState {
     fontSize: number;
     defaultLimit: number;
     toastPlacement: ToastPlacement;
+    connectTimeout: number;
+    queryTimeout: number;
 
     load: () => Promise<void>;
     save: (prefs: utils.Preferences) => Promise<void>;
@@ -22,6 +24,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     fontSize: 14,
     defaultLimit: 1000,
     toastPlacement: 'bottom-left',
+    connectTimeout: 10,
+    queryTimeout: 60,
 
     load: async () => {
         try {
@@ -31,6 +35,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 fontSize: prefs.font_size || 14,
                 defaultLimit: prefs.default_limit || 1000,
                 toastPlacement: (prefs.toast_placement as ToastPlacement) || 'bottom-left',
+                connectTimeout: prefs.connect_timeout || 10,
+                queryTimeout: prefs.query_timeout || 60,
             });
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme || 'system');
@@ -47,6 +53,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 fontSize: prefs.font_size,
                 defaultLimit: prefs.default_limit,
                 toastPlacement: prefs.toast_placement as ToastPlacement,
+                connectTimeout: prefs.connect_timeout,
+                queryTimeout: prefs.query_timeout,
             });
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme);
@@ -67,7 +75,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 theme: state.theme,
                 font_size: state.fontSize,
                 default_limit: state.defaultLimit,
-                toast_placement: state.toastPlacement
+                toast_placement: state.toastPlacement,
+                connect_timeout: state.connectTimeout,
+                query_timeout: state.queryTimeout
             });
             SetPreferences(prefs).catch(err => console.error('Failed to auto-save font size:', err));
         }, 1000);

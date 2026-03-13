@@ -21,11 +21,11 @@ import {
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
-import { ForceQuit } from '../wailsjs/go/app/App';
+import { ForceQuit, Connect } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
 
 function App() {
-    const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus } = useConnectionStore();
+    const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
     const { setTabRunning, addTab } = useEditorStore();
     const { initTab, appendRows, setDone, results } = useResultStore();
     const { setQueryStats } = useStatusStore();
@@ -53,6 +53,7 @@ function App() {
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);
 
+
     const startResizing = React.useCallback(() => { isResizing.current = true; }, []);
     const stopResizing = React.useCallback(() => { isResizing.current = false; }, []);
 
@@ -75,6 +76,9 @@ function App() {
                     setConnectionStatus('connected');
                     setActiveProfile(data.profile as any);
                     setDatabases(data.databases ?? []);
+                } else if (data.status === 'connecting' && data.profile) {
+                    setConnectionStatus('connecting');
+                    setActiveProfile(data.profile as any);
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
                     setConnectionStatus('disconnected');
@@ -85,7 +89,8 @@ function App() {
                         setActiveProfile(data.profile as any);
                     }
                     setConnectionStatus('error');
-                    toast.error(`Connection timed out or lost. Reconnecting...`);
+                    setIsConnected(false); // Ensure we show the empty state on physical connect failure
+                    toast.error(`Connection failed or lost. Please check your settings.`);
                 } else {
                     toast.error(`Connection failed`);
                 }
@@ -188,6 +193,14 @@ function App() {
                                 <span className="text-3xl">🔌</span>
                                 <h3 className="m-0 text-sm font-semibold text-text-primary">No active connection</h3>
                                 <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
+                                {activeProfile && (
+                                    <button 
+                                        onClick={() => Connect(activeProfile.name)}
+                                        className="mt-2 px-4 py-2 bg-success text-white text-xs font-bold rounded-lg hover:bg-success/90 transition-all active:scale-95 shadow-lg shadow-success/20"
+                                    >
+                                        Reconnect to {activeProfile.name}
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <QueryTabs />

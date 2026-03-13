@@ -8,7 +8,7 @@ interface ConnectionState {
     connections: ConnectionProfile[];
     activeProfile: ConnectionProfile | null;
     isConnected: boolean;
-    connectionStatus: 'disconnected' | 'connected' | 'error';
+    connectionStatus: 'disconnected' | 'connected' | 'error' | 'connecting';
     databases: string[];
     lastProfileName: string | null;
     lastDatabaseName: string | null;
@@ -16,7 +16,7 @@ interface ConnectionState {
     setConnections: (conns: ConnectionProfile[]) => void;
     setActiveProfile: (profile: ConnectionProfile | null) => void;
     setIsConnected: (connected: boolean) => void;
-    setConnectionStatus: (status: 'disconnected' | 'connected' | 'error') => void;
+    setConnectionStatus: (status: 'disconnected' | 'connected' | 'error' | 'connecting') => void;
     setDatabases: (dbs: string[]) => void;
 }
 

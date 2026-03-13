@@ -10,12 +10,14 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
-    const { theme, fontSize, defaultLimit, toastPlacement, save } = useSettingsStore();
+    const { theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout, save } = useSettingsStore();
     const { removeTab } = useEditorStore();
 
     const [formTheme, setFormTheme] = useState(theme);
     const [formFontSize, setFormFontSize] = useState(fontSize);
     const [formLimit, setFormLimit] = useState(defaultLimit);
+    const [formConnectTimeout, setFormConnectTimeout] = useState(connectTimeout);
+    const [formQueryTimeout, setFormQueryTimeout] = useState(queryTimeout);
     const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<'general' | 'shortcuts'>('general');
@@ -38,8 +40,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         setFormTheme(theme);
         setFormFontSize(fontSize);
         setFormLimit(defaultLimit);
+        setFormConnectTimeout(connectTimeout);
+        setFormQueryTimeout(queryTimeout);
         setFormToastPlacement(toastPlacement);
-    }, [theme, fontSize, defaultLimit, toastPlacement]);
+    }, [theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout]);
 
     // Auto-save effect
     useEffect(() => {
@@ -48,6 +52,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
             formTheme === theme &&
             formFontSize === fontSize &&
             formLimit === defaultLimit &&
+            formConnectTimeout === connectTimeout &&
+            formQueryTimeout === queryTimeout &&
             formToastPlacement === toastPlacement
         ) {
             return;
@@ -58,12 +64,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                 theme: formTheme,
                 font_size: formFontSize,
                 default_limit: formLimit,
+                connect_timeout: formConnectTimeout,
+                query_timeout: formQueryTimeout,
                 toast_placement: formToastPlacement
             }));
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [formTheme, formFontSize, formLimit, formToastPlacement, save, theme, fontSize, defaultLimit, toastPlacement]);
+    }, [formTheme, formFontSize, formLimit, formConnectTimeout, formQueryTimeout, formToastPlacement, save, theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout]);
 
     const labelClass = "text-[12px] font-medium text-text-primary mb-0.5";
     const inputClass = "w-full max-w-sm bg-bg-primary border border-border text-[12px] px-3 py-1.5 rounded-md outline-none transition-all focus:border-success focus:ring-1 focus:ring-success/10 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -233,6 +241,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                                     <option value={10000}>10,000 rows</option>
                                                 </select>
                                                 <span className={hintClass}>Limits the number of rows displayed in the result grid by default.</span>
+                                            </div>
+
+                                            <div className="flex flex-col gap-1.5 pt-2">
+                                                <label className={labelClass}>Connect Timeout (sec)</label>
+                                                <input
+                                                    className={inputClass}
+                                                    type="number"
+                                                    min={5}
+                                                    max={300}
+                                                    value={formConnectTimeout}
+                                                    onChange={(e) => setFormConnectTimeout(parseInt(e.target.value) || 10)}
+                                                />
+                                                <span className={hintClass}>Maximum time to wait for a database connection to be established.</span>
+                                            </div>
+
+                                            <div className="flex flex-col gap-1.5 pt-2">
+                                                <label className={labelClass}>Query Timeout (sec)</label>
+                                                <input
+                                                    className={inputClass}
+                                                    type="number"
+                                                    min={5}
+                                                    max={100000}
+                                                    value={formQueryTimeout}
+                                                    onChange={(e) => setFormQueryTimeout(parseInt(e.target.value) || 60)}
+                                                />
+                                                <span className={hintClass}>Abort long-running queries after this amount of time.</span>
                                             </div>
                                         </div>
                                     </div>

@@ -117,6 +117,11 @@ func (s *ConnectionService) Connect(name string) error {
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
 
+	emitEvent(s.ctx, "connection:changed", map[string]any{
+		"profile": prof,
+		"status":  "connecting",
+	})
+
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
 		s.logger.Error("open connection failed", "profile", name, "err", err)
@@ -187,6 +192,11 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 		s.keepAliveCancel = nil
 	}
 	s.setDB(nil, &clone)
+
+	emitEvent(s.ctx, "connection:changed", map[string]any{
+		"profile": &clone,
+		"status":  "connecting",
+	})
 
 	db, err := dbpkg.OpenConnection(&clone)
 	if err != nil {
