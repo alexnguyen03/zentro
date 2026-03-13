@@ -7,6 +7,7 @@ import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
 import { SettingsView } from '../layout/SettingsView';
+import { ShortcutsView } from '../layout/ShortcutsView';
 import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
@@ -122,6 +123,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                                     <TableInfo tabId={tab.id} tableName={tab.content || ''} />
                                 ) : tab.type === 'settings' ? (
                                     <SettingsView tabId={tab.id} />
+                                ) : tab.type === 'shortcuts' ? (
+                                    <ShortcutsView />
                                 ) : (
                                     <MonacoEditorWrapper
                                         tabId={tab.id}

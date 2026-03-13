@@ -71,7 +71,11 @@ export const StatusBar: React.FC = () => {
     const provider = currentDriver ? getProvider(currentDriver) : null;
 
     return (
-        <div className={cn('relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300', barColor)}>
+        <div className={cn(
+            'relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300', 
+            barColor,
+            status === 'connecting' && 'animate-pulse brightness-110'
+        )}>
             <div className="flex items-center gap-1">
                 {/* Connection Info Container */}
                 <div className="relative flex items-center gap-3">
@@ -85,21 +89,15 @@ export const StatusBar: React.FC = () => {
                             <div
                                 className={cn(
                                     "w-12 h-12 rounded-xl flex items-center justify-center relative border transition-all bg-bg-secondary/40 backdrop-blur-md shadow-2xl",
-                                    status === 'connected' ? "border-white/20" : status === 'connecting' ? "border-white/50 animate-pulse scale-105" : "border-red-500/40"
+                                    status === 'connected' ? "border-white/20" : status === 'connecting' ? "border-white/50 scale-105" : "border-red-500/40"
                                 )}
                                 style={{ backgroundColor: `${provider.color}25` }}
                             >
                                 <img
                                     src={provider.icon}
                                     alt={provider.label}
-                                    className={cn(
-                                        "w-7 h-7 object-contain relative z-20 drop-shadow-md transition-transform duration-200 group-hover:scale-110",
-                                        status === 'connecting' && "animate-spin duration-1000"
-                                    )}
+                                    className="w-7 h-7 object-contain relative z-20 drop-shadow-md transition-transform duration-200 group-hover:scale-110"
                                 />
-                                {status === 'connecting' && (
-                                    <div className="absolute inset-0 rounded-xl border-2 border-white/30 border-t-white animate-spin" />
-                                )}
                             </div>
                         </div>
                     )}

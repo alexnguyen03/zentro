@@ -6,7 +6,7 @@ export interface Tab {
     name: string;
     query: string;
     isRunning: boolean;
-    type?: 'query' | 'table' | 'settings';
+    type?: 'query' | 'table' | 'settings' | 'shortcuts';
     content?: string; // used for table name if type === 'table'
 }
 
@@ -80,10 +80,10 @@ export const useEditorStore = create<EditorState>()(
                         }
                     }
 
-                    // If it's a settings tab, only allow one
-                    if (tabInit?.type === 'settings') {
+                    // If it's a settings or shortcuts tab, only allow one
+                    if (tabInit?.type === 'settings' || tabInit?.type === 'shortcuts') {
                         for (const g of state.groups) {
-                            const existingTab = g.tabs.find(t => t.type === 'settings');
+                            const existingTab = g.tabs.find(t => t.type === tabInit.type);
                             if (existingTab) {
                                 id = existingTab.id;
                                 return {
