@@ -10,14 +10,11 @@ interface SettingsState {
     fontSize: number;
     defaultLimit: number;
     toastPlacement: ToastPlacement;
-    isOpen: boolean;
 
     load: () => Promise<void>;
     save: (prefs: utils.Preferences) => Promise<void>;
     setFontSize: (size: number) => void;
     updateFontSize: (delta: number) => void;
-    openModal: () => void;
-    closeModal: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -25,7 +22,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     fontSize: 14,
     defaultLimit: 1000,
     toastPlacement: 'bottom-left',
-    isOpen: false,
 
     load: async () => {
         try {
@@ -51,7 +47,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 fontSize: prefs.font_size,
                 defaultLimit: prefs.default_limit,
                 toastPlacement: prefs.toast_placement as ToastPlacement,
-                isOpen: false
             });
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme);
@@ -82,7 +77,4 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const { fontSize, setFontSize } = useSettingsStore.getState();
         setFontSize(fontSize + delta);
     },
-
-    openModal: () => set({ isOpen: true }),
-    closeModal: () => set({ isOpen: false }),
 }));

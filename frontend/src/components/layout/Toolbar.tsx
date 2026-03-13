@@ -15,7 +15,6 @@ import { Button, Divider } from '../ui';
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const { groups, activeGroupId, addTab } = useEditorStore();
-    const { openModal } = useSettingsStore();
     const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -160,7 +159,7 @@ export const Toolbar: React.FC = () => {
                 <Button variant="ghost" size="icon" title="Search">
                     <Search size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" title="Settings" onClick={openModal}>
+                <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
                     <Settings size={14} />
                 </Button>
 

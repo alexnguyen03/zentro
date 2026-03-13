@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
-import { SettingsDialog } from './components/layout/SettingsDialog';
 import { QueryTabs } from './components/editor/QueryTabs';
 import { useConnectionStore } from './stores/connectionStore';
 import { useEditorStore } from './stores/editorStore';
@@ -200,7 +199,6 @@ function App() {
                 )}
             </div>
             <StatusBar />
-            <SettingsDialog />
         </div>
     );
 }
