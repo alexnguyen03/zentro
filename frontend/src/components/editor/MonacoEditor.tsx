@@ -137,7 +137,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     const activeProfile = useConnectionStore(s => s.activeProfile);
     const trees = useSchemaStore(s => s.trees);
-    const { fontSize, theme } = useSettingsStore();
+    const { fontSize, theme, updateFontSize } = useSettingsStore();
 
     // Resolve 'system' theme to actual monaco theme
     const getMonacoTheme = () => {
@@ -155,6 +155,32 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     const handleMount: OnMount = useCallback((editor, monacoInstance) => {
         editorRef.current = editor;
+
+        // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
+        // because Monaco's abstraction sometimes fails to capture in specific environments
+        const domNode = editor.getDomNode();
+        if (domNode) {
+            domNode.addEventListener('wheel', (e: WheelEvent) => {
+                if (!e) return;
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    const currentOptions = editor.getOptions();
+                    const currentFontSize = currentOptions.get(monacoInstance.editor.EditorOption.fontSize);
+                    
+                    if (e.deltaY < 0) {
+                        const newSize = Math.min(48, currentFontSize + 1);
+                        editor.updateOptions({ fontSize: newSize, lineHeight: newSize * 1.5 });
+                        updateFontSize(1);
+                    } else {
+                        const newSize = Math.max(8, currentFontSize - 1);
+                        editor.updateOptions({ fontSize: newSize, lineHeight: newSize * 1.5 });
+                        updateFontSize(-1);
+                    }
+                }
+            }, { passive: false });
+        }
 
         const safeId = tabId.replace(/[^a-zA-Z0-9]/g, '');
         const editorFocusKey = editor.createContextKey<boolean>(`isEditorFocused_${safeId}`, false);
@@ -187,7 +213,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 editor.focus();
             }, 10);
         }
-    }, []);
+    }, [tabId, updateFontSize]);
 
     return (
         <div className="flex flex-col h-full overflow-hidden">

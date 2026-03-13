@@ -191,9 +191,9 @@ const TableNode = ({ data }: any) => {
                         color: 'var(--text-secondary)'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ 
-                                color: c.isPk ? 'var(--accent-color)' : (c.isFk ? '#3b82f6' : 'inherit'), 
-                                fontWeight: (c.isPk || c.isFk) ? 600 : 'normal' 
+                            <span style={{
+                                color: c.isPk ? 'var(--accent-color)' : (c.isFk ? '#3b82f6' : 'inherit'),
+                                fontWeight: (c.isPk || c.isFk) ? 600 : 'normal'
                             }}>
                                 {c.name}
                             </span>
@@ -482,7 +482,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                         </marker>
                     </defs>
                 </svg>
-                <Background color="var(--border-color)" gap={20} size={1} />
+                <Background color="var(--border-color)" gap={20} size={1} />""
             </ReactFlow>
         </div>
     );

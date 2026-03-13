@@ -3,6 +3,8 @@ import { GetPreferences, SetPreferences } from '../../wailsjs/go/app/App';
 import { utils } from '../../wailsjs/go/models';
 import { ToastPlacement } from '../components/layout/Toast';
 
+let saveTimeout: any = null;
+
 interface SettingsState {
     theme: string;
     fontSize: number;
@@ -12,6 +14,8 @@ interface SettingsState {
 
     load: () => Promise<void>;
     save: (prefs: utils.Preferences) => Promise<void>;
+    setFontSize: (size: number) => void;
+    updateFontSize: (delta: number) => void;
     openModal: () => void;
     closeModal: () => void;
 }
@@ -54,6 +58,29 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         } catch (err) {
             console.error('Failed to save preferences:', err);
         }
+    },
+
+    setFontSize: (size: number) => {
+        const newSize = Math.max(8, Math.min(48, size));
+        set({ fontSize: newSize });
+        
+        // Persist after a short delay (debounce)
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            const state = useSettingsStore.getState();
+            const prefs = new utils.Preferences({
+                theme: state.theme,
+                font_size: state.fontSize,
+                default_limit: state.defaultLimit,
+                toast_placement: state.toastPlacement
+            });
+            SetPreferences(prefs).catch(err => console.error('Failed to auto-save font size:', err));
+        }, 1000);
+    },
+
+    updateFontSize: (delta: number) => {
+        const { fontSize, setFontSize } = useSettingsStore.getState();
+        setFontSize(fontSize + delta);
     },
 
     openModal: () => set({ isOpen: true }),
