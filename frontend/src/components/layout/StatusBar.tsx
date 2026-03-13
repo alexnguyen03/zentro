@@ -4,6 +4,7 @@ import { onConnectionChanged } from '../../lib/events';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import { Connect } from '../../../wailsjs/go/app/App';
+import { useLayoutStore } from '../../stores/layoutStore';
 
 import { useConnectionStore } from '../../stores/connectionStore';
 
@@ -19,6 +20,7 @@ export const StatusBar: React.FC = () => {
         setCurrentDriver
     } = useStatusStore();
     const { activeProfile } = useConnectionStore();
+    const { showSidebar } = useLayoutStore();
 
     // Initial sync with activeProfile if connected
     useEffect(() => {
@@ -68,7 +70,7 @@ export const StatusBar: React.FC = () => {
                 {/* Connection Info Container */}
                 <div className="relative flex items-center gap-3">
                     {/* Floating Provider Logo - Half-sunk into the bar */}
-                    {provider && (
+                    {showSidebar && provider && (
                         <div
                             className="absolute bottom-3.5 left-0 z-60 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out cursor-pointer group active:scale-95 transition-all"
                             onDoubleClick={() => activeProfile && Connect(activeProfile.name)}
