@@ -1,9 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Keyboard, Search as SearchIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 export const ShortcutsView: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            } else if (e.key === 'Escape') {
+                setSearchQuery('');
+                searchInputRef.current?.blur();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const shortcuts = [
         { command: 'Run Query', binding: ['Ctrl', 'Enter'], when: 'In Editor' },
@@ -15,6 +31,8 @@ export const ShortcutsView: React.FC = () => {
         { command: 'Toggle Result Panel', binding: ['Ctrl', 'J'], when: 'Global' },
         { command: 'Zoom In/Out', binding: ['Ctrl', 'Wheel'], when: 'In Editor' },
         { command: 'Search in Editor', binding: ['Ctrl', 'F'], when: 'In Editor' },
+        { command: 'Focus Search', binding: ['Ctrl', 'F'], when: 'Settings / Shortcuts' },
+        { command: 'Clear Search', binding: ['Esc'], when: 'Settings / Shortcuts' },
         { command: 'Find & Replace', binding: ['Ctrl', 'H'], when: 'In Editor' },
         { command: 'Comment Line', binding: ['Ctrl', '/'], when: 'In Editor' },
     ];
@@ -29,6 +47,7 @@ export const ShortcutsView: React.FC = () => {
                         <input
                             type="text"
                             placeholder="Search shortcuts..."
+                            ref={searchInputRef}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-bg-secondary/50 border border-border text-[13px] text-text-primary pl-9 pr-3 py-1.5 rounded-lg outline-none transition-all focus:border-success focus:bg-bg-primary"
@@ -40,18 +59,6 @@ export const ShortcutsView: React.FC = () => {
             <main className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto px-10 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex flex-col gap-8">
-                        <div className="flex flex-col gap-2 border-b border-border/50 pb-6">
-                            <div className="flex items-center gap-3 text-text-primary">
-                                <div className="p-2 bg-success/10 rounded-lg text-success">
-                                    <Keyboard size={20} />
-                                </div>
-                                <div>
-                                    <h2 className="text-base font-bold">Keyboard Shortcuts</h2>
-                                    <p className="text-[12px] text-text-secondary">Maximize your productivity with these keybindings.</p>
-                                </div>
-                            </div>
-                        </div>
-
                         <div className="border border-border rounded-xl overflow-hidden bg-bg-secondary/20 backdrop-blur-sm shadow-sm">
                             <table className="w-full text-left border-collapse">
                                 <thead>

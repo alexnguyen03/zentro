@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Settings as SettingsIcon, Laptop, Bell, Database, Globe, Search as SearchIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -20,6 +20,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [formQueryTimeout, setFormQueryTimeout] = useState(queryTimeout);
     const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
     const [searchQuery, setSearchQuery] = useState('');
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            } else if (e.key === 'Escape') {
+                setSearchQuery('');
+                searchInputRef.current?.blur();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     useEffect(() => {
         setFormTheme(theme);
@@ -85,6 +101,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                         <input
                             type="text"
                             placeholder="Find settings..."
+                            ref={searchInputRef}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full bg-bg-secondary/50 border border-border text-[13px] text-text-primary pl-9 pr-3 py-1.5 rounded-lg outline-none transition-all focus:border-success focus:bg-bg-primary h-8"
