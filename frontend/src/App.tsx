@@ -144,6 +144,9 @@ function App() {
     }, [resize, stopResizing]);
 
     // ── Global Layout Shortcuts ───────────────────────────────────────────
+    const chordRef = useRef<string | null>(null);
+    const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     useEffect(() => {
         const handleLayoutShortcuts = (e: KeyboardEvent) => {
             const mod = e.ctrlKey || e.metaKey;
@@ -152,6 +155,38 @@ function App() {
             if (mod && e.altKey && e.key.toLowerCase() === 'b') {
                 e.preventDefault();
                 toggleRightSidebar();
+                return;
+            }
+
+            // Chords: Ctrl+K, Ctrl+B
+            if (mod && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                chordRef.current = 'k';
+                if (chordTimerRef.current) {
+                    clearTimeout(chordTimerRef.current);
+                }
+                chordTimerRef.current = setTimeout(() => {
+                    chordRef.current = null;
+                }, 1000);
+                return;
+            }
+
+            if (chordRef.current === 'k') {
+                if (mod && e.key.toLowerCase() === 'b') {
+                    e.preventDefault();
+                    addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' });
+                }
+                chordRef.current = null;
+                if (chordTimerRef.current) {
+                    clearTimeout(chordTimerRef.current);
+                }
+                return;
+            }
+
+            // Ctrl + ,: Open Settings
+            if (mod && e.key === ',') {
+                e.preventDefault();
+                addTab({ type: 'settings', name: 'Settings' });
                 return;
             }
 
@@ -172,7 +207,7 @@ function App() {
 
         window.addEventListener('keydown', handleLayoutShortcuts);
         return () => window.removeEventListener('keydown', handleLayoutShortcuts);
-    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar]);
+    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar, addTab]);
 
     return (
         <div className="flex flex-col h-full w-full">

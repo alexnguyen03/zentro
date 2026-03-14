@@ -24,6 +24,8 @@ export const ShortcutsView: React.FC = () => {
     const shortcuts = [
         { command: 'Run Query', binding: ['Ctrl', 'Enter'], when: 'In Editor' },
         { command: 'New Query Tab', binding: ['Ctrl', 'T'], when: 'Global' },
+        { command: 'Open Keyboard Shortcuts', binding: ['Ctrl', 'K', 'Ctrl', 'B'], when: 'Global' },
+        { command: 'Open Settings', binding: ['Ctrl', ','], when: 'Global' },
         { command: 'Close Current Tab', binding: ['Ctrl', 'W'], when: 'Global' },
         { command: 'Open Workspaces', binding: ['Ctrl', 'Shift', 'P'], when: 'Global' },
         { command: 'Toggle Left Sidebar', binding: ['Ctrl', 'B'], when: 'Global' },

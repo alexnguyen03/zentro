@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { useEditorStore } from '../../stores/editorStore';
@@ -114,7 +114,8 @@ export const QueryTabs: React.FC = () => {
                     window.dispatchEvent(new CustomEvent('zentro:rename-tab', { detail: activeGroup.activeTabId }));
                 }
             }
-        };
+
+            };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [activeGroupId, addTab, groups, removeTab]);
@@ -184,7 +185,7 @@ export const QueryTabs: React.FC = () => {
             <div className="flex items-center justify-center h-full text-text-secondary">
                 <div className="text-center max-w-[320px]">
                     <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-[3px] px-1.5 py-[1px] text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
                         <p className="text-xs">Connect to a database using the sidebar first.</p>
                     )}
