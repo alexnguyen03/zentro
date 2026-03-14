@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import ReactDOM from 'react-dom';
 import { Search, ArrowLeft, X, Info } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase, LoadConnections } from '../../../wailsjs/go/app/App';
@@ -9,7 +8,7 @@ import { getProvider, makeDefaultForm } from '../../lib/providers';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
-import { Button, Spinner } from '../ui';
+import { Button, Spinner, ModalBackdrop } from '../ui';
 
 type ConnectionProfile = models.ConnectionProfile;
 type View = 'list' | 'new-connection';
@@ -101,11 +100,8 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     const itemEmptyClass = 'p-4 text-text-secondary text-center text-xs';
 
     // ── Render ────────────────────────────────────────────────────────────────
-    return ReactDOM.createPortal(
-        <div
-            className="fixed inset-0 bg-black/40 z-9999 flex items-center justify-center animate-in fade-in duration-150"
-            onClick={view === 'list' ? onClose : undefined}
-        >
+    return (
+        <ModalBackdrop onClose={view === 'list' ? onClose : undefined}>
             <div
                 className="bg-bg-secondary border border-border rounded-lg w-[600px] h-[480px] flex flex-col shadow-[0_10px_30px_rgba(0,0,0,0.3)] overflow-hidden text-text-primary text-[13px] animate-in slide-in-from-bottom-2 duration-150"
                 onClick={e => e.stopPropagation()}
@@ -254,7 +250,6 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                     </div>
                 )}
             </div>
-        </div>,
-        document.body
+        </ModalBackdrop>
     );
 };
