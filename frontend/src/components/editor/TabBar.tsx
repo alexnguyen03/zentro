@@ -68,8 +68,8 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {...attributes}
             {...listeners}
             className={cn(
-                'group flex items-center h-full gap-1.5 px-2.5 pl-3.5 cursor-pointer border-r border-r-border text-xs text-text-secondary select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 flex-shrink-0 hover:text-text-primary',
-                isActive && 'bg-bg-primary text-text-primary border-t-success mb-[-1px] border-b border-b-bg-primary'
+                'group flex items-center h-full gap-1.5 px-2.5 pl-3.5 cursor-pointer border-r border-r-border text-xs text-text-secondary select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-text-primary',
+                isActive && 'bg-bg-primary text-text-primary border-t-success -mb-px border-b border-b-bg-primary'
             )}
             onClick={onActivate}
             onDoubleClick={onDoubleClick}
@@ -78,7 +78,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {renamingId === tab.id ? (
                 <input
                     ref={renameInputRef}
-                    className="flex-1 bg-bg-tertiary border border-success text-text-primary text-xs px-1 py-[1px] rounded-sm outline-none w-full"
+                    className="rt-cell-input h-[24px]! px-1.5! text-xs! min-w-[120px] font-sans"
                     value={renameValue}
                     onChange={(e) => onRenameChange(e.target.value)}
                     onBlur={onRenameBlur}
@@ -92,9 +92,9 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
                     {tab.name}
                 </span>
             )}
-            {tab.isRunning && <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0 animate-pulse" title="Running" />}
+            {tab.isRunning && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0 animate-pulse" title="Running" />}
             <button
-                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-sm opacity-0 transition-opacity duration-100 flex-shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
+                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-sm opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent drag start when clicking close
                 title="Close tab"
@@ -257,7 +257,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     };
 
     return (
-        <div className="flex items-center bg-bg-secondary border-b border-border h-9 flex-shrink-0 overflow-hidden">
+        <div className="flex items-center bg-bg-secondary border-b border-border h-9 shrink-0 overflow-hidden">
             <div
                 className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border"
                 ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
@@ -284,14 +284,14 @@ export const TabBar: React.FC<TabBarProps> = ({
                 </SortableContext>
             </div>
 
-            <button className="bg-transparent border-none text-text-secondary cursor-pointer px-2.5 py-1.5 flex items-center flex-shrink-0 transition-colors duration-100 hover:text-text-primary" onClick={onNewTab} title="New Tab (Ctrl+T)">
+            <button className="bg-transparent border-none text-text-secondary cursor-pointer px-2.5 py-1.5 flex items-center shrink-0 transition-colors duration-100 hover:text-text-primary" onClick={onNewTab} title="New Tab (Ctrl+T)">
                 <Plus size={14} />
             </button>
 
             {/* Save script prompt */}
             {savePrompt && (
                 <div
-                    className="flex items-center gap-1 px-2 bg-bg-secondary border-l border-border flex-shrink-0"
+                    className="flex items-center gap-1 px-2 bg-bg-secondary border-l border-border shrink-0"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <input
@@ -335,7 +335,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {contextMenu && (
                 <div
-                    className="fixed bg-bg-secondary border border-border shadow-[0_2px_8px_rgba(0,0,0,0.3)] py-1 rounded-[4px] z-[1000] min-w-[150px]"
+                    className="fixed bg-bg-secondary border border-border shadow-[0_2px_8px_rgba(0,0,0,0.3)] py-1 rounded-md z-1000 min-w-[150px]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >

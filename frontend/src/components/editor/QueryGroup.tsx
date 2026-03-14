@@ -40,9 +40,11 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     // ── Tab open/close ────────────────────────────────────────────────────
     const handleClose = useCallback((id: string) => {
         const tab = tabs.find(t => t.id === id);
-        if (tab?.query && !confirm(`Close "${tab.name}"? Query text will be lost.`)) return;
+        if (tab?.type === 'query' && tab.query?.trim() && activeProfile?.name) {
+            saveScript(activeProfile.name, tab.name, tab.query).catch(e => console.error('Auto save failed', e));
+        }
         removeTab(id, groupId);
-    }, [tabs, removeTab, groupId]);
+    }, [tabs, removeTab, groupId, activeProfile, saveScript]);
 
     // ── Run / Cancel ──────────────────────────────────────────────────────
     const handleRun = useCallback(async (queryToRun: string) => {

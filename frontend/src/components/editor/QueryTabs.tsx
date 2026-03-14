@@ -5,6 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
@@ -24,8 +25,9 @@ import { buildFilterQuery } from '../../lib/queryBuilder';
 export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
     const { results } = useResultStore();
-    const { isConnected } = useConnectionStore();
+    const { isConnected, activeProfile } = useConnectionStore();
     const { showResultPanel } = useLayoutStore();
+    const { saveScript } = useScriptStore();
 
     // Global active tab for the shared result panel
     const globalActiveGroup = groups.find(g => g.id === activeGroupId);
@@ -93,7 +95,9 @@ export const QueryTabs: React.FC = () => {
                     const activeGroup = groups.find(g => g.id === activeGroupId);
                     if (activeGroup && activeGroup.activeTabId) {
                         const tab = activeGroup.tabs.find(t => t.id === activeGroup.activeTabId);
-                        if (tab?.query && !confirm(`Close "${tab.name}"? Query text will be lost.`)) return;
+                        if (tab?.type === 'query' && tab.query?.trim() && activeProfile?.name) {
+                            saveScript(activeProfile.name, tab.name, tab.query).catch(err => console.error('Auto save failed', err));
+                        }
                         removeTab(activeGroup.activeTabId, activeGroupId);
                     }
                 }
@@ -118,7 +122,7 @@ export const QueryTabs: React.FC = () => {
             };
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [activeGroupId, addTab, groups, removeTab]);
+    }, [activeGroupId, addTab, groups, removeTab, activeProfile, saveScript]);
 
     // Handle automatically closing groups when they are empty
     useEffect(() => {
