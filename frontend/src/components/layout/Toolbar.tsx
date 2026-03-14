@@ -23,6 +23,7 @@ export const Toolbar: React.FC = () => {
     const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
     const activeTabId = activeGroup?.activeTabId;
     const isRunning = activeTab?.isRunning ?? false;
+    const isQueryTab = activeTab?.type === 'query';
 
     useEffect(() => {
         const handleKd = (e: KeyboardEvent) => {
@@ -182,10 +183,11 @@ export const Toolbar: React.FC = () => {
                 <Button
                     variant="ghost" size="icon"
                     className={cn(showResultPanel && "text-accent")}
+                    disabled={!isQueryTab}
                     title="Toggle Result Panel (Ctrl+J)"
                     onClick={toggleResultPanel}
                 >
-                    <PanelBottom size={14} strokeWidth={showResultPanel ? 2.5 : 2} />
+                    <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
                 </Button>
                 <Button
                     variant="ghost" size="icon"

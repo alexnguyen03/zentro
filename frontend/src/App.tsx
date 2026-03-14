@@ -207,7 +207,15 @@ function App() {
             // Ctrl + J: Toggle Result Panel
             if (mod && !e.altKey && e.key.toLowerCase() === 'j') {
                 e.preventDefault();
-                toggleResultPanel();
+                
+                // Only toggle if the active tab is a query tab
+                const editorState = useEditorStore.getState();
+                const activeGroup = editorState.groups.find(g => g.id === editorState.activeGroupId);
+                const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
+                
+                if (activeTab?.type === 'query') {
+                    toggleResultPanel();
+                }
                 return;
             }
         };
