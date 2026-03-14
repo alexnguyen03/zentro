@@ -44,8 +44,12 @@ export const useConnectionStore = create<ConnectionState>()(
         {
             name: 'zentro:connection-store',
             partialize: (state) => ({
+                activeProfile: state.activeProfile,
+                isConnected: state.isConnected,
+                connectionStatus: state.connectionStatus,
                 lastProfileName: state.lastProfileName,
                 lastDatabaseName: state.lastDatabaseName,
+                databases: state.databases
             })
         }
     )

@@ -254,6 +254,19 @@ func (s *ConnectionService) Disconnect() {
 	s.logger.Info("disconnected")
 }
 
+func (s *ConnectionService) GetConnectionStatus() (map[string]any, error) {
+	prof := s.getProfile()
+	db := s.getDB()
+	status := "disconnected"
+	if db != nil {
+		status = "connected"
+	}
+	return map[string]any{
+		"profile": prof,
+		"status":  status,
+	}, nil
+}
+
 func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof *models.ConnectionProfile) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()

@@ -5,7 +5,7 @@ import { ConnectionTree } from './ConnectionTree';
 import { ConnectionDialog } from './ConnectionDialog';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
-import { LoadConnections, Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { LoadConnections, Connect, SwitchDatabase, GetConnectionStatus } from '../../../wailsjs/go/app/App';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
 
@@ -23,7 +23,21 @@ export const Sidebar: React.FC = () => {
 
             if (isInitial) {
                 const store = useConnectionStore.getState();
-                if (store.lastProfileName && !store.isConnected) {
+
+                // 1. Try to sync with existing backend connection (handles Ctrl+Shift+R reload)
+                const status = await GetConnectionStatus();
+                if (status && status.status === 'connected' && status.profile) {
+                    store.setActiveProfile(status.profile);
+                    store.setIsConnected(true);
+                    store.setConnectionStatus('connected');
+                    return;
+                } else {
+                    // Backend is not connected. If store thought it was, it was stale.
+                    store.setIsConnected(false);
+                }
+
+                // 2. If no backend connection, try to auto-reconnect using persisted names (handles fresh startup)
+                if (store.lastProfileName) {
                     const profile = data?.find(p => p.name === store.lastProfileName);
                     if (profile) {
                         try {
