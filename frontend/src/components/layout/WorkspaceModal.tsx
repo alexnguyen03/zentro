@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Search, ArrowLeft, X, Info } from 'lucide-react';
+import { Search, ArrowLeft, X, Info, Database } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase, LoadConnections } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
@@ -141,8 +141,6 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     const filterContainerClass = 'px-3 py-2 border-b border-border bg-bg-primary flex items-center shrink-0';
     const searchInputClass = 'w-full bg-transparent border-none text-text-primary outline-none text-[13px] px-1 placeholder:text-text-muted';
     const listClass = 'flex-1 overflow-y-auto py-2 bg-bg-primary';
-    const itemClass = 'px-4 py-[7px] cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis transition-colors duration-100 select-none text-[13px] hover:bg-bg-tertiary hover:text-text-primary';
-    const itemActiveClass = 'bg-bg-hover border-l-[3px] border-l-success text-success font-medium';
     const itemEmptyClass = 'p-4 text-text-secondary text-center text-xs';
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -257,19 +255,34 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                 ) : (
                                     filteredDbs.map((db, idx) => {
                                         const isNavFocus = focusedPane === 'db' && dbNavIndex === idx;
+                                        const isActive = activeProfile?.db_name === db;
+
                                         return (
                                             <div 
                                                 key={db} 
                                                 ref={isNavFocus ? activeDbRef : undefined}
                                                 className={cn(
-                                                    itemClass, 
-                                                    activeProfile?.db_name === db && itemActiveClass,
-                                                    isNavFocus && "bg-bg-tertiary ring-1 ring-inset ring-text-muted/30"
+                                                    "group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors duration-200 border-l-[3px]",
+                                                    isActive ? "bg-bg-tertiary border-l-success" : "border-l-transparent hover:bg-bg-tertiary/50",
+                                                    isNavFocus && "ring-1 ring-inset ring-text-muted/30 bg-bg-tertiary/80"
                                                 )} 
                                                 onClick={() => handleSelectDb(db)}
                                                 onMouseEnter={() => { setFocusedPane('db'); setDbNavIndex(idx); }}
                                             >
-                                                {db}
+                                                {/* Icon */}
+                                                <div className="w-13 h-13 rounded-md flex items-center justify-center p-1 shrink-0 text-text-muted group-hover:text-success transition-colors">
+                                                    <Database size={22} strokeWidth={1.5} />
+                                                </div>
+
+                                                {/* Details */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className={cn(
+                                                        "font-bold truncate text-[14px]",
+                                                        isActive ? "text-success" : "text-text-primary"
+                                                    )}>
+                                                        {db}
+                                                    </div>
+                                                </div>
                                             </div>
                                         );
                                     })
