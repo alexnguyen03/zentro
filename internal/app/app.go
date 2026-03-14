@@ -121,6 +121,7 @@ func (a *App) SaveConnection(p models.ConnectionProfile) error       { return a.
 func (a *App) DeleteConnection(name string) error                    { return a.conn.DeleteConnection(name) }
 func (a *App) TestConnection(p models.ConnectionProfile) error       { return a.conn.TestConnection(p) }
 func (a *App) Connect(name string) error                             { return a.conn.Connect(name) }
+func (a *App) Reconnect() error                                      { return a.conn.Reconnect() }
 func (a *App) SwitchDatabase(dbName string) error                    { return a.conn.SwitchDatabase(dbName) }
 func (a *App) Disconnect()                                           { a.conn.Disconnect() }
 func (a *App) GetConnectionStatus() (map[string]any, error)          { return a.conn.GetConnectionStatus() }

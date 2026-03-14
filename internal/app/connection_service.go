@@ -94,8 +94,21 @@ func (s *ConnectionService) Connect(name string) error {
 		return fmt.Errorf("connection %q not found", name)
 	}
 
+	return s.ConnectWithProfile(prof)
+}
+
+func (s *ConnectionService) Reconnect() error {
+	prof := s.getProfile()
+	if prof == nil {
+		return fmt.Errorf("no active connection to reconnect")
+	}
+	s.logger.Info("reconnecting", "profile", prof.Name, "db", prof.DBName)
+	return s.ConnectWithProfile(prof)
+}
+
+func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) error {
 	s.logger.Info("connecting",
-		"profile", name,
+		"profile", prof.Name,
 		"driver", prof.Driver,
 		"host", prof.Host,
 		"port", prof.Port,
@@ -112,7 +125,7 @@ func (s *ConnectionService) Connect(name string) error {
 		s.keepAliveCancel()
 		s.keepAliveCancel = nil
 	}
-	
+
 	// Set active profile immediately with nil DB. If connection fails, 
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
@@ -124,7 +137,7 @@ func (s *ConnectionService) Connect(name string) error {
 
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
-		s.logger.Error("open connection failed", "profile", name, "err", err)
+		s.logger.Error("open connection failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
 		emitEvent(s.ctx, "connection:changed", map[string]any{
 			"profile": prof,
@@ -138,7 +151,7 @@ func (s *ConnectionService) Connect(name string) error {
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
-		s.logger.Error("ping failed", "profile", name, "err", err)
+		s.logger.Error("ping failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
 		emitEvent(s.ctx, "connection:changed", map[string]any{
 			"profile": prof,
@@ -159,7 +172,7 @@ func (s *ConnectionService) Connect(name string) error {
 		"status":  "connected",
 	})
 	s.logger.Info("connected — emitted connection:changed",
-		"profile", name,
+		"profile", prof.Name,
 		"driver", prof.Driver,
 		"db_name", prof.DBName,
 	)
