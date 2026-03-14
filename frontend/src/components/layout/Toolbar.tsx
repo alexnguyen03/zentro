@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useResultStore } from '../../stores/resultStore';
-import { ExecuteQuery, CancelQuery, Connect } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery, CancelQuery, Connect, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
 import { getProvider } from '../../lib/providers';
@@ -26,7 +26,7 @@ export const Toolbar: React.FC = () => {
 
     useEffect(() => {
         const handleKd = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
                 e.preventDefault();
                 setPickerOpen(true);
             }
@@ -61,7 +61,7 @@ export const Toolbar: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     title="Reload Connection"
-                    onClick={() => activeProfile && Connect(activeProfile.name)}
+                    onClick={() => activeProfile && Reconnect()}
                     disabled={!activeProfile || connectionStatus === 'connecting'}
                 >
                     <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && "animate-spin")} />
@@ -81,7 +81,6 @@ export const Toolbar: React.FC = () => {
                     <Play
                         size={16}
                         color={!isConnected || isRunning ? 'currentColor' : 'var(--success-color)'}
-                        fill={!isConnected || isRunning ? 'none' : 'currentColor'}
                     />
                 </Button>
                 <Button
@@ -109,7 +108,7 @@ export const Toolbar: React.FC = () => {
                 >
                     <div
                         className={cn(
-                            'flex items-center gap-2 w-full px-3 rounded-lg text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
+                            'flex items-center gap-2 w-full px-3 rounded-full text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
                             'bg-success/10',
                             pickerOpen && 'border-success text-text-primary',
                             !pickerOpen && 'hover:text-text-primary hover:border-border',
@@ -126,7 +125,7 @@ export const Toolbar: React.FC = () => {
                             title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
                         />
                         <span className="flex-1 text-center truncate">{breadcrumbLabel}</span>
-                        {activeProfile ? (
+                        {/* {activeProfile ? (
                             <button
                                 className={cn(
                                     "w-5 h-5 flex items-center justify-center rounded-sm transition-colors opacity-100 hover:opacity-80",
@@ -141,16 +140,16 @@ export const Toolbar: React.FC = () => {
                                 <img
                                     src={getProvider(activeProfile.driver).icon}
                                     alt={activeProfile.driver}
-                                    className={cn('w-[15px] h-[15px] shrink-0 transition-all duration-300', connectionStatus === 'connected' ? 'grayscale-0' : 'grayscale')}
+                                    className={cn('w-[20px] h-[20px] shrink-0 transition-all duration-300', connectionStatus === 'connected' ? 'grayscale-0' : 'grayscale')}
                                 />
                             </button>
                         ) : (
-                            <ChevronDown
-                                size={14}
-                                strokeWidth={pickerOpen ? 2.5 : 2}
-                                className={cn('opacity-50 transition-transform duration-200', pickerOpen && 'rotate-180 opacity-100 text-accent')}
-                            />
-                        )}
+                        )} */}
+                        <ChevronDown
+                            size={14}
+                            strokeWidth={pickerOpen ? 2.5 : 2}
+                            className={cn('opacity-50 transition-transform duration-200', pickerOpen && 'rotate-180 opacity-100 text-accent')}
+                        />
                     </div>
                 </div>
 

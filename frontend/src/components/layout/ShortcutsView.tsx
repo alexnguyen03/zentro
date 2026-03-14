@@ -28,7 +28,7 @@ export const ShortcutsView: React.FC = () => {
         { command: 'Open Settings', binding: ['Ctrl', ','], when: 'Global' },
         { command: 'Reload App', binding: ['Ctrl', 'Shift', 'R'], when: 'Global' },
         { command: 'Close Current Tab', binding: ['Ctrl', 'W'], when: 'Global' },
-        { command: 'Open Workspaces', binding: ['Ctrl', 'Shift', 'P'], when: 'Global' },
+        { command: 'Open Workspaces', binding: ['Ctrl', 'Shift', 'C'], when: 'Global' },
         { command: 'Toggle Left Sidebar', binding: ['Ctrl', 'B'], when: 'Global' },
         { command: 'Toggle Right Sidebar', binding: ['Ctrl', 'Alt', 'B'], when: 'Global' },
         { command: 'Toggle Result Panel', binding: ['Ctrl', 'J'], when: 'Global' },

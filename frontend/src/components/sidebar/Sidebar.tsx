@@ -88,7 +88,7 @@ export const Sidebar: React.FC = () => {
                         <div className="flex flex-col items-center justify-center gap-2.5 h-full min-h-[200px] p-6 text-center text-text-secondary text-xs">
                             <div className="text-3xl opacity-30">📁</div>
                             <p className="m-0 mb-4">No active database</p>
-                            <p className="m-0 text-[11px]">Press <kbd className="bg-bg-tertiary px-1 py-0.5 rounded text-[10px]">Ctrl+Shift+P</kbd> to connect to a workspace.</p>
+                            <p className="m-0 text-[11px]">Press <kbd className="bg-bg-tertiary px-1 py-0.5 rounded text-[10px]">Ctrl+Shift+C</kbd> to connect to a workspace.</p>
                         </div>
                     ) : (
                         <ConnectionTree />
