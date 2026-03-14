@@ -11,6 +11,7 @@ import { WorkspaceModal } from './WorkspaceModal';
 import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
+import zentroLogo from '../../assets/images/main-logo.png';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
@@ -62,6 +63,9 @@ export const Toolbar: React.FC = () => {
         <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
             {/* Left */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center justify-center w-6 h-6 mr-1" title="Zentro">
+                    <img src={zentroLogo} alt="Zentro Logo" className="w-5 h-5 object-contain" />
+                </div>
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
                     <Lock size={14} />
                 </Button>
