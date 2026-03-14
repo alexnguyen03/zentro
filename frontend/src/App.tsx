@@ -20,7 +20,7 @@ import {
     type ConnectionChangedPayload,
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
-import { EventsOn } from '../wailsjs/runtime/runtime';
+import { EventsOn, WindowReloadApp } from '../wailsjs/runtime/runtime';
 import { ForceQuit, Connect } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
 
@@ -155,6 +155,13 @@ function App() {
             if (mod && e.altKey && e.key.toLowerCase() === 'b') {
                 e.preventDefault();
                 toggleRightSidebar();
+                return;
+            }
+
+            // Ctrl + Shift + R: Reload App
+            if (mod && e.shiftKey && e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                WindowReloadApp();
                 return;
             }
 
