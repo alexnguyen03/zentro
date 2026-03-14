@@ -28,7 +28,14 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     const [connFilter, setConnFilter] = useState('');
     const [dbFilter, setDbFilter] = useState('');
 
+    const [focusedPane, setFocusedPane] = useState<'conn' | 'db'>('conn');
+    const [connNavIndex, setConnNavIndex] = useState(0);
+    const [dbNavIndex, setDbNavIndex] = useState(0);
+
     const inputRef = useRef<HTMLInputElement>(null);
+    const dbInputRef = useRef<HTMLInputElement>(null);
+    const activeConnRef = useRef<HTMLDivElement>(null);
+    const activeDbRef = useRef<HTMLDivElement>(null);
 
     const refreshConnections = useCallback(async () => {
         try {
@@ -48,15 +55,8 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
 
     useEffect(() => { refreshConnections(); if (inputRef.current) inputRef.current.focus(); }, []);
     useEffect(() => { if (activeProfile?.name) setSelectedConn(activeProfile.name); }, [activeProfile?.name]);
-    useEffect(() => {
-        if (view !== 'list') return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose, view]);
-
     // ── List handlers ─────────────────────────────────────────────────────────
-    const handleSelectConn = async (name: string) => {
+    const handleSelectConn = useCallback(async (name: string) => {
         setConnError(null);
         setSelectedConn(name);
         if (name === activeProfile?.name) return;
@@ -64,14 +64,62 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
         try { await Connect(name); }
         catch (err: any) { setConnError(typeof err === 'string' ? err : err?.message || String(err)); }
         finally { setConnecting(false); }
-    };
+    }, [activeProfile?.name]);
 
-    const handleSelectDb = async (dbName: string) => {
+    const handleSelectDb = useCallback(async (dbName: string) => {
         onClose();
         if (activeProfile?.db_name === dbName) return;
         try { await SwitchDatabase(dbName); }
         catch (err) { console.error('WorkspaceModal: switch db failed:', err); }
-    };
+    }, [activeProfile?.db_name, onClose]);
+
+    const filteredConns = React.useMemo(() => connections.filter(c => c.name?.toLowerCase().includes(connFilter.toLowerCase())), [connections, connFilter]);
+    const filteredDbs = React.useMemo(() => (selectedConn === activeProfile?.name ? databases : [])
+        .filter(d => d.toLowerCase().includes(dbFilter.toLowerCase())), [selectedConn, activeProfile?.name, databases, dbFilter]);
+
+    useEffect(() => {
+        if (view !== 'list') return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onClose();
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (focusedPane === 'conn') {
+                    setConnNavIndex(i => Math.min(i + 1, Math.max(0, filteredConns.length - 1)));
+                } else {
+                    setDbNavIndex(i => Math.min(i + 1, Math.max(0, filteredDbs.length - 1)));
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (focusedPane === 'conn') {
+                    setConnNavIndex(i => Math.max(i - 1, 0));
+                } else {
+                    setDbNavIndex(i => Math.max(i - 1, 0));
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (focusedPane === 'conn') {
+                    const conn = filteredConns[connNavIndex];
+                    if (conn?.name) handleSelectConn(conn.name);
+                } else {
+                    const db = filteredDbs[dbNavIndex];
+                    if (db) handleSelectDb(db);
+                }
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose, view, focusedPane, connNavIndex, dbNavIndex, filteredConns, filteredDbs, handleSelectConn, handleSelectDb]);
+
+    useEffect(() => {
+        if (view !== 'list') return;
+        if (focusedPane === 'conn') {
+            activeConnRef.current?.scrollIntoView({ block: 'nearest' });
+        } else if (focusedPane === 'db') {
+            activeDbRef.current?.scrollIntoView({ block: 'nearest' });
+        }
+    }, [connNavIndex, dbNavIndex, focusedPane, view]);
 
     const handleOpenNewConnection = () => {
         form.resetForm();
@@ -85,9 +133,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
         setView('new-connection');
     };
 
-    const filteredConns = connections.filter(c => c.name?.toLowerCase().includes(connFilter.toLowerCase()));
-    const filteredDbs = (selectedConn === activeProfile?.name ? databases : [])
-        .filter(d => d.toLowerCase().includes(dbFilter.toLowerCase()));
+
 
     // ── Style tokens ──────────────────────────────────────────────────────────
     const colClass = 'flex-1 flex flex-col overflow-hidden';
@@ -114,21 +160,32 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                             <div className={headerClass}>Connection</div>
                             <div className={filterContainerClass}>
                                 <Search size={13} className="text-text-muted mr-2 shrink-0" />
-                                <input ref={inputRef} className={searchInputClass} placeholder="Search connections..." value={connFilter} onChange={e => setConnFilter(e.target.value)} />
+                                <input 
+                                    ref={inputRef} 
+                                    className={searchInputClass} 
+                                    placeholder="Search connections..." 
+                                    value={connFilter} 
+                                    onChange={e => { setConnFilter(e.target.value); setConnNavIndex(0); setFocusedPane('conn'); }}
+                                    onFocus={() => setFocusedPane('conn')}
+                                />
                             </div>
                             <div className={listClass}>
-                                {filteredConns.map(conn => {
+                                {filteredConns.map((conn, idx) => {
                                     const provider = getProvider(conn.driver || 'postgres');
                                     const isActive = selectedConn === conn.name;
+                                    const isNavFocus = focusedPane === 'conn' && connNavIndex === idx;
 
                                     return (
                                         <div
                                             key={conn.name}
+                                            ref={isNavFocus ? activeConnRef : undefined}
                                             className={cn(
-                                                "group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors duration-200 border-l-3 border-transparent",
-                                                isActive ? "bg-bg-tertiary border-l-success" : "hover:bg-bg-tertiary/50"
+                                                "group flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors duration-200 border-l-[3px]",
+                                                isActive ? "bg-bg-tertiary border-l-success" : "border-l-transparent hover:bg-bg-tertiary/50",
+                                                isNavFocus && "ring-1 ring-inset ring-text-muted/30 bg-bg-tertiary/80"
                                             )}
                                             onClick={() => handleSelectConn(conn.name!)}
+                                            onMouseEnter={() => { setFocusedPane('conn'); setConnNavIndex(idx); }}
                                         >
                                             {/* Logo */}
                                             <div className="w-13 h-13 rounded-md flex items-center justify-center p-1 shrink-0">
@@ -179,7 +236,14 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                             <div className={headerClass}>Database</div>
                             <div className={filterContainerClass}>
                                 <Search size={13} className="text-text-muted mr-2 shrink-0" />
-                                <input className={searchInputClass} placeholder="Search databases..." value={dbFilter} onChange={e => setDbFilter(e.target.value)} />
+                                <input 
+                                    ref={dbInputRef}
+                                    className={searchInputClass} 
+                                    placeholder="Search databases..." 
+                                    value={dbFilter} 
+                                    onChange={e => { setDbFilter(e.target.value); setDbNavIndex(0); setFocusedPane('db'); }}
+                                    onFocus={() => setFocusedPane('db')}
+                                />
                             </div>
                             <div className={listClass}>
                                 {connecting ? (
@@ -191,11 +255,24 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                 ) : filteredDbs.length === 0 ? (
                                     <div className={itemEmptyClass}>{databases.length === 0 ? 'No databases' : 'No matches'}</div>
                                 ) : (
-                                    filteredDbs.map(db => (
-                                        <div key={db} className={cn(itemClass, activeProfile?.db_name === db && itemActiveClass)} onClick={() => handleSelectDb(db)}>
-                                            {db}
-                                        </div>
-                                    ))
+                                    filteredDbs.map((db, idx) => {
+                                        const isNavFocus = focusedPane === 'db' && dbNavIndex === idx;
+                                        return (
+                                            <div 
+                                                key={db} 
+                                                ref={isNavFocus ? activeDbRef : undefined}
+                                                className={cn(
+                                                    itemClass, 
+                                                    activeProfile?.db_name === db && itemActiveClass,
+                                                    isNavFocus && "bg-bg-tertiary ring-1 ring-inset ring-text-muted/30"
+                                                )} 
+                                                onClick={() => handleSelectDb(db)}
+                                                onMouseEnter={() => { setFocusedPane('db'); setDbNavIndex(idx); }}
+                                            >
+                                                {db}
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
