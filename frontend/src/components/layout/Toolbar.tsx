@@ -167,16 +167,12 @@ export const Toolbar: React.FC = () => {
             </div>
 
             {/* Right */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Divider orientation="vertical" className="h-5" />
-                <Button variant="ghost" size="icon" title="Command Palette (Ctrl+Shift+P)" onClick={() => setShowCommandPalette(true)}>
-                    <Search size={14} />
-                </Button>
+            <div className="flex items-center shrink-0">
                 <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
                     <Settings size={14} />
                 </Button>
 
-                <Divider orientation="vertical" className="h-5" />
+                {/* <Divider orientation="vertical" className="h-5" /> */}
 
                 {/* Layout toggles */}
                 <Button
@@ -205,7 +201,6 @@ export const Toolbar: React.FC = () => {
                     <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                 </Button>
 
-                <Divider orientation="vertical" className="h-5" />
 
                 {/* Window controls */}
                 <div className="flex items-center gap-0.5 ml-0.5">
