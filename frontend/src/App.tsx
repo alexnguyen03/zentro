@@ -23,6 +23,7 @@ import { useToast } from './components/layout/Toast';
 import { EventsOn, WindowReloadApp } from '../wailsjs/runtime/runtime';
 import { ForceQuit, Connect } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
+import { CommandPalette } from './components/layout/CommandPalette';
 
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
@@ -30,7 +31,7 @@ function App() {
     const { initTab, appendRows, setDone, results } = useResultStore();
     const { setQueryStats } = useStatusStore();
     const { toast } = useToast();
-    const { showSidebar, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
+    const { showSidebar, showRightSidebar, showCommandPalette, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
 
     // ── Before-close guard ────────────────────────────────────────────────
     useEffect(() => {
@@ -151,6 +152,13 @@ function App() {
         const handleLayoutShortcuts = (e: KeyboardEvent) => {
             const mod = e.ctrlKey || e.metaKey;
 
+            // Ctrl + Shift + P: Command Palette
+            if (mod && e.shiftKey && e.key.toLowerCase() === 'p') {
+                e.preventDefault();
+                setShowCommandPalette(true);
+                return;
+            }
+
             // Ctrl + Alt + B: Toggle Right Sidebar
             if (mod && e.altKey && e.key.toLowerCase() === 'b') {
                 e.preventDefault();
@@ -222,10 +230,11 @@ function App() {
 
         window.addEventListener('keydown', handleLayoutShortcuts);
         return () => window.removeEventListener('keydown', handleLayoutShortcuts);
-    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar, addTab]);
+    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar, addTab, setShowCommandPalette]);
 
     return (
         <div className="flex flex-col h-full w-full">
+            {showCommandPalette && <CommandPalette />}
             <Toolbar />
             <div className="flex flex-1 overflow-hidden">
                 {showSidebar && (

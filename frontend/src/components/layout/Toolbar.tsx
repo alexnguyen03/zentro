@@ -15,7 +15,7 @@ import { Button, Divider } from '../ui';
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const { groups, activeGroupId, addTab } = useEditorStore();
-    const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
+    const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -34,6 +34,13 @@ export const Toolbar: React.FC = () => {
         };
         window.addEventListener('keydown', handleKd);
         return () => window.removeEventListener('keydown', handleKd);
+    }, []);
+
+    // Listen for command palette's "open-workspace-modal" event
+    useEffect(() => {
+        const handler = () => setPickerOpen(true);
+        window.addEventListener('open-workspace-modal', handler);
+        return () => window.removeEventListener('open-workspace-modal', handler);
     }, []);
 
     const handleRun = async () => {
@@ -162,7 +169,7 @@ export const Toolbar: React.FC = () => {
             {/* Right */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Divider orientation="vertical" className="h-5" />
-                <Button variant="ghost" size="icon" title="Search">
+                <Button variant="ghost" size="icon" title="Command Palette (Ctrl+Shift+P)" onClick={() => setShowCommandPalette(true)}>
                     <Search size={14} />
                 </Button>
                 <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
