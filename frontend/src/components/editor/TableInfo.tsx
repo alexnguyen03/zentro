@@ -413,6 +413,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
     const [erdRelCount, setErdRelCount] = useState<number | null>(null);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
+    const prevConnRef = useRef<string>('');
 
     const { activeProfile } = useConnectionStore();
     const { activeGroupId, groups } = useEditorStore();
@@ -528,13 +529,22 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setErdRefreshKey(k => k + 1);
     }, []);
 
-    const tabReload: Record<SubTab, () => void> = {
+    const tabReload: Record<SubTab, () => void> = React.useMemo(() => ({
         info: () => loadInfo(true),
         data: loadData,
         erd: loadErd,
-    };
+    }), [loadInfo, loadData, loadErd]);
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
+
+    // Auto-reload when connection/database changes
+    useEffect(() => {
+        const currentConn = `${activeProfile?.name}:${activeProfile?.db_name}`;
+        if (prevConnRef.current && currentConn !== prevConnRef.current) {
+            tabReload[activeSubTab]();
+        }
+        prevConnRef.current = currentConn;
+    }, [activeProfile?.name, activeProfile?.db_name, activeSubTab, tabReload]);
 
     // Auto-focus the container so Ctrl+F can detect this tab is active
     useEffect(() => {
@@ -543,12 +553,20 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            const activeGroup = groups.find(g => g.id === activeGroupId);
+            const isTabActive = activeGroup?.activeTabId === tabId;
+
+            if (e.key === 'F5' && isTabActive) {
+                e.preventDefault();
+                tabReload[activeSubTab]();
+                return;
+            }
+
             if (e.ctrlKey && e.key.toLowerCase() === 'f') {
                 const activeEl = document.activeElement;
                 if (activeEl?.closest('.sidebar')) return; // Let sidebar handle its own search
 
-                const activeGroup = groups.find(g => g.id === activeGroupId);
-                if (activeGroup?.activeTabId === tabId) {
+                if (isTabActive) {
                     e.preventDefault();
                     if (activeSubTab !== 'info') setActiveSubTab('info');
                     setTimeout(() => filterInputRef.current?.focus(), 10);
@@ -557,7 +575,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [groups, activeGroupId, tabId, activeSubTab]);
+    }, [groups, activeGroupId, tabId, activeSubTab, tabReload]);
 
     // Sorted indices (original index order within rows array)
     const displayIds = (() => {
@@ -666,6 +684,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         id: 'reload',
         icon: <RefreshCw size={11} />,
         label: 'Reload',
+        title: 'Reload (F5)',
         onClick: tabReload[activeSubTab],
         loading: reloading,
     };

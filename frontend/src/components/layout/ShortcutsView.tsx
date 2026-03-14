@@ -38,6 +38,7 @@ export const ShortcutsView: React.FC = () => {
         { command: 'Clear Search', binding: ['Esc'], when: 'Settings / Shortcuts' },
         { command: 'Find & Replace', binding: ['Ctrl', 'H'], when: 'In Editor' },
         { command: 'Comment Line', binding: ['Ctrl', '/'], when: 'In Editor' },
+        { command: 'Reload View (Info/Data/ERD)', binding: ['F5'], when: 'In Table View' },
     ];
 
     return (
