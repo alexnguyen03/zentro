@@ -62,17 +62,6 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         try { await CancelQuery(activeTabId); } catch { /* swallow */ }
     }, [activeTabId]);
 
-    const handleSaveScript = useCallback(async (tabId: string, scriptName: string) => {
-        const tab = tabs.find(t => t.id === tabId);
-        const connectionName = activeProfile?.name;
-        if (!tab || !connectionName) return;
-        try {
-            await saveScript(connectionName, scriptName, tab.query);
-        } catch (e) {
-            console.error('Save script failed', e);
-        }
-    }, [tabs, activeProfile, saveScript]);
-
     const handleSplit = useCallback((tabId: string) => {
         splitGroup(groupId, tabId);
     }, [groupId, splitGroup]);
@@ -96,7 +85,6 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                 onClose={handleClose}
                 onNewTab={() => addTab(undefined, groupId)}
                 onRename={renameTab}
-                onSaveScript={handleSaveScript}
                 onSplit={handleSplit}
             />
 

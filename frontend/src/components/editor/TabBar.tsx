@@ -14,7 +14,6 @@ interface TabBarProps {
     onClose: (id: string) => void;
     onNewTab: () => void;
     onRename: (id: string, newName: string) => void;
-    onSaveScript: (tabId: string, scriptName: string) => void;
     onSplit?: (tabId: string) => void;
 }
 
@@ -114,16 +113,12 @@ export const TabBar: React.FC<TabBarProps> = ({
     onClose,
     onNewTab,
     onRename,
-    onSaveScript,
     onSplit,
 }) => {
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
     const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
-    const [savePrompt, setSavePrompt] = useState<{ tabId: string } | null>(null);
-    const [saveNameValue, setSaveNameValue] = useState('');
     const renameInputRef = useRef<HTMLInputElement>(null);
-    const saveInputRef = useRef<HTMLInputElement>(null);
     const tabsScrollRef = useRef<HTMLDivElement>(null);
 
     // Make the empty space droppable for cross-group drags to an empty pane
@@ -181,27 +176,7 @@ export const TabBar: React.FC<TabBarProps> = ({
         return () => window.removeEventListener('keydown', handler);
     }, [tabs, activeTabId, onActivate]);
 
-    // Auto-focus save prompt input
-    useEffect(() => {
-        if (savePrompt && saveInputRef.current) {
-            saveInputRef.current.focus();
-            saveInputRef.current.select();
-        }
-    }, [savePrompt]);
 
-    // Listen to Ctrl+S custom event from QueryGroup/QueryTabs
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const tabId = (e as CustomEvent<string>).detail;
-            const tab = tabs.find(t => t.id === tabId);
-            if (tab) {
-                setSaveNameValue(tab.name ?? '');
-                setSavePrompt({ tabId });
-            }
-        };
-        window.addEventListener('zentro:save-script', handler);
-        return () => window.removeEventListener('zentro:save-script', handler);
-    }, [tabs]);
 
     // Listen to F2 rename custom hook
     useEffect(() => {
@@ -288,50 +263,6 @@ export const TabBar: React.FC<TabBarProps> = ({
                 <Plus size={14} />
             </button>
 
-            {/* Save script prompt */}
-            {savePrompt && (
-                <div
-                    className="flex items-center gap-1 px-2 bg-bg-secondary border-l border-border shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <input
-                        ref={saveInputRef}
-                        className="bg-bg-primary border border-success text-text-primary text-[11px] px-1.5 py-[3px] rounded-sm outline-none w-40"
-                        placeholder="Script name…"
-                        value={saveNameValue}
-                        onChange={(e) => setSaveNameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && saveNameValue.trim()) {
-                                onSaveScript(savePrompt.tabId, saveNameValue.trim());
-                                setSavePrompt(null);
-                                setSaveNameValue('');
-                            }
-                            if (e.key === 'Escape') {
-                                setSavePrompt(null);
-                                setSaveNameValue('');
-                            }
-                        }}
-                    />
-                    <button
-                        className="bg-success border-none text-white text-[11px] font-semibold px-2.5 py-[3px] rounded-sm cursor-pointer transition-opacity duration-100 hover:opacity-85"
-                        onClick={() => {
-                            if (saveNameValue.trim()) {
-                                onSaveScript(savePrompt.tabId, saveNameValue.trim());
-                                setSavePrompt(null);
-                                setSaveNameValue('');
-                            }
-                        }}
-                    >
-                        Save
-                    </button>
-                    <button
-                        className="bg-transparent border-none text-text-secondary text-[13px] leading-none cursor-pointer px-1 py-0.5 rounded-sm transition-colors duration-100 hover:text-text-primary"
-                        onClick={() => { setSavePrompt(null); setSaveNameValue(''); }}
-                    >
-                        ✕
-                    </button>
-                </div>
-            )}
 
             {contextMenu && (
                 <div
@@ -356,18 +287,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                         </div>
                     )}
 
-                    <div
-                        className="px-4 py-1.5 text-[13px] cursor-pointer flex items-center text-success hover:bg-success hover:text-white"
-                        onClick={() => {
-                            const tab = tabs.find(t => t.id === contextMenu!.tabId);
-                            setSaveNameValue(tab?.name ?? '');
-                            setSavePrompt({ tabId: contextMenu!.tabId });
-                            setContextMenu(null);
-                        }}
-                    >
-                        <BookMarked size={11} style={{ marginRight: 5 }} />
-                        Save Script
-                    </div>
+
 
                     <div className="h-px bg-border my-1" />
 
