@@ -2,10 +2,6 @@ import React, { useEffect } from 'react';
 import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
 import { cn } from '../../lib/cn';
-import { getProvider } from '../../lib/providers';
-import { Connect } from '../../../wailsjs/go/app/App';
-import { useLayoutStore } from '../../stores/layoutStore';
-
 import { useConnectionStore } from '../../stores/connectionStore';
 
 export const StatusBar: React.FC = () => {
@@ -19,16 +15,29 @@ export const StatusBar: React.FC = () => {
         setMessage,
         setCurrentDriver
     } = useStatusStore();
-    const { activeProfile } = useConnectionStore();
-    const { showSidebar } = useLayoutStore();
+    const { activeProfile, connectionStatus } = useConnectionStore();
 
-    // Initial sync with activeProfile if connected
+    // Initial sync with connectionStore state (handles reloads)
     useEffect(() => {
-        if (activeProfile && status === 'connected') {
+        if (connectionStatus === 'connected' && activeProfile) {
+            setStatus('connected');
             setCurrentDriver(activeProfile.driver || 'postgres');
             setConnectionLabel(`${activeProfile.name} (${activeProfile.driver})`);
+        } else if (connectionStatus === 'connecting' && activeProfile) {
+            setStatus('connecting');
+            setConnectionLabel(`Connecting to ${activeProfile.name}...`);
+            setCurrentDriver(activeProfile.driver || 'postgres');
+        } else if (connectionStatus === 'error') {
+            setStatus('error');
+            const name = activeProfile?.name || 'database';
+            setConnectionLabel(`Failed to connect: ${name}`);
+            if (activeProfile) setCurrentDriver(activeProfile.driver || 'postgres');
+        } else {
+            setStatus('disconnected');
+            setConnectionLabel('No Connection');
+            setCurrentDriver('');
         }
-    }, [activeProfile, status]);
+    }, [activeProfile, connectionStatus, setStatus, setConnectionLabel, setCurrentDriver]);
 
     useEffect(() => {
         const unsub = onConnectionChanged((data) => {
@@ -68,7 +77,7 @@ export const StatusBar: React.FC = () => {
         disconnected: 'bg-yellow-500',
     }[status] ?? 'bg-bg-tertiary';
 
-    const provider = currentDriver ? getProvider(currentDriver) : null;
+
 
     return (
         <div className={cn(
@@ -79,28 +88,7 @@ export const StatusBar: React.FC = () => {
             <div className="flex items-center gap-1">
                 {/* Connection Info Container */}
                 <div className="relative flex items-center gap-3">
-                    {/* Floating Provider Logo - Half-sunk into the bar */}
-                    {showSidebar && provider && (
-                        <div
-                            className="absolute bottom-3.5 left-0 z-60 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out cursor-pointer group active:scale-95 transition-all"
-                            onClick={() => activeProfile && Connect(activeProfile.name)}
-                            title="Click to reconnect"
-                        >
-                            <div
-                                className={cn(
-                                    "w-12 h-12 rounded-xl flex items-center justify-center relative border transition-all bg-bg-secondary/40 backdrop-blur-md shadow-2xl",
-                                    status === 'connected' ? "border-white/20" : status === 'connecting' ? "border-white/50 scale-105" : "border-red-500/40"
-                                )}
-                                style={{ backgroundColor: `${provider.color}25` }}
-                            >
-                                <img
-                                    src={provider.icon}
-                                    alt={provider.label}
-                                    className="w-7 h-7 object-contain relative z-20 drop-shadow-md transition-transform duration-200 group-hover:scale-110"
-                                />
-                            </div>
-                        </div>
-                    )}
+
 
                     <div className="flex items-center gap-2 font-medium text-[11px] text-white/90">
                         <span className="tracking-wide uppercase text-[10px] opacity-90">{connectionLabel}</span>

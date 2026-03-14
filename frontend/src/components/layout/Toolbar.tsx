@@ -57,8 +57,14 @@ export const Toolbar: React.FC = () => {
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
                     <Lock size={14} />
                 </Button>
-                <Button variant="ghost" size="icon" title="Refresh">
-                    <RefreshCw size={14} />
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Reload Connection"
+                    onClick={() => activeProfile && Connect(activeProfile.name)}
+                    disabled={!activeProfile || connectionStatus === 'connecting'}
+                >
+                    <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && "animate-spin")} />
                 </Button>
 
                 <Divider orientation="vertical" className="h-5" />
