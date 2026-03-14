@@ -9,6 +9,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"zentro/internal/constant"
 	dbpkg "zentro/internal/db"
 	"zentro/internal/models"
 	"zentro/internal/utils"
@@ -130,18 +131,18 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
 
-	emitEvent(s.ctx, "connection:changed", map[string]any{
+	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": prof,
-		"status":  "connecting",
+		"status":  constant.StatusConnecting,
 	})
 
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
 		s.logger.Error("open connection failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
+		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": prof,
-			"status":  "error",
+			"status":  constant.StatusError,
 		})
 		return fErr
 	}
@@ -153,9 +154,9 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 		db.Close()
 		s.logger.Error("ping failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
+		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": prof,
-			"status":  "error",
+			"status":  constant.StatusError,
 		})
 		return fErr
 	}
@@ -167,9 +168,9 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	s.keepAliveCancel = kaCancel
 	go s.startKeepAlive(kaCtx, db, prof)
 
-	emitEvent(s.ctx, "connection:changed", map[string]any{
+	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": prof,
-		"status":  "connected",
+		"status":  constant.StatusConnected,
 	})
 	s.logger.Info("connected — emitted connection:changed",
 		"profile", prof.Name,
@@ -206,18 +207,18 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	}
 	s.setDB(nil, &clone)
 
-	emitEvent(s.ctx, "connection:changed", map[string]any{
+	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": &clone,
-		"status":  "connecting",
+		"status":  constant.StatusConnecting,
 	})
 
 	db, err := dbpkg.OpenConnection(&clone)
 	if err != nil {
 		s.logger.Error("switch database failed", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
+		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": &clone,
-			"status":  "error",
+			"status":  constant.StatusError,
 		})
 		return fErr
 	}
@@ -229,9 +230,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 		db.Close()
 		s.logger.Error("ping failed on new db", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
+		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": &clone,
-			"status":  "error",
+			"status":  constant.StatusError,
 		})
 		return fErr
 	}
@@ -243,9 +244,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	go s.startKeepAlive(kaCtx, db, &clone)
 
 	s.logger.Info("switched database ok")
-	emitEvent(s.ctx, "connection:changed", map[string]any{
+	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": &clone,
-		"status":  "connected",
+		"status":  constant.StatusConnected,
 	})
 
 	go s.fetchDatabaseList(db, &clone)
@@ -262,7 +263,7 @@ func (s *ConnectionService) Disconnect() {
 		_ = db.Close()
 	}
 	s.setDB(nil, nil)
-	emitEvent(s.ctx, "connection:changed", map[string]any{"status": "disconnected"})
+	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{"status": constant.StatusDisconnected})
 	runtime.WindowSetTitle(s.ctx, "Zentro")
 	s.logger.Info("disconnected")
 }
@@ -270,9 +271,9 @@ func (s *ConnectionService) Disconnect() {
 func (s *ConnectionService) GetConnectionStatus() (map[string]any, error) {
 	prof := s.getProfile()
 	db := s.getDB()
-	status := "disconnected"
+	status := constant.StatusDisconnected
 	if db != nil {
-		status = "connected"
+		status = constant.StatusConnected
 	}
 	return map[string]any{
 		"profile": prof,
@@ -284,7 +285,7 @@ func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	currentState := "connected"
+	currentState := constant.StatusConnected
 
 	for {
 		select {
@@ -312,15 +313,15 @@ func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof
 				return
 			}
 
-			newState := "connected"
+			newState := constant.StatusConnected
 			if pingErr != nil {
-				newState = "error"
+				newState = constant.StatusError
 				s.logger.Warn("keep-alive ping failed", "profile", prof.Name, "err", pingErr)
 			}
 
 			if newState != currentState {
 				currentState = newState
-				emitEvent(s.ctx, "connection:changed", map[string]any{
+				emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
 					"profile": prof,
 					"status":  currentState,
 				})

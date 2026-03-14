@@ -5,6 +5,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
 import { EditorToolbar } from './EditorToolbar';
+import { DOM_EVENT } from '../../lib/constants';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -131,8 +132,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 runQuery();
             }
         };
-        window.addEventListener('run-query-action', handleGlobalRun);
-        return () => window.removeEventListener('run-query-action', handleGlobalRun);
+        window.addEventListener(DOM_EVENT.RUN_QUERY_ACTION, handleGlobalRun as EventListener);
+        return () => window.removeEventListener(DOM_EVENT.RUN_QUERY_ACTION, handleGlobalRun as EventListener);
     }, [tabId, runQuery]);
 
     const activeProfile = useConnectionStore(s => s.activeProfile);

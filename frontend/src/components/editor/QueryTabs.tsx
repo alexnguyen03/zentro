@@ -9,6 +9,7 @@ import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { DOM_EVENT } from '../../lib/constants';
 import {
     DndContext,
     DragEndEvent,
@@ -115,7 +116,7 @@ export const QueryTabs: React.FC = () => {
                 e.preventDefault();
                 const activeGroup = groups.find(g => g.id === activeGroupId);
                 if (activeGroup && activeGroup.activeTabId) {
-                    window.dispatchEvent(new CustomEvent('zentro:rename-tab', { detail: activeGroup.activeTabId }));
+                    window.dispatchEvent(new CustomEvent(DOM_EVENT.RENAME_TAB, { detail: activeGroup.activeTabId }));
                 }
             }
 
@@ -123,6 +124,20 @@ export const QueryTabs: React.FC = () => {
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
     }, [activeGroupId, addTab, groups, removeTab, activeProfile, saveScript]);
+
+    // Global event listener for command palette's 'close-active-tab'
+    useEffect(() => {
+        const handler = () => {
+            if (activeGroupId) {
+                const activeGroup = groups.find(g => g.id === activeGroupId);
+                if (activeGroup && activeGroup.activeTabId) {
+                    removeTab(activeGroup.activeTabId, activeGroupId);
+                }
+            }
+        };
+        window.addEventListener(DOM_EVENT.CLOSE_ACTIVE_TAB, handler);
+        return () => window.removeEventListener(DOM_EVENT.CLOSE_ACTIVE_TAB, handler);
+    }, [activeGroupId, groups, removeTab]);
 
     // Handle automatically closing groups when they are empty
     useEffect(() => {

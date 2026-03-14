@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { STORAGE_KEY, TabType, TAB_TYPE } from '../lib/constants';
 
 export interface Tab {
     id: string;
     name: string;
     query: string;
     isRunning: boolean;
-    type?: 'query' | 'table' | 'settings' | 'shortcuts';
+    type?: TabType;
     content?: string; // used for table name if type === 'table'
 }
 
@@ -94,13 +95,13 @@ export const useEditorStore = create<EditorState>()(
                         }
                     }
 
-                    const name = tabInit?.name || getNextTabName(state.groups);
+                    const name = tabInit?.name || (tabInit?.type === TAB_TYPE.TABLE ? tabInit.content! : getNextTabName(state.groups));
                     const newTab: Tab = {
                         id,
                         name,
                         query: tabInit?.query || '',
                         isRunning: false,
-                        type: tabInit?.type || 'query',
+                        type: tabInit?.type || TAB_TYPE.QUERY,
                         content: tabInit?.content,
                         ...tabInit
                     };
@@ -322,7 +323,7 @@ export const useEditorStore = create<EditorState>()(
             })
         }),
         {
-            name: 'zentro:editor-session-v2', // Change name to drop old state because schema changed
+            name: STORAGE_KEY.EDITOR_SESSION, // Change name to drop old state because schema changed
             partialize: (state) => ({
                 groups: state.groups.map(g => ({
                     ...g,

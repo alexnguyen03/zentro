@@ -1,4 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
+import cx from 'classnames';
+import { DRIVER } from '../../lib/constants';
 import ReactDOM from 'react-dom';
 import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn, ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { models } from '../../../wailsjs/go/models';
@@ -633,7 +635,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const addColumn = () => {
         const newCol: models.ColumnDef = {
             Name: `new_column_${rows.length + 1}`,
-            DataType: driver === 'postgres' ? 'varchar(255)' : driver === 'mysql' ? 'varchar(255)' : 'nvarchar(255)',
+            DataType: driver === DRIVER.POSTGRES ? 'varchar(255)' : driver === DRIVER.MYSQL ? 'varchar(255)' : 'nvarchar(255)',
             DefaultValue: '',
             IsNullable: true,
             IsPrimaryKey: false,

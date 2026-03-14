@@ -8,6 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"zentro/internal/constant"
 	"zentro/internal/models"
 	"zentro/internal/utils"
 )
@@ -93,7 +94,7 @@ func (a *App) OnBeforeClose(ctx context.Context) bool {
 	if a.forceQuit {
 		return false
 	}
-	emitEvent(ctx, "app:before-close", nil)
+	emitEvent(ctx, constant.EventAppBeforeClose, nil)
 	return true
 }
 

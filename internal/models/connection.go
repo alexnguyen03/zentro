@@ -1,5 +1,7 @@
 package models
 
+import "zentro/internal/constant"
+
 // ConnectionProfile lưu thông tin kết nối đến một database.
 // Password được base64-encoded khi lưu vào Preferences.
 type ConnectionProfile struct {
@@ -22,7 +24,7 @@ func NewConnectionProfile() *ConnectionProfile {
 	return &ConnectionProfile{
 		Host:            "localhost",
 		Port:            5432,
-		Driver:          "postgres",
+		Driver:          constant.DriverPostgres,
 		SSLMode:         "disable",
 		ConnectTimeout:  30,
 		SavePassword:    true,

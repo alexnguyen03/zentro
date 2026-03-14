@@ -3,6 +3,7 @@ import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { DRIVER, CONNECTION_STATUS } from '../../lib/constants';
 
 export const StatusBar: React.FC = () => {
     const {
@@ -19,21 +20,21 @@ export const StatusBar: React.FC = () => {
 
     // Initial sync with connectionStore state (handles reloads)
     useEffect(() => {
-        if (connectionStatus === 'connected' && activeProfile) {
-            setStatus('connected');
-            setCurrentDriver(activeProfile.driver || 'postgres');
+        if (connectionStatus === CONNECTION_STATUS.CONNECTED && activeProfile) {
+            setStatus(CONNECTION_STATUS.CONNECTED);
+            setCurrentDriver(activeProfile.driver || DRIVER.POSTGRES);
             setConnectionLabel(`${activeProfile.name} (${activeProfile.driver})`);
-        } else if (connectionStatus === 'connecting' && activeProfile) {
-            setStatus('connecting');
+        } else if (connectionStatus === CONNECTION_STATUS.CONNECTING && activeProfile) {
+            setStatus(CONNECTION_STATUS.CONNECTING);
             setConnectionLabel(`Connecting to ${activeProfile.name}...`);
-            setCurrentDriver(activeProfile.driver || 'postgres');
-        } else if (connectionStatus === 'error') {
-            setStatus('error');
+            setCurrentDriver(activeProfile.driver || DRIVER.POSTGRES);
+        } else if (connectionStatus === CONNECTION_STATUS.ERROR) {
+            setStatus(CONNECTION_STATUS.ERROR);
             const name = activeProfile?.name || 'database';
             setConnectionLabel(`Failed to connect: ${name}`);
-            if (activeProfile) setCurrentDriver(activeProfile.driver || 'postgres');
+            if (activeProfile) setCurrentDriver(activeProfile.driver || DRIVER.POSTGRES);
         } else {
-            setStatus('disconnected');
+            setStatus(CONNECTION_STATUS.DISCONNECTED);
             setConnectionLabel('No Connection');
             setCurrentDriver('');
         }
@@ -41,21 +42,21 @@ export const StatusBar: React.FC = () => {
 
     useEffect(() => {
         const unsub = onConnectionChanged((data) => {
-            if (data.status === 'connected' && data.profile) {
-                setStatus('connected');
+            if (data.status === CONNECTION_STATUS.CONNECTED && data.profile) {
+                setStatus(CONNECTION_STATUS.CONNECTED);
                 setConnectionLabel(`${data.profile.name} (${data.profile.driver})`);
-                setCurrentDriver(data.profile.driver || 'postgres');
-            } else if (data.status === 'connecting' && data.profile) {
-                setStatus('connecting');
+                setCurrentDriver(data.profile.driver || DRIVER.POSTGRES);
+            } else if (data.status === CONNECTION_STATUS.CONNECTING && data.profile) {
+                setStatus(CONNECTION_STATUS.CONNECTING);
                 setConnectionLabel(`Connecting to ${data.profile.name}...`);
-                setCurrentDriver(data.profile.driver || 'postgres');
-            } else if (data.status === 'error') {
-                setStatus('error');
+                setCurrentDriver(data.profile.driver || DRIVER.POSTGRES);
+            } else if (data.status === CONNECTION_STATUS.ERROR) {
+                setStatus(CONNECTION_STATUS.ERROR);
                 const name = data.profile?.name || 'database';
                 setConnectionLabel(`Failed to connect: ${name}`);
-                if (data.profile) setCurrentDriver(data.profile.driver || 'postgres');
+                if (data.profile) setCurrentDriver(data.profile.driver || DRIVER.POSTGRES);
             } else {
-                setStatus('disconnected');
+                setStatus(CONNECTION_STATUS.DISCONNECTED);
                 setConnectionLabel('No Connection');
                 setCurrentDriver('');
             }

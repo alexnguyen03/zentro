@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
+import { DRIVER } from '../../lib/constants';
 import { TestResult } from '../../hooks/useConnectionForm';
 import { models } from '../../../wailsjs/go/models';
 import { Button, Spinner } from '../ui';
@@ -49,7 +50,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
     onCancel,
 }) => {
     // Derive capabilities from provider registry — no hardcoded strings in JSX
-    const provider = getProvider(formData.driver ?? 'postgres');
+    const provider = getProvider(formData.driver ?? DRIVER.POSTGRES);
     const { requiresHost, requiresAuth, extraFields = [] } = provider;
 
     return (
@@ -63,7 +64,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         type="text"
                         value={connString}
                         onChange={onConnStringChange}
-                        placeholder="postgres://user:pass@host:5432/db"
+                        placeholder={`${DRIVER.POSTGRES}://user:pass@host:5432/db`}
                         className={cn(fi, 'font-mono text-[11px]')}
                     />
                 </div>
@@ -123,7 +124,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         name="username"
                         value={formData.username || ''}
                         onChange={onChange}
-                        placeholder={requiresAuth ? 'postgres' : '—'}
+                        placeholder={requiresAuth ? DRIVER.POSTGRES : '—'}
                         disabled={!requiresAuth}
                         autoComplete="username"
                         className={cn(fi, !requiresAuth && 'opacity-40')}
@@ -151,7 +152,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         name="db_name"
                         value={formData.db_name || ''}
                         onChange={onChange}
-                        placeholder={!requiresHost ? '/path/to/file.db' : 'postgres'}
+                        placeholder={!requiresHost ? '/path/to/file.db' : DRIVER.POSTGRES}
                         className={fi}
                     />
                 </div>

@@ -3,6 +3,7 @@ import PostgresLogo from '../assets/images/postgresql-logo-svgrepo-com.svg';
 import SqlServerLogo from '../assets/images/microsoft-sql-server-logo-svgrepo-com.svg';
 import MySqlLogo from '../assets/images/mysql-logo-svgrepo-com.svg';
 import SqliteLogo from '../assets/images/sqlite-svgrepo-com.svg';
+import { DRIVER } from './constants';
 
 type ConnectionProfile = models.ConnectionProfile;
 
@@ -36,7 +37,7 @@ export interface ProviderConfig {
 // ── Registry — add new providers HERE only ───────────────────────────────────
 export const PROVIDERS: ProviderConfig[] = [
     {
-        key: 'postgres',
+        key: DRIVER.POSTGRES,
         label: 'PostgreSQL',
         defaultPort: 5432,
         defaultSsl: 'disable',
@@ -46,7 +47,7 @@ export const PROVIDERS: ProviderConfig[] = [
         requiresAuth: true,
     },
     {
-        key: 'sqlserver',
+        key: DRIVER.SQLSERVER,
         label: 'SQL Server',
         defaultPort: 1433,
         defaultSsl: 'disable',
@@ -59,7 +60,7 @@ export const PROVIDERS: ProviderConfig[] = [
         ],
     },
     {
-        key: 'mysql',
+        key: DRIVER.MYSQL,
         label: 'MySQL',
         defaultPort: 3306,
         defaultSsl: 'disable',
@@ -69,7 +70,7 @@ export const PROVIDERS: ProviderConfig[] = [
         requiresAuth: true,
     },
     {
-        key: 'sqlite',
+        key: DRIVER.SQLITE,
         label: 'SQLite',
         defaultPort: null,
         defaultSsl: 'disable',
@@ -84,7 +85,7 @@ export const PROVIDERS: ProviderConfig[] = [
 export const getProvider = (key: string): ProviderConfig =>
     PROVIDERS.find(p => p.key === key) ?? PROVIDERS[0];
 
-export const makeDefaultForm = (driver = 'postgres'): Partial<ConnectionProfile> => {
+export const makeDefaultForm = (driver = DRIVER.POSTGRES): Partial<ConnectionProfile> => {
     const p = getProvider(driver);
     return {
         driver,
@@ -107,12 +108,12 @@ export const parseConnectionString = (
     uri: string,
     currentName: string | undefined
 ): Partial<ConnectionProfile> => {
-    const toParse = uri.includes('://') ? uri : `postgres://${uri}`;
+    const toParse = uri.includes('://') ? uri : `${DRIVER.POSTGRES}://${uri}`;
     try {
         const url = new URL(toParse);
         const updates: Partial<ConnectionProfile> = {};
-        if (url.protocol.startsWith('postgres')) updates.driver = 'postgres';
-        if (url.protocol.startsWith('sqlserver')) updates.driver = 'sqlserver';
+        if (url.protocol.startsWith(DRIVER.POSTGRES)) updates.driver = DRIVER.POSTGRES;
+        if (url.protocol.startsWith(DRIVER.SQLSERVER)) updates.driver = DRIVER.SQLSERVER;
         if (url.hostname) updates.host = url.hostname;
         if (url.port) updates.port = parseInt(url.port, 10);
         const db = url.pathname.replace(/^\//, '');
@@ -138,7 +139,7 @@ export const validateConnectionForm = (
     if (!form.name?.trim()) return 'Profile name is required';
     if (!isEditing && existingNames.includes(form.name.trim()))
         return `"${form.name.trim()}" already exists`;
-    const p = getProvider(form.driver ?? 'postgres');
+    const p = getProvider(form.driver ?? DRIVER.POSTGRES);
     if (p.requiresHost && !form.host?.trim()) return 'Host is required';
     if (p.requiresAuth && !form.username?.trim()) return 'Username is required';
     if (!form.db_name?.trim()) return 'Database name is required';

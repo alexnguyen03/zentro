@@ -5,6 +5,7 @@ import { Connect, SwitchDatabase, LoadConnections } from '../../../wailsjs/go/ap
 import { models } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
 import { getProvider, makeDefaultForm } from '../../lib/providers';
+import { DRIVER } from '../../lib/constants';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
@@ -169,7 +170,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                             </div>
                             <div className={listClass}>
                                 {filteredConns.map((conn, idx) => {
-                                    const provider = getProvider(conn.driver || 'postgres');
+                                    const provider = getProvider(conn.driver || DRIVER.POSTGRES);
                                     const isActive = selectedConn === conn.name;
                                     const isNavFocus = focusedPane === 'conn' && connNavIndex === idx;
 

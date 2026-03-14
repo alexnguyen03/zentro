@@ -4,6 +4,7 @@
  * to avoid string typos and untyped callbacks.
  */
 import { EventsOn } from '../../wailsjs/runtime/runtime';
+import { ConnectionStatus } from './constants';
 
 // ── Event name constants ──────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ export const EVENT = {
 // ── Payload types ─────────────────────────────────────────────────────────
 
 export interface ConnectionChangedPayload {
-    status: 'connected' | 'disconnected' | 'failed' | 'error' | 'connecting';
+    status: ConnectionStatus;
     databases?: string[];
     profile?: {
         name: string;

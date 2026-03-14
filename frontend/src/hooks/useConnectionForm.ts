@@ -7,6 +7,7 @@ import {
     parseConnectionString,
     validateConnectionForm,
 } from '../lib/providers';
+import { DRIVER } from '../lib/constants';
 
 type ConnectionProfile = models.ConnectionProfile;
 
@@ -157,7 +158,7 @@ export function useConnectionForm({
         errorMsg,
         successMsg,
         isEditing,
-        selectedProvider: formData.driver ?? 'postgres',
+        selectedProvider: formData.driver ?? DRIVER.POSTGRES,
         handleDriverChange,
         handleChange,
         handleParseConnectionString,

@@ -1,6 +1,7 @@
 import { WindowReloadApp } from '../../wailsjs/runtime/runtime';
 import { useEditorStore } from '../stores/editorStore';
 import { useLayoutStore } from '../stores/layoutStore';
+import { DOM_EVENT, TAB_TYPE } from './constants';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
 
@@ -36,7 +37,7 @@ export function buildCommands(): CommandItem[] {
             keybinding: 'Ctrl+W',
             action: () => {
                 // Dispatch close event — QueryTabs listens for this
-                window.dispatchEvent(new CustomEvent('close-active-tab'));
+                window.dispatchEvent(new CustomEvent(DOM_EVENT.CLOSE_ACTIVE_TAB));
             },
         },
         {
@@ -49,7 +50,7 @@ export function buildCommands(): CommandItem[] {
                 const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
                 const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
                 if (activeTab) {
-                    window.dispatchEvent(new CustomEvent('run-query-action', { detail: { tabId: activeTab.id } }));
+                    window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
                 }
             },
         },
@@ -60,14 +61,14 @@ export function buildCommands(): CommandItem[] {
             label: 'Open Settings',
             category: 'View',
             keybinding: 'Ctrl+,',
-            action: () => addTab({ type: 'settings', name: 'Settings' }),
+            action: () => addTab({ type: TAB_TYPE.SETTINGS, name: 'Settings' }),
         },
         {
             id: 'view.openShortcuts',
             label: 'Open Keyboard Shortcuts',
             category: 'View',
             keybinding: 'Ctrl+K Ctrl+B',
-            action: () => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' }),
+            action: () => addTab({ type: TAB_TYPE.SHORTCUTS, name: 'Keyboard Shortcuts' }),
         },
         {
             id: 'view.commandPalette',
@@ -107,7 +108,7 @@ export function buildCommands(): CommandItem[] {
             category: 'Connection',
             keybinding: 'Ctrl+Shift+C',
             action: () => {
-                window.dispatchEvent(new CustomEvent('open-workspace-modal'));
+                window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_WORKSPACE_MODAL));
             },
         },
 

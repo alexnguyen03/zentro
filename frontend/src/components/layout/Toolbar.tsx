@@ -12,6 +12,7 @@ import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
+import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
@@ -40,13 +41,13 @@ export const Toolbar: React.FC = () => {
     // Listen for command palette's "open-workspace-modal" event
     useEffect(() => {
         const handler = () => setPickerOpen(true);
-        window.addEventListener('open-workspace-modal', handler);
-        return () => window.removeEventListener('open-workspace-modal', handler);
+        window.addEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
+        return () => window.removeEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
     }, []);
 
     const handleRun = async () => {
         if (!activeTab || !isConnected) return;
-        window.dispatchEvent(new CustomEvent('run-query-action', { detail: { tabId: activeTab.id } }));
+        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
     };
 
     const handleCancel = async () => {

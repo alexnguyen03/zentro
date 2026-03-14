@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, X, BookMarked, SplitSquareHorizontal, Table2 } from 'lucide-react';
 import { Tab } from '../../stores/editorStore';
+import { DOM_EVENT } from '../../lib/constants';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
@@ -188,8 +189,8 @@ export const TabBar: React.FC<TabBarProps> = ({
                 setRenameValue(tab.name);
             }
         };
-        window.addEventListener('zentro:rename-tab', handler);
-        return () => window.removeEventListener('zentro:rename-tab', handler);
+        window.addEventListener(DOM_EVENT.RENAME_TAB, handler as EventListener);
+        return () => window.removeEventListener(DOM_EVENT.RENAME_TAB, handler as EventListener);
     }, [tabs]);
 
     // Close context menu on outside click

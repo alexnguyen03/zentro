@@ -10,6 +10,7 @@ import (
 	"time"
 
 	dbpkg "zentro/internal/db"
+	"zentro/internal/constant"
 	"zentro/internal/utils"
 )
 
@@ -76,7 +77,7 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 	s.sessions[tabID] = session
 	s.sessionsMu.Unlock()
 
-	emitEvent(s.ctx, "query:started", map[string]any{"tabID": tabID, "query": query})
+	emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{"tabID": tabID, "query": query})
 	s.logger.Info("executing query", "tab", tabID)
 
 	if dbpkg.IsSelectQuery(query) {
@@ -187,9 +188,9 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 			if !sentCols {
 				chunkCols = cols
 				sentCols = true
-				emitEvent(s.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
+				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
 			} else {
-				emitEvent(s.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, "", nil))
+				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, "", nil))
 			}
 			buf = nil
 			seq++
@@ -200,9 +201,9 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 		var chunkCols []string
 		if !sentCols {
 			chunkCols = cols
-			emitEvent(s.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
+			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
 		} else {
-			emitEvent(s.ctx, "query:chunk", buildChunk(tabID, chunkCols, buf, seq, "", nil))
+			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, "", nil))
 		}
 	}
 
@@ -300,14 +301,14 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			rowCount++
 
 			if len(chunk) >= 500 {
-				emitEvent(s.ctx, "query:chunk", buildChunk(tabID, cols, chunk, seq, "", nil))
+				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, cols, chunk, seq, "", nil))
 				chunk = nil
 				seq++
 			}
 		}
 
 		if len(chunk) > 0 {
-			emitEvent(s.ctx, "query:chunk", buildChunk(tabID, cols, chunk, seq, "", nil))
+			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, cols, chunk, seq, "", nil))
 		}
 
 		duration := time.Since(start)
@@ -403,7 +404,7 @@ func (s *QueryService) emitDoneWithMore(tabID string, affected int64, duration t
 	if err != nil {
 		payload["error"] = err.Error()
 	}
-	emitEvent(s.ctx, "query:done", payload)
+	emitEvent(s.ctx, constant.EventQueryDone, payload)
 }
 
 func buildChunk(tabID string, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
