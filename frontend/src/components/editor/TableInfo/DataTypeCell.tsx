@@ -118,7 +118,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
     if (!editing) {
         return (
             <div
-                className={`flex items-center h-full px-3 font-mono text-xs cursor-text select-none truncate transition-colors hover:bg-text-primary/5 ${isDirty ? 'text-success font-medium' : 'text-text-secondary'}`}
+                className={`rt-cell-content font-mono text-[11px]! ${isDirty ? 'rt-cell-dirty' : ''} ${disabled ? 'opacity-40' : ''}`}
                 onDoubleClick={openEditor}
                 title={`${value} (Double-click to edit)`}
             >
@@ -133,7 +133,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                 ref={inputRef}
                 autoFocus
                 onFocus={(e) => e.target.select()}
-                className="w-full h-full px-3 bg-bg-tertiary border-l border-accent outline-none font-mono text-xs text-text-primary transition-all"
+                className="rt-cell-input font-mono text-[11px]! border-accent!"
                 value={text}
                 onChange={e => { setText(e.target.value); }}
                 onKeyDown={e => {

@@ -31,10 +31,10 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const SortIcon = ({ col }: { col: SortCol }) => {
-        if (sortCol !== col || !sortDir) return <ArrowUpDown size={11} className="ml-1.5 opacity-20" />;
+        if (sortCol !== col || !sortDir) return <ArrowUpDown size={11} className="ml-1 opacity-20" />;
         return sortDir === 'asc'
-            ? <ArrowUp size={11} className="ml-1.5 text-accent" />
-            : <ArrowDown size={11} className="ml-1.5 text-accent" />;
+            ? <ArrowUp size={11} className="ml-1 text-success" />
+            : <ArrowDown size={11} className="ml-1 text-success" />;
     };
 
     return (
@@ -44,39 +44,49 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                     ref={tableContainerRef}
                     className="flex-1 overflow-auto scrollbar-thin"
                 >
-                    <table className="w-full border-collapse table-fixed select-none">
-                        <thead className="sticky top-0 z-10 bg-bg-secondary/95 backdrop-blur-md">
-                            <tr className="border-b border-border/40">
-                                <th className="w-10 h-8 text-[10px] text-text-muted font-bold text-center border-r border-border/20">#</th>
+                    <table className="result-table-tanstack w-full border-collapse table-fixed select-none">
+                        <thead>
+                            <tr className="border-b-2 border-border">
+                                <th className="rt-th w-10 text-center font-mono text-[10px] text-text-muted">#</th>
                                 <th
-                                    className="px-3 h-8 text-left text-[11px] font-semibold text-text-secondary cursor-pointer hover:text-text-primary transition-colors border-r border-border/20"
+                                    className="rt-th rt-th-sortable"
                                     onClick={() => onSort('Name')}
                                 >
-                                    <div className="flex items-center">Name <SortIcon col="Name" /></div>
+                                    <div className="rt-th-label">
+                                        Name <SortIcon col="Name" />
+                                    </div>
                                 </th>
                                 <th
-                                    className="px-3 h-8 text-left text-[11px] font-semibold text-text-secondary cursor-pointer hover:text-text-primary transition-colors border-r border-border/20"
+                                    className="rt-th rt-th-sortable"
                                     onClick={() => onSort('DataType')}
                                 >
-                                    <div className="flex items-center">Data Type <SortIcon col="DataType" /></div>
+                                    <div className="rt-th-label">
+                                        Data Type <SortIcon col="DataType" />
+                                    </div>
                                 </th>
                                 <th
-                                    className="w-12 h-8 text-center text-[11px] font-semibold text-text-secondary cursor-pointer hover:text-text-primary transition-colors border-r border-border/20"
+                                    className="rt-th rt-th-sortable w-12"
                                     onClick={() => onSort('IsPrimaryKey')}
                                 >
-                                    <div className="flex items-center justify-center">PK <SortIcon col="IsPrimaryKey" /></div>
+                                    <div className="rt-th-label justify-center">
+                                        PK <SortIcon col="IsPrimaryKey" />
+                                    </div>
                                 </th>
                                 <th
-                                    className="w-16 h-8 text-center text-[11px] font-semibold text-text-secondary cursor-pointer hover:text-text-primary transition-colors border-r border-border/20"
+                                    className="rt-th rt-th-sortable w-16"
                                     onClick={() => onSort('IsNullable')}
                                 >
-                                    <div className="flex items-center justify-center">Null <SortIcon col="IsNullable" /></div>
+                                    <div className="rt-th-label justify-center">
+                                        Null <SortIcon col="IsNullable" />
+                                    </div>
                                 </th>
                                 <th
-                                    className="px-3 h-8 text-left text-[11px] font-semibold text-text-secondary cursor-pointer hover:text-text-primary transition-colors border-r border-border/20"
+                                    className="rt-th rt-th-sortable"
                                     onClick={() => onSort('DefaultValue')}
                                 >
-                                    <div className="flex items-center">Default <SortIcon col="DefaultValue" /></div>
+                                    <div className="rt-th-label">
+                                        Default <SortIcon col="DefaultValue" />
+                                    </div>
                                 </th>
                             </tr>
                         </thead>

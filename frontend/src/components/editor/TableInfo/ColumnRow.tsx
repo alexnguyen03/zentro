@@ -27,28 +27,23 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
     const isDirty = !isDeleted && !isNew && JSON.stringify(row.original) !== JSON.stringify(row.current);
 
     const rowClassName = `
-        group relative transition-all duration-150 hover:bg-text-primary/5
-        ${displayIdx % 2 !== 0 && !isSelected && !isNew && !isDirty ? 'bg-bg-secondary/30' : ''}
-        ${isSelected ? 'bg-accent/10 hover:bg-accent/15' : ''}
-        ${isDeleted ? 'opacity-40 grayscale bg-error/5' : ''}
-        ${isNew && !isSelected ? 'bg-success/5' : ''}
-        ${isDirty && !isSelected && !isNew ? 'bg-accent/5' : ''}
+        group relative transition-all duration-150
+        ${displayIdx % 2 !== 0 ? 'rt-row-alt' : ''}
+        ${isSelected ? 'rt-row-selected' : ''}
+        ${isDeleted ? 'rt-row-deleted' : ''}
     `;
 
     return (
-        <>
+        <React.Fragment>
             <tr
                 onMouseDown={(e) => onRowMouseDown(e, rowIdx)}
                 onMouseEnter={() => onRowMouseEnter(rowIdx)}
                 className={rowClassName}
-                style={{ height: 32 }}
             >
                 {/* Index / Selector */}
-                <td className="w-10 text-center relative border-l-2 border-l-transparent border-r border-border/10 transition-all">
-                    {isSelected && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-accent" />}
+                <td className="w-10 text-center border-b border-border">
                     <div
-                        className={`text-[10px] font-mono tabular-nums select-none ${isSelected ? 'text-accent font-bold' : 'text-text-muted'
-                            } ${isDirty || isDeleted ? 'text-error' : ''}`}
+                        className="rt-cell-content row-num-col justify-center"
                         onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
                         title={(isDirty || isDeleted) ? 'Double-click to discard changes' : undefined}
                     >
@@ -57,12 +52,12 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 </td>
 
                 {/* Name */}
-                <td className="px-0 border-r border-border/10">
+                <td className="p-0 border-b border-border">
                     {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
                         <input
                             autoFocus
                             onFocus={e => e.target.select()}
-                            className="w-full h-8 px-3 bg-bg-tertiary text-text-primary border-none outline-none font-mono text-sm border-l border-accent"
+                            className="rt-cell-input font-mono border-accent!"
                             defaultValue={col.Name}
                             onBlur={e => { onUpdate(rowIdx, { Name: e.target.value }); setEditCell(null); }}
                             onKeyDown={e => {
@@ -72,10 +67,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                         />
                     ) : (
                         <div
-                            className={`px-3 py-1 cursor-text transition-colors truncate font-mono text-sm ${isDirty && col.Name !== row.original.Name
-                                    ? 'text-success font-semibold'
-                                    : col.IsPrimaryKey ? 'font-bold text-text-primary' : 'text-text-primary/90'
-                                }`}
+                            className={`rt-cell-content font-mono text-[12px] ${isDirty && col.Name !== row.original.Name ? 'rt-cell-dirty' : ''}`}
                             onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
                             title={col.Name}
                         >
@@ -85,7 +77,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 </td>
 
                 {/* DataType */}
-                <td className="px-0 border-r border-border/10">
+                <td className="p-0 border-b border-border">
                     <DataTypeCell
                         value={col.DataType}
                         types={types}
@@ -96,8 +88,8 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 </td>
 
                 {/* PK */}
-                <td className="w-12 text-center border-r border-border/10">
-                    <div className="flex items-center justify-center h-full">
+                <td className="w-12 text-center border-b border-border">
+                    <div className="rt-cell-content justify-center h-full">
                         <input
                             type="checkbox"
                             checked={col.IsPrimaryKey}
@@ -109,8 +101,8 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 </td>
 
                 {/* Nullable */}
-                <td className="w-16 text-center border-r border-border/10">
-                    <div className="flex items-center justify-center h-full">
+                <td className="w-16 text-center border-b border-border">
+                    <div className="rt-cell-content justify-center h-full">
                         <input
                             type="checkbox"
                             checked={col.IsNullable}
@@ -122,14 +114,14 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 </td>
 
                 {/* Default */}
-                <td className="px-0 border-r border-border/10">
+                <td className="p-0 border-b border-border">
                     {isDeleted
-                        ? <div className="px-3 py-1 text-text-muted italic truncate font-mono text-xs opacity-60">{col.DefaultValue || 'NULL'}</div>
+                        ? <div className="rt-cell-content font-mono text-[11px]! opacity-40 italic">{col.DefaultValue || 'NULL'}</div>
                         : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
                             ? <input
                                 autoFocus
                                 onFocus={e => e.target.select()}
-                                className="w-full h-8 px-3 bg-bg-tertiary text-text-primary border-none outline-none font-mono text-xs border-l border-accent"
+                                className="rt-cell-input font-mono text-[11px]! border-accent!"
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
                                 onKeyDown={e => {
@@ -138,8 +130,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                                 }}
                             />
                             : <div
-                                className={`px-3 py-1 cursor-text font-mono text-xs transition-colors truncate ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'
-                                    } ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-success' : ''}`}
+                                className={`rt-cell-content font-mono text-[11px]! ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''} ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'}`}
                                 onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
                                 title={col.DefaultValue || 'None'}
                             >
@@ -156,7 +147,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                     </td>
                 </tr>
             )}
-        </>
+        </React.Fragment>
     );
 };
 

@@ -135,7 +135,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
     return (
         <div>
             <div
-                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden")}
+                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden")}
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); handleExpand(); }}
                 title={dbName}
@@ -195,7 +195,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
     return (
         <div>
             <div
-                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); if (hasItems) setExpanded(!expanded); }}
                 title={schema.Name}
@@ -246,7 +246,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
     return (
         <div>
             <div
-                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             >
@@ -261,7 +261,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                     {items.map((item, idx) => (
                         <div
                             key={`${label}-${item}-${idx}`}
-                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
+                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                             tabIndex={0}
                             onDoubleClick={() => handleItemDoubleClick(item)}
                             title={item}
