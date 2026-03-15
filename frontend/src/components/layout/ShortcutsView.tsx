@@ -60,61 +60,79 @@ export const ShortcutsView: React.FC = () => {
     const categories = ['General', 'Editor', 'Navigation', 'View'] as const;
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary select-none overflow-hidden">
-            {/* Minimal Header */}
-            <div className="flex items-center justify-between px-6 h-14 border-b border-border bg-bg-secondary/30">
-                <div className="flex items-center gap-2 text-text-primary font-bold tracking-tight">
-                    <Command size={18} className="text-accent" />
-                    <span>Command Center</span>
+        <div className="flex flex-col h-full bg-bg-primary select-none overflow-hidden text-[13px]">
+            {/* Minimal Flat Header */}
+            <div className="flex items-center justify-between px-10 h-16 border-b border-border/10 bg-bg-primary z-10 transition-all">
+                <div className="flex items-center gap-3 text-text-primary">
+                    <div className="p-2 rounded-xl bg-accent/5 text-accent">
+                        <Command size={18} />
+                    </div>
+                    <h1 className="text-[15px] font-bold tracking-tight">Command Center</h1>
                 </div>
                 
-                <div className="relative w-64 group">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent transition-colors" />
-                    <input
-                        type="text"
-                        placeholder="Search commands..."
-                        ref={searchInputRef}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-bg-primary border border-border/50 text-[12px] text-text-primary pl-9 pr-3 h-8 rounded-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-text-muted/50"
-                    />
+                {/* Centered Flush Search Bar */}
+                <div className="flex-1 flex justify-center max-w-2xl px-8">
+                    <div className="relative group w-full max-w-md">
+                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-2xl border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
+                            <Search size={14} className="text-text-muted/50 group-focus-within:text-accent" />
+                            <input
+                                type="text"
+                                placeholder="Search shortcuts..."
+                                ref={searchInputRef}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-transparent border-none text-[13px] text-text-primary pl-3 outline-none placeholder:text-text-muted/40"
+                            />
+                        </div>
+                    </div>
                 </div>
+
+                {/* Right Spacer for Balance */}
+                <div className="w-10 xl:w-40" />
             </div>
 
             {/* Content Area */}
-            <main className="flex-1 overflow-y-auto px-6 py-8">
-                <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-500">
+            <main className="flex-1 overflow-y-auto px-12 py-10 scroll-smooth">
+                <div className="max-w-5xl mx-auto space-y-14 animate-in fade-in duration-700">
                     
                     {categories.map(cat => {
                         const items = filteredShortcuts.filter(s => s.category === cat);
                         if (items.length === 0) return null;
 
                         return (
-                            <section key={cat} className="space-y-4">
-                                <div className="flex items-center gap-2 px-2">
-                                    {cat === 'General' && <Zap size={14} className="text-yellow-500" />}
-                                    {cat === 'Editor' && <Edit3 size={14} className="text-blue-500" />}
-                                    {cat === 'Navigation' && <Layout size={14} className="text-purple-500" />}
-                                    {cat === 'View' && <Globe size={14} className="text-green-500" />}
-                                    <h2 className="text-[11px] font-bold uppercase tracking-widest text-text-muted">{cat}</h2>
-                                    <div className="flex-1 h-px bg-border/30 ml-2" />
+                            <section key={cat} className="space-y-6">
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className={cn(
+                                        "p-1.5 rounded-lg bg-bg-tertiary/40",
+                                        cat === 'General' && "text-yellow-500",
+                                        cat === 'Editor' && "text-blue-500",
+                                        cat === 'Navigation' && "text-purple-500",
+                                        cat === 'View' && "text-green-500"
+                                    )}>
+                                        {cat === 'General' && <Zap size={14} strokeWidth={2.5} />}
+                                        {cat === 'Editor' && <Edit3 size={14} strokeWidth={2.5} />}
+                                        {cat === 'Navigation' && <Layout size={14} strokeWidth={2.5} />}
+                                        {cat === 'View' && <Globe size={14} strokeWidth={2.5} />}
+                                    </div>
+                                    <h2 className="text-[16px] font-bold tracking-tight text-text-primary">{cat}</h2>
+                                    <div className="flex-1 h-px bg-border/5 ml-2" />
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
                                     {items.map((s, i) => (
-                                        <div key={i} className="flex items-center justify-between group px-2 py-1.5 rounded-md hover:bg-bg-tertiary/50 transition-colors">
-                                            <div className="flex flex-col">
-                                                <span className="text-[13px] text-text-secondary group-hover:text-text-primary transition-colors">{s.command}</span>
-                                                <span className="text-[10px] text-text-muted/60 font-medium">{s.when}</span>
+                                        <div key={i} className="flex items-center justify-between group px-4 py-3 rounded-2xl hover:bg-bg-secondary/40 transition-all border border-transparent hover:border-border/5">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[14px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">{s.command}</span>
+                                                <span className="text-[11px] text-text-muted/60 font-semibold tracking-tight">{s.when}</span>
                                             </div>
                                             
-                                            <div className="flex gap-1 items-center">
+                                            <div className="flex gap-1.5 items-center">
                                                 {s.binding.map((key, ki) => (
                                                     <React.Fragment key={ki}>
-                                                        <kbd className="inline-flex items-center justify-center min-w-[20px] px-1.5 h-6 bg-bg-secondary border border-border/60 rounded text-[10px] font-mono font-bold text-text-primary group-hover:border-accent/30 transition-colors">
+                                                        <kbd className="inline-flex items-center justify-center min-w-[24px] px-2 h-7 bg-bg-tertiary/40 border border-border/20 rounded-lg text-[11px] font-mono font-bold text-text-primary group-hover:border-accent/20 transition-all">
                                                             {key}
                                                         </kbd>
-                                                        {ki < s.binding.length - 1 && <span className="text-text-muted/40 text-[10px]">+</span>}
+                                                        {ki < s.binding.length - 1 && <span className="text-text-muted/30 text-[11px] font-bold">/</span>}
                                                     </React.Fragment>
                                                 ))}
                                             </div>
@@ -126,9 +144,9 @@ export const ShortcutsView: React.FC = () => {
                     })}
 
                     {filteredShortcuts.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 text-text-muted opacity-50">
-                            <Search size={32} strokeWidth={1} className="mb-4" />
-                            <p className="text-[13px]">No commands found for "{searchQuery}"</p>
+                        <div className="flex flex-col items-center justify-center py-32 text-text-muted/40">
+                            <Search size={48} strokeWidth={1} className="mb-6 opacity-20" />
+                            <p className="text-[15px] font-medium">No commands match "{searchQuery}"</p>
                         </div>
                     )}
                 </div>
