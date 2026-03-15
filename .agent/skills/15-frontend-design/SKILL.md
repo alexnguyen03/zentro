@@ -245,8 +245,13 @@ Elevation concept:
     │   No shadows allowed. Use contrast, borders, or negative space for depth.
     │   ├── Higher contrast for active elements
     │   ├── Distinct background levels (bg-primary vs bg-secondary)
-    │   └── One-pixel borders (border/20) for definition
+    ├── One-pixel borders (border/10) for definition
     └── 🚫 Avoid shadow-sm, shadow-lg, shadow-[...]
+
+└── 🎯 ZENTRO STANDARDS (Super-Flat Era):
+    ├── Typography: Use **Title-case** for all headers and settings (e.g., "Interface Theme" NOT "INTERFACE THEME").
+    ├── Search: Use **Flush/Integrated** bars (bg-tertiary/30, no shadow, subtle border on focus).
+    └── Containers: Use **Large Radii** (rounded-2xl, rounded-3xl) for flat sections to soften the lack of shadows.
 ```
 
 ### Gradient Usage

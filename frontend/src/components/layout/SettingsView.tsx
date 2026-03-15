@@ -73,13 +73,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         return () => clearTimeout(timer);
     }, [formTheme, formFontSize, formLimit, formConnectTimeout, formQueryTimeout, formToastPlacement, save, theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout]);
 
-    const labelClass = "text-[12px] font-medium text-text-primary mb-0.5";
-    const inputClass = "w-full max-w-sm bg-bg-primary border border-border text-[12px] px-3 py-1.5 rounded-md outline-none transition-all focus:border-success focus:ring-1 focus:ring-success/10 disabled:opacity-50 disabled:cursor-not-allowed";
-    const hintClass = "text-[11px] text-text-muted mt-1 opacity-60";
+    const labelClass = "text-[12px] font-bold text-text-primary mb-1 tracking-tight";
+    const inputClass = "w-full max-w-sm bg-bg-tertiary/30 border border-border/40 text-[13px] px-3 py-2 rounded-xl outline-none transition-all focus:border-accent/40 focus:bg-bg-tertiary/50 disabled:opacity-50 disabled:cursor-not-allowed text-text-primary placeholder:text-text-muted/50";
+    const hintClass = "text-[11px] text-text-muted/60 mt-1.5 leading-relaxed font-medium";
     
-    const sectionClass = "grid grid-cols-1 lg:grid-cols-3 gap-8 py-8 first:pt-0 border-b border-border/50 last:border-0 hover:bg-bg-secondary/10 transition-colors px-4 -mx-4 rounded-xl";
-    const sectionInfoClass = "lg:col-span-1 flex flex-col gap-1.5";
-    const sectionContentClass = "lg:col-span-2 flex flex-col gap-5";
+    const sectionClass = "grid grid-cols-1 lg:grid-cols-12 gap-8 py-10 first:pt-4 border-b border-border/10 last:border-0 hover:bg-bg-secondary/20 transition-all px-8 -mx-8 rounded-3xl";
+    const sectionInfoClass = "lg:col-span-4 flex flex-col gap-2";
+    const sectionContentClass = "lg:col-span-8 flex flex-col gap-6 max-w-2xl";
 
     const matchesSearch = (title: string, labels: string[]) => {
         const query = searchQuery.toLowerCase();
@@ -89,23 +89,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
 
     return (
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            {/* Minimal Header */}
-            <div className="flex items-center justify-between px-8 h-12 border-b border-border bg-bg-primary/50 backdrop-blur-sm z-10">
-                {/* Spacer for left side balance */}
-                <div className="w-10" />
+            {/* Minimal Flat Header */}
+            <div className="flex items-center justify-between px-10 h-16 border-b border-border/10 bg-bg-primary z-10">
+                {/* Logo/Title Section */}
+                <div className="flex items-center gap-3 text-text-primary">
+                    <div className="p-2 rounded-xl bg-accent/5 text-accent">
+                        <SettingsIcon size={18} />
+                    </div>
+                    <h1 className="text-[15px] font-bold tracking-tight">System Settings</h1>
+                </div>
 
-                {/* Centered Search Bar */}
-                <div className="flex-1 flex justify-center max-w-2xl">
+                {/* Centered Flush Search Bar */}
+                <div className="flex-1 flex justify-center max-w-2xl px-8">
                     <div className="relative group w-full max-w-md">
-                        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-success" />
-                        <input
-                            type="text"
-                            placeholder="Find settings..."
-                            ref={searchInputRef}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-bg-secondary/50 border border-border text-[13px] text-text-primary pl-9 pr-3 py-1.5 rounded-lg outline-none transition-all focus:border-success focus:bg-bg-primary h-8"
-                        />
+                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-2xl border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
+                            <SearchIcon size={14} className="text-text-muted/50 group-focus-within:text-accent" />
+                            <input
+                                type="text"
+                                placeholder="Search settings..."
+                                ref={searchInputRef}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-transparent border-none text-[13px] text-text-primary pl-3 outline-none placeholder:text-text-muted/40"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -113,53 +120,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
-                        className="p-2 text-text-secondary hover:text-success hover:bg-success/10 rounded-lg transition-all"
+                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-xl transition-all font-bold text-[11px] tracking-widest uppercase"
                         title="Keyboard Shortcuts"
                     >
-                        <Keyboard size={18} />
+                        <Keyboard size={16} />
+                        <span className="hidden xl:inline">Shortcuts</span>
                     </button>
-                    <div className="w-2" />
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-                <main className="flex-1 overflow-y-auto">
-                    <div className="max-w-4xl mx-auto px-10 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <main className="flex-1 overflow-y-auto scroll-smooth">
+                    <div className="max-w-5xl mx-auto px-12 py-10 animate-in fade-in duration-700">
                         <div className="flex flex-col">
                             {/* Appearance */}
                             {matchesSearch("Appearance", ["Theme Interface", "Editor Font Size"]) && (
                                 <div className={sectionClass}>
                                     <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Laptop size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Appearance</h2>
+                                        <div className="flex items-center gap-2.5 text-accent mb-1">
+                                            <Laptop size={18} strokeWidth={2.5} />
+                                            <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Appearance</h2>
                                         </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Customize the visual appearance of your workspace, including themes and font sizes.
+                                        <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                                            Customize the visual personality of your workspace.
                                         </p>
                                     </div>
                                     <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Theme Interface</label>
+                                        <div className="flex flex-col">
+                                            <label className={labelClass}>Interface Theme</label>
                                             <select className={inputClass} value={formTheme} onChange={(e) => setFormTheme(e.target.value)}>
-                                                <option value="system">System Default</option>
-                                                <option value="light">Light</option>
-                                                <option value="dark">Dark</option>
+                                                <option value="system">System Preference</option>
+                                                <option value="light">Light Mode</option>
+                                                <option value="dark">Dark Mode</option>
                                             </select>
-                                            <span className={hintClass}>Synchronizes with your operating system theme settings.</span>
+                                            <span className={hintClass}>Follows your operating system's color scheme.</span>
                                         </div>
 
-                                        <div className="flex flex-col gap-1.5 pt-2">
-                                            <label className={labelClass}>Editor Font Size (px)</label>
-                                            <input
-                                                className={inputClass}
-                                                type="number"
-                                                min={8}
-                                                max={48}
-                                                value={formFontSize}
-                                                onChange={(e) => setFormFontSize(parseInt(e.target.value) || 14)}
-                                            />
-                                            <span className={hintClass}>Set a comfortable reading size for the code editor.</span>
+                                        <div className="flex flex-col">
+                                            <label className={labelClass}>Editor Text Size</label>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    className={cn(inputClass, "max-w-[120px]")}
+                                                    type="number"
+                                                    min={8}
+                                                    max={48}
+                                                    value={formFontSize}
+                                                    onChange={(e) => setFormFontSize(parseInt(e.target.value) || 14)}
+                                                />
+                                                <span className="text-[13px] font-mono text-text-muted">Pixels</span>
+                                            </div>
+                                            <span className={hintClass}>Adjust for optimal code readability.</span>
                                         </div>
                                     </div>
                                 </div>
@@ -169,17 +179,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             {matchesSearch("Notifications", ["Toast Position"]) && (
                                 <div className={sectionClass}>
                                     <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Bell size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Notifications</h2>
+                                        <div className="flex items-center gap-2.5 text-accent mb-1">
+                                            <Bell size={18} strokeWidth={2.5} />
+                                            <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Notifications</h2>
                                         </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Configure how and where system alerts and toasts appear.
+                                        <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                                            Configure how and where system alerts appear.
                                         </p>
                                     </div>
                                     <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Toast Position</label>
+                                        <div className="flex flex-col">
+                                            <label className={labelClass}>Alert Placement</label>
                                             <select className={inputClass} value={formToastPlacement} onChange={(e) => setFormToastPlacement(e.target.value as any)}>
                                                 <option value="bottom-left">Bottom Left</option>
                                                 <option value="bottom-center">Bottom Center</option>
@@ -188,6 +198,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                                 <option value="top-center">Top Center</option>
                                                 <option value="top-right">Top Right</option>
                                             </select>
+                                            <span className={hintClass}>Where success and error messages will emerge.</span>
                                         </div>
                                     </div>
                                 </div>
@@ -197,17 +208,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             {matchesSearch("Data & Query", ["Default Row Limit"]) && (
                                 <div className={sectionClass}>
                                     <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Database size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Data & Query</h2>
+                                        <div className="flex items-center gap-2.5 text-accent mb-1">
+                                            <Database size={18} strokeWidth={2.5} />
+                                            <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Data & Query</h2>
                                         </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Set thresholds to prevent large result sets from slowing down the UI.
+                                        <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                                            Manage performance thresholds for your datasets.
                                         </p>
                                     </div>
                                     <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Default Row Limit</label>
+                                        <div className="flex flex-col">
+                                            <label className={labelClass}>Fetch Row Limit</label>
                                             <select className={inputClass} value={formLimit} onChange={(e) => setFormLimit(parseInt(e.target.value) || 1000)}>
                                                 <option value={100}>100 rows</option>
                                                 <option value={500}>500 rows</option>
@@ -215,33 +226,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                                 <option value={5000}>5,000 rows</option>
                                                 <option value={10000}>10,000 rows</option>
                                             </select>
-                                            <span className={hintClass}>Limits the number of rows displayed in the result grid by default.</span>
+                                            <span className={hintClass}>Default row count for the result records.</span>
                                         </div>
 
-                                        <div className="flex flex-col gap-1.5 pt-2">
-                                            <label className={labelClass}>Connect Timeout (sec)</label>
-                                            <input
-                                                className={inputClass}
-                                                type="number"
-                                                min={5}
-                                                max={300}
-                                                value={formConnectTimeout}
-                                                onChange={(e) => setFormConnectTimeout(parseInt(e.target.value) || 10)}
-                                            />
-                                            <span className={hintClass}>Maximum time to wait for a database connection to be established.</span>
-                                        </div>
+                                        <div className="grid grid-cols-2 gap-6 pt-2">
+                                            <div className="flex flex-col">
+                                                <label className={labelClass}>Connection Timeout</label>
+                                                <input
+                                                    className={inputClass}
+                                                    type="number"
+                                                    min={5}
+                                                    max={300}
+                                                    value={formConnectTimeout}
+                                                    onChange={(e) => setFormConnectTimeout(parseInt(e.target.value) || 10)}
+                                                />
+                                                <span className={hintClass}>Seconds before aborting login.</span>
+                                            </div>
 
-                                        <div className="flex flex-col gap-1.5 pt-2">
-                                            <label className={labelClass}>Query Timeout (sec)</label>
-                                            <input
-                                                className={inputClass}
-                                                type="number"
-                                                min={5}
-                                                max={100000}
-                                                value={formQueryTimeout}
-                                                onChange={(e) => setFormQueryTimeout(parseInt(e.target.value) || 60)}
-                                            />
-                                            <span className={hintClass}>Abort long-running queries after this amount of time.</span>
+                                            <div className="flex flex-col">
+                                                <label className={labelClass}>Execution Timeout</label>
+                                                <input
+                                                    className={inputClass}
+                                                    type="number"
+                                                    min={5}
+                                                    max={100000}
+                                                    value={formQueryTimeout}
+                                                    onChange={(e) => setFormQueryTimeout(parseInt(e.target.value) || 60)}
+                                                />
+                                                <span className={hintClass}>Seconds for long queries.</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -251,21 +264,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             {matchesSearch("Region", ["Language"]) && (
                                 <div className={sectionClass}>
                                     <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Globe size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Region</h2>
+                                        <div className="flex items-center gap-2.5 text-accent mb-1">
+                                            <Globe size={18} strokeWidth={2.5} />
+                                            <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Regional Settings</h2>
                                         </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Manage language preferences and regional formatting.
+                                        <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                                            Locality and language preferences.
                                         </p>
                                     </div>
                                     <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Language</label>
+                                        <div className="flex flex-col">
+                                            <label className={labelClass}>Preferred Language</label>
                                             <select className={inputClass} disabled>
-                                                <option value="en">English (US)</option>
+                                                <option value="en">English (United States)</option>
                                             </select>
-                                            <span className={hintClass}>Localization for other languages is coming soon.</span>
+                                            <span className={hintClass}>Zentro is currently optimized for English.</span>
                                         </div>
                                     </div>
                                 </div>
