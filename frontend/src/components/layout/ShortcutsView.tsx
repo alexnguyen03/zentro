@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Keyboard, Search as SearchIcon } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, Command, Layout, Edit3, Globe, Zap } from 'lucide-react';
 import { cn } from '../../lib/cn';
+
+interface ShortcutItem {
+    command: string;
+    binding: string[];
+    when: string;
+    category: 'General' | 'Editor' | 'Navigation' | 'View';
+}
 
 export const ShortcutsView: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -12,8 +19,10 @@ export const ShortcutsView: React.FC = () => {
                 e.preventDefault();
                 searchInputRef.current?.focus();
             } else if (e.key === 'Escape') {
-                setSearchQuery('');
-                searchInputRef.current?.blur();
+                if (document.activeElement === searchInputRef.current) {
+                    setSearchQuery('');
+                    searchInputRef.current?.blur();
+                }
             }
         };
 
@@ -21,90 +30,107 @@ export const ShortcutsView: React.FC = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    const shortcuts = [
-        { command: 'Run Query', binding: ['Ctrl', 'Enter'], when: 'In Editor' },
-        { command: 'New Query Tab', binding: ['Ctrl', 'T'], when: 'Global' },
-        { command: 'Open Keyboard Shortcuts', binding: ['Ctrl', 'K', 'Ctrl', 'B'], when: 'Global' },
-        { command: 'Open Settings', binding: ['Ctrl', ','], when: 'Global' },
-        { command: 'Reload App', binding: ['Ctrl', 'Shift', 'R'], when: 'Global' },
-        { command: 'Close Current Tab', binding: ['Ctrl', 'W'], when: 'Global' },
-        { command: 'Open Workspaces', binding: ['Ctrl', 'Shift', 'C'], when: 'Global' },
-        { command: 'Toggle Left Sidebar', binding: ['Ctrl', 'B'], when: 'Global' },
-        { command: 'Toggle Right Sidebar', binding: ['Ctrl', 'Alt', 'B'], when: 'Global' },
-        { command: 'Toggle Result Panel', binding: ['Ctrl', 'J'], when: 'Global' },
-        { command: 'Zoom In/Out', binding: ['Ctrl', 'Wheel'], when: 'In Editor' },
-        { command: 'Search in Editor', binding: ['Ctrl', 'F'], when: 'In Editor' },
-        { command: 'Focus Search', binding: ['Ctrl', 'F'], when: 'Settings / Shortcuts' },
-        { command: 'Clear Search', binding: ['Esc'], when: 'Settings / Shortcuts' },
-        { command: 'Find & Replace', binding: ['Ctrl', 'H'], when: 'In Editor' },
-        { command: 'Comment Line', binding: ['Ctrl', '/'], when: 'In Editor' },
-        { command: 'Reload View (Info/Data/ERD)', binding: ['F5'], when: 'In Table View' },
+    const shortcuts: ShortcutItem[] = [
+        { command: 'Run Query', binding: ['Ctrl', 'Enter'], when: 'In Editor', category: 'Editor' },
+        { command: 'New Query Tab', binding: ['Ctrl', 'T'], when: 'Global', category: 'General' },
+        { command: 'Open Keyboard Shortcuts', binding: ['Ctrl', 'K', 'Ctrl', 'B'], when: 'Global', category: 'General' },
+        { command: 'Open Settings', binding: ['Ctrl', ','], when: 'Global', category: 'General' },
+        { command: 'Reload App', binding: ['Ctrl', 'Shift', 'R'], when: 'Global', category: 'General' },
+        { command: 'Close Current Tab', binding: ['Ctrl', 'W'], when: 'Global', category: 'General' },
+        { command: 'Open Workspaces', binding: ['Ctrl', 'Shift', 'C'], when: 'Global', category: 'Navigation' },
+        { command: 'Toggle Left Sidebar', binding: ['Ctrl', 'B'], when: 'Global', category: 'Navigation' },
+        { command: 'Toggle Right Sidebar', binding: ['Ctrl', 'Alt', 'B'], when: 'Global', category: 'Navigation' },
+        { command: 'Toggle Result Panel', binding: ['Ctrl', 'J'], when: 'Global', category: 'Navigation' },
+        { command: 'Zoom In/Out', binding: ['Ctrl', 'Wheel'], when: 'In Editor', category: 'Editor' },
+        { command: 'Search in Editor', binding: ['Ctrl', 'F'], when: 'In Editor', category: 'Editor' },
+        { command: 'Focus Search', binding: ['Ctrl', 'F'], when: 'Shortcuts/Settings', category: 'General' },
+        { command: 'Find & Replace', binding: ['Ctrl', 'H'], when: 'In Editor', category: 'Editor' },
+        { command: 'Comment Line', binding: ['Ctrl', '/'], when: 'In Editor', category: 'Editor' },
+        { command: 'Reload View', binding: ['F5'], when: 'In Table View', category: 'View' },
     ];
 
+    const filteredShortcuts = useMemo(() => {
+        return shortcuts.filter(s => 
+            s.command.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            s.binding.some(b => b.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            s.category.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [searchQuery]);
+
+    const categories = ['General', 'Editor', 'Navigation', 'View'] as const;
+
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-8 py-4 border-b border-border bg-bg-primary/50 backdrop-blur-sm z-10">
-                <div className="flex-1 flex justify-center max-w-2xl mx-auto">
-                    <div className="relative group w-full">
-                        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-success" />
-                        <input
-                            type="text"
-                            placeholder="Search shortcuts..."
-                            ref={searchInputRef}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-bg-secondary/50 border border-border text-[13px] text-text-primary pl-9 pr-3 py-1.5 rounded-lg outline-none transition-all focus:border-success focus:bg-bg-primary"
-                        />
-                    </div>
+        <div className="flex flex-col h-full bg-bg-primary select-none overflow-hidden">
+            {/* Minimal Header */}
+            <div className="flex items-center justify-between px-6 h-14 border-b border-border bg-bg-secondary/30">
+                <div className="flex items-center gap-2 text-text-primary font-bold tracking-tight">
+                    <Command size={18} className="text-accent" />
+                    <span>Command Center</span>
+                </div>
+                
+                <div className="relative w-64 group">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent transition-colors" />
+                    <input
+                        type="text"
+                        placeholder="Search commands..."
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-bg-primary border border-border/50 text-[12px] text-text-primary pl-9 pr-3 h-8 rounded-md outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-text-muted/50"
+                    />
                 </div>
             </div>
 
-            <main className="flex-1 overflow-y-auto">
-                <div className="max-w-4xl mx-auto px-10 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex flex-col gap-8">
-                        <div className="border border-border rounded-xl overflow-hidden bg-bg-secondary/20 backdrop-blur-sm shadow-sm">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-bg-secondary/40 border-b border-border">
-                                        <th className="px-6 py-4 text-[11px] font-bold text-text-secondary uppercase tracking-widest w-1/3">Command</th>
-                                        <th className="px-6 py-4 text-[11px] font-bold text-text-secondary uppercase tracking-widest">Keybinding</th>
-                                        <th className="px-6 py-4 text-[11px] font-bold text-text-secondary uppercase tracking-widest">When</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border/30 text-[12px]">
-                                    {shortcuts
-                                        .filter(s => 
-                                            !searchQuery || 
-                                            s.command.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            s.binding.some(b => b.toLowerCase().includes(searchQuery.toLowerCase()))
-                                        )
-                                        .map((s, i) => (
-                                        <tr key={i} className="hover:bg-bg-secondary/40 transition-colors group">
-                                            <td className="px-6 py-4 text-text-primary font-medium group-hover:text-success transition-colors">{s.command}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex gap-1.5 items-center">
-                                                    {s.binding.map((key, ki) => (
-                                                        <React.Fragment key={ki}>
-                                                            <kbd className="px-2 py-1 bg-bg-primary border border-border rounded-md shadow-sm text-[10px] font-mono text-text-primary font-bold min-w-[24px] text-center">
-                                                                {key}
-                                                            </kbd>
-                                                            {ki < s.binding.length - 1 && <span className="text-text-muted text-[10px] font-bold">+</span>}
-                                                        </React.Fragment>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-text-secondary opacity-70">
-                                                <span className="px-2 py-0.5 bg-bg-secondary/50 rounded-full text-[10px]">
-                                                    {s.when}
-                                                </span>
-                                            </td>
-                                        </tr>
+            {/* Content Area */}
+            <main className="flex-1 overflow-y-auto px-6 py-8">
+                <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-500">
+                    
+                    {categories.map(cat => {
+                        const items = filteredShortcuts.filter(s => s.category === cat);
+                        if (items.length === 0) return null;
+
+                        return (
+                            <section key={cat} className="space-y-4">
+                                <div className="flex items-center gap-2 px-2">
+                                    {cat === 'General' && <Zap size={14} className="text-yellow-500" />}
+                                    {cat === 'Editor' && <Edit3 size={14} className="text-blue-500" />}
+                                    {cat === 'Navigation' && <Layout size={14} className="text-purple-500" />}
+                                    {cat === 'View' && <Globe size={14} className="text-green-500" />}
+                                    <h2 className="text-[11px] font-bold uppercase tracking-widest text-text-muted">{cat}</h2>
+                                    <div className="flex-1 h-px bg-border/30 ml-2" />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+                                    {items.map((s, i) => (
+                                        <div key={i} className="flex items-center justify-between group px-2 py-1.5 rounded-md hover:bg-bg-tertiary/50 transition-colors">
+                                            <div className="flex flex-col">
+                                                <span className="text-[13px] text-text-secondary group-hover:text-text-primary transition-colors">{s.command}</span>
+                                                <span className="text-[10px] text-text-muted/60 font-medium">{s.when}</span>
+                                            </div>
+                                            
+                                            <div className="flex gap-1 items-center">
+                                                {s.binding.map((key, ki) => (
+                                                    <React.Fragment key={ki}>
+                                                        <kbd className="inline-flex items-center justify-center min-w-[20px] px-1.5 h-6 bg-bg-secondary border border-border/60 rounded text-[10px] font-mono font-bold text-text-primary shadow-[0_1px_0_rgba(255,255,255,0.05)] group-hover:border-accent/30 transition-colors">
+                                                            {key}
+                                                        </kbd>
+                                                        {ki < s.binding.length - 1 && <span className="text-text-muted/40 text-[10px]">+</span>}
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))}
-                                </tbody>
-                            </table>
+                                </div>
+                            </section>
+                        );
+                    })}
+
+                    {filteredShortcuts.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 text-text-muted opacity-50">
+                            <Search size={32} strokeWidth={1} className="mb-4" />
+                            <p className="text-[13px]">No commands found for "{searchQuery}"</p>
                         </div>
-                    </div>
+                    )}
                 </div>
             </main>
         </div>
