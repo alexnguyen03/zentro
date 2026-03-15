@@ -111,7 +111,7 @@ export const ShortcutsView: React.FC = () => {
                                             <div className="flex gap-1 items-center">
                                                 {s.binding.map((key, ki) => (
                                                     <React.Fragment key={ki}>
-                                                        <kbd className="inline-flex items-center justify-center min-w-[20px] px-1.5 h-6 bg-bg-secondary border border-border/60 rounded text-[10px] font-mono font-bold text-text-primary shadow-[0_1px_0_rgba(255,255,255,0.05)] group-hover:border-accent/30 transition-colors">
+                                                        <kbd className="inline-flex items-center justify-center min-w-[20px] px-1.5 h-6 bg-bg-secondary border border-border/60 rounded text-[10px] font-mono font-bold text-text-primary group-hover:border-accent/30 transition-colors">
                                                             {key}
                                                         </kbd>
                                                         {ki < s.binding.length - 1 && <span className="text-text-muted/40 text-[10px]">+</span>}

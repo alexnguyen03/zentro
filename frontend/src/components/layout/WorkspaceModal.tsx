@@ -148,7 +148,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     return (
         <ModalBackdrop onClose={view === 'list' ? onClose : undefined}>
             <div
-                className="bg-bg-secondary border border-border/40 rounded-2xl w-[720px] h-[540px] flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden text-text-primary text-[13px] animate-in zoom-in-95 fade-in duration-300"
+                className="bg-bg-secondary border border-border/40 rounded-2xl w-[720px] h-[540px] flex flex-col overflow-hidden text-text-primary text-[13px] animate-in zoom-in-95 fade-in duration-300"
                 onClick={e => e.stopPropagation()}
             >
                 {view === 'list' ? (
@@ -194,7 +194,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                             ref={isNavFocus ? activeConnRef : undefined}
                                             className={cn(
                                                 "group flex items-center gap-4 px-4 py-3 rounded-xl cursor-pointer transition-all duration-300 mx-1",
-                                                isSelected || isNavFocus ? "bg-bg-tertiary shadow-sm" : "hover:bg-bg-tertiary/40",
+                                                isSelected || isNavFocus ? "bg-bg-tertiary" : "hover:bg-bg-tertiary/40",
                                                 isNavFocus && "ring-1 ring-accent/20"
                                             )}
                                             onClick={() => handleSelectConn(conn.name!)}
@@ -206,7 +206,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                             )}
 
                                             {/* Logo */}
-                                            <div className="w-10 h-10 rounded-xl bg-bg-primary/50 flex items-center justify-center p-1.5 shrink-0 shadow-sm border border-border/10 group-hover:scale-105 transition-transform">
+                                            <div className="w-10 h-10 rounded-xl bg-bg-primary/50 flex items-center justify-center p-1.5 shrink-0 border border-border/10 group-hover:scale-105 transition-transform">
                                                 <img
                                                     src={provider.icon}
                                                     alt={provider.label}
@@ -297,7 +297,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
                                                 ref={isNavFocus ? activeDbRef : undefined}
                                                 className={cn(
                                                     "group flex items-center gap-4 px-4 py-3 rounded-xl cursor-pointer transition-all duration-300 mx-1",
-                                                    isNavFocus ? "bg-bg-tertiary shadow-sm" : "hover:bg-bg-tertiary/40",
+                                                    isNavFocus ? "bg-bg-tertiary" : "hover:bg-bg-tertiary/40",
                                                     isActive && "ring-1 ring-accent/40 bg-accent/5"
                                                 )} 
                                                 onClick={() => handleSelectDb(db)}

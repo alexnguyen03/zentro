@@ -129,7 +129,7 @@ export const Sidebar: React.FC = () => {
                                     )}
                                     title="New Connection"
                                 >
-                                    <div className="p-2.5 rounded-lg bg-accent text-white shadow-lg shadow-accent/20 group-hover:scale-110 transition-transform">
+                                    <div className="p-2.5 rounded-lg bg-accent text-white group-hover:scale-110 transition-transform">
                                         <Plus size={16} />
                                     </div>
                                     {!isCompact && (
