@@ -27,8 +27,8 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
         size="icon"
         className={cx(
             "transition-all h-7 w-7 border-none",
-            action.danger 
-                ? "text-error/70 hover:text-error hover:bg-error/10" 
+            action.danger
+                ? "text-error/70 hover:text-error hover:bg-error/10"
                 : "text-text-muted hover:text-text-primary"
         )}
         onClick={action.onClick}
@@ -228,7 +228,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         if (!sortDir || sortCol === 'idx') {
             return filteredRows.map(r => r.id);
         }
-        
+
         return [...filteredRows].sort((a, b) => {
             let av: any = a.current[sortCol as keyof models.ColumnDef];
             let bv: any = b.current[sortCol as keyof models.ColumnDef];
@@ -349,6 +349,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             <header className="shrink-0 px-6 h-11 border-b border-border bg-bg-secondary/10 flex items-center justify-between">
                 <div className="flex items-center gap-4 overflow-hidden">
                     <div className="flex items-center gap-2 min-w-0">
+                        <span className="select-none font-bold text-text-primary truncate tracking-tight">Table</span>
                         {schema && (
                             <span className="text-[10px] font-mono text-text-muted/60 bg-bg-tertiary/50 px-1.5 py-0.5 rounded uppercase tracking-tight select-none">
                                 {schema}
@@ -357,7 +358,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         <h1 className="text-[15px] font-bold text-text-primary truncate tracking-tight hover:text-accent cursor-default transition-colors">
                             {table}
                         </h1>
-                        <span className="text-[9px] uppercase tracking-widest font-bold text-text-muted opacity-25 select-none ml-1">Base Table</span>
                     </div>
                 </div>
 
@@ -373,9 +373,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 onClick={() => setActiveSubTab(key)}
                                 className={cx(
                                     "relative flex items-center gap-1.5 h-full text-[11px] font-bold transition-all duration-200 cursor-pointer outline-none",
-                                    activeSubTab === key 
-                                    ? "text-text-primary" 
-                                    : "text-text-muted hover:text-text-secondary"
+                                    activeSubTab === key
+                                        ? "text-text-primary"
+                                        : "text-text-muted hover:text-text-secondary"
                                 )}
                             >
                                 <span className={cx(activeSubTab === key ? "text-accent" : "opacity-60", "transition-colors")}>{icon}</span>
@@ -384,7 +384,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 {isModified && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-success ml-1 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
                                 )}
-                                
+
                                 {activeSubTab === key && (
                                     <div className="absolute -bottom-px left-0 right-0 h-[2px] bg-accent rounded-t-full shadow-[0_-2px_6px_rgba(var(--accent-rgb),0.2)]" />
                                 )}
@@ -401,7 +401,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         <ToolbarButton key={action.id} action={action} />
                     ))}
                 </div>
-                
+
                 {activeSubTab === 'info' && (
                     <div className="relative group flex items-center">
                         <Search size={12} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
@@ -421,7 +421,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             {/* Content Area */}
             <main className="flex-1 flex flex-col min-h-0 relative">
                 {activeSubTab === 'info' && (
-                    <SchemaInfoView 
+                    <SchemaInfoView
                         rows={rows}
                         displayIds={displayIds}
                         types={types}
@@ -442,7 +442,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     />
                 )}
                 {activeSubTab === 'data' && (
-                    <DataExplorerView 
+                    <DataExplorerView
                         tabId={dataTabId}
                         onRun={loadData}
                         result={dataResult}
@@ -452,7 +452,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     />
                 )}
                 {activeSubTab === 'erd' && (
-                    <RelationshipView 
+                    <RelationshipView
                         schema={schema}
                         table={table}
                         refreshKey={erdRefreshKey}
