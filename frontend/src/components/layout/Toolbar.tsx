@@ -8,6 +8,7 @@ import { useResultStore } from '../../stores/resultStore';
 import { ExecuteQuery, CancelQuery, Connect, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
+import { AboutModal } from './AboutModal';
 import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
@@ -20,6 +21,7 @@ export const Toolbar: React.FC = () => {
     const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
 
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [aboutOpen, setAboutOpen] = useState(false);
 
     const activeGroup = groups.find(g => g.id === activeGroupId);
     const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
@@ -64,7 +66,11 @@ export const Toolbar: React.FC = () => {
         <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
             {/* Left */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div className="flex items-center justify-center w-6 h-6 mr-1" title="Zentro">
+                <div 
+                    className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity" 
+                    title="About Zentro"
+                    onClick={() => setAboutOpen(true)}
+                >
                     <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
                 </div>
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
@@ -232,6 +238,11 @@ export const Toolbar: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Overlays */}
+            {aboutOpen && (
+                <AboutModal onClose={() => setAboutOpen(false)} />
+            )}
         </div>
     );
 };
