@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Database, Clock, BookMarked, Terminal, Zap, Hash } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { ConnectionTree } from './ConnectionTree';
@@ -13,7 +13,24 @@ type SidebarTab = 'explorer' | 'history' | 'scripts';
 export const Sidebar: React.FC = () => {
     const { setConnections, connections, isConnected } = useConnectionStore();
     const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
+    const [isCompact, setIsCompact] = useState(false);
+    const sidebarRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+
+    useEffect(() => {
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                // Switch to compact mode if width is less than 160px
+                setIsCompact(entry.contentRect.width < 160);
+            }
+        });
+
+        if (sidebarRef.current) {
+            observer.observe(sidebarRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
 
     const loadConns = async (isInitial = false) => {
         try {
@@ -55,74 +72,91 @@ export const Sidebar: React.FC = () => {
     useEffect(() => { loadConns(true); }, []);
 
     const tabs: { id: SidebarTab; label: string; icon: React.ReactNode }[] = [
-        { id: 'explorer', label: 'Explorer', icon: <Hash size={12} /> },
-        { id: 'history', label: 'History', icon: <Clock size={12} /> },
-        { id: 'scripts', label: 'Scripts', icon: <BookMarked size={12} /> },
+        { id: 'explorer', label: 'Explorer', icon: <Hash size={14} /> },
+        { id: 'history', label: 'History', icon: <Clock size={14} /> },
+        { id: 'scripts', label: 'Scripts', icon: <BookMarked size={14} /> },
     ];
 
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary border-r border-border select-none">
-            {/* Action Bar / Tab Switcher */}
-            <div className="flex items-center p-2 border-b border-border bg-bg-secondary/50">
-                <div className="flex flex-1 items-center bg-bg-tertiary/50 p-0.5 rounded-md border border-border/40">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={cn(
-                                "flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-all duration-200",
-                                activeTab === tab.id 
-                                    ? "bg-bg-primary text-text-primary shadow-sm"
-                                    : "text-text-muted hover:text-text-secondary"
-                            )}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
+        <div ref={sidebarRef} className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary select-none">
+            {/* Ultra-Flat Tab Switcher */}
+            <div className={cn(
+                "flex items-center h-11 bg-bg-secondary transition-all",
+                isCompact ? "px-2 justify-around gap-0" : "px-4 gap-4"
+            )}>
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        title={isCompact ? tab.label : undefined}
+                        className={cn(
+                            "relative flex items-center gap-1.5 h-full text-[11px] font-bold transition-all duration-200 cursor-pointer",
+                            activeTab === tab.id 
+                                ? "text-text-primary"
+                                : "text-text-muted hover:text-text-secondary"
+                        )}
+                    >
+                        <span className={cn(activeTab === tab.id ? "text-accent" : "")}>{tab.icon}</span>
+                        {!isCompact && <span>{tab.label}</span>}
+                        
+                        {/* Active Indicator Line - subtle and flat */}
+                        {activeTab === tab.id && (
+                            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent rounded-t-full" />
+                        )}
+                    </button>
+                ))}
             </div>
 
-            {/* Sidebar Content */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            {/* Content Area - Flush with top */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden border-t border-border/40">
                 {activeTab === 'explorer' ? (
                     !isConnected ? (
-                        <div className="flex flex-col h-full p-6 animate-in fade-in duration-700">
-                             <div className="mt-8 mb-6 space-y-1">
-                                <h3 className="text-[14px] font-bold text-text-primary">Welcome to Zentro</h3>
-                                <p className="text-[11px] text-text-muted">Connect to start exploring</p>
+                        <div className={cn(
+                            "flex flex-col h-full animate-in fade-in duration-700",
+                            isCompact ? "p-4 items-center" : "p-8"
+                        )}>
+                             <div className={cn("mb-8", isCompact && "text-center")}>
+                                <h3 className="text-[15px] font-bold text-text-primary tracking-tight">Explorer</h3>
+                                {!isCompact && <p className="text-[12px] text-text-muted mt-1">Connect to a workspace</p>}
                              </div>
 
-                             <div className="space-y-2">
+                             <div className="space-y-6 w-full">
                                 <button 
                                     onClick={() => (window as any).dispatchEvent(new KeyboardEvent('keydown', { key: 'C', ctrlKey: true, shiftKey: true }))}
-                                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-bg-primary border border-border/60 hover:border-accent/40 hover:bg-bg-tertiary transition-all group cursor-pointer"
+                                    className={cn(
+                                        "flex items-center group cursor-pointer",
+                                        isCompact ? "justify-center" : "gap-4"
+                                    )}
+                                    title="New Connection"
                                 >
-                                    <div className="p-2 rounded-md bg-accent/10 text-accent group-hover:bg-accent/20 transition-colors">
-                                        <Plus size={14} />
+                                    <div className="p-2.5 rounded-lg bg-accent text-white shadow-lg shadow-accent/20 group-hover:scale-110 transition-transform">
+                                        <Plus size={16} />
                                     </div>
-                                    <div className="text-left">
-                                        <div className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary">New Connection</div>
-                                        <div className="text-[10px] text-text-muted">Ctrl+Shift+C</div>
-                                    </div>
+                                    {!isCompact && (
+                                        <div className="text-left">
+                                            <div className="text-[12px] font-bold text-text-primary">New Connection</div>
+                                            <div className="text-[10px] text-text-muted mt-0.5">Ctrl+Shift+C</div>
+                                        </div>
+                                    )}
                                 </button>
 
-                                <div className="p-4 rounded-lg bg-bg-tertiary/30 border border-dashed border-border/60">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Zap size={11} className="text-yellow-500" />
-                                        <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">Quick Start</span>
+                                {!isCompact && (
+                                    <div className="pt-6 border-t border-border/40">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <Zap size={12} className="text-accent" />
+                                            <span className="text-[10px] font-bold uppercase text-text-muted tracking-widest">Workflow</span>
+                                        </div>
+                                        <ul className="space-y-4">
+                                            <li className="flex items-start gap-3">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5" />
+                                                <div>
+                                                    <div className="text-[12px] text-text-secondary">Open Workspaces</div>
+                                                    <div className="text-[10px] text-text-muted">Manage your saved profiles</div>
+                                                </div>
+                                            </li>
+                                        </ul>
                                     </div>
-                                    <ul className="space-y-2">
-                                        <li className="flex items-center gap-2 text-[11px] text-text-secondary opacity-70">
-                                            <div className="w-1 h-1 rounded-full bg-border" />
-                                            Press <kbd className="bg-bg-primary px-1 rounded border border-border">Ctrl+T</kbd> for new tab
-                                        </li>
-                                        <li className="flex items-center gap-2 text-[11px] text-text-secondary opacity-70">
-                                            <div className="w-1 h-1 rounded-full bg-border" />
-                                            Right-click table to explore
-                                        </li>
-                                    </ul>
-                                </div>
+                                )}
                              </div>
                         </div>
                     ) : (
