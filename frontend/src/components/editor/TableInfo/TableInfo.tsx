@@ -26,7 +26,10 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
         variant="ghost"
         size="icon"
         danger={action.danger}
-        onClick={action.onClick}
+        onClick={() => {
+            const res = (action.onClick as any)();
+            if (res instanceof Promise) res.catch(() => {});
+        }}
         disabled={action.disabled || action.loading}
         title={action.title || action.label}
     >

@@ -14,17 +14,22 @@ interface DataExplorerViewProps {
 export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     tabId, onRun, result, onActionsChange, schema, table
 }) => {
+    const handleActionsChange = React.useCallback((actions: ResultPanelAction[]) => {
+        onActionsChange(actions as unknown as TabAction[]);
+    }, [onActionsChange]);
+
+    const handleFilterRun = React.useCallback((filter: string) => {
+        onRun(filter);
+    }, [onRun]);
+
     return (
         <div className="flex-1 h-full flex flex-col min-h-0 bg-bg-primary">
             <ResultPanel
                 tabId={tabId}
                 onRun={onRun}
                 result={result}
-                onActionsChange={(actions) => {
-                  // Map any actions if needed, but here simple conversion works
-                  onActionsChange(actions as unknown as TabAction[]);
-                }}
-                onFilterRun={(filter) => onRun(filter)}
+                onActionsChange={handleActionsChange}
+                onFilterRun={handleFilterRun}
                 baseQuery={result?.lastExecutedQuery || `SELECT * FROM "${schema}"."${table}"`}
             />
         </div>

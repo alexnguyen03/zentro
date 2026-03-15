@@ -80,7 +80,7 @@ export const Toolbar: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     title="Reload Connection"
-                    onClick={() => activeProfile && Reconnect()}
+                    onClick={() => activeProfile && Reconnect().catch(() => {})}
                     disabled={!activeProfile || connectionStatus === 'connecting'}
                 >
                     <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && "animate-spin")} />

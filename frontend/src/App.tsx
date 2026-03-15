@@ -38,14 +38,14 @@ function App() {
         const off = EventsOn('app:before-close', () => {
             const running = useEditorStore.getState().groups.some(g => g.tabs.some(t => t.isRunning));
             if (!running) {
-                ForceQuit();
+                ForceQuit().catch(() => {});
                 return;
             }
             const ok = window.confirm(
                 'One or more queries are still running.\nStop them and close anyway?'
             );
             if (ok) {
-                ForceQuit();
+                ForceQuit().catch(() => {});
             }
         });
         return () => { if (typeof off === 'function') off(); };
@@ -254,7 +254,7 @@ function App() {
                                 <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
                                 {activeProfile && (
                                     <button 
-                                        onClick={() => Connect(activeProfile.name)}
+                                        onClick={() => Connect(activeProfile.name).catch(() => {})}
                                         className="mt-2 px-4 py-2 bg-success text-white text-xs font-bold rounded-lg hover:bg-success/90 transition-all active:scale-95 shadow-lg shadow-success/20"
                                     >
                                         Reconnect to {activeProfile.name}

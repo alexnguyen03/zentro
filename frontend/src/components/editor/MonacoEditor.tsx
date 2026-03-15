@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import Editor, { OnMount, useMonaco } from '@monaco-editor/react';
+import Editor, { OnMount } from '@monaco-editor/react';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -24,7 +24,6 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     isActive,
     onFocus,
 }) => {
-    const monaco = useMonaco();
     const editorRef = useRef<any>(null);
     const onRunRef = useRef(onRun);
     onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
@@ -147,15 +146,11 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs';
     };
 
-    // Register SQL completion provider once when monaco is ready
-    useEffect(() => {
-        if (!monaco) return;
-        registerContextAwareSQLCompletion(monaco);
-    }, [monaco]);
-
-
     const handleMount: OnMount = useCallback((editor, monacoInstance) => {
         editorRef.current = editor;
+
+        // Register SQL completion provider
+        registerContextAwareSQLCompletion(monacoInstance);
 
         // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
         // because Monaco's abstraction sometimes fails to capture in specific environments

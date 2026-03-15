@@ -210,7 +210,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
             {expanded && (
                 <div className="pl-4">
                     {categories.map(cat => cat.items.length > 0 && (
-                        <CategoryNode key={cat.label} {...cat} schemaName={schema.Name} />
+                        <CategoryNode key={`${cat.label}-${schema.Name}`} {...cat} schemaName={schema.Name} />
                     ))}
                 </div>
             )}
@@ -258,9 +258,9 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
             {expanded && (
                 <div className="pl-4">
-                    {items.map(item => (
+                    {items.map((item, idx) => (
                         <div
-                            key={item}
+                            key={`${label}-${item}-${idx}`}
                             className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-[3px] transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                             tabIndex={0}
                             onDoubleClick={() => handleItemDoubleClick(item)}
