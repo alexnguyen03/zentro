@@ -19,57 +19,67 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
     return (
         <ModalBackdrop onClose={onClose}>
             <div
-                className="bg-bg-secondary border border-border rounded-xl w-[400px] flex flex-col shadow-[0_10px_30px_rgba(0,0,0,0.5)] overflow-hidden text-text-primary animate-in zoom-in-95 duration-200"
+                className="bg-bg-secondary border border-border/10 rounded-[32px] w-[420px] flex flex-col overflow-hidden text-text-primary animate-in zoom-in-95 duration-300"
                 onClick={e => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="flex items-center justify-end p-3 pb-0">
-                    <Button variant="ghost" size="icon" className="w-6 h-6 rounded-md hover:bg-bg-tertiary" onClick={onClose}>
-                        <X size={14} />
+                {/* Header with Close Button */}
+                <div className="flex items-center justify-end p-4 pb-0">
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="w-8 h-8 rounded-xl hover:bg-bg-tertiary/60 text-text-muted hover:text-text-primary transition-all" 
+                        onClick={onClose}
+                    >
+                        <X size={16} />
                     </Button>
                 </div>
 
-                {/* Content */}
-                <div className="flex flex-col items-center px-8 pb-8 pt-2">
-                    {/* Logo Section */}
-                    <div className="w-20 h-20 mb-4 bg-bg-tertiary rounded-2xl flex items-center justify-center p-3 shadow-sm border border-border/50">
-                        <img src={zentroLogo} alt="Zentro Logo" className="w-full h-full object-contain drop-shadow-md" />
+                {/* Content Area */}
+                <div className="flex flex-col items-center px-10 pb-10 pt-2">
+                    {/* Integrated Logo Section */}
+                    <div className="w-24 h-24 mb-6 bg-bg-tertiary/40 rounded-[24px] flex items-center justify-center p-4 border border-border/5">
+                        <img src={zentroLogo} alt="Zentro Logo" className="w-full h-full object-contain" />
                     </div>
 
-                    {/* App Info */}
-                    <h2 className="text-xl font-bold tracking-tight mb-1 text-text-primary">Zentro</h2>
-                    <p className="text-sm text-text-muted mb-4">Version {pkg.version}</p>
+                    {/* App Branding */}
+                    <h2 className="text-2xl font-bold tracking-tight mb-1 text-text-primary">Zentro</h2>
+                    <div className="px-3 py-1 rounded-full bg-accent/5 border border-accent/10 mb-6">
+                        <span className="text-[11px] font-bold text-accent uppercase tracking-widest">Version {pkg.version}</span>
+                    </div>
 
-                    <p className="text-[13px] text-center text-text-secondary mb-6 leading-relaxed max-w-[280px]">
+                    <p className="text-[14px] text-center text-text-muted mb-8 leading-relaxed font-medium">
                         A blazingly fast, modern, and cross-platform desktop SQL client built for developers.
                     </p>
 
-                    {/* Links / Dev Info */}
-                    <div className="w-full flex flex-col gap-2">
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-bg-primary border border-border/50">
-                            <span className="text-[13px] font-medium text-text-secondary">Author</span>
-                            <span className="text-[13px] text-text-primary">AlexNguyen</span>
+                    {/* Information Grid */}
+                    <div className="w-full flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between px-5 py-4 rounded-2xl bg-bg-tertiary/20 border border-border/5">
+                            <span className="text-[13px] font-bold text-text-secondary">Author</span>
+                            <span className="text-[13px] font-medium text-text-primary">AlexNguyen</span>
                         </div>
+
                         <a
                             href="https://github.com/alexnguyen03/zentro"
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center justify-between p-3 rounded-lg bg-bg-primary border border-border/50 hover:bg-bg-tertiary hover:border-border transition-colors group cursor-pointer"
+                            className="flex items-center justify-between px-5 py-4 rounded-2xl bg-bg-tertiary/20 border border-border/5 hover:bg-bg-tertiary/40 hover:border-accent/10 transition-all group cursor-pointer"
                         >
-                            <div className="flex items-center gap-2">
-                                <Github size={15} className="text-text-muted group-hover:text-text-primary transition-colors" />
-                                <span className="text-[13px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">GitHub Repository</span>
+                            <div className="flex items-center gap-3">
+                                <Github size={16} className="text-text-muted group-hover:text-accent transition-colors" />
+                                <span className="text-[13px] font-bold text-text-secondary group-hover:text-text-primary transition-colors">GitHub Repository</span>
                             </div>
-                            <ExternalLink size={14} className="text-text-muted group-hover:text-accent transition-colors" />
+                            <ExternalLink size={14} className="text-text-muted/40 group-hover:text-accent transition-colors" />
                         </a>
+
                         <button
                             onClick={() => setShowChangelog(true)}
-                            className="flex items-center justify-between p-3 rounded-lg bg-bg-primary border border-border/50 hover:bg-bg-tertiary hover:border-border transition-colors group cursor-pointer"
+                            className="flex items-center justify-between px-5 py-4 rounded-2xl bg-bg-tertiary/20 border border-border/5 hover:bg-bg-tertiary/40 hover:border-accent/10 transition-all group cursor-pointer"
                         >
-                            <div className="flex items-center gap-2">
-                                <FileText size={15} className="text-text-muted group-hover:text-text-primary transition-colors" />
-                                <span className="text-[13px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">Release Notes (Changelog)</span>
+                            <div className="flex items-center gap-3">
+                                <FileText size={16} className="text-text-muted group-hover:text-accent transition-colors" />
+                                <span className="text-[13px] font-bold text-text-secondary group-hover:text-text-primary transition-colors">Release Notes</span>
                             </div>
+                            <ExternalLink size={14} className="text-text-muted/40 group-hover:text-accent transition-colors" />
                         </button>
                     </div>
                 </div>
