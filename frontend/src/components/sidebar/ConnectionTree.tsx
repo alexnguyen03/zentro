@@ -57,7 +57,7 @@ export const ConnectionTree: React.FC = () => {
                     <input
                         ref={filterInputRef}
                         type="text"
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-sm outline-none focus:border-success transition-colors"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
@@ -149,12 +149,12 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
             {expanded && (
                 <div className="pl-4">
                     {isLoading && !schemas && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-[3px] outline-none" tabIndex={0}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-sm outline-none" tabIndex={0}>
                             Loading schemas…
                         </div>
                     )}
                     {schemas && schemas.length === 0 && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-[3px] outline-none" tabIndex={0}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-sm outline-none" tabIndex={0}>
                             No schemas found
                         </div>
                     )}

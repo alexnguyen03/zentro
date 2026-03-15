@@ -1,5 +1,7 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { cn } from '../../lib/cn';
 
 import { Button } from '../ui';
 
@@ -10,6 +12,7 @@ interface ModalProps {
     children: React.ReactNode;
     footer?: React.ReactNode;
     width?: string | number;
+    className?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,12 +21,16 @@ export const Modal: React.FC<ModalProps> = ({
     title,
     children,
     footer,
-    width = 600
+    width = 600,
+    className
 }) => {
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-modal animate-in fade-in duration-150" onClick={onClose}>
+    return createPortal(
+        <div
+            className={cn("fixed inset-0 bg-black/60 flex items-center justify-center animate-in fade-in duration-150", className || "z-modal")}
+            onClick={onClose}
+        >
             <div
                 className="bg-bg-secondary border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] overflow-hidden"
                 style={{ width, maxWidth: '90vw' }}
@@ -44,6 +51,7 @@ export const Modal: React.FC<ModalProps> = ({
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

@@ -34,7 +34,9 @@
   --z-dropdown: 1000;
   --z-overlay: 2000;
   --z-modal: 3000;
-  --z-tooltip: 4000;
+  --z-modal-confirm: 10000;
+  --z-9999: 9999;
+  --z-tooltip: 11000;
 }
 
 /* ─── Utility layer ──────────────────────────────────── */

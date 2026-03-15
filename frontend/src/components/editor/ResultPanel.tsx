@@ -10,7 +10,7 @@ import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync } from '../../../wails
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import { Modal } from '../layout/Modal';
-import { Button } from '../ui';
+import { Button, ConfirmationModal } from '../ui';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 
@@ -326,9 +326,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             }
         }
 
-        if (e.key === 'Delete' && isEditable && selectedCells.size > 0) {
+        if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) {
+            const rowsToDelete = Array.from(selectedCells).map(cell => Number(cell.split(':')[0]));
+            if (rowsToDelete.length === 0) return;
+            
             e.preventDefault();
-            const rowsToDelete = new Set(Array.from(selectedCells).map(cell => Number(cell.split(':')[0])));
             setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
             setSelectedCells(new Set());
         }
@@ -564,27 +566,36 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 isOpen={showSaveModal}
                 onClose={() => setShowSaveModal(false)}
                 title="Confirm Changes"
-                width={600}
+                width={560}
                 footer={
-                    <div className="flex w-full items-center justify-end gap-2">
+                    <>
                         <Button variant="ghost" size="icon" onClick={handleCopyScript} title="Copy Script">
                             <Copy size={14} />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab">
                             <FilePlus size={14} />
                         </Button>
-                        <Button variant="primary" onClick={handleDirectExecute} title="Execute Update" autoFocus className="px-4">
-                            <Play size={14} className="mr-1.5" />
-                            Execute
+                        <Button variant="primary" onClick={handleDirectExecute} title="Execute Update" autoFocus className="px-6">
+                            <Play size={14} className="mr-2" />
+                            Execute Changes
                         </Button>
-                    </div>
+                    </>
                 }
             >
-                <div style={{ marginBottom: '16px' }}>
-                    <p className="text-[12px] text-text-muted mb-3">
-                        The following script will be generated to apply your changes:
-                    </p>
-                    <div className="p-3 bg-bg-tertiary rounded-lg font-mono text-[12px] max-h-[300px] overflow-y-auto whitespace-pre-wrap text-text-secondary border border-border">
+                <div>
+                    <div className="flex items-start gap-4 mb-4">
+                        <div className="shrink-0 p-2 rounded-full bg-accent/10">
+                            <AlertCircle size={20} className="text-accent" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-medium text-text-primary mb-1">Review generated script</p>
+                            <p className="text-[12px] leading-relaxed text-text-secondary">
+                                The following SQL will be executed to apply your pending edits and deletions to <strong>{result?.tableName}</strong>.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-lg font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
                         {generateUpdateScript()}
                     </div>
                 </div>

@@ -10,6 +10,9 @@ import { getTypesForDriver } from '../../../lib/dbTypes';
 import { buildFilterQuery } from '../../../lib/queryBuilder';
 import { DRIVER } from '../../../lib/constants';
 import { Button, Spinner } from '../../ui';
+import { Modal } from '../../layout/Modal';
+import { ConfirmationModal } from '../../ui/ConfirmationModal';
+import { AlertCircle } from 'lucide-react';
 
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
@@ -55,6 +58,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
     const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [sortCol, setSortCol] = useState<SortCol>('idx');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [filterCol, setFilterCol] = useState('');
@@ -137,6 +141,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const toggleDeleteRows = useCallback(() => {
         if (!selectedRows.size) return;
+        
         setRows(prev => prev.map((r, i) => {
             if (selectedRows.has(i)) {
                 if (r.isNew) return null;
@@ -167,11 +172,48 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         prevConnRef.current = c;
     }, [activeProfile?.name, activeProfile?.db_name, activeSubTab, tabReload]);
 
+    const performSave = useCallback(async () => {
+        setSaving(true);
+        const errs: Record<number, string> = {};
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            try {
+                if (r.deleted) await DropTableColumn(schema, table, r.original.Name);
+                else if (r.isNew) await AddTableColumn(schema, table, r.current);
+                else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) await AlterTableColumn(schema, table, r.original, r.current);
+            } catch (e: any) { errs[i] = e.toString(); }
+        }
+        setRowErrors(errs);
+        if (!Object.keys(errs).length) await loadInfo(true);
+        setSaving(false);
+    }, [rows, schema, table, loadInfo]);
+
+    const saveAll = useCallback(async () => {
+        const deletedCount = rows.filter(r => r.deleted).length;
+        if (deletedCount > 0) {
+            setShowDeleteConfirm(true);
+            return;
+        }
+        await performSave();
+    }, [rows, performSave]);
+
+    const hasChanges = useMemo(() => rows.some(r => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
+
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
             const activeGroup = groups.find(g => g.id === activeGroupId);
             const isTabActive = activeGroup?.activeTabId === tabId;
             if (e.key === 'F5' && isTabActive) { e.preventDefault(); tabReload[activeSubTab](); return; }
+            
+            // Ctrl + S to Save
+            if (e.ctrlKey && e.key.toLowerCase() === 's' && isTabActive) {
+                e.preventDefault();
+                if (activeSubTab === 'info' && hasChanges && !saving) {
+                    saveAll();
+                }
+                return;
+            }
+
             if (e.ctrlKey && e.key.toLowerCase() === 'f' && isTabActive) {
                 const activeEl = document.activeElement;
                 if (activeEl?.closest('.sidebar')) return;
@@ -182,7 +224,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         };
         window.addEventListener('keydown', h);
         return () => window.removeEventListener('keydown', h);
-    }, [groups, activeGroupId, tabId, activeSubTab, tabReload]);
+    }, [groups, activeGroupId, tabId, activeSubTab, tabReload, hasChanges, saving, saveAll]);
 
     const displayIds = useMemo(() => {
         let rs = rows;
@@ -219,23 +261,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setRows(prev => [...prev, { id: `new-${Date.now()}`, original: { ...newCol }, current: { ...newCol }, deleted: false, isNew: true }]);
     };
 
-    const saveAll = async () => {
-        setSaving(true);
-        const errs: Record<number, string> = {};
-        for (let i = 0; i < rows.length; i++) {
-            const r = rows[i];
-            try {
-                if (r.deleted) await DropTableColumn(schema, table, r.original.Name);
-                else if (r.isNew) await AddTableColumn(schema, table, r.current);
-                else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) await AlterTableColumn(schema, table, r.original, r.current);
-            } catch (e: any) { errs[i] = e.toString(); }
-        }
-        setRowErrors(errs);
-        if (!Object.keys(errs).length) await loadInfo(true);
-        setSaving(false);
-    };
-
-    const hasChanges = rows.some(r => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current));
     const hasDataChanges = (dataResult?.pendingEdits?.size ?? 0) > 0 || (dataResult?.pendingDeletions?.size ?? 0) > 0;
     const reloadAction: TabAction = { id: 'reload', icon: <RefreshCw size={12} />, label: 'Reload', title: 'Reload (F5)', onClick: tabReload[activeSubTab], loading: reloading };
 
@@ -365,6 +390,17 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={setErdRelCount} />
                 )}
             </main>
+
+            <ConfirmationModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={performSave}
+                title="Confirm Destruction"
+                message="Are you sure?"
+                description={`You are about to permanently delete ${rows.filter(r => r.deleted).length} ${rows.filter(r => r.deleted).length === 1 ? 'column' : 'columns'}. This action cannot be undone.`}
+                confirmLabel="Delete Permanently"
+                variant="danger"
+            />
         </div>
     );
 };
