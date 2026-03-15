@@ -9,5 +9,10 @@
   "author": {
     "name": "AlexNguyen",
     "email": "nguyenhoainam121n@gmail.com"
+  },
+  "info": {
+    "productName": "Zentro",
+    "productVersion": "0.0.1",
+    "companyName": "Zentro"
   }
 }
