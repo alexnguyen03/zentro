@@ -12,8 +12,6 @@ type ConnectionProfile = models.ConnectionProfile;
 // ── Style tokens (shared, defined once) ──────────────────────────────────────
 export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded text-[12px] outline-none focus:border-success transition-colors w-full';
 export const lbl = 'text-[11px] text-text-secondary block mb-0.5';
-export const btnOk = 'bg-[#89d185]/15 border-success text-success hover:bg-[#89d185]/20';
-export const btnErr = 'bg-[#f48771]/15 border-error text-error hover:bg-[#f48771]/20';
 
 interface ConnectionFormProps {
     formData: Partial<ConnectionProfile>;
@@ -227,7 +225,11 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 <Button
                     type="button"
                     variant="solid"
-                    className={testResult === 'ok' ? btnOk : testResult === 'error' ? btnErr : ''}
+                    className={cn(
+                        "transition-all",
+                        testResult === 'ok' && "bg-[#89d185]/15 border-success text-success hover:bg-[#89d185]/20",
+                        testResult === 'error' && "bg-[#f48771]/15 border-error text-error hover:bg-[#f48771]/20"
+                    )}
                     onClick={onTest}
                     disabled={testing}
                 >

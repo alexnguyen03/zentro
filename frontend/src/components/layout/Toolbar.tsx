@@ -215,27 +215,33 @@ export const Toolbar: React.FC = () => {
 
                 {/* Window controls */}
                 <div className="flex items-center gap-0.5 ml-0.5">
-                    <button
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-transparent border-none text-text-secondary cursor-pointer transition-all duration-150 hover:bg-[rgba(255,189,46,0.2)] hover:text-[#ffbd2e]"
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-[rgba(255,189,46,0.2)] hover:text-[#ffbd2e]"
                         title="Minimize"
                         onClick={WindowMinimise}
                     >
                         <Minus size={12} />
-                    </button>
-                    <button
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-transparent border-none text-text-secondary cursor-pointer transition-all duration-150 hover:bg-[rgba(40,201,98,0.2)] hover:text-[#28c962]"
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-[rgba(40,201,98,0.2)] hover:text-[#28c962]"
                         title="Maximize / Restore"
                         onClick={WindowToggleMaximise}
                     >
                         <span className="block w-2.5 h-2.5 border-[1.5px] border-current rounded-[1px]" />
-                    </button>
-                    <button
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-transparent border-none text-text-secondary cursor-pointer transition-all duration-150 hover:bg-[rgba(255,95,87,0.2)] hover:text-[#ff5f57]"
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-[rgba(255,95,87,0.2)] hover:text-[#ff5f57]"
                         title="Close"
                         onClick={Quit}
                     >
                         <X size={13} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 

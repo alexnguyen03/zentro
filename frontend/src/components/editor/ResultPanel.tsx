@@ -573,8 +573,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab">
                             <FilePlus size={14} />
                         </Button>
-                        <Button variant="primary" onClick={handleDirectExecute} title="Execute Update" autoFocus>
-                            <Play size={14} />
+                        <Button variant="primary" onClick={handleDirectExecute} title="Execute Update" autoFocus className="px-4">
+                            <Play size={14} className="mr-1.5" />
                             Execute
                         </Button>
                     </div>

@@ -25,12 +25,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
     <Button
         variant="ghost"
         size="icon"
-        className={cx(
-            "h-7 w-7 border-none rounded-lg transition-all",
-            action.danger
-                ? "text-error/70 hover:text-error hover:bg-error/10"
-                : "text-text-muted hover:text-text-primary hover:bg-text-primary/10"
-        )}
+        danger={action.danger}
         onClick={action.onClick}
         disabled={action.disabled || action.loading}
         title={action.title || action.label}
