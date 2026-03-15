@@ -141,7 +141,7 @@ export const WorkspaceModal: React.FC<WorkspaceModalProps> = ({ onClose }) => {
     const paneTitleClass = 'px-6 pt-5 pb-2 text-[15px] font-bold text-text-primary tracking-tight';
     const filterContainerClass = 'px-6 py-2 flex items-center shrink-0 group';
     const searchInputClass = 'w-full bg-transparent border-none text-text-primary outline-none text-[13px] px-2 placeholder:text-text-muted/60 transition-all';
-    const listClass = 'flex-1 overflow-y-auto px-2 py-2';
+    const listClass = 'flex-1 overflow-y-auto px-2 py-2 flex flex-col gap-1.5';
     const itemEmptyClass = 'p-8 text-text-muted/60 text-center text-xs italic';
 
     // ── Render ────────────────────────────────────────────────────────────────
