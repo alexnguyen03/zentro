@@ -581,21 +581,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 }
             >
                 <div style={{ marginBottom: '16px' }}>
-                    <p style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: 12 }}>
+                    <p className="text-[12px] text-text-muted mb-3">
                         The following script will be generated to apply your changes:
                     </p>
-                    <div style={{
-                        background: 'var(--color-bg-tertiary)',
-                        padding: '12px',
-                        borderRadius: 'var(--radius-md)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '12px',
-                        maxHeight: '300px',
-                        overflowY: 'auto',
-                        whiteSpace: 'pre-wrap',
-                        color: 'var(--color-text-secondary)',
-                        border: '1px solid var(--color-border)'
-                    }}>
+                    <div className="p-3 bg-bg-tertiary rounded-lg font-mono text-[12px] max-h-[300px] overflow-y-auto whitespace-pre-wrap text-text-secondary border border-border">
                         {generateUpdateScript()}
                     </div>
                 </div>

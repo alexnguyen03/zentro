@@ -482,7 +482,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                         </marker>
                     </defs>
                 </svg>
-                <Background color="var(--border-color)" gap={20} size={1} />""
+                <Background color="var(--border-color)" gap={20} size={1} />
             </ReactFlow>
         </div>
     );
