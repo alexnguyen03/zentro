@@ -18,152 +18,140 @@ interface ColumnRowProps {
     onRowMouseEnter: (idx: number) => void;
 }
 
-const CELL_BORDER = { borderRight: '1px solid var(--border-color)' };
-
 export const ColumnRow: React.FC<ColumnRowProps> = ({
-    row, rowIdx, displayIdx, types, editCell, setEditCell,
-    onUpdate, onDiscard, rowError, isSelected, onRowMouseDown, onRowMouseEnter
+    row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError, isSelected, onRowMouseDown, onRowMouseEnter
 }) => {
     const col = row.current;
     const isDeleted = row.deleted;
     const isNew = row.isNew;
     const isDirty = !isDeleted && !isNew && JSON.stringify(row.original) !== JSON.stringify(row.current);
 
-    const isEditingName    = editCell?.rowIdx === rowIdx && editCell.field === 'Name';
-    const isEditingDefault = editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue';
-
-    const altClass    = displayIdx % 2 !== 0 ? 'rt-row-alt' : '';
-    const selClass    = isSelected && !isDeleted ? 'rt-row-selected' : '';
-    const delClass    = isDeleted ? 'rt-row-deleted' : '';
-    // new rows: green left gutter (no native rt class, use inline)
-    const newGutter   = isNew && !isSelected;
+    const rowClassName = `
+        group relative transition-all duration-150 hover:bg-text-primary/5
+        ${displayIdx % 2 !== 0 && !isSelected && !isNew && !isDirty ? 'bg-bg-secondary/30' : ''}
+        ${isSelected ? 'bg-accent/10 hover:bg-accent/15' : ''}
+        ${isDeleted ? 'opacity-40 grayscale bg-error/5' : ''}
+        ${isNew && !isSelected ? 'bg-success/5' : ''}
+        ${isDirty && !isSelected && !isNew ? 'bg-accent/5' : ''}
+    `;
 
     return (
         <>
             <tr
                 onMouseDown={(e) => onRowMouseDown(e, rowIdx)}
                 onMouseEnter={() => onRowMouseEnter(rowIdx)}
-                className={[altClass, selClass, delClass].filter(Boolean).join(' ')}
-                style={{ height: 32, background: newGutter ? 'color-mix(in srgb, var(--success-color) 6%, transparent)' : undefined }}
+                className={rowClassName}
+                style={{ height: 32 }}
             >
-                {/* # */}
-                <td style={{
-                    width: 52,
-                    textAlign: 'center',
-                    position: 'relative',
-                    borderLeft: isSelected ? '2px solid var(--accent-color)' : '2px solid transparent',
-                    ...CELL_BORDER,
-                }}>
+                {/* Index / Selector */}
+                <td className="w-10 text-center relative border-l-2 border-l-transparent border-r border-border/10 transition-all">
+                    {isSelected && <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-accent" />}
                     <div
-                        className="rt-cell-content row-num-col"
+                        className={`text-[10px] font-mono tabular-nums select-none ${isSelected ? 'text-accent font-bold' : 'text-text-muted'
+                            } ${isDirty || isDeleted ? 'text-error' : ''}`}
                         onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
-                        title={(isDirty || isDeleted) ? 'Double-click to discard' : undefined}
-                        style={{ color: isDirty || isDeleted ? 'var(--error-color)' : undefined }}
+                        title={(isDirty || isDeleted) ? 'Double-click to discard changes' : undefined}
                     >
                         {rowIdx + 1}
                     </div>
                 </td>
 
                 {/* Name */}
-                <td style={CELL_BORDER}>
-                    {isEditingName ? (
+                <td className="px-0 border-r border-border/10">
+                    {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
                         <input
                             autoFocus
-                            spellCheck={false}
-                            className="rt-cell-input"
+                            onFocus={e => e.target.select()}
+                            className="w-full h-8 px-3 bg-bg-tertiary text-text-primary border-none outline-none font-mono text-sm border-l border-accent"
                             defaultValue={col.Name}
                             onBlur={e => { onUpdate(rowIdx, { Name: e.target.value }); setEditCell(null); }}
                             onKeyDown={e => {
                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                 if (e.key === 'Escape') setEditCell(null);
-                                if (e.key === 'Tab') { e.preventDefault(); (e.target as HTMLInputElement).blur(); setEditCell({ rowIdx, field: 'DefaultValue' }); }
                             }}
-                            onClick={e => e.stopPropagation()}
                         />
                     ) : (
                         <div
-                            className={`rt-cell-content ${isDirty && col.Name !== row.original.Name ? 'rt-cell-dirty' : ''}`}
-                            onMouseDown={(e) => onRowMouseDown(e, rowIdx)}
+                            className={`px-3 py-1 cursor-text transition-colors truncate font-mono text-sm ${isDirty && col.Name !== row.original.Name
+                                    ? 'text-success font-semibold'
+                                    : col.IsPrimaryKey ? 'font-bold text-text-primary' : 'text-text-primary/90'
+                                }`}
                             onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
                             title={col.Name}
                         >
-                            <span style={{ fontWeight: col.IsPrimaryKey ? 700 : undefined }}>{col.Name}</span>
+                            {col.Name}
                         </div>
                     )}
                 </td>
 
                 {/* DataType */}
-                <td style={{ width: 180, ...CELL_BORDER }}>
+                <td className="px-0 border-r border-border/10">
                     <DataTypeCell
                         value={col.DataType}
                         types={types}
                         isDirty={col.DataType !== row.original.DataType}
-                        isRowSelected={isSelected}
                         disabled={isDeleted}
                         onCommit={v => onUpdate(rowIdx, { DataType: v })}
                     />
                 </td>
 
                 {/* PK */}
-                <td style={{ width: 52, textAlign: 'center', ...CELL_BORDER }}>
-                    <div className="rt-cell-content" style={{ justifyContent: 'center' }}>
+                <td className="w-12 text-center border-r border-border/10">
+                    <div className="flex items-center justify-center h-full">
                         <input
                             type="checkbox"
                             checked={col.IsPrimaryKey}
                             disabled={isDeleted}
                             onChange={e => onUpdate(rowIdx, { IsPrimaryKey: e.target.checked })}
-                            style={{ accentColor: 'var(--accent-color)', cursor: isDeleted ? 'not-allowed' : 'pointer' }}
+                            className="w-3.5 h-3.5 rounded-sm border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
                         />
                     </div>
                 </td>
 
                 {/* Nullable */}
-                <td style={{ width: 64, textAlign: 'center', ...CELL_BORDER }}>
-                    <div className="rt-cell-content" style={{ justifyContent: 'center' }}>
+                <td className="w-16 text-center border-r border-border/10">
+                    <div className="flex items-center justify-center h-full">
                         <input
                             type="checkbox"
                             checked={col.IsNullable}
                             disabled={isDeleted}
                             onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
-                            style={{ accentColor: 'var(--accent-color)', cursor: isDeleted ? 'not-allowed' : 'pointer' }}
+                            className="w-3.5 h-3.5 rounded-sm border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
                         />
                     </div>
                 </td>
 
                 {/* Default */}
-                <td style={{ width: 200, ...CELL_BORDER }}>
-                    {isEditingDefault ? (
-                        <input
-                            autoFocus
-                            spellCheck={false}
-                            className="rt-cell-input"
-                            defaultValue={col.DefaultValue}
-                            onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                if (e.key === 'Escape') setEditCell(null);
-                            }}
-                            onClick={e => e.stopPropagation()}
-                        />
-                    ) : (
-                        <div
-                            className={`rt-cell-content ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''}`}
-                            onMouseDown={(e) => onRowMouseDown(e, rowIdx)}
-                            onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'DefaultValue' })}
-                            title={col.DefaultValue || 'NULL'}
-                        >
-                            <span style={{ color: col.DefaultValue ? undefined : 'var(--text-muted)', opacity: col.DefaultValue ? 1 : 0.5 }}>
+                <td className="px-0 border-r border-border/10">
+                    {isDeleted
+                        ? <div className="px-3 py-1 text-text-muted italic truncate font-mono text-xs opacity-60">{col.DefaultValue || 'NULL'}</div>
+                        : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
+                            ? <input
+                                autoFocus
+                                onFocus={e => e.target.select()}
+                                className="w-full h-8 px-3 bg-bg-tertiary text-text-primary border-none outline-none font-mono text-xs border-l border-accent"
+                                defaultValue={col.DefaultValue}
+                                onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                    if (e.key === 'Escape') setEditCell(null);
+                                }}
+                            />
+                            : <div
+                                className={`px-3 py-1 cursor-text font-mono text-xs transition-colors truncate ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'
+                                    } ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'text-success' : ''}`}
+                                onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
+                                title={col.DefaultValue || 'None'}
+                            >
                                 {col.DefaultValue || 'NULL'}
-                            </span>
-                        </div>
-                    )}
+                            </div>
+                    }
                 </td>
             </tr>
-
             {rowError && (
                 <tr>
-                    <td colSpan={6} style={{ padding: '2px 40px', background: 'color-mix(in srgb, var(--error-color) 10%, transparent)', color: 'var(--error-color)', fontSize: 10, borderBottom: '1px solid var(--border-color)' }}>
-                        <strong style={{ marginRight: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Error</strong>
+                    <td colSpan={6} className="px-10 py-1 bg-error/10 text-error text-[10px] border-b border-border/20">
+                        <span className="font-bold mr-2 uppercase tracking-wider">Error</span>
                         {rowError}
                     </td>
                 </tr>
@@ -171,3 +159,4 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
         </>
     );
 };
+

@@ -5,12 +5,11 @@ interface DataTypeCellProps {
     value: string;
     types: string[];
     isDirty: boolean;
-    isRowSelected?: boolean;
     disabled: boolean;
     onCommit: (v: string) => void;
 }
 
-export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, isRowSelected, disabled, onCommit }) => {
+export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disabled, onCommit }) => {
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(value);
     const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -102,11 +101,10 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                         <div
                             key={t}
                             onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
-                            className={`px-4 py-2 text-xs font-mono cursor-pointer transition-colors ${
-                                isSelected 
-                                ? 'bg-accent text-bg-primary font-bold' 
-                                : 'text-text-primary/80 hover:bg-bg-tertiary hover:text-text-primary'
-                            }`}
+                            className={`px-4 py-2 text-xs font-mono cursor-pointer transition-colors ${isSelected
+                                    ? 'bg-accent text-bg-primary font-bold'
+                                    : 'text-text-primary/80 hover:bg-bg-tertiary hover:text-text-primary'
+                                }`}
                         >
                             {t}
                         </div>
@@ -120,14 +118,11 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
     if (!editing) {
         return (
             <div
-                className={[
-                    'rt-cell-content',
-                    isDirty ? 'rt-cell-dirty' : '',
-                ].join(' ')}
+                className={`flex items-center h-full px-3 font-mono text-xs cursor-text select-none truncate transition-colors hover:bg-text-primary/5 ${isDirty ? 'text-success font-medium' : 'text-text-secondary'}`}
                 onDoubleClick={openEditor}
                 title={`${value} (Double-click to edit)`}
             >
-                <span className="font-mono text-xs text-text-secondary">{value}</span>
+                {value}
             </div>
         );
     }
@@ -137,9 +132,8 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
             <input
                 ref={inputRef}
                 autoFocus
-                spellCheck={false}
                 onFocus={(e) => e.target.select()}
-                className="rt-cell-input"
+                className="w-full h-full px-3 bg-bg-tertiary border-l border-accent outline-none font-mono text-xs text-text-primary transition-all"
                 value={text}
                 onChange={e => { setText(e.target.value); }}
                 onKeyDown={e => {

@@ -50,7 +50,7 @@ export const ShortcutsView: React.FC = () => {
     ];
 
     const filteredShortcuts = useMemo(() => {
-        return shortcuts.filter(s => 
+        return shortcuts.filter(s =>
             s.command.toLowerCase().includes(searchQuery.toLowerCase()) ||
             s.binding.some(b => b.toLowerCase().includes(searchQuery.toLowerCase())) ||
             s.category.toLowerCase().includes(searchQuery.toLowerCase())
@@ -69,7 +69,7 @@ export const ShortcutsView: React.FC = () => {
                     </div>
                     <h1 className="text-[15px] font-bold tracking-tight">Command Center</h1>
                 </div>
-                
+
                 {/* Centered Flush Search Bar */}
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
                     <div className="relative group w-full max-w-md">
@@ -94,7 +94,7 @@ export const ShortcutsView: React.FC = () => {
             {/* Content Area */}
             <main className="flex-1 overflow-y-auto px-12 py-10 scroll-smooth">
                 <div className="max-w-5xl mx-auto space-y-14 animate-in fade-in duration-700">
-                    
+
                     {categories.map(cat => {
                         const items = filteredShortcuts.filter(s => s.category === cat);
                         if (items.length === 0) return null;
@@ -125,7 +125,7 @@ export const ShortcutsView: React.FC = () => {
                                                 <span className="text-[14px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">{s.command}</span>
                                                 <span className="text-[11px] text-text-muted/60 font-semibold tracking-tight">{s.when}</span>
                                             </div>
-                                            
+
                                             <div className="flex gap-1.5 items-center">
                                                 {s.binding.map((key, ki) => (
                                                     <React.Fragment key={ki}>

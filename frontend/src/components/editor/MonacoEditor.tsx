@@ -166,10 +166,10 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    
+
                     const currentOptions = editor.getOptions();
                     const currentFontSize = currentOptions.get(monacoInstance.editor.EditorOption.fontSize);
-                    
+
                     if (e.deltaY < 0) {
                         const newSize = Math.min(48, currentFontSize + 1);
                         editor.updateOptions({ fontSize: newSize, lineHeight: newSize * 1.5 });
