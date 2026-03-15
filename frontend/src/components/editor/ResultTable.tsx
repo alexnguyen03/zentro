@@ -213,12 +213,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     title={isEditable
                         ? `Editable (${resultState?.tableName})`
                         : "Read-only (No Primary Key or missing PK in SELECT)"}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'help' }}
+                    className="flex items-center justify-center gap-1 cursor-help opacity-70"
                 >
-                    #
+                    <span className="font-mono text-[10px]">#</span>
                     {isEditable
-                        ? <Unlock size={10} style={{ color: 'var(--color-success)' }} />
-                        : <Lock size={10} style={{ color: 'var(--color-warning)' }} />
+                        ? <Unlock size={10} className="text-success" />
+                        : <Lock size={10} className="text-text-muted" />
                     }
                 </div>
             ),
@@ -346,7 +346,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     const virtualizer = useVirtualizer({
         count: tableRows.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 30,
+        estimateSize: () => 32,
         overscan: 20,
     });
 
@@ -447,14 +447,14 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                             }}>
                                 <div className="loading-spinner" style={{
                                     display: 'inline-block',
-                                    width: 16,
-                                    height: 16,
-                                    border: '2px solid var(--border-color)',
-                                    borderTopColor: 'var(--color-primary)',
+                                    width: 12,
+                                    height: 12,
+                                    border: '1.5px solid var(--border-color)',
+                                    borderTopColor: 'var(--accent-color)',
                                     borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
+                                    animation: 'spin 0.8s linear infinite'
                                 }} />
-                                <span style={{ marginLeft: 8, color: 'var(--text-secondary)' }}>
+                                <span style={{ marginLeft: 8, color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 500 }}>
                                     Loading more rows...
                                 </span>
                             </td>

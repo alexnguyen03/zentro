@@ -26,10 +26,10 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
         variant="ghost"
         size="icon"
         className={cx(
-            "transition-all h-7 w-7 border-none",
+            "h-7 w-7 border-none rounded-lg transition-all",
             action.danger
                 ? "text-error/70 hover:text-error hover:bg-error/10"
-                : "text-text-muted hover:text-text-primary"
+                : "text-text-muted hover:text-text-primary hover:bg-text-primary/10"
         )}
         onClick={action.onClick}
         disabled={action.disabled || action.loading}
@@ -45,6 +45,7 @@ function parseTableName(t: string) {
 }
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
+    // ... states remain same ...
     const [rows, setRows] = useState<RowState[]>([]);
     const [loading, setLoading] = useState(true);
     const [reloading, setReloading] = useState(false);
@@ -93,24 +94,19 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const loadData = useCallback(async (filter?: string) => {
         if (!activeGroupId) return;
         const baseTableQuery = `SELECT * FROM "${schema}"."${table}"`;
-        const query = filter?.trim()
-            ? buildFilterQuery(baseTableQuery, filter)
-            : baseTableQuery;
+        const query = filter?.trim() ? buildFilterQuery(baseTableQuery, filter) : baseTableQuery;
         useResultStore.getState().setLastExecutedQuery(dataTabId, baseTableQuery);
         ExecuteQuery(dataTabId, query).catch(console.error);
     }, [schema, table, activeGroupId, dataTabId]);
 
     useEffect(() => {
-        if (activeSubTab === 'data' && !dataResult) {
-            loadData();
-        }
+        if (activeSubTab === 'data' && !dataResult) loadData();
     }, [activeSubTab, dataResult, loadData]);
 
     const handleRowMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
         if (e.button !== 0) return;
         setIsDragging(true);
         setDragStartIdx(idx);
-
         if (e.ctrlKey || e.metaKey) {
             setSelectedRows(prev => {
                 const next = new Set(prev);
@@ -120,36 +116,29 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         } else if (e.shiftKey && selectedRows.size > 0) {
             const arr = Array.from(selectedRows);
             const start = Math.min(...arr);
-            const min = Math.min(start, idx);
-            const max = Math.max(start, idx);
+            const min = Math.min(start, idx), max = Math.max(start, idx);
             const next = new Set<number>();
             for (let i = min; i <= max; i++) next.add(i);
             setSelectedRows(next);
-        } else {
-            setSelectedRows(new Set([idx]));
-        }
+        } else setSelectedRows(new Set([idx]));
     }, [selectedRows]);
 
     const handleRowMouseEnter = useCallback((idx: number) => {
         if (!isDragging || dragStartIdx === null) return;
-        const min = Math.min(dragStartIdx, idx);
-        const max = Math.max(dragStartIdx, idx);
+        const min = Math.min(dragStartIdx, idx), max = Math.max(dragStartIdx, idx);
         const next = new Set<number>();
         for (let i = min; i <= max; i++) next.add(i);
         setSelectedRows(next);
     }, [isDragging, dragStartIdx]);
 
     useEffect(() => {
-        const handleMouseUp = () => {
-            setIsDragging(false);
-            setDragStartIdx(null);
-        };
-        window.addEventListener('mouseup', handleMouseUp);
-        return () => window.removeEventListener('mouseup', handleMouseUp);
+        const h = () => { setIsDragging(false); setDragStartIdx(null); };
+        window.addEventListener('mouseup', h);
+        return () => window.removeEventListener('mouseup', h);
     }, []);
 
     const toggleDeleteRows = useCallback(() => {
-        if (selectedRows.size === 0) return;
+        if (!selectedRows.size) return;
         setRows(prev => prev.map((r, i) => {
             if (selectedRows.has(i)) {
                 if (r.isNew) return null;
@@ -162,76 +151,50 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     useEffect(() => {
         if (activeSubTab !== 'info') return;
-        const handler = (e: KeyboardEvent) => {
+        const h = (e: KeyboardEvent) => {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-            if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) {
-                toggleDeleteRows();
-            }
+            if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) toggleDeleteRows();
         };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
+        window.addEventListener('keydown', h);
+        return () => window.removeEventListener('keydown', h);
     }, [activeSubTab, toggleDeleteRows]);
 
-    const loadErd = useCallback(async () => {
-        setErdRefreshKey(k => k + 1);
-    }, []);
-
-    const tabReload: Record<SubTab, () => void> = useMemo(() => ({
-        info: () => loadInfo(true),
-        data: loadData,
-        erd: loadErd,
-    }), [loadInfo, loadData, loadErd]);
+    const loadErd = useCallback(async () => setErdRefreshKey(k => k + 1), []);
+    const tabReload: Record<SubTab, () => void> = useMemo(() => ({ info: () => loadInfo(true), data: loadData, erd: loadErd }), [loadInfo, loadData, loadErd]);
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
-
     useEffect(() => {
-        const currentConn = `${activeProfile?.name}:${activeProfile?.db_name}`;
-        if (prevConnRef.current && currentConn !== prevConnRef.current) {
-            tabReload[activeSubTab]();
-        }
-        prevConnRef.current = currentConn;
+        const c = `${activeProfile?.name}:${activeProfile?.db_name}`;
+        if (prevConnRef.current && c !== prevConnRef.current) tabReload[activeSubTab]();
+        prevConnRef.current = c;
     }, [activeProfile?.name, activeProfile?.db_name, activeSubTab, tabReload]);
 
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
+        const h = (e: KeyboardEvent) => {
             const activeGroup = groups.find(g => g.id === activeGroupId);
             const isTabActive = activeGroup?.activeTabId === tabId;
-
-            if (e.key === 'F5' && isTabActive) {
-                e.preventDefault();
-                tabReload[activeSubTab]();
-                return;
-            }
-
-            if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+            if (e.key === 'F5' && isTabActive) { e.preventDefault(); tabReload[activeSubTab](); return; }
+            if (e.ctrlKey && e.key.toLowerCase() === 'f' && isTabActive) {
                 const activeEl = document.activeElement;
                 if (activeEl?.closest('.sidebar')) return;
-
-                if (isTabActive) {
-                    e.preventDefault();
-                    if (activeSubTab !== 'info') setActiveSubTab('info');
-                    setTimeout(() => filterInputRef.current?.focus(), 10);
-                }
+                e.preventDefault();
+                if (activeSubTab !== 'info') setActiveSubTab('info');
+                setTimeout(() => filterInputRef.current?.focus(), 10);
             }
         };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', h);
+        return () => window.removeEventListener('keydown', h);
     }, [groups, activeGroupId, tabId, activeSubTab, tabReload]);
 
     const displayIds = useMemo(() => {
-        let filteredRows = rows;
+        let rs = rows;
         if (filterCol.trim() !== '') {
             const f = filterCol.trim().toLowerCase();
-            filteredRows = rows.filter(r => r.current.Name.toLowerCase().includes(f));
+            rs = rows.filter(r => r.current.Name.toLowerCase().includes(f));
         }
-
-        if (!sortDir || sortCol === 'idx') {
-            return filteredRows.map(r => r.id);
-        }
-
-        return [...filteredRows].sort((a, b) => {
-            let av: any = a.current[sortCol as keyof models.ColumnDef];
-            let bv: any = b.current[sortCol as keyof models.ColumnDef];
+        if (!sortDir || sortCol === 'idx') return rs.map(r => r.id);
+        return [...rs].sort((a, b) => {
+            let av: any = a.current[sortCol as keyof models.ColumnDef], bv: any = b.current[sortCol as keyof models.ColumnDef];
             if (typeof av === 'boolean') av = av ? 1 : 0;
             if (typeof bv === 'boolean') bv = bv ? 1 : 0;
             const res = av < bv ? -1 : av > bv ? 1 : 0;
@@ -239,42 +202,23 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         }).map(r => r.id);
     }, [rows, filterCol, sortCol, sortDir]);
 
-    const cycleSort = (col: SortCol) => {
-        if (sortCol !== col) { setSortCol(col); setSortDir('asc'); }
-        else setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc');
+    const updateRow = (idx: number, patch: Partial<models.ColumnDef>) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.current, ...patch } } : r));
+    const discardRow = (idx: number) => {
+        setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.original }, deleted: false } : r));
+        setRowErrors(e => { const ne = { ...e }; delete ne[idx]; return ne; });
     };
-
-    const updateRow = (rowIdx: number, patch: Partial<models.ColumnDef>) => {
-        setRows(prev => prev.map((r, i) => i === rowIdx ? { ...r, current: { ...r.current, ...patch } } : r));
-    };
-
-    const discardRow = (rowIdx: number) => {
-        setRows(prev => prev.map((r, i) => i === rowIdx ? { ...r, current: { ...r.original }, deleted: false } : r));
-        setRowErrors(e => { const ne = { ...e }; delete ne[rowIdx]; return ne; });
-    };
-
     const discardAll = () => {
         setRows(prev => prev.filter(r => !r.isNew).map(r => ({ ...r, current: { ...r.original }, deleted: false })));
         setRowErrors({});
         setSelectedRows(new Set());
     };
-
     const addColumn = () => {
         const newCol: models.ColumnDef = {
             Name: `new_column_${rows.length + 1}`,
-            DataType: driver === DRIVER.POSTGRES ? 'varchar(255)' : driver === DRIVER.MYSQL ? 'varchar(255)' : 'nvarchar(255)',
-            DefaultValue: '',
-            IsNullable: true,
-            IsPrimaryKey: false,
+            DataType: driver === 'postgres' || driver === 'mysql' ? 'varchar(255)' : 'nvarchar(255)',
+            DefaultValue: '', IsNullable: true, IsPrimaryKey: false,
         };
-        const newRow: RowState = {
-            id: `new-${Date.now()}`,
-            original: { ...newCol },
-            current: { ...newCol },
-            deleted: false,
-            isNew: true,
-        };
-        setRows(prev => [...prev, newRow]);
+        setRows(prev => [...prev, { id: `new-${Date.now()}`, original: { ...newCol }, current: { ...newCol }, deleted: false, isNew: true }]);
     };
 
     const saveAll = async () => {
@@ -283,16 +227,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
             try {
-                if (r.deleted) {
-                    await DropTableColumn(schema, table, r.original.Name);
-                } else if (r.isNew) {
-                    await AddTableColumn(schema, table, r.current);
-                } else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) {
-                    await AlterTableColumn(schema, table, r.original, r.current);
-                }
-            } catch (e: any) {
-                errs[i] = e.toString();
-            }
+                if (r.deleted) await DropTableColumn(schema, table, r.original.Name);
+                else if (r.isNew) await AddTableColumn(schema, table, r.current);
+                else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) await AlterTableColumn(schema, table, r.original, r.current);
+            } catch (e: any) { errs[i] = e.toString(); }
         }
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);
@@ -301,15 +239,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const hasChanges = rows.some(r => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current));
     const hasDataChanges = (dataResult?.pendingEdits?.size ?? 0) > 0 || (dataResult?.pendingDeletions?.size ?? 0) > 0;
-
-    const reloadAction: TabAction = {
-        id: 'reload',
-        icon: <RefreshCw size={12} />,
-        label: 'Reload',
-        title: 'Reload (F5)',
-        onClick: tabReload[activeSubTab],
-        loading: reloading,
-    };
+    const reloadAction: TabAction = { id: 'reload', icon: <RefreshCw size={12} />, label: 'Reload', title: 'Reload (F5)', onClick: tabReload[activeSubTab], loading: reloading };
 
     const actions: Record<SubTab, TabAction[]> = {
         info: [
@@ -317,7 +247,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             ...(selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
             ...(hasChanges ? [
                 { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
-                { id: 'save', icon: <Save size={12} />, label: 'Save Changes', onClick: saveAll, disabled: saving, loading: saving },
+                { id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving },
             ] : []),
             reloadAction,
         ],
@@ -334,28 +264,25 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     if (fetchError) return (
         <div className="flex flex-col items-center justify-center p-12 h-full bg-bg-primary text-center">
-            <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6">
-                <Info size={32} className="text-error" />
-            </div>
+            <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6"><Info size={32} className="text-error" /></div>
             <h2 className="text-xl font-bold text-text-primary mb-2">Failed to load table</h2>
             <p className="text-text-secondary max-w-md mb-8">{fetchError}</p>
-            <Button onClick={() => loadInfo()} variant="solid" className="rounded-xl">Try Again</Button>
+            <Button onClick={() => loadInfo()} variant="solid" className="rounded-xl px-8">Try Again</Button>
         </div>
     );
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-bg-primary outline-none">
-            {/* Header */}
-            <header className="shrink-0 px-6 h-11 border-b border-border bg-bg-secondary/10 flex items-center justify-between">
-                <div className="flex items-center gap-4 overflow-hidden">
+            <header className="shrink-0 px-6 h-11 border-b border-border/40 bg-bg-secondary/20 flex items-center justify-between">
+                <div className="flex items-center gap-3 overflow-hidden">
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="select-none font-bold text-text-primary truncate tracking-tight">Table</span>
+                        <span className="font-bold text-text-muted/60 text-[11px] uppercase tracking-wider select-none">Table</span>
                         {schema && (
-                            <span className="text-[10px] font-mono text-text-muted/60 bg-bg-tertiary/50 px-1.5 py-0.5 rounded uppercase tracking-tight select-none">
+                            <span className="text-[10px] font-mono text-text-muted/60 bg-bg-tertiary/50 px-1.5 py-0.5 rounded tracking-tight select-none">
                                 {schema}
                             </span>
                         )}
-                        <h1 className="text-[15px] font-bold text-text-primary truncate tracking-tight hover:text-accent cursor-default transition-colors">
+                        <h1 className="text-[14px] font-bold text-text-primary truncate tracking-tight">
                             {table}
                         </h1>
                     </div>
@@ -372,21 +299,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 key={key}
                                 onClick={() => setActiveSubTab(key)}
                                 className={cx(
-                                    "relative flex items-center gap-1.5 h-full text-[11px] font-bold transition-all duration-200 cursor-pointer outline-none",
-                                    activeSubTab === key
-                                        ? "text-text-primary"
-                                        : "text-text-muted hover:text-text-secondary"
+                                    "relative flex items-center gap-2 h-full text-[11px] font-bold transition-all duration-200 cursor-pointer outline-none",
+                                    activeSubTab === key ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
                                 )}
                             >
-                                <span className={cx(activeSubTab === key ? "text-accent" : "opacity-60", "transition-colors")}>{icon}</span>
+                                <span className={cx(activeSubTab === key ? "text-accent" : "opacity-50")}>{icon}</span>
                                 <span>{label}</span>
-                                {count !== undefined && count !== null && <span className="text-[10px] opacity-40 ml-0.5">{count}</span>}
-                                {isModified && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-success ml-1 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                                )}
-
+                                {count !== null && <span className="text-[10px] opacity-40 ml-0.5">{count}</span>}
+                                {isModified && <span className="w-1.5 h-1.5 rounded-full bg-success ml-1" />}
                                 {activeSubTab === key && (
-                                    <div className="absolute -bottom-px left-0 right-0 h-[2px] bg-accent rounded-t-full shadow-[0_-2px_6px_rgba(var(--accent-rgb),0.2)]" />
+                                    <div className="absolute -bottom-px left-0 right-0 h-[2px] bg-accent rounded-t-full transition-all" />
                                 )}
                             </button>
                         ))}
@@ -394,9 +316,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 </div>
             </header>
 
-            {/* Sub-toolbar for actions */}
-            <div className="shrink-0 h-10 px-4 border-b border-border bg-bg-primary flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
+            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary flex items-center justify-between">
+                <div className="flex items-center gap-1">
                     {actions[activeSubTab].map(action => (
                         <ToolbarButton key={action.id} action={action} />
                     ))}
@@ -404,62 +325,49 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
                 {activeSubTab === 'info' && (
                     <div className="relative group flex items-center">
-                        <Search size={12} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
+                        <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
                         <input
                             ref={filterInputRef}
                             type="text"
                             placeholder="Filter columns..."
                             value={filterCol}
-                            onChange={(e) => setFilterCol(e.target.value)}
+                            onChange={(e) => {
+                                setSortCol('idx');
+                                setSortDir('asc');
+                                setFilterCol(e.target.value);
+                            }}
                             onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
-                            className="w-48 h-7 pl-8 pr-3 bg-bg-tertiary/30 border border-border/50 rounded-lg text-[11px] outline-none focus:border-accent/50 focus:bg-bg-tertiary/50 transition-all placeholder:text-text-muted/50"
+                            className="w-48 h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-lg text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
                         />
                     </div>
                 )}
             </div>
 
-            {/* Content Area */}
             <main className="flex-1 flex flex-col min-h-0 relative">
                 {activeSubTab === 'info' && (
                     <SchemaInfoView
-                        rows={rows}
-                        displayIds={displayIds}
-                        types={types}
-                        editCell={editCell}
-                        setEditCell={setEditCell}
-                        onUpdate={updateRow}
-                        onDiscard={discardRow}
-                        rowErrors={rowErrors}
-                        selectedRows={selectedRows}
-                        onRowMouseDown={handleRowMouseDown}
-                        onRowMouseEnter={handleRowMouseEnter}
-                        sortCol={sortCol}
-                        sortDir={sortDir}
-                        onSort={cycleSort}
-                        filterText={filterCol}
-                        onFilterChange={setFilterCol}
-                        filterInputRef={filterInputRef}
+                        rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
+                        onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
+                        onRowMouseDown={handleRowMouseDown} onRowMouseEnter={handleRowMouseEnter}
+                        sortCol={sortCol} sortDir={sortDir} onSort={c => {
+                            if (sortCol !== c) {
+                                setSortCol(c);
+                                setSortDir('asc');
+                            } else {
+                                setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc');
+                            }
+                        }}
+                        filterText={filterCol} onFilterChange={setFilterCol} filterInputRef={filterInputRef}
                     />
                 )}
                 {activeSubTab === 'data' && (
-                    <DataExplorerView
-                        tabId={dataTabId}
-                        onRun={loadData}
-                        result={dataResult}
-                        onActionsChange={setDataTabActions}
-                        schema={schema}
-                        table={table}
-                    />
+                    <DataExplorerView tabId={dataTabId} onRun={loadData} result={dataResult} onActionsChange={setDataTabActions} schema={schema} table={table} />
                 )}
                 {activeSubTab === 'erd' && (
-                    <RelationshipView
-                        schema={schema}
-                        table={table}
-                        refreshKey={erdRefreshKey}
-                        onCountChange={setErdRelCount}
-                    />
+                    <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={setErdRelCount} />
                 )}
             </main>
         </div>
     );
 };
+

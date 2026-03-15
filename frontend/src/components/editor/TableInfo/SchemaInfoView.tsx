@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import React from 'react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import { ColumnRow } from './ColumnRow';
 import { RowState, SortCol, SortDir } from './types';
 import { models } from '../../../../wailsjs/go/models';
@@ -24,98 +24,106 @@ interface SchemaInfoViewProps {
     filterInputRef: React.RefObject<HTMLInputElement>;
 }
 
-export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
-    rows, displayIds, types, editCell, setEditCell, onUpdate, onDiscard, rowErrors, selectedRows,
-    onRowMouseDown, onRowMouseEnter, sortCol, sortDir, onSort, filterText, onFilterChange, filterInputRef
-}) => {
-    const tableContainerRef = useRef<HTMLDivElement>(null);
+const COL_SIZES = {
+    idx:     52,
+    name:    undefined, // flex
+    type:    180,
+    pk:      52,
+    null:    64,
+    default: 200,
+};
 
+export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
+    rows, displayIds, types, editCell, setEditCell, onUpdate, onDiscard,
+    rowErrors, selectedRows, onRowMouseDown, onRowMouseEnter,
+    sortCol, sortDir, onSort,
+}) => {
     const SortIcon = ({ col }: { col: SortCol }) => {
-        if (sortCol !== col || !sortDir) return <ArrowUpDown size={12} className="ml-2 opacity-20" />;
-        return sortDir === 'asc' 
-            ? <ArrowUp size={12} className="ml-2 text-(--accent-color)" /> 
-            : <ArrowDown size={12} className="ml-2 text-(--accent-color)" />;
+        if (sortCol !== col || !sortDir) return null;
+        return sortDir === 'asc'
+            ? <ArrowUp size={11} className="rt-sort-icon" />
+            : <ArrowDown size={11} className="rt-sort-icon" />;
     };
 
-    return (
-        <div className="flex-1 flex flex-col min-h-0 bg-bg-primary">
-            {/* Table Header */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-                <div 
-                    ref={tableContainerRef}
-                    className="flex-1 overflow-auto scrollbar-thin"
-                >
-                    <table className="w-full border-collapse table-fixed select-none">
-                        <thead className="sticky top-0 z-10 bg-bg-secondary/80 backdrop-blur-md">
-                            <tr className="border-b border-border">
-                                <th className="w-10 h-10 text-[10px] uppercase tracking-wider text-(--text-tertiary) font-bold text-center">#</th>
-                                <th 
-                                    className="px-3 h-10 text-left text-[10px] uppercase tracking-wider text-(--text-tertiary) font-bold cursor-pointer hover:text-(--text-primary) transition-colors"
-                                    onClick={() => onSort('Name')}
-                                >
-                                    <div className="flex items-center">Name <SortIcon col="Name" /></div>
-                                </th>
-                                <th 
-                                    className="px-3 h-10 text-left text-[10px] uppercase tracking-wider text-(--text-tertiary) font-bold cursor-pointer hover:text-(--text-primary) transition-colors"
-                                    onClick={() => onSort('DataType')}
-                                >
-                                    <div className="flex items-center">Data Type <SortIcon col="DataType" /></div>
-                                </th>
-                                <th 
-                                    className="w-12 h-10 text-center text-[10px] uppercase tracking-wider text-(--text-tertiary) font-bold cursor-pointer hover:text-(--text-primary) transition-colors"
-                                    onClick={() => onSort('IsPrimaryKey')}
-                                >
-                                    <div className="flex items-center justify-center">PK <SortIcon col="IsPrimaryKey" /></div>
-                                </th>
-                                <th 
-                                    className="w-16 h-10 text-center text-[10px] uppercase tracking-wider text-(--text-tertiary) font-bold cursor-pointer hover:text-(--text-primary) transition-colors"
-                                    onClick={() => onSort('IsNullable')}
-                                >
-                                    <div className="flex items-center justify-center">Null <SortIcon col="IsNullable" /></div>
-                                </th>
-                                <th 
-                                    className="px-3 h-10 text-left text-[10px] uppercase tracking-wider text-(--text-tertiary) font-bold cursor-pointer hover:text-(--text-primary) transition-colors"
-                                    onClick={() => onSort('DefaultValue')}
-                                >
-                                    <div className="flex items-center">Default <SortIcon col="DefaultValue" /></div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-(--border-color)/30">
-                            {displayIds.map((id, displayIdx) => {
-                                const rowIdx = rows.findIndex(r => r.id === id);
-                                const row = rows[rowIdx];
-                                if (!row) return null;
-                                return (
-                                    <ColumnRow
-                                        key={id}
-                                        row={row}
-                                        rowIdx={rowIdx}
-                                        displayIdx={displayIdx}
-                                        types={types}
-                                        editCell={editCell}
-                                        setEditCell={setEditCell}
-                                        onUpdate={onUpdate}
-                                        onDiscard={onDiscard}
-                                        rowError={rowErrors[rowIdx]}
-                                        isSelected={selectedRows.has(rowIdx)}
-                                        onRowMouseDown={onRowMouseDown}
-                                        onRowMouseEnter={onRowMouseEnter}
-                                    />
-                                );
-                            })}
-                            {rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="py-20 text-center text-text-muted italic bg-bg-primary/50">
-                                        No columns found for this table.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    const thCls = (col: SortCol) =>
+        `rt-th rt-th-sortable ${sortCol === col && sortDir ? 'rt-th-sorted' : ''}`;
 
+    return (
+        <div className="result-virtual-scroll">
+            <table className="result-table-tanstack" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <thead>
+                    <tr>
+                        {/* # */}
+                        <th className="rt-th" style={{ width: COL_SIZES.idx }}>
+                            <span className="rt-th-label">#</span>
+                        </th>
+                        {/* Name */}
+                        <th className={thCls('Name')} onClick={() => onSort('Name')}>
+                            <span className="rt-th-label">
+                                Name <SortIcon col="Name" />
+                            </span>
+                        </th>
+                        {/* Data Type */}
+                        <th className={thCls('DataType')} style={{ width: COL_SIZES.type }} onClick={() => onSort('DataType')}>
+                            <span className="rt-th-label">
+                                Data Type <SortIcon col="DataType" />
+                            </span>
+                        </th>
+                        {/* PK */}
+                        <th className={thCls('IsPrimaryKey')} style={{ width: COL_SIZES.pk }} onClick={() => onSort('IsPrimaryKey')}>
+                            <span className="rt-th-label" style={{ justifyContent: 'center' }}>
+                                PK <SortIcon col="IsPrimaryKey" />
+                            </span>
+                        </th>
+                        {/* Null */}
+                        <th className={thCls('IsNullable')} style={{ width: COL_SIZES.null }} onClick={() => onSort('IsNullable')}>
+                            <span className="rt-th-label" style={{ justifyContent: 'center' }}>
+                                Null <SortIcon col="IsNullable" />
+                            </span>
+                        </th>
+                        {/* Default */}
+                        <th className={thCls('DefaultValue')} style={{ width: COL_SIZES.default }} onClick={() => onSort('DefaultValue')}>
+                            <span className="rt-th-label">
+                                Default <SortIcon col="DefaultValue" />
+                            </span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {displayIds.map((id, displayIdx) => {
+                        const rowIdx = rows.findIndex(r => r.id === id);
+                        const row = rows[rowIdx];
+                        if (!row) return null;
+                        return (
+                            <ColumnRow
+                                key={id}
+                                row={row}
+                                rowIdx={rowIdx}
+                                displayIdx={displayIdx}
+                                types={types}
+                                editCell={editCell}
+                                setEditCell={setEditCell}
+                                onUpdate={onUpdate}
+                                onDiscard={onDiscard}
+                                rowError={rowErrors[rowIdx]}
+                                isSelected={selectedRows.has(rowIdx)}
+                                onRowMouseDown={onRowMouseDown}
+                                onRowMouseEnter={onRowMouseEnter}
+                            />
+                        );
+                    })}
+                    {displayIds.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={6}
+                                style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 12, fontStyle: 'italic' }}
+                            >
+                                No columns found.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
         </div>
     );
 };

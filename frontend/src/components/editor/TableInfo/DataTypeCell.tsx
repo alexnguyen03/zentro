@@ -5,11 +5,12 @@ interface DataTypeCellProps {
     value: string;
     types: string[];
     isDirty: boolean;
+    isRowSelected?: boolean;
     disabled: boolean;
     onCommit: (v: string) => void;
 }
 
-export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disabled, onCommit }) => {
+export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, isRowSelected, disabled, onCommit }) => {
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(value);
     const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -86,13 +87,13 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
             <div
                 ref={listRef}
                 data-dtype-drop
-                className="fixed z-99999 overflow-y-auto bg-bg-secondary border border-border rounded-xl"
+                className="fixed z-50 overflow-y-auto bg-bg-secondary border border-border/40 rounded-2xl"
                 style={{
                     top: dropPos.top,
                     left: dropPos.left,
                     width: dropPos.width,
                     maxHeight: 220,
-                    boxShadow: 'none', // Super-flat: no shadows
+                    boxShadow: 'none',
                 }}
             >
                 {filtered.map((t, index) => {
@@ -103,8 +104,8 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                             onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
                             className={`px-4 py-2 text-xs font-mono cursor-pointer transition-colors ${
                                 isSelected 
-                                ? 'bg-(--accent-color) text-white' 
-                                : 'text-(--text-primary) hover:bg-(--bg-tertiary)'
+                                ? 'bg-accent text-bg-primary font-bold' 
+                                : 'text-text-primary/80 hover:bg-bg-tertiary hover:text-text-primary'
                             }`}
                         >
                             {t}
@@ -119,11 +120,14 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
     if (!editing) {
         return (
             <div
-                className={`flex items-center h-full px-3 font-mono text-[11.5px] cursor-default select-none truncate ${isDirty ? 'text-(--success-color)' : ''}`}
+                className={[
+                    'rt-cell-content',
+                    isDirty ? 'rt-cell-dirty' : '',
+                ].join(' ')}
                 onDoubleClick={openEditor}
                 title={`${value} (Double-click to edit)`}
             >
-                {value}
+                <span className="font-mono text-xs text-text-secondary">{value}</span>
             </div>
         );
     }
@@ -133,8 +137,9 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
             <input
                 ref={inputRef}
                 autoFocus
+                spellCheck={false}
                 onFocus={(e) => e.target.select()}
-                className="w-full h-full px-3 bg-transparent border-none outline-none font-mono text-[11.5px] text-(--text-primary)"
+                className="rt-cell-input"
                 value={text}
                 onChange={e => { setText(e.target.value); }}
                 onKeyDown={e => {
@@ -168,3 +173,4 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
         </div>
     );
 };
+
