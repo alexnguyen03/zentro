@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Database, Clock, BookMarked } from 'lucide-react';
+import { Plus, Database, Clock, BookMarked, Terminal, Zap, Hash } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { ConnectionTree } from './ConnectionTree';
-import { ConnectionDialog } from './ConnectionDialog';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
 import { LoadConnections, Connect, SwitchDatabase, GetConnectionStatus } from '../../../wailsjs/go/app/App';
@@ -23,8 +22,6 @@ export const Sidebar: React.FC = () => {
 
             if (isInitial) {
                 const store = useConnectionStore.getState();
-
-                // 1. Try to sync with existing backend connection (handles Ctrl+Shift+R reload)
                 const status = await GetConnectionStatus();
                 if (status && status.status === 'connected' && status.profile) {
                     store.setActiveProfile(status.profile);
@@ -32,11 +29,9 @@ export const Sidebar: React.FC = () => {
                     store.setConnectionStatus('connected');
                     return;
                 } else {
-                    // Backend is not connected. If store thought it was, it was stale.
                     store.setIsConnected(false);
                 }
 
-                // 2. If no backend connection, try to auto-reconnect using persisted names (handles fresh startup)
                 if (store.lastProfileName) {
                     const profile = data?.find(p => p.name === store.lastProfileName);
                     if (profile) {
@@ -59,36 +54,76 @@ export const Sidebar: React.FC = () => {
 
     useEffect(() => { loadConns(true); }, []);
 
-    const tabBtn = (tab: SidebarTab) =>
-        cn(
-            'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] border-b-2 border-transparent cursor-pointer bg-transparent border-t-0 border-l-0 border-r-0 text-text-secondary transition-colors duration-100 flex-shrink-0',
-            activeTab === tab
-                ? 'text-text-primary border-b-success'
-                : 'hover:text-text-primary'
-        );
+    const tabs: { id: SidebarTab; label: string; icon: React.ReactNode }[] = [
+        { id: 'explorer', label: 'Explorer', icon: <Hash size={12} /> },
+        { id: 'history', label: 'History', icon: <Clock size={12} /> },
+        { id: 'scripts', label: 'Scripts', icon: <BookMarked size={12} /> },
+    ];
 
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary border-r border-border">
-            {/* Tab switcher */}
-            <div className="flex items-center flex-shrink-0 border-b border-border bg-bg-secondary">
-                <button className={tabBtn('explorer')} onClick={() => setActiveTab('explorer')} title="Database Explorer">
-                    <Database size={13} /><span>Explorer</span>
-                </button>
-                <button className={tabBtn('history')} onClick={() => setActiveTab('history')} title="Query History">
-                    <Clock size={13} /><span>History</span>
-                </button>
-                <button className={tabBtn('scripts')} onClick={() => setActiveTab('scripts')} title="Saved Scripts">
-                    <BookMarked size={13} /><span>Scripts</span>
-                </button>
+        <div className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary border-r border-border select-none">
+            {/* Action Bar / Tab Switcher */}
+            <div className="flex items-center p-2 border-b border-border bg-bg-secondary/50">
+                <div className="flex flex-1 items-center bg-bg-tertiary/50 p-0.5 rounded-md border border-border/40">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-1.5 py-1 px-2 rounded-sm text-[10px] font-bold uppercase tracking-wider transition-all duration-200",
+                                activeTab === tab.id 
+                                    ? "bg-bg-primary text-text-primary shadow-sm"
+                                    : "text-text-muted hover:text-text-secondary"
+                            )}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            {/* Sidebar Content */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
                 {activeTab === 'explorer' ? (
                     !isConnected ? (
-                        <div className="flex flex-col items-center justify-center gap-2.5 h-full min-h-[200px] p-6 text-center text-text-secondary text-xs">
-                            <div className="text-3xl opacity-30">📁</div>
-                            <p className="m-0 mb-4">No active database</p>
-                            <p className="m-0 text-[11px]">Press <kbd className="bg-bg-tertiary px-1 py-0.5 rounded text-[10px]">Ctrl+Shift+C</kbd> to connect to a workspace.</p>
+                        <div className="flex flex-col h-full p-6 animate-in fade-in duration-700">
+                             <div className="mt-8 mb-6 space-y-1">
+                                <h3 className="text-[14px] font-bold text-text-primary">Welcome to Zentro</h3>
+                                <p className="text-[11px] text-text-muted">Connect to start exploring</p>
+                             </div>
+
+                             <div className="space-y-2">
+                                <button 
+                                    onClick={() => (window as any).dispatchEvent(new KeyboardEvent('keydown', { key: 'C', ctrlKey: true, shiftKey: true }))}
+                                    className="w-full flex items-center gap-3 p-3 rounded-lg bg-bg-primary border border-border/60 hover:border-accent/40 hover:bg-bg-tertiary transition-all group cursor-pointer"
+                                >
+                                    <div className="p-2 rounded-md bg-accent/10 text-accent group-hover:bg-accent/20 transition-colors">
+                                        <Plus size={14} />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-[12px] font-medium text-text-secondary group-hover:text-text-primary">New Connection</div>
+                                        <div className="text-[10px] text-text-muted">Ctrl+Shift+C</div>
+                                    </div>
+                                </button>
+
+                                <div className="p-4 rounded-lg bg-bg-tertiary/30 border border-dashed border-border/60">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Zap size={11} className="text-yellow-500" />
+                                        <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">Quick Start</span>
+                                    </div>
+                                    <ul className="space-y-2">
+                                        <li className="flex items-center gap-2 text-[11px] text-text-secondary opacity-70">
+                                            <div className="w-1 h-1 rounded-full bg-border" />
+                                            Press <kbd className="bg-bg-primary px-1 rounded border border-border">Ctrl+T</kbd> for new tab
+                                        </li>
+                                        <li className="flex items-center gap-2 text-[11px] text-text-secondary opacity-70">
+                                            <div className="w-1 h-1 rounded-full bg-border" />
+                                            Right-click table to explore
+                                        </li>
+                                    </ul>
+                                </div>
+                             </div>
                         </div>
                     ) : (
                         <ConnectionTree />
