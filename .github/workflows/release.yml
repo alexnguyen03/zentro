@@ -107,7 +107,8 @@ jobs:
         id: sign_request
         uses: SignPath/github-action-submit-signing-request@v2
         with:
-          organization-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
+          api-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
           project-slug: zentro
           signing-policy-slug: zentro-001
           artifact-configuration-slug: initial-version
