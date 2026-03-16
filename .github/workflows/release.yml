@@ -120,19 +120,53 @@ jobs:
           path: artifact.zip
           retention-days: 1
 
-      - name: Submit and download signing request to SignPath
+      - name: Submit and download signing request (REST API)
         if: matrix.os == 'windows-latest'
         id: sign_request
-        uses: SignPath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
-          organization-id: d111c10f-ab29-4683-81c9-037cd5311726
-          project-slug: Zentro
-          signing-policy-slug: github-ci
-          artifact-configuration-slug: initial-version
-          github-artifact-id: ${{ steps.upload_unsigned.outputs.artifact-id }}
-          github-token: ${{ secrets.GITHUB_TOKEN}}
-          output-artifact-directory: signed-artifact
+        shell: pwsh
+        env:
+          API_TOKEN: ${{ secrets.SIGNPATH_ORG_TOKEN }}
+          ORG_ID: "d111c10f-ab29-4683-81c9-037cd5311726"
+        run: |
+          $headers = @{ "Authorization" = "Bearer $env:API_TOKEN" }
+          
+          Write-Host "Submitting signing request..."
+          $uri = "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/SubmitWithArtifact"
+          $form = @{
+              projectSlug = "Zentro"
+              signingPolicySlug = "github-ci"
+              artifactConfigurationSlug = "initial-version"
+              artifact = Get-Item "artifact.zip"
+          }
+          
+          # 1. Submit
+          $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form
+          $requestId = $response.id
+          Write-Host "Request submitted. ID: $requestId"
+          
+          # 2. Poll for completion
+          $status = "InProgress"
+          while ($status -eq "InProgress" -or $status -eq "Queued") {
+              Write-Host "Waiting for signing... (Current status: $status)"
+              Start-Sleep -Seconds 20
+              $statusResponse = Invoke-RestMethod -Uri "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$requestId" -Method Get -Headers $headers
+              $status = $statusResponse.status
+          }
+          
+          if ($status -ne "Completed") {
+              Write-Error "Signing failed with status: $status"
+              exit 1
+          }
+          
+          # 3. Download
+          Write-Host "Signing completed. Downloading signed artifact..."
+          New-Item -ItemType Directory -Force -Path signed-artifact
+          Invoke-WebRequest -Uri "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$requestId/SignedArtifact" `
+              -Method Get -Headers $headers -OutFile "signed-artifact/signed.zip"
+          
+          # 4. Extract
+          Expand-Archive -Path "signed-artifact/signed.zip" -DestinationPath "signed-artifact" -Force
+          Write-Host "Artifact downloaded and extracted."
 
       - name: Extract signed artifact
         if: matrix.os == 'windows-latest'
