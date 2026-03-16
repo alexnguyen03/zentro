@@ -119,7 +119,7 @@ jobs:
           api-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
           organization-id: d111c10f-ab29-4683-81c9-037cd5311726
           project-slug: Zentro
-          signing-policy-slug: Zentro-001
+          signing-policy-slug: github-ci
           artifact-configuration-slug: initial-version
           github-artifact-id: ${{ steps.upload_unsigned.outputs.artifact-id }}
           github-token: ${{ secrets.GITHUB_TOKEN}}
