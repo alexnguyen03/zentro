@@ -263,6 +263,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           files: |
             ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
@@ -270,4 +271,4 @@ jobs:
           fail_on_unmatched_files: false
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: true
