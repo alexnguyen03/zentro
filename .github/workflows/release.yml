@@ -102,7 +102,7 @@ jobs:
         run: |
           Compress-Archive -Path zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe -DestinationPath artifact.zip
 
-      - name: Submit signing request to SignPath
+      - name: Submit and download signing request to SignPath
         if: matrix.os == 'windows-latest'
         id: sign_request
         uses: SignPath/github-action-submit-signing-request@v2
@@ -113,15 +113,8 @@ jobs:
           artifact-configuration-slug: initial-version
           artifact-path: artifact.zip
           description: "Release ${{ github.ref_name }}"
-
-      - name: Download signed artifact
-        if: matrix.os == 'windows-latest'
-        uses: SignPath/github-action-download-signed-artifact@v1
-        with:
-          organization-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
-          project-slug: zentro
-          signing-request-id: ${{ steps.sign_request.outputs.signing-request-id }}
-          output-directory: signed-artifact
+          wait-for-completion: true
+          output-artifact-directory: signed-artifact
 
       - name: Extract signed artifact
         if: matrix.os == 'windows-latest'
