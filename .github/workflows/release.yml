@@ -19,7 +19,7 @@ jobs:
             platform: windows/amd64
             artifact_name: zentro.exe
             release_name: zentro-v${version}-windows-amd64.exe
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             platform: linux/amd64
             artifact_name: zentro
             release_name: zentro-v${version}-linux-amd64
@@ -65,10 +65,10 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
 
       - name: Wails Build
         shell: bash
@@ -265,7 +265,7 @@ jobs:
         with:
           files: |
             ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
-            ${{ matrix.os == 'ubuntu-latest' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'macos-latest' && format('zentro-v{0}-macos-universal.zip', steps.get_version.outputs.version) || '' }}
           fail_on_unmatched_files: false
           generate_release_notes: true
