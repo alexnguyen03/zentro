@@ -135,7 +135,7 @@ jobs:
           $form = @{
               projectSlug = "Zentro"
               signingPolicySlug = "github-ci"
-              artifactConfigurationSlug = "initial-version"
+              artifactConfigurationSlug = "Initial version"
               artifact = Get-Item "artifact.zip"
           }
           
