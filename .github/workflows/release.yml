@@ -122,7 +122,7 @@ jobs:
           signing-policy-slug: Zentro-001
           artifact-configuration-slug: initial-version
           github-artifact-id: ${{ steps.upload_unsigned.outputs.artifact-id }}
-          wait-for-completion: true
+          github-token: ${{ secrets.GITHUB_TOKEN}}
           output-artifact-directory: signed-artifact
 
       - name: Extract signed artifact
