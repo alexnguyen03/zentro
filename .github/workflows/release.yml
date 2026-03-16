@@ -117,9 +117,9 @@ jobs:
         uses: SignPath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
-          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: zentro
-          signing-policy-slug: zentro-001
+          organization-id: d111c10f-ab29-4683-81c9-037cd5311726
+          project-slug: Zentro
+          signing-policy-slug: Zentro-001
           artifact-configuration-slug: initial-version
           github-artifact-id: ${{ steps.upload_unsigned.outputs.artifact-id }}
           wait-for-completion: true
