@@ -264,9 +264,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe
-            zentro-v${{ steps.get_version.outputs.version }}-linux-amd64
-            zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip
+            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'ubuntu-latest' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'macos-latest' && format('zentro-v{0}-macos-universal.zip', steps.get_version.outputs.version) || '' }}
           fail_on_unmatched_files: false
           generate_release_notes: true
           draft: false
