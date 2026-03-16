@@ -211,13 +211,41 @@ jobs:
           Expand-Archive -Path "signed-artifact/signed.zip" -DestinationPath "signed-artifact" -Force
           Write-Host "Artifact downloaded and extracted."
 
-      - name: Extract signed artifact
+      - name: Verify and Extract signed artifact
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # Copy signed zentro.exe from the extraction directory back to the versioned filename
-          Copy-Item "signed-artifact/zentro.exe" "zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe" -Force
-          ls zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe
+          $VERSION = "${{ steps.get_version.outputs.version }}"
+          $TARGET_FILE = "zentro-v$VERSION-windows-amd64.exe"
+          
+          # 1. Check original file signature (should be NotSigned)
+          Write-Host "Checking original file signature..."
+          (Get-AuthenticodeSignature $TARGET_FILE).Status
+          
+          # 2. Extract signed file
+          if (Test-Path "signed-artifact/zentro.exe") {
+              $signedSize = (Get-Item "signed-artifact/zentro.exe").Length
+              Write-Host "Signed file found. Size: $signedSize bytes"
+              
+              Copy-Item "signed-artifact/zentro.exe" $TARGET_FILE -Force
+              Write-Host "Overwrote original file with signed version."
+          } else {
+              Write-Error "Signed zentro.exe not found in extraction directory!"
+              ls signed-artifact -Recurse
+              exit 1
+          }
+          
+          # 3. Final Verification
+          Write-Host "Verifying final signature..."
+          $sig = Get-AuthenticodeSignature $TARGET_FILE
+          Write-Host "Signature Status: $($sig.Status)"
+          Write-Host "Subject: $($sig.SignerCertificate.Subject)"
+          
+          if ($sig.Status -ne "Valid") {
+              Write-Error "CRITICAL: Final executable is NOT SIGNED or signature is INVALID!"
+              exit 1
+          }
+          Write-Host "Digital signature verified successfully!"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
