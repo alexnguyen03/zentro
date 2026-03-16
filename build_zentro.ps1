@@ -1,10 +1,12 @@
 # build_zentro.ps1
 # Usage: 
-#   .\build_zentro.ps1        (Production build: zentro-v0.1.0.exe)
-#   .\build_zentro.ps1 -Dev   (Dev build: zentro-v0.1.0-dev.exe)
+#   .\build_zentro.ps1        (Production build with installer)
+#   .\build_zentro.ps1 -Dev   (Dev build)
+#   .\build_zentro.ps1 -NoInstaller (Build only exe, no installer)
 
 param (
-    [switch]$Dev
+    [switch]$Dev,
+    [switch]$NoInstaller
 )
 
 # Read version from wails.json
@@ -28,14 +30,32 @@ Write-Host "--- Zentro Build Pipeline ---" -ForegroundColor Cyan
 Write-Host "Version: $version"
 Write-Host "Suffix:  $suffix"
 Write-Host "Output:  $outputName"
+Write-Host "Installer: $(-not $NoInstaller)"
 Write-Host "-----------------------------"
 
+# Build flags
+$buildFlags = @(
+    "build",
+    "-clean",
+    "-platform", "windows/amd64",
+    "-ldflags", "-s -w -H windowsgui",
+    "-o", $outputName
+)
+
+# Add NSIS installer if not disabled
+if (-not $NoInstaller) {
+    $buildFlags += "-nsis"
+}
+
 # Run wails build
-# Note: -o specifies the filename inside the build/bin directory
-wails build -clean -platform windows/amd64 -ldflags "-s -w -H windowsgui" -o "$outputName"
+wails @buildFlags
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "OK: Build successful! File located at: build\bin\$outputName" -ForegroundColor Green
+    Write-Host "OK: Build successful!" -ForegroundColor Green
+    Write-Host "  Executable: build\bin\$outputName" -ForegroundColor Cyan
+    if (-not $NoInstaller) {
+        Write-Host "  Installer:  build\bin\zentro-v$version-setup.exe" -ForegroundColor Cyan
+    }
 } else {
     Write-Host "FAILED: Build failed with exit code $LASTEXITCODE" -ForegroundColor Red
     exit $LASTEXITCODE
