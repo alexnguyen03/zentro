@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Wails Build
+        run: |
+          wails build -platform windows/amd64 -ldflags "-s -w -H windowsgui" -clean
+
+      - name: Prepare Release Asset
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mv build/bin/zentro.exe "zentro-v-${VERSION}-windows-amd64.exe"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: zentro-v-*-windows-amd64.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: false

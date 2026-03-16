@@ -1,8 +1,10 @@
 {
   "name": "zentro",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build": "powershell -ExecutionPolicy Bypass -File build_zentro.ps1",
+    "build:dev": "powershell -ExecutionPolicy Bypass -File build_zentro.ps1 -Dev",
     "release": "commit-and-tag-version",
     "release:patch": "commit-and-tag-version --release-as patch",
     "release:minor": "commit-and-tag-version --release-as minor",
