@@ -102,6 +102,15 @@ jobs:
         run: |
           Compress-Archive -Path zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe -DestinationPath artifact.zip
 
+      - name: Upload unsigned artifact to GitHub
+        if: matrix.os == 'windows-latest'
+        id: upload_unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-artifact
+          path: artifact.zip
+          retention-days: 1
+
       - name: Submit and download signing request to SignPath
         if: matrix.os == 'windows-latest'
         id: sign_request
@@ -112,8 +121,7 @@ jobs:
           project-slug: zentro
           signing-policy-slug: zentro-001
           artifact-configuration-slug: initial-version
-          artifact-path: artifact.zip
-          description: "Release ${{ github.ref_name }}"
+          github-artifact-id: ${{ steps.upload_unsigned.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: signed-artifact
 
@@ -121,9 +129,9 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # The downloaded artifact is a ZIP containing the signed executable
-          Get-ChildItem -Path signed-artifact/*.zip | Expand-Archive -DestinationPath . -Force
-          # Ensure the file exists and is the one we want for the release step
+          # The signed artifact is downloaded and extracted into the signed-artifact directory
+          # We need to ensure the signed file is in the root directory for the release step
+          Get-ChildItem -Path signed-artifact -Recurse -Filter *.exe | Copy-Item -Destination . -Force
           ls zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe
 
       - name: Create Release
