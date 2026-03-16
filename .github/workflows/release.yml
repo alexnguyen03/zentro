@@ -114,11 +114,11 @@ jobs:
           
           Write-Host "Locating executable: $EXE_PATH"
           if (Test-Path $EXE_PATH) {
-              Copy-Item $EXE_PATH sample.exe -Force
-              Write-Host "Creating sample.zip..."
-              Compress-Archive -Path sample.exe -DestinationPath sample.zip -Force
+              Copy-Item $EXE_PATH zentro.exe -Force
+              Write-Host "Creating zentro.zip..."
+              Compress-Archive -Path zentro.exe -DestinationPath zentro.zip -Force
               
-              $zipFile = Get-Item sample.zip
+              $zipFile = Get-Item zentro.zip
               Write-Host "Zip created. Size: $($zipFile.Length) bytes"
               if ($zipFile.Length -lt 100) {
                   Write-Error "Created zip file is suspiciously small or empty."
@@ -137,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-artifact
-          path: sample.zip
+          path: zentro.zip
           retention-days: 1
 
       - name: Submit and download signing request (REST API)
@@ -156,7 +156,7 @@ jobs:
               projectSlug = "Zentro"
               signingPolicySlug = "github-ci"
               artifactConfigurationSlug = "initial"
-              artifact = Get-Item "sample.zip"
+              artifact = Get-Item "zentro.zip"
           }
           Write-Host "Artifact to upload: $($form.artifact.FullName) ($($form.artifact.Length) bytes)"
           
@@ -215,8 +215,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # Copy signed sample.exe from the extraction directory back to the versioned filename
-          Copy-Item "signed-artifact/sample.exe" "zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe" -Force
+          # Copy signed zentro.exe from the extraction directory back to the versioned filename
+          Copy-Item "signed-artifact/zentro.exe" "zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe" -Force
           ls zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe
 
       - name: Create Release
