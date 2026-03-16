@@ -101,9 +101,7 @@ export const StatusBar: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <div className="opacity-40 text-[10px] font-bold tracking-widest uppercase">
-                <span>V0.2.0</span>
-            </div>
+
         </div>
     );
 };
