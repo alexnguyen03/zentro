@@ -58,11 +58,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/go/bin/wails
-          key: ${{ runner.os }}-wails-2.9.2 # Pin version to avoid unexpected issues
+          key: ${{ runner.os }}-wails-2.11.0 # Updated to match go.mod
 
       - name: Install Wails
         if: steps.cache-wails.outputs.cache-hit != 'true'
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
