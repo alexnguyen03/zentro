@@ -140,17 +140,39 @@ jobs:
           }
           
           # 1. Submit
-          $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form
-          $requestId = $response.id
-          Write-Host "Request submitted. ID: $requestId"
+          $responseHeaders = $null
+          try {
+              $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form -ResponseHeadersVariable responseHeaders
+              $requestId = $response.id
+              
+              # Nếu body không có ID, lấy từ header Location
+              if (-not $requestId -and $responseHeaders.Location) {
+                  $requestId = ($responseHeaders.Location -split '/')[-1]
+              }
+          } catch {
+              Write-Host "Submission failed!"
+              if ($_.Exception.Response) {
+                  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                  $errorBody = $reader.ReadToEnd()
+                  Write-Host "Error Body: $errorBody"
+              }
+              Write-Error $_
+              exit 1
+          }
+          
+          if (-not $requestId) {
+              Write-Error "Could not retrieve Signing Request ID."
+              exit 1
+          }
+          Write-Host "Request submitted successfully. ID: $requestId"
           
           # 2. Poll for completion
           $status = "InProgress"
-          while ($status -eq "InProgress" -or $status -eq "Queued") {
-              Write-Host "Waiting for signing... (Current status: $status)"
+          while ($status -eq "InProgress" -or $status -eq "Queued" -or $status -eq "Submitted") {
               Start-Sleep -Seconds 20
               $statusResponse = Invoke-RestMethod -Uri "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$requestId" -Method Get -Headers $headers
               $status = $statusResponse.status
+              Write-Host "Current status: $status"
           }
           
           if ($status -ne "Completed") {
