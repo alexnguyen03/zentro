@@ -9,45 +9,101 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows/amd64
+            artifact_name: zentro.exe
+            release_name: zentro-v${version}-windows-amd64.exe
+          - os: ubuntu-latest
+            platform: linux/amd64
+            artifact_name: zentro
+            release_name: zentro-v${version}-linux-amd64
+          - os: macos-latest
+            platform: darwin/universal
+            artifact_name: Zentro.app
+            release_name: zentro-v${version}-macos-universal.zip
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get version from tag
+        id: get_version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
+          cache: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Build Frontend
-        working-directory: frontend
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          npm install
-          npm run build
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
 
       - name: Wails Build
-        run: |
-          wails build -platform windows/amd64 -ldflags "-s -w -H windowsgui" -clean
-
-      - name: Prepare Release Asset
         shell: bash
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          mv build/bin/zentro.exe "zentro-v-${VERSION}-windows-amd64.exe"
+          # Set ldflags based on platform
+          LDFLAGS="-s -w"
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            LDFLAGS="$LDFLAGS -H windowsgui"
+          fi
+          
+          # Wails build will automatically run npm install/build based on wails.json
+          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean
+
+      - name: Package macOS
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          cd build/bin
+          # Zip the app bundle (Wails uses productName from wails.json for the .app folder)
+          if [ -d "Zentro.app" ]; then
+            zip -r ../../zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip Zentro.app
+          elif [ -d "zentro.app" ]; then
+            zip -r ../../zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip zentro.app
+          fi
+
+      - name: Rename assets (Windows/Linux)
+        if: matrix.os != 'macos-latest'
+        shell: bash
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            mv build/bin/zentro.exe zentro-v${VERSION}-windows-amd64.exe
+          else
+            mv build/bin/zentro zentro-v${VERSION}-linux-amd64
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: zentro-v-*-windows-amd64.exe
+          files: |
+            zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe
+            zentro-v${{ steps.get_version.outputs.version }}-linux-amd64
+            zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip
+          fail_on_unmatched_files: false
           generate_release_notes: true
           draft: false
           prerelease: false
