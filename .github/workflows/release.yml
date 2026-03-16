@@ -109,9 +109,27 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # Copy to sample.exe to match SignPath XML configuration
-          Copy-Item zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe sample.exe
-          Compress-Archive -Path sample.exe -DestinationPath sample.zip
+          $VERSION = "${{ steps.get_version.outputs.version }}"
+          $EXE_PATH = "zentro-v$VERSION-windows-amd64.exe"
+          
+          Write-Host "Locating executable: $EXE_PATH"
+          if (Test-Path $EXE_PATH) {
+              Copy-Item $EXE_PATH sample.exe -Force
+              Write-Host "Creating sample.zip..."
+              Compress-Archive -Path sample.exe -DestinationPath sample.zip -Force
+              
+              $zipFile = Get-Item sample.zip
+              Write-Host "Zip created. Size: $($zipFile.Length) bytes"
+              if ($zipFile.Length -lt 100) {
+                  Write-Error "Created zip file is suspiciously small or empty."
+                  exit 1
+              }
+          } else {
+              Write-Error "Executable not found at $EXE_PATH"
+              # List files to helps debug
+              ls
+              exit 1
+          }
 
       - name: Upload unsigned artifact to GitHub
         if: matrix.os == 'windows-latest'
@@ -140,6 +158,7 @@ jobs:
               artifactConfigurationSlug = "initial"
               artifact = Get-Item "sample.zip"
           }
+          Write-Host "Artifact to upload: $($form.artifact.FullName) ($($form.artifact.Length) bytes)"
           
           # 1. Submit
           $responseHeaders = $null
