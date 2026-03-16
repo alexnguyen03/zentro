@@ -96,6 +96,42 @@ jobs:
             mv build/bin/zentro zentro-v${VERSION}-linux-amd64
           fi
 
+      - name: Zip for SignPath
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe -DestinationPath artifact.zip
+
+      - name: Submit signing request to SignPath
+        if: matrix.os == 'windows-latest'
+        id: sign_request
+        uses: SignPath/github-action-submit-signing-request@v2
+        with:
+          organization-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
+          project-slug: zentro
+          signing-policy-slug: zentro-001
+          artifact-configuration-slug: initial-version
+          artifact-path: artifact.zip
+          description: "Release ${{ github.ref_name }}"
+
+      - name: Download signed artifact
+        if: matrix.os == 'windows-latest'
+        uses: SignPath/github-action-download-signed-artifact@v1
+        with:
+          organization-token: ${{ secrets.SIGNPATH_ORG_TOKEN }}
+          project-slug: zentro
+          signing-request-id: ${{ steps.sign_request.outputs.signing-request-id }}
+          output-directory: signed-artifact
+
+      - name: Extract signed artifact
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # The downloaded artifact is a ZIP containing the signed executable
+          Get-ChildItem -Path signed-artifact/*.zip | Expand-Archive -DestinationPath . -Force
+          # Ensure the file exists and is the one we want for the release step
+          ls zentro-v${{ steps.get_version.outputs.version }}-windows-amd64.exe
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
