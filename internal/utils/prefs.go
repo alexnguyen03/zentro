@@ -24,6 +24,7 @@ type Preferences struct {
 	QueryTimeout   int    `json:"query_timeout"`   // seconds, default 60
 	ConnectTimeout int    `json:"connect_timeout"` // seconds, default 10
 	SchemaTimeout  int    `json:"schema_timeout"`  // seconds, default 15
+	AutoCheckUpdates bool `json:"auto_check_updates"` // default true
 }
 
 // config is the root JSON structure written to disk.
@@ -180,6 +181,7 @@ func defaultConfig() *config {
 			QueryTimeout:   60,
 			ConnectTimeout: 10,
 			SchemaTimeout:  15,
+			AutoCheckUpdates: true,
 		},
 		Connections: []*models.ConnectionProfile{},
 	}

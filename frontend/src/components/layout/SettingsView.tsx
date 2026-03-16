@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings as SettingsIcon, Laptop, Bell, Database, Globe, Search as SearchIcon, Keyboard } from 'lucide-react';
+import { Settings as SettingsIcon, Laptop, Bell, Database, Globe, Search as SearchIcon, Keyboard, Gift } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { utils } from '../../../wailsjs/go/models';
@@ -279,6 +279,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                                 <option value="en">English (United States)</option>
                                             </select>
                                             <span className={hintClass}>Zentro is currently optimized for English.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Updates */}
+                            {matchesSearch("Updates", ["Auto-Check For Updates"]) && (
+                                <div className={sectionClass}>
+                                    <div className={sectionInfoClass}>
+                                        <div className="flex items-center gap-2.5 text-accent mb-1">
+                                            <Gift size={18} strokeWidth={2.5} />
+                                            <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Updates</h2>
+                                        </div>
+                                        <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                                            Keep Zentro up to date with the latest features.
+                                        </p>
+                                    </div>
+                                    <div className={sectionContentClass}>
+                                        <div className="flex items-center justify-between p-4 rounded-2xl bg-bg-tertiary/20 border border-border/5">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[13px] font-bold text-text-primary">Auto-Check For Updates</span>
+                                                <span className="text-[11px] text-text-muted">Automatically notify when a new version is available.</span>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="sr-only peer" 
+                                                    checked={useSettingsStore.getState().autoCheckUpdates}
+                                                    onChange={(e) => {
+                                                        const { theme, fontSize, defaultLimit, connectTimeout, queryTimeout, save } = useSettingsStore.getState();
+                                                        save(new utils.Preferences({
+                                                            theme,
+                                                            font_size: fontSize,
+                                                            default_limit: defaultLimit,
+                                                            connect_timeout: connectTimeout,
+                                                            query_timeout: queryTimeout,
+                                                            toast_placement: useSettingsStore.getState().toastPlacement,
+                                                            auto_check_updates: e.target.checked
+                                                        }));
+                                                    }}
+                                                />
+                                                <div className="w-9 h-5 bg-bg-tertiary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-muted after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-success peer-checked:after:bg-white"></div>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>

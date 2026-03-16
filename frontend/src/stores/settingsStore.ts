@@ -12,6 +12,7 @@ interface SettingsState {
     toastPlacement: ToastPlacement;
     connectTimeout: number;
     queryTimeout: number;
+    autoCheckUpdates: boolean;
 
     load: () => Promise<void>;
     save: (prefs: utils.Preferences) => Promise<void>;
@@ -26,6 +27,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     toastPlacement: 'bottom-left',
     connectTimeout: 10,
     queryTimeout: 60,
+    autoCheckUpdates: true,
 
     load: async () => {
         try {
@@ -37,6 +39,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 toastPlacement: (prefs.toast_placement as ToastPlacement) || 'bottom-left',
                 connectTimeout: prefs.connect_timeout || 10,
                 queryTimeout: prefs.query_timeout || 60,
+                autoCheckUpdates: prefs.auto_check_updates !== false,
             });
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme || 'system');
@@ -55,6 +58,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 toastPlacement: prefs.toast_placement as ToastPlacement,
                 connectTimeout: prefs.connect_timeout,
                 queryTimeout: prefs.query_timeout,
+                autoCheckUpdates: prefs.auto_check_updates,
             });
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme);
@@ -77,7 +81,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 default_limit: state.defaultLimit,
                 toast_placement: state.toastPlacement,
                 connect_timeout: state.connectTimeout,
-                query_timeout: state.queryTimeout
+                query_timeout: state.queryTimeout,
+                auto_check_updates: state.autoCheckUpdates
             });
             SetPreferences(prefs).catch(err => console.error('Failed to auto-save font size:', err));
         }, 1000);

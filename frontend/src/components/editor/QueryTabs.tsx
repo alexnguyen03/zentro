@@ -9,7 +9,7 @@ import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
-import { DOM_EVENT } from '../../lib/constants';
+import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import {
     DndContext,
     DragEndEvent,
@@ -35,7 +35,7 @@ export const QueryTabs: React.FC = () => {
     const globalActiveTabId = globalActiveGroup?.activeTabId;
     const globalActiveTab = globalActiveGroup?.tabs.find(t => t.id === globalActiveTabId);
     const globalActiveResult = globalActiveTabId ? results[globalActiveTabId] : undefined;
-    const activeTabIsQuery = globalActiveTab?.type === 'query';
+    const activeTabIsQuery = globalActiveTab?.type === TAB_TYPE.QUERY;
 
     const handleRunGlobal = React.useCallback(async () => {
         if (!globalActiveTab || !isConnected) return;
@@ -246,7 +246,11 @@ export const QueryTabs: React.FC = () => {
                         </Allotment>
                     </Allotment.Pane>
 
-                    <Allotment.Pane preferredSize="35%" minSize={100} visible={showResultPanel && activeTabIsQuery}>
+                    <Allotment.Pane 
+                        preferredSize="35%" 
+                        minSize={100} 
+                        visible={showResultPanel && activeTabIsQuery}
+                    >
                         <div className="h-full border-t border-border">
                             <ResultPanel
                                 tabId={globalActiveTabId ?? ''}

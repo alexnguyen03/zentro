@@ -32,11 +32,12 @@ type App struct {
 
 	forceQuit bool
 
-	conn    *ConnectionService
-	query   *QueryService
-	history *HistoryService
-	scripts *ScriptService
+	conn      *ConnectionService
+	query     *QueryService
+	history   *HistoryService
+	scripts   *ScriptService
 	templates *TemplateService
+	update    *UpdateService
 }
 
 func NewApp() *App {
@@ -68,6 +69,7 @@ func NewApp() *App {
 
 	a.scripts = NewScriptService(nil)
 	a.templates = NewTemplateService()
+	a.update = NewUpdateService("alexnguyen03/zentro")
 
 	return a
 }
@@ -196,4 +198,17 @@ func (a *App) SetPreferences(p utils.Preferences) error {
 
 func (a *App) ExportCSV(columns []string, rows [][]string) (string, error) {
 	return exportCSV(a.ctx, columns, rows)
+}
+
+// ── Updates ────────────────────────────────────────────────────────────────
+
+// Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0'"
+var Version = "v0.2.0-dev"
+
+func (a *App) GetCurrentVersion() string {
+	return Version
+}
+
+func (a *App) CheckForUpdates() (*UpdateInfo, error) {
+	return a.update.CheckForUpdates(a.GetCurrentVersion())
 }

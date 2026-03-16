@@ -23,6 +23,7 @@ import { useToast } from './components/layout/Toast';
 import { EventsOn, WindowReloadApp } from '../wailsjs/runtime/runtime';
 import { ForceQuit, Connect } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
+import { TAB_TYPE } from './lib/constants';
 import { CommandPalette } from './components/layout/CommandPalette';
 
 function App() {
@@ -38,14 +39,14 @@ function App() {
         const off = EventsOn('app:before-close', () => {
             const running = useEditorStore.getState().groups.some(g => g.tabs.some(t => t.isRunning));
             if (!running) {
-                ForceQuit().catch(() => {});
+                ForceQuit().catch(() => { });
                 return;
             }
             const ok = window.confirm(
                 'One or more queries are still running.\nStop them and close anyway?'
             );
             if (ok) {
-                ForceQuit().catch(() => {});
+                ForceQuit().catch(() => { });
             }
         });
         return () => { if (typeof off === 'function') off(); };
@@ -105,8 +106,8 @@ function App() {
                 toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
             }),
             onQueryStarted(({ tabID, query }) => {
-                setTabRunning(tabID, true);
-                initTab(tabID);
+                useEditorStore.getState().setTabRunning(tabID, true);
+                useResultStore.getState().initTab(tabID);
                 // Automatically show result panel if hidden
                 useLayoutStore.getState().setShowResultPanel(true);
                 // Store the original query for tooltip/filter — skip filter-wrapped queries
@@ -116,19 +117,20 @@ function App() {
                 }
             }),
             onQueryChunk(({ tabID, columns, rows, tableName, primaryKeys }) => {
-                appendRows(tabID, columns, rows, tableName, primaryKeys);
+                useResultStore.getState().appendRows(tabID, columns, rows, tableName, primaryKeys);
             }),
             onQueryDone(({ tabID, affected, duration, isSelect, hasMore, error }) => {
-                setTabRunning(tabID, false);
-                setDone(tabID, affected, duration, isSelect, hasMore, error);
+                useEditorStore.getState().setTabRunning(tabID, false);
+                useResultStore.getState().setDone(tabID, affected, duration, isSelect, hasMore, error);
                 if (error) {
                     toast.error(`Query failed: ${error}`);
                 }
-                // Update status bar row count from finished result
+                // Use getState() to get fresh results to avoid stale closure issues in prod
+                const currentResults = useResultStore.getState().results;
                 const rowCount = isSelect
-                    ? (results[tabID]?.rows.length ?? affected)
+                    ? (currentResults[tabID]?.rows.length ?? affected)
                     : affected;
-                setQueryStats(Number(rowCount), duration);
+                useStatusStore.getState().setQueryStats(Number(rowCount), duration);
             }),
         ];
         return () => subs.forEach(unsub => unsub());
@@ -215,13 +217,13 @@ function App() {
             // Ctrl + J: Toggle Result Panel
             if (mod && !e.altKey && e.key.toLowerCase() === 'j') {
                 e.preventDefault();
-                
+
                 // Only toggle if the active tab is a query tab
                 const editorState = useEditorStore.getState();
                 const activeGroup = editorState.groups.find(g => g.id === editorState.activeGroupId);
                 const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
-                
-                if (activeTab?.type === 'query') {
+
+                if (activeTab?.type === TAB_TYPE.QUERY) {
                     toggleResultPanel();
                 }
                 return;
@@ -253,8 +255,8 @@ function App() {
                                 <h3 className="m-0 text-sm font-semibold text-text-primary">No active connection</h3>
                                 <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
                                 {activeProfile && (
-                                    <button 
-                                        onClick={() => Connect(activeProfile.name).catch(() => {})}
+                                    <button
+                                        onClick={() => Connect(activeProfile.name).catch(() => { })}
                                         className="mt-2 px-4 py-2 bg-success text-white text-xs font-bold rounded-lg hover:bg-success/90 transition-all active:scale-95 shadow-lg shadow-success/20"
                                     >
                                         Reconnect to {activeProfile.name}

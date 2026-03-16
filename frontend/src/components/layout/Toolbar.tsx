@@ -9,6 +9,8 @@ import { ExecuteQuery, CancelQuery, Connect, Reconnect } from '../../../wailsjs/
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
 import { AboutModal } from './AboutModal';
+import { UpdateModal } from './UpdateModal';
+import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
@@ -22,6 +24,9 @@ export const Toolbar: React.FC = () => {
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
+    const [updateModalOpen, setUpdateModalOpen] = useState(false);
+
+    const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
 
     const activeGroup = groups.find(g => g.id === activeGroupId);
     const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
@@ -67,11 +72,14 @@ export const Toolbar: React.FC = () => {
             {/* Left */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div
-                    className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity"
-                    title="About Zentro"
-                    onClick={() => setAboutOpen(true)}
+                    className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative"
+                    title={hasUpdate ? "New version available!" : "About Zentro"}
+                    onClick={() => hasUpdate ? setUpdateModalOpen(true) : setAboutOpen(true)}
                 >
                     <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
+                    {hasUpdate && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success rounded-full border border-bg-secondary animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                    )}
                 </div>
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
                     <Lock size={14} />
@@ -248,6 +256,19 @@ export const Toolbar: React.FC = () => {
             {/* Overlays */}
             {aboutOpen && (
                 <AboutModal onClose={() => setAboutOpen(false)} />
+            )}
+            
+            {updateModalOpen && updateInfo && (
+                <UpdateModal 
+                    latestVersion={updateInfo.latest_version}
+                    changelog={updateInfo.changelog}
+                    releaseUrl={updateInfo.release_url}
+                    onClose={() => setUpdateModalOpen(false)}
+                    onDismiss={() => {
+                        dismiss();
+                        setUpdateModalOpen(false);
+                    }}
+                />
             )}
         </div>
     );

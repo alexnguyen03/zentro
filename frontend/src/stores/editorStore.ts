@@ -335,15 +335,24 @@ export const useEditorStore = create<EditorState>()(
                 if (error) {
                     console.error('Failed to hydrate editor session', error);
                 } else if (state) {
+                    // Fix: Ensure all tabs have a type (migration for older sessions)
+                    state.groups?.forEach(g => {
+                        g.tabs?.forEach(t => {
+                            if (!t.type) t.type = TAB_TYPE.QUERY;
+                        });
+                    });
+
                     if (!state.groups || state.groups.length === 0) {
-                        const newTab = { id: crypto.randomUUID(), name: 'New Query', query: '', isRunning: false };
-                        state.groups = [{ id: 'group-1', tabs: [newTab], activeTabId: newTab.id }];
+                        const newId = crypto.randomUUID();
+                        const newTab: Tab = { id: newId, name: 'New Query', query: '', isRunning: false, type: TAB_TYPE.QUERY };
+                        state.groups = [{ id: 'group-1', tabs: [newTab], activeTabId: newId }];
                         state.activeGroupId = 'group-1';
                     } else if (state.groups.every(g => g.tabs.length === 0)) {
                         const g = state.groups[0];
-                        const newTab = { id: crypto.randomUUID(), name: 'New Query', query: '', isRunning: false };
+                        const newId = crypto.randomUUID();
+                        const newTab: Tab = { id: newId, name: 'New Query', query: '', isRunning: false, type: TAB_TYPE.QUERY };
                         g.tabs.push(newTab);
-                        g.activeTabId = newTab.id;
+                        g.activeTabId = newId;
                     }
                 }
             }
