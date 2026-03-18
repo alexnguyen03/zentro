@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export interface TabResult {
     columns: string[];
+    columnTypes?: string[];
     rows: string[][];
     isDone: boolean;
     affected: number;

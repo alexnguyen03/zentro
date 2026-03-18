@@ -4,6 +4,44 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces, RefreshCcw } from 'lucide-react';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
+import { JsonViewer } from '../viewers/JsonViewer';
+
+// JSON type column name patterns
+const JSON_COLUMN_PATTERNS = [
+    /json/i,
+    /data/i,
+    /config/i,
+    /settings/i,
+    /metadata/i,
+    /payload/i,
+    /attributes/i,
+    /properties/i,
+    /options/i,
+    /extra/i,
+    /content/i,
+    /details/i,
+];
+
+// Detect if a column is likely JSON based on name
+const isJsonColumn = (colName: string, colType?: string): boolean => {
+    if (colType) {
+        const lowerType = colType.toLowerCase();
+        if (lowerType.includes('json') || lowerType.includes('jsonb')) {
+            return true;
+        }
+    }
+    return JSON_COLUMN_PATTERNS.some(pattern => pattern.test(colName));
+};
+
+// Detect if a value is valid JSON
+const isJsonValue = (val: string): boolean => {
+    if (!val || typeof val !== 'string') return false;
+    const trimmed = val.trim();
+    if (trimmed.startsWith('data:image/')) return false;
+    if (/^[A-Za-z0-9+/=]{20,}$/.test(trimmed)) return false;
+    return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'));
+};
 
 export const RowDetailSidebar: React.FC = () => {
     const { detail, clearDetail } = useRowDetailStore();
@@ -142,7 +180,24 @@ export const RowDetailSidebar: React.FC = () => {
 
     if (!detail) return EmptyState;
 
-    const { columns, row, tableName, primaryKeys, onSave } = detail;
+    const { columns, columnTypes, row, tableName, primaryKeys, onSave } = detail;
+
+    // Auto-detect which columns are JSON (simple function, not useMemo to avoid hook issues)
+    const getJsonColumnIndices = () => {
+        const indices = new Set<number>();
+        columns.forEach((col, idx) => {
+            const colType = columnTypes?.[idx];
+            if (isJsonColumn(col, colType)) {
+                indices.add(idx);
+            } else {
+                const val = row[idx];
+                if (isJsonValue(val)) {
+                    indices.add(idx);
+                }
+            }
+        });
+        return indices;
+    };
 
     return (
         <>
@@ -198,10 +253,10 @@ export const RowDetailSidebar: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-1 flex flex-col gap-1.25">
+                <div className="flex-1 overflow-hidden p-1">
                     {viewMode === 'json' ? (
-                        <div className="h-full bg-bg-primary border border-border rounded p-1 overflow-auto">
-                            <pre className="m-0 text-xs font-mono text-text-primary whitespace-pre-wrap break-all">{JSON.stringify(getJsonData(), null, 2)}</pre>
+                        <div className="h-full overflow-hidden">
+                            <JsonViewer value={JSON.stringify(getJsonData(), null, 2)} />
                         </div>
                     ) : (
                         columns.map((col, idx) => {
@@ -209,6 +264,8 @@ export const RowDetailSidebar: React.FC = () => {
                             const isNull = val === null || val === undefined;
                             const isPK = primaryKeys?.includes(col) ?? false;
                             const displayVal = isNull ? 'null' : (val === '' ? '' : String(val));
+                            const jsonColumnIndices = getJsonColumnIndices();
+                            const isJsonField = jsonColumnIndices.has(idx);
 
                             return (
                                 <RowDetailField
@@ -223,6 +280,7 @@ export const RowDetailSidebar: React.FC = () => {
                                     isSelectMode={isSelectMode}
                                     isSelected={selectedFields.has(col)}
                                     onToggleSelect={() => toggleFieldSelection(col)}
+                                    isJsonField={isJsonField}
                                 />
                             );
                         })
@@ -244,11 +302,12 @@ interface RowDetailFieldProps {
     isSelectMode: boolean;
     isSelected: boolean;
     onToggleSelect: () => void;
+    isJsonField?: boolean;
 }
 
 const RowDetailField: React.FC<RowDetailFieldProps> = ({
     col, val, isNull, isPK, colIdx, onCopy, onSave,
-    isSelectMode, isSelected, onToggleSelect
+    isSelectMode, isSelected, onToggleSelect, isJsonField
 }) => {
     const [editVal, setEditVal] = useState(val);
     const [isDirty, setIsDirty] = useState(false);
@@ -310,26 +369,30 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     className="bg-transparent border-none text-text-muted cursor-pointer p-0.5 rounded-[3px] opacity-0 transition-opacity duration-200 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-0 disabled:cursor-default"
                     onClick={onCopy}
                     title="Copy value"
-                    disabled={isNull}
+                    disabled={isNull || isJsonField}
                 >
                     <Copy size={11} />
                 </button>
             </div>
-            {isPK ? (
+            {isPK || isJsonField ? (
                 <div className={cn(
-                    "bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] cursor-default opacity-85 select-text",
-                    isNull && "text-text-muted italic bg-bg-tertiary"
+                    "bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] cursor-default opacity-85 select-text overflow-auto",
+                    isNull && "text-text-muted italic bg-bg-tertiary",
+                    isJsonField && "max-h-[200px]"
                 )}
-                    onClick={isSelectMode ? onToggleSelect : undefined}
-                    style={{ cursor: isSelectMode ? 'pointer' : 'default' }}>
-                    {isNull ? 'null' : val}
+                    style={{
+                        cursor: isSelectMode ? 'pointer' : 'default',
+                    }}>
+                    {isNull ? 'null' : isJsonField ? (
+                        <JsonViewer value={val} showCopy={true} height="180px" useMonaco={true} />
+                    ) : val}
                 </div>
             ) : (
                 <textarea
                     className={cn(
                         "bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] w-full box-border resize-y cursor-text outline-none leading-normal transition-all duration-150 focus:border-[#7c6af7] focus:shadow-[0_0_0_2px_rgba(124,106,247,0.2)] disabled:opacity-70 disabled:cursor-default disabled:resize-none",
                         isNull && "text-text-muted italic bg-bg-tertiary",
-                        isDirty && "!border-warning"
+                        isDirty && "border-warning!"
                     )}
                     value={editVal}
                     onChange={(e) => handleChange(e.target.value)}

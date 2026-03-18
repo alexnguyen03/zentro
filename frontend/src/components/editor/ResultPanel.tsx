@@ -6,7 +6,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { ResultTable } from './ResultTable';
 import { ResultFilterBar } from './ResultFilterBar';
-import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync } from '../../../wailsjs/go/app/App';
+import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync, ExportJSON, ExportSQLInsert } from '../../../wailsjs/go/app/App';
 import { utils } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import { Modal } from '../layout/Modal';
@@ -61,6 +61,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
     const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
     const [deletedRows, setDeletedRows] = React.useState<Set<number>>(() => result?.pendingDeletions ? new Set(result.pendingDeletions) : new Set());
     const [showSaveModal, setShowSaveModal] = React.useState(false);
+    const [showExportMenu, setShowExportMenu] = React.useState(false);
+    const [showTableNameInput, setShowTableNameInput] = React.useState(false);
+    const [tableNameForExport, setTableNameForExport] = React.useState('');
     const containerRef = React.useRef<HTMLDivElement>(null);
 
     const { openDetail } = useRowDetailStore();
@@ -288,6 +291,45 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         if (!result.columns || !result.rows) return;
         try {
             const path = await ExportCSV(result.columns, result.rows);
+            if (path) {
+                toast.success(`Exported to: ${path}`);
+                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+            }
+        } catch (err) {
+            toast.error(`Export failed: ${err}`);
+            useStatusStore.getState().setMessage(`Export failed: ${err}`);
+            console.error('Export failed:', err);
+        }
+    };
+
+    const handleExportJSON = async () => {
+        if (!result.columns || !result.rows) return;
+        setShowExportMenu(false);
+        try {
+            const path = await ExportJSON(result.columns, result.rows);
+            if (path) {
+                toast.success(`Exported to: ${path}`);
+                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+            }
+        } catch (err) {
+            toast.error(`Export failed: ${err}`);
+            useStatusStore.getState().setMessage(`Export failed: ${err}`);
+            console.error('Export failed:', err);
+        }
+    };
+
+    const handleExportSQLClick = () => {
+        setShowExportMenu(false);
+        setShowTableNameInput(true);
+    };
+
+    const handleExportSQLConfirm = async () => {
+        if (!result.columns || !result.rows) return;
+        const tableName = tableNameForExport.trim() || result.tableName || 'my_table';
+        setShowTableNameInput(false);
+        setTableNameForExport('');
+        try {
+            const path = await ExportSQLInsert(result.columns, result.rows, tableName);
             if (path) {
                 toast.success(`Exported to: ${path}`);
                 useStatusStore.getState().setMessage(`Exported to: ${path}`);
@@ -554,10 +596,41 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                     )}
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={handleExport} title="Export as CSV">
-                        <Download size={13} />
-                        <span>Export</span>
-                    </button>
+                    <div className="relative" ref={containerRef}>
+                        <button 
+                            className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" 
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            title="Export"
+                        >
+                            <Download size={13} />
+                            <span>Export</span>
+                        </button>
+                        {showExportMenu && (
+                            <div className="absolute right-0 top-full mt-1 bg-bg-primary border border-border rounded-md shadow-lg py-1 z-50 min-w-[160px]">
+                                <button
+                                    className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2"
+                                    onClick={handleExport}
+                                >
+                                    <span className="w-4">📄</span>
+                                    CSV
+                                </button>
+                                <button
+                                    className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2"
+                                    onClick={handleExportJSON}
+                                >
+                                    <span className="w-4">📋</span>
+                                    JSON
+                                </button>
+                                <button
+                                    className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2"
+                                    onClick={handleExportSQLClick}
+                                >
+                                    <span className="w-4">💾</span>
+                                    SQL INSERT
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -598,6 +671,40 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                     <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-lg font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
                         {generateUpdateScript()}
                     </div>
+                </div>
+            </Modal>
+
+            {/* SQL Export Table Name Modal */}
+            <Modal
+                isOpen={showTableNameInput}
+                onClose={() => { setShowTableNameInput(false); setTableNameForExport(''); }}
+                title="Export as SQL INSERT"
+                width={400}
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={() => { setShowTableNameInput(false); setTableNameForExport(''); }}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleExportSQLConfirm} autoFocus>
+                            Export
+                        </Button>
+                    </>
+                }
+            >
+                <div className="py-2">
+                    <label className="block text-[12px] text-text-secondary mb-1.5">Table Name</label>
+                    <input
+                        type="text"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                        placeholder={result?.tableName || 'my_table'}
+                        value={tableNameForExport}
+                        onChange={(e) => setTableNameForExport(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleExportSQLConfirm()}
+                        autoFocus
+                    />
+                    <p className="text-[11px] text-text-muted mt-2">
+                        Leave empty to use "{result?.tableName || 'my_table'}"
+                    </p>
                 </div>
             </Modal>
         </div>

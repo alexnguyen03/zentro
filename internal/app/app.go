@@ -184,7 +184,7 @@ func (a *App) ClearHistory() error               { return a.history.ClearHistory
 
 func (a *App) LoadTemplates() ([]models.Template, error) { return a.templates.LoadTemplates() }
 func (a *App) SaveTemplate(t models.Template) error      { return a.templates.SaveTemplate(t) }
-func (a *App) DeleteTemplate(id string) error           { return a.templates.DeleteTemplate(id) }
+func (a *App) DeleteTemplate(id string) error            { return a.templates.DeleteTemplate(id) }
 
 // ── Preferences ────────────────────────────────────────────────────────────
 
@@ -198,6 +198,14 @@ func (a *App) SetPreferences(p utils.Preferences) error {
 
 func (a *App) ExportCSV(columns []string, rows [][]string) (string, error) {
 	return exportCSV(a.ctx, columns, rows)
+}
+
+func (a *App) ExportJSON(columns []string, rows [][]string) (string, error) {
+	return exportJSON(a.ctx, columns, rows)
+}
+
+func (a *App) ExportSQLInsert(columns []string, rows [][]string, tableName string) (string, error) {
+	return exportSQLInsert(a.ctx, columns, rows, tableName)
 }
 
 // ── Updates ────────────────────────────────────────────────────────────────

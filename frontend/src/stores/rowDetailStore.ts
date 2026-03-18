@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export interface RowDetail {
     columns: string[];
+    columnTypes?: string[];
     row: string[];
     tableName?: string;
     primaryKeys?: string[];
