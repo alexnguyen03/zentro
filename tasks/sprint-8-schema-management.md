@@ -2,7 +2,7 @@
 sprint: S8
 title: Schema Management
 weeks: 3-4
-status: Todo
+status: Done
 depends_on: S7
 ---
 
@@ -16,11 +16,11 @@ depends_on: S7
 
 **File**: `internal/app/schema_service.go` (new)
 
-- [ ] Add `GetTableDDL(connectionID, schema, tableName string) (string, error)`
-- [ ] Implement for PostgreSQL: query `pg_get_tabledef` or reconstruct from information_schema
-- [ ] Implement for MSSQL: use `sp_helptext` or build from information_schema
-- [ ] Implement for MySQL: use `SHOW CREATE TABLE`
-- [ ] Implement for SQLite: use `sqlite_master` and pragma
+- [x] Add `GetTableDDL(connectionID, schema, tableName string) (string, error)`
+- [x] Implement for PostgreSQL: query `pg_get_tabledef` or reconstruct from information_schema
+- [x] Implement for MSSQL: use `sp_helptext` or build from information_schema
+- [x] Implement for MySQL: use `SHOW CREATE TABLE`
+- [x] Implement for SQLite: use `sqlite_master` and pragma
 
 **Done when**: Backend returns CREATE TABLE script.
 
@@ -31,12 +31,14 @@ depends_on: S7
 **File**: `frontend/src/components/sidebar/SchemaContextMenu.tsx`  
 **File**: `frontend/src/components/modals/DDLModal.tsx`
 
-- [ ] Add "View DDL" option in table context menu
-- [ ] Create modal to display DDL script
-- [ ] Add copy to clipboard button
-- [ ] Add syntax highlighting for DDL (reuse Monaco or highlight.js)
+- [x] Add "View DDL" option in table context menu
+- [x] Create modal to display DDL script
+- [x] Add copy to clipboard button
+- [x] Add syntax highlighting for DDL (lightweight tokenizer in `src/lib/sqlHighlight.ts`)
 
 **Done when**: Right-click table → View DDL shows CREATE script.
+
+> Note: Context menu is inline in `ConnectionTree.tsx → CategoryNode`. Highlight uses a custom tokenizer (no Monaco/highlight.js dependency).
 
 ---
 
@@ -44,10 +46,10 @@ depends_on: S7
 
 **File**: `internal/app/schema_service.go`
 
-- [ ] Add `CreateTable(connectionID, schema, tableName string, columns []ColumnDef) error`
-- [ ] Validate column names and types
-- [ ] Generate proper DDL for each database
-- [ ] Return success or descriptive error
+- [x] Add `CreateTable(connectionID, schema, tableName string, columns []ColumnDef) error`
+- [x] Validate column names and types
+- [x] Generate proper DDL for each database
+- [x] Return success or descriptive error
 
 **Done when**: Backend can execute CREATE TABLE.
 
@@ -57,11 +59,11 @@ depends_on: S7
 
 **File**: `frontend/src/components/modals/CreateTableModal.tsx`
 
-- [ ] Create form with table name input
-- [ ] Dynamic column list: add/remove columns
-- [ ] Column inputs: name, type (dropdown), nullable checkbox, primary key checkbox
-- [ ] Support for common types: INT, VARCHAR, TEXT, BOOLEAN, DATE, TIMESTAMP, DECIMAL, JSON
-- [ ] Validation before submit
+- [x] Create form with table name input
+- [x] Dynamic column list: add/remove columns
+- [x] Column inputs: name, type (dropdown), nullable checkbox, primary key checkbox
+- [x] Support for common types: INT, VARCHAR, TEXT, BOOLEAN, DATE, TIMESTAMP, DECIMAL, JSON
+- [x] Validation before submit
 
 **Done when**: User can visually create a new table.
 
@@ -71,9 +73,9 @@ depends_on: S7
 
 **File**: `frontend/src/components/sidebar/ConnectionTree.tsx`
 
-- [ ] Add "New Table" button in schema node
-- [ ] Open CreateTableModal on click
-- [ ] Refresh schema tree after successful creation
+- [x] Add "New Table" button in schema node
+- [x] Open CreateTableModal on click
+- [x] Refresh schema tree after successful creation
 
 **Done when**: New table appears in sidebar after creation.
 
@@ -83,9 +85,9 @@ depends_on: S7
 
 **File**: `internal/app/schema_service.go`
 
-- [ ] Add `DropObject(connectionID, schema, objectName, objectType string) error`
-- [ ] objectType: "TABLE", "VIEW", "INDEX"
-- [ ] Add safety: require confirmation in UI first
+- [x] Add `DropObject(connectionID, schema, objectName, objectType string) error`
+- [x] objectType: "TABLE", "VIEW", "INDEX"
+- [x] Add safety: require confirmation in UI first
 
 **Done when**: Backend executes DROP statement.
 
@@ -95,9 +97,9 @@ depends_on: S7
 
 **File**: `frontend/src/components/sidebar/SchemaContextMenu.tsx`
 
-- [ ] Add "Drop Table" / "Drop View" in context menu
-- [ ] Show confirmation dialog with object name
-- [ ] Execute drop and refresh schema tree
+- [x] Add "Drop Table" / "Drop View" in context menu
+- [x] Show confirmation dialog with object name
+- [x] Execute drop and refresh schema tree
 
 **Done when**: Right-click → Drop removes object after confirmation.
 
@@ -107,9 +109,9 @@ depends_on: S7
 
 **File**: `internal/app/schema_service.go`
 
-- [ ] Add `CreateIndex(connectionID, schema, tableName, indexName string, columns []string, unique bool) error`
-- [ ] Add `DropIndex(connectionID, schema, indexName) error`
-- [ ] Add `GetIndexes(connectionID, schema, tableName) ([]IndexInfo, error)`
+- [x] Add `CreateIndex(connectionID, schema, tableName, indexName string, columns []string, unique bool) error`
+- [x] Add `DropIndex(connectionID, schema, indexName) error`
+- [x] Add `GetIndexes(connectionID, schema, tableName) ([]IndexInfo, error)`
 
 **Done when**: Backend can manage indexes.
 
@@ -119,12 +121,14 @@ depends_on: S7
 
 **File**: `frontend/src/components/sidebar/TableDetails.tsx`
 
-- [ ] Show indexes section in table details
-- [ ] Add "Create Index" button
-- [ ] Add "Drop Index" in index context menu
-- [ ] Form: index name, columns selection, unique checkbox
+- [x] Show indexes section in table details
+- [x] Add "Create Index" button
+- [x] Add "Drop Index" in index context menu
+- [x] Form: index name, columns selection, unique checkbox
 
 **Done when**: User can create/drop indexes from sidebar.
+
+> Note: Implemented as `IndexModal.tsx` accessible via right-click → "Manage Indexes" context menu. Full CRUD for indexes.
 
 ---
 
@@ -135,9 +139,9 @@ go build ./...
 cd frontend && npm run build
 ```
 
-- [ ] Right-click table → View DDL shows correct CREATE script
-- [ ] New Table button opens form, can create table
-- [ ] New table appears in sidebar after creation
-- [ ] Right-click table → Drop removes table after confirmation
-- [ ] Indexes section shows in table details
-- [ ] Can create and drop indexes
+- [x] Right-click table → View DDL shows correct CREATE script
+- [x] New Table button opens form, can create table
+- [x] New table appears in sidebar after creation
+- [x] Right-click table → Drop removes table after confirmation
+- [x] Indexes section shows in table details
+- [x] Can create and drop indexes
