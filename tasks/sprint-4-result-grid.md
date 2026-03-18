@@ -29,7 +29,7 @@ depends_on: S3
 - [ ] Unit test cover tất cả cases trên
 - [ ] Export function (uppercase) vì dùng từ package `ui`
 
-**Done khi**: unit test pass.
+**Done when**: unit test pass.
 
 ---
 
@@ -81,7 +81,7 @@ depends_on: S3
 - [ ] `Clear()`: reset all → `r.table.Refresh()`
 - [ ] `GetEditedCells() map[widget.TableCellID]string`: return copy của `r.edited`
 
-**Done khi**: `go build ./internal/ui/result/...` pass.
+**Done when**: `go build ./internal/ui/result/...` pass.
 
 ---
 
@@ -105,7 +105,7 @@ depends_on: S3
 
 - [ ] Note về multiple selection UX: Fyne `OnSelected` chỉ trigger một cell tại một thời điểm. User click nhiều cell → mỗi click add vào map → accumulate. Không có Shift+click tự động → cần document hành vi này cho user.
 
-**Done khi**: click cells thêm vào selection, click lại removes.
+**Done when**: click cells thêm vào selection, click lại removes.
 
 ---
 
@@ -136,7 +136,7 @@ depends_on: S3
   - Ngược lại: `handleCellTap(id)`
   - Update `lastTappedID = id; lastTapTime = time.Now()`
 
-**Done khi**: double-click mở dialog, single click select, batch confirm hoạt động.
+**Done when**: double-click mở dialog, single click select, batch confirm hoạt động.
 
 ---
 
@@ -168,7 +168,7 @@ depends_on: S3
   - Nếu `len(r.data) <= r.pageSize`: return `r.table`
   - Ngược lại: return `container.NewBorder(nil, r.buildPaginationControls(), nil, nil, r.table)`
 
-**Done khi**: dataset > 500 rows hiển thị pagination controls, Prev/Next đúng.
+**Done when**: dataset > 500 rows hiển thị pagination controls, Prev/Next đúng.
 
 ---
 
@@ -191,7 +191,7 @@ depends_on: S3
 - [ ] Thêm ref `ResultTable` vào `TabState` hoặc dùng shared `AppState.ResultTable` (shared là đủ cho MVP — chỉ 1 result view tại một thời điểm)
 - [ ] Update `AppState.OnQueryFinished`: enable "Export CSV" nếu có result rows
 
-**Done khi**: kết quả query hiển thị dưới dạng widget.Table đúng.
+**Done when**: kết quả query hiển thị dưới dạng widget.Table đúng.
 
 ---
 
@@ -204,7 +204,7 @@ depends_on: S3
 - [ ] Scroll: widget.Table tự có scroll built-in — verify hoạt động với 100+ columns
 - [ ] Header row: set `table.SetRowHeight(0, 30)` để header cao hơn data rows một chút
 
-**Done khi**: table có visual phân biệt header vs data, scroll hoạt động.
+**Done when**: table có visual phân biệt header vs data, scroll hoạt động.
 
 ---
 

@@ -25,7 +25,7 @@ depends_on: S5
   - Content: logo Zentro hoặc placeholder icon đơn giản
 - [ ] Verify file tồn tại: `assets/icon.png`
 
-**Done khi**: file icon PNG tồn tại đúng path.
+**Done when**: file icon PNG tồn tại đúng path.
 
 ---
 
@@ -50,7 +50,7 @@ depends_on: S5
 
 - [ ] Verify: `go build ./...` pass (bundled.go được compile cùng)
 
-**Done khi**: icon embed vào binary, không cần file ngoài.
+**Done when**: icon embed vào binary, không cần file ngoài.
 
 ---
 
@@ -80,7 +80,7 @@ depends_on: S5
   - [ ] Size < 30MB: `(Get-Item zentro.exe).Length / 1MB`
   - [ ] Chạy được bằng double-click, không có console window
 
-**Done khi**: `zentro.exe` < 30MB, chạy được, không có console.
+**Done when**: `zentro.exe` < 30MB, chạy được, không có console.
 
 ---
 
@@ -114,7 +114,7 @@ fyne-cross darwin -arch=amd64,arm64 -app-id=io.zentro.app -name=Zentro ./cmd/zen
 - [ ] Binary size < 30MB
 - [ ] Test chạy được trên macOS (nếu có máy)
 
-**Done khi**: binary macOS tồn tại, đúng size.
+**Done when**: binary macOS tồn tại, đúng size.
 
 ---
 
@@ -173,7 +173,7 @@ Write-Host "Size: $sizeMB MB"
 
 - [ ] Size < 30 MB
 
-**Done khi**: tất cả 3 metrics pass.
+**Done when**: tất cả 3 metrics pass.
 
 ---
 
@@ -214,7 +214,7 @@ Test end-to-end trên binary đã build (không phải `go run`):
   - Restart app → vẫn dark mode
   - Settings → Default Limit = 10 → chạy query lớn → chỉ 10 rows
 
-**Done khi**: tất cả test cases pass.
+**Done when**: tất cả test cases pass.
 
 ---
 
@@ -235,7 +235,7 @@ Test end-to-end trên binary đã build (không phải `go run`):
   - Upload `zentro` hoặc `Zentro.app` (macOS)
   - Release notes liệt kê features MVP
 
-**Done khi**: tag v0.1.0 tồn tại trên remote, binaries đính kèm.
+**Done when**: tag v0.1.0 tồn tại trên remote, binaries đính kèm.
 
 ---
 
