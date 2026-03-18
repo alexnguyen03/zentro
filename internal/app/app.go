@@ -220,3 +220,29 @@ func (a *App) GetCurrentVersion() string {
 func (a *App) CheckForUpdates() (*UpdateInfo, error) {
 	return a.update.CheckForUpdates(a.GetCurrentVersion())
 }
+
+// ── Schema ─────────────────────────────────────────────────────────────────
+
+func (a *App) GetTableDDL(profileName, schema, tableName string) (string, error) {
+	return GetTableDDL(profileName, schema, tableName)
+}
+
+func (a *App) DropObject(profileName, schema, objectName, objectType string) error {
+	return DropObject(profileName, schema, objectName, objectType)
+}
+
+func (a *App) CreateIndex(profileName, schema, tableName, indexName string, columns []string, unique bool) error {
+	return CreateIndex(profileName, schema, tableName, indexName, columns, unique)
+}
+
+func (a *App) DropIndex(profileName, schema, indexName string) error {
+	return DropIndex(profileName, schema, indexName)
+}
+
+func (a *App) GetIndexes(profileName, schema, tableName string) ([]IndexInfo, error) {
+	return GetIndexes(profileName, schema, tableName)
+}
+
+func (a *App) CreateTable(profileName, schema, tableName string, columns []models.ColumnDef) error {
+	return CreateTable(profileName, schema, tableName, columns)
+}

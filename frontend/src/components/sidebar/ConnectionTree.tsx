@@ -3,7 +3,7 @@ import {
     ChevronRight, ChevronDown,
     Table2, Link2, Eye, Layers, Hash,
     Zap, List, Type, Sigma,
-    Server, Loader, Search, Trash2
+    Server, Loader, Search, Trash2, FileCode2, Plus
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
@@ -11,6 +11,10 @@ import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/cn';
+import { CreateTableModal } from '../layout/CreateTableModal';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { DropObject } from '../../../wailsjs/go/app/App';
+import { useToast } from '../layout/Toast';
 
 // Extended schema node type matching the Go model
 interface SchemaNodeData {
@@ -161,7 +165,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
                     {schemas && schemas.length > 0 && (
                         <>
                             {(schemas as SchemaNodeData[]).map((schema: SchemaNodeData) => (
-                                <SchemaNode key={schema.Name} schema={schema} filter={filter} />
+                                <SchemaNode key={schema.Name} schema={schema} filter={filter} profileName={profileName} />
                             ))}
                         </>
                     )}
@@ -176,17 +180,19 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
 interface SchemaNodeProps {
     schema: SchemaNodeData;
     filter: string;
+    profileName: string;
 }
 
-const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
+const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName }) => {
     // If filter is active, auto expand, otherwise default to closed (unless it's 'public' or something)
     const [expanded, setExpanded] = useState(schema.Name === 'public' || schema.Name === 'dbo');
+    const [showCreateTable, setShowCreateTable] = useState(false);
 
     useEffect(() => {
         if (filter) setExpanded(true);
     }, [filter]);
 
-    const categories = buildCategories(schema, filter);
+    const categories = buildCategories(schema, filter, profileName);
     const hasItems = categories.some(c => c.items.length > 0);
 
     // If filter is active and schema has no matching items, hide the schema completely
@@ -194,6 +200,11 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
 
     return (
         <div>
+            <CreateTableModal
+                isOpen={showCreateTable}
+                onClose={() => setShowCreateTable(false)}
+                schema={schema.Name}
+            />
             <div
                 className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
@@ -205,12 +216,19 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter }) => {
                 </div>
                 <Layers size={13} className="opacity-80 shrink-0" />
                 <span className="text-xs truncate flex-1">{schema.Name}</span>
+                <button
+                    onClick={(e) => { e.stopPropagation(); setShowCreateTable(true); }}
+                    className="opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary p-0.5 rounded shrink-0"
+                    title="New Table"
+                >
+                    <Plus size={12} />
+                </button>
             </div>
 
             {expanded && (
                 <div className="pl-4">
                     {categories.map(cat => cat.items.length > 0 && (
-                        <CategoryNode key={`${cat.label}-${schema.Name}`} {...cat} schemaName={schema.Name} />
+                        <CategoryNode key={`${cat.label}-${schema.Name}`} {...cat} schemaName={schema.Name} profileName={profileName} />
                     ))}
                 </div>
             )}
@@ -226,14 +244,19 @@ interface CategoryDef {
     items: string[];
     itemIcon: React.ReactNode;
     schemaName?: string;
+    profileName?: string;
 }
 
-const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, schemaName }) => {
+const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, schemaName, profileName }) => {
     const [expanded, setExpanded] = useState(true);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: string } | null>(null);
+    const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: string } | null>(null);
     const { addTab } = useEditorStore();
+    const { activeProfile } = useConnectionStore();
+    const { toast } = useToast();
 
     const handleItemDoubleClick = (item: string) => {
-        if (label === 'Tables' && schemaName) {
+        if ((label === 'Tables' || label === 'Views' || label === 'Materialized Views') && schemaName) {
             addTab({
                 type: 'table',
                 name: `${schemaName}.${item}`,
@@ -243,8 +266,54 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
         }
     };
 
+    const handleContextMenu = (e: React.MouseEvent, item: string) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY, item });
+    };
+
+    const handleDrop = () => {
+        if (contextMenu) {
+            const objectType = label === 'Tables' ? 'TABLE' : label === 'Views' || label === 'Materialized Views' ? 'VIEW' : 'TABLE';
+            setDropModal({ schema: schemaName!, item: contextMenu.item, type: objectType });
+            setContextMenu(null);
+        }
+    };
+
+    const confirmDrop = async () => {
+        if (dropModal && activeProfile?.name) {
+            try {
+                await DropObject(activeProfile.name, dropModal.schema, dropModal.item, dropModal.type);
+                toast.success(`${dropModal.type} "${dropModal.item}" dropped successfully`);
+                if (activeProfile?.name && activeProfile?.db_name) {
+                    await FetchDatabaseSchema(activeProfile.name, activeProfile.db_name);
+                }
+            } catch (err) {
+                toast.error(`Failed to drop: ${err}`);
+            }
+            setDropModal(null);
+        }
+    };
+
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        document.addEventListener('click', handleClick);
+        return () => document.removeEventListener('click', handleClick);
+    }, []);
+
+    const canDrop = label === 'Tables' || label === 'Views' || label === 'Materialized Views';
+
     return (
         <div>
+            <ConfirmationModal
+                isOpen={!!dropModal}
+                onClose={() => setDropModal(null)}
+                onConfirm={confirmDrop}
+                title={`Drop ${dropModal?.type || 'Object'}`}
+                message={`Are you sure you want to drop "${dropModal?.item}"?`}
+                description="This action cannot be undone."
+                confirmLabel="Drop"
+                variant="danger"
+            />
             <div
                 className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
@@ -257,13 +326,14 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
             </div>
 
             {expanded && (
-                <div className="pl-4">
+                <div className="pl-4 relative">
                     {items.map((item, idx) => (
                         <div
                             key={`${label}-${item}-${idx}`}
                             className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                             tabIndex={0}
                             onDoubleClick={() => handleItemDoubleClick(item)}
+                            onContextMenu={(e) => handleContextMenu(e, item)}
                             title={item}
                         >
                             <span className="w-[13px] shrink-0 inline-block" />
@@ -271,6 +341,23 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                             <span className="truncate flex-1">{item}</span>
                         </div>
                     ))}
+                    {contextMenu && (
+                        <div
+                            className="fixed bg-bg-secondary border border-border rounded-md shadow-lg py-1 z-[1000] min-w-[160px]"
+                            style={{ left: contextMenu.x, top: contextMenu.y }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {canDrop && (
+                                <button
+                                    className="w-full px-3 py-1.5 text-left text-[12px] text-error hover:bg-error/10 flex items-center gap-2"
+                                    onClick={handleDrop}
+                                >
+                                    <Trash2 size={14} />
+                                    Drop {label === 'Tables' ? 'Table' : 'View'}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -279,7 +366,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function buildCategories(s: SchemaNodeData, filter: string): CategoryDef[] {
+function buildCategories(s: SchemaNodeData, filter: string, profileName: string): CategoryDef[] {
     const iconSize = 12;
     const iconClass = "opacity-75 shrink-0";
 
@@ -289,14 +376,14 @@ function buildCategories(s: SchemaNodeData, filter: string): CategoryDef[] {
     };
 
     return [
-        { label: 'Tables', icon: <Table2 size={iconSize} className={iconClass} />, itemIcon: <Table2 size={iconSize} className={iconClass} />, items: filterFn(s.Tables) },
-        { label: 'Foreign Tables', icon: <Link2 size={iconSize} className={iconClass} />, itemIcon: <Link2 size={iconSize} className={iconClass} />, items: filterFn(s.ForeignTables) },
-        { label: 'Views', icon: <Eye size={iconSize} className={iconClass} />, itemIcon: <Eye size={iconSize} className={iconClass} />, items: filterFn(s.Views) },
-        { label: 'Materialized Views', icon: <Layers size={iconSize} className={iconClass} />, itemIcon: <Layers size={iconSize} className={iconClass} />, items: filterFn(s.MaterializedViews) },
-        { label: 'Indexes', icon: <Hash size={iconSize} className={iconClass} />, itemIcon: <Hash size={iconSize} className={iconClass} />, items: filterFn(s.Indexes) },
-        { label: 'Functions', icon: <Zap size={iconSize} className={iconClass} />, itemIcon: <Zap size={iconSize} className={iconClass} />, items: filterFn(s.Functions) },
-        { label: 'Sequences', icon: <List size={iconSize} className={iconClass} />, itemIcon: <List size={iconSize} className={iconClass} />, items: filterFn(s.Sequences) },
-        { label: 'Data types', icon: <Type size={iconSize} className={iconClass} />, itemIcon: <Type size={iconSize} className={iconClass} />, items: filterFn(s.DataTypes) },
-        { label: 'Aggregate functions', icon: <Sigma size={iconSize} className={iconClass} />, itemIcon: <Sigma size={iconSize} className={iconClass} />, items: filterFn(s.AggregateFunctions) },
+        { label: 'Tables', icon: <Table2 size={iconSize} className={iconClass} />, itemIcon: <Table2 size={iconSize} className={iconClass} />, items: filterFn(s.Tables), profileName },
+        { label: 'Foreign Tables', icon: <Link2 size={iconSize} className={iconClass} />, itemIcon: <Link2 size={iconSize} className={iconClass} />, items: filterFn(s.ForeignTables), profileName },
+        { label: 'Views', icon: <Eye size={iconSize} className={iconClass} />, itemIcon: <Eye size={iconSize} className={iconClass} />, items: filterFn(s.Views), profileName },
+        { label: 'Materialized Views', icon: <Layers size={iconSize} className={iconClass} />, itemIcon: <Layers size={iconSize} className={iconClass} />, items: filterFn(s.MaterializedViews), profileName },
+        { label: 'Indexes', icon: <Hash size={iconSize} className={iconClass} />, itemIcon: <Hash size={iconSize} className={iconClass} />, items: filterFn(s.Indexes), profileName },
+        { label: 'Functions', icon: <Zap size={iconSize} className={iconClass} />, itemIcon: <Zap size={iconSize} className={iconClass} />, items: filterFn(s.Functions), profileName },
+        { label: 'Sequences', icon: <List size={iconSize} className={iconClass} />, itemIcon: <List size={iconSize} className={iconClass} />, items: filterFn(s.Sequences), profileName },
+        { label: 'Data types', icon: <Type size={iconSize} className={iconClass} />, itemIcon: <Type size={iconSize} className={iconClass} />, items: filterFn(s.DataTypes), profileName },
+        { label: 'Aggregate functions', icon: <Sigma size={iconSize} className={iconClass} />, itemIcon: <Sigma size={iconSize} className={iconClass} />, items: filterFn(s.AggregateFunctions), profileName },
     ];
 }

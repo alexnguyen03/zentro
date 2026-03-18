@@ -17,7 +17,11 @@ import { AlertCircle } from 'lucide-react';
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
 import { RelationshipView } from './RelationshipView';
+import { IndexInfoView } from './IndexInfoView';
+import { DDLInfoView } from './DDLInfoView';
 import { RowState, SubTab, SortCol, SortDir, TabAction } from './types';
+
+type InfoTab = 'columns' | 'indexes' | 'ddl';
 
 interface TableInfoProps {
     tabId: string;
@@ -52,6 +56,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [reloading, setReloading] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [activeSubTab, setActiveSubTab] = useState<SubTab>('info');
+    const [activeInfoTab, setActiveInfoTab] = useState<InfoTab>('columns');
     const [saving, setSaving] = useState(false);
     const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
     const [editCell, setEditCell] = useState<{ rowIdx: number; field: 'Name' | 'DefaultValue' } | null>(null);
@@ -163,7 +168,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     }, [activeSubTab, toggleDeleteRows]);
 
     const loadErd = useCallback(async () => setErdRefreshKey(k => k + 1), []);
-    const tabReload: Record<SubTab, () => void> = useMemo(() => ({ info: () => loadInfo(true), data: loadData, erd: loadErd }), [loadInfo, loadData, loadErd]);
+    const [infoRefreshKey, setInfoRefreshKey] = useState(0);
+    const tabReload: Record<SubTab, () => void> = useMemo(() => ({
+        info: () => {
+            if (activeInfoTab === 'columns') loadInfo(true);
+            else setInfoRefreshKey(k => k + 1);
+        },
+        data: loadData,
+        erd: loadErd
+    }), [loadInfo, loadData, loadErd, activeInfoTab]);
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
     useEffect(() => {
@@ -266,11 +279,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const actions: Record<SubTab, TabAction[]> = {
         info: [
-            { id: 'add', icon: <Plus size={12} />, label: 'Add Column', onClick: addColumn, disabled: saving },
-            ...(selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
-            ...(hasChanges ? [
-                { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
-                { id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving },
+            ...(activeInfoTab === 'columns' ? [
+                { id: 'add', icon: <Plus size={12} />, label: 'Add Column', onClick: addColumn, disabled: saving },
+                ...(selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
+                ...(hasChanges ? [
+                    { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
+                    { id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving },
+                ] : []),
             ] : []),
             reloadAction,
         ],
@@ -340,48 +355,89 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             </header>
 
             <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary flex items-center justify-between">
-                <div className="flex items-center gap-1">
+                {/* LEFT: Actions */}
+                <div className="flex items-center gap-1 w-1/3">
                     {actions[activeSubTab].map(action => (
                         <ToolbarButton key={action.id} action={action} />
                     ))}
                 </div>
 
+                {/* CENTER: Filter */}
                 {activeSubTab === 'info' && (
-                    <div className="relative group flex items-center">
-                        <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
-                        <input
-                            ref={filterInputRef}
-                            type="text"
-                            placeholder="Filter columns..."
-                            value={filterCol}
-                            onChange={(e) => {
-                                setSortCol('idx');
-                                setSortDir('asc');
-                                setFilterCol(e.target.value);
-                            }}
-                            onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
-                            className="w-48 h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-lg text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
-                        />
+                    <div className="w-1/3 flex justify-center">
+                        <div className="relative group flex items-center w-64 max-w-full">
+                            <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
+                            <input
+                                ref={filterInputRef}
+                                type="text"
+                                placeholder={`Filter ${activeInfoTab}...`}
+                                value={filterCol}
+                                onChange={(e) => {
+                                    setSortCol('idx');
+                                    setSortDir('asc');
+                                    setFilterCol(e.target.value);
+                                }}
+                                onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
+                                className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-lg text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
+                            />
+                        </div>
                     </div>
                 )}
+
+                {/* RIGHT: Sub-tabs */}
+                <div className="flex items-center justify-end w-1/3 gap-4 h-full">
+                    {activeSubTab === 'info' && (
+                        <div className="flex items-center gap-4 h-full">
+                            {([
+                                { key: 'columns', label: 'Columns' },
+                                { key: 'indexes', label: 'Indexes' },
+                                { key: 'ddl', label: 'DDL' }
+                            ] as const).map(({ key, label }) => (
+                                <button
+                                    key={key}
+                                    onClick={() => { setActiveInfoTab(key); setFilterCol(''); }}
+                                    className={cx(
+                                        "relative flex items-center h-full text-[11px] font-bold transition-all duration-200 cursor-pointer outline-none uppercase tracking-wider",
+                                        activeInfoTab === key ? "text-accent" : "text-text-muted hover:text-text-secondary"
+                                    )}
+                                >
+                                    <span>{label}</span>
+                                    {activeInfoTab === key && (
+                                        <div className="absolute -bottom-px left-0 right-0 h-[2px] bg-accent rounded-t-full transition-all" />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <main className="flex-1 flex flex-col min-h-0 relative">
                 {activeSubTab === 'info' && (
-                    <SchemaInfoView
-                        rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
-                        onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
-                        onRowMouseDown={handleRowMouseDown} onRowMouseEnter={handleRowMouseEnter}
-                        sortCol={sortCol} sortDir={sortDir} onSort={c => {
-                            if (sortCol !== c) {
-                                setSortCol(c);
-                                setSortDir('asc');
-                            } else {
-                                setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc');
-                            }
-                        }}
-                        filterText={filterCol} onFilterChange={setFilterCol} filterInputRef={filterInputRef}
-                    />
+                    <>
+                        {activeInfoTab === 'columns' && (
+                            <SchemaInfoView
+                                rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
+                                onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
+                                onRowMouseDown={handleRowMouseDown} onRowMouseEnter={handleRowMouseEnter}
+                                sortCol={sortCol} sortDir={sortDir} onSort={c => {
+                                    if (sortCol !== c) {
+                                        setSortCol(c);
+                                        setSortDir('asc');
+                                    } else {
+                                        setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc');
+                                    }
+                                }}
+                                filterText={filterCol} onFilterChange={setFilterCol} filterInputRef={filterInputRef}
+                            />
+                        )}
+                        {activeInfoTab === 'indexes' && (
+                            <IndexInfoView schema={schema} tableName={table} filterText={filterCol} refreshKey={infoRefreshKey} />
+                        )}
+                        {activeInfoTab === 'ddl' && (
+                            <DDLInfoView schema={schema} tableName={table} refreshKey={infoRefreshKey} />
+                        )}
+                    </>
                 )}
                 {activeSubTab === 'data' && (
                     <DataExplorerView tabId={dataTabId} onRun={loadData} result={dataResult} onActionsChange={setDataTabActions} schema={schema} table={table} />
