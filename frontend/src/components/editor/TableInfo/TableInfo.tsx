@@ -415,7 +415,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             <main className="flex-1 flex flex-col min-h-0 relative">
                 {activeSubTab === 'info' && (
                     <>
-                        {activeInfoTab === 'columns' && (
+                        <div className={cx("flex-1 overflow-hidden", activeInfoTab !== 'columns' && "hidden")}>
                             <SchemaInfoView
                                 rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
                                 onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
@@ -430,13 +430,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 }}
                                 filterText={filterCol} onFilterChange={setFilterCol} filterInputRef={filterInputRef}
                             />
-                        )}
-                        {activeInfoTab === 'indexes' && (
+                        </div>
+                        <div className={cx("flex-1 overflow-hidden", activeInfoTab !== 'indexes' && "hidden")}>
                             <IndexInfoView schema={schema} tableName={table} filterText={filterCol} refreshKey={infoRefreshKey} />
-                        )}
-                        {activeInfoTab === 'ddl' && (
+                        </div>
+                        <div className={cx("flex-1 overflow-hidden", activeInfoTab !== 'ddl' && "hidden")}>
                             <DDLInfoView schema={schema} tableName={table} refreshKey={infoRefreshKey} />
-                        )}
+                        </div>
                     </>
                 )}
                 {activeSubTab === 'data' && (
