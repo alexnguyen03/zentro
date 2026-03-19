@@ -1,18 +1,41 @@
 import React from 'react';
-import { AlertCircle, CheckCircle, Download, Loader, RotateCcw, Save, RefreshCw, Play, Copy, FilePlus } from 'lucide-react';
-import { TabResult, useResultStore } from '../../stores/resultStore';
-import { useStatusStore } from '../../stores/statusStore';
-import { useSettingsStore } from '../../stores/settingsStore';
+import {
+    AlertCircle,
+    CheckCircle,
+    Copy,
+    Download,
+    FilePlus,
+    Loader,
+    Play,
+    Plus,
+    RefreshCw,
+    RotateCcw,
+    Save,
+} from 'lucide-react';
+import { ExportCSV, ExecuteUpdateSync, ExportJSON, ExportSQLInsert, FetchTotalRowCount } from '../../../wailsjs/go/app/App';
+import { models, utils } from '../../../wailsjs/go/models';
+import {
+    DraftRow,
+    buildDisplayRows,
+    buildInsertScript,
+    getDraftDefaultValues,
+    parseTableReference,
+    resolveQualifiedTableName,
+    toSqlLiteral,
+} from '../../lib/dataEditing';
+import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { ResultTable } from './ResultTable';
-import { ResultFilterBar } from './ResultFilterBar';
-import { ExportCSV, FetchTotalRowCount, ExecuteUpdateSync, ExportJSON, ExportSQLInsert } from '../../../wailsjs/go/app/App';
-import { utils } from '../../../wailsjs/go/models';
-import { useToast } from '../layout/Toast';
-import { Modal } from '../layout/Modal';
-import { Button, ConfirmationModal } from '../ui';
-import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useResultStore, TabResult } from '../../stores/resultStore';
+import { useRowDetailStore } from '../../stores/rowDetailStore';
+import { useSchemaStore } from '../../stores/schemaStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useStatusStore } from '../../stores/statusStore';
+import { Modal } from '../layout/Modal';
+import { useToast } from '../layout/Toast';
+import { Button } from '../ui';
+import { ResultTable, type FocusCellRequest } from './ResultTable';
+import { ResultFilterBar } from './ResultFilterBar';
 
 export interface ResultPanelAction {
     id: string;
@@ -29,64 +52,126 @@ interface ResultPanelProps {
     tabId: string;
     result?: TabResult;
     onRun?: () => void;
-    /** Called with a WHERE filter expression; parent wraps base query and re-runs. */
     onFilterRun?: (filter: string) => void;
     onActionsChange?: (actions: ResultPanelAction[]) => void;
-    /** The base query being wrapped */
     baseQuery?: string;
-    /** Appends generated filter SQL to the end of the active editor */
     onAppendToQuery?: (fullQuery: string) => void;
-    /** Opens generated filter SQL in a new query tab */
     onOpenInNewTab?: (fullQuery: string) => void;
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
+const CELL_ID_SEPARATOR = '|';
 
-export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, onFilterRun, onActionsChange, baseQuery, onAppendToQuery, onOpenInNewTab }) => {
+function makeCellId(rowKey: string, colIdx: number): string {
+    return `${rowKey}${CELL_ID_SEPARATOR}${colIdx}`;
+}
+
+function parseCellId(cellId: string): { rowKey: string; colIdx: number } {
+    const separatorIndex = cellId.lastIndexOf(CELL_ID_SEPARATOR);
+    return {
+        rowKey: cellId.slice(0, separatorIndex),
+        colIdx: Number(cellId.slice(separatorIndex + 1)),
+    };
+}
+
+function formatDuration(ms: number): string {
+    return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`;
+}
+
+export const ResultPanel: React.FC<ResultPanelProps> = ({
+    tabId,
+    result,
+    onRun,
+    onFilterRun,
+    onActionsChange,
+    baseQuery,
+    onAppendToQuery,
+    onOpenInNewTab,
+}) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
-    const addTab = useEditorStore(s => s.addTab);
+    const { activeProfile } = useConnectionStore();
+    const checkAndFetchColumns = useSchemaStore((state) => state.checkAndFetchColumns);
+    const addTab = useEditorStore((state) => state.addTab);
     const { toast } = useToast();
+    const { openDetail } = useRowDetailStore();
+    const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
+    const updatePendingState = useResultStore((state) => state.updatePendingState);
+    const applyEdits = useResultStore((state) => state.applyEdits);
+    const appendInsertedRows = useResultStore((state) => state.appendInsertedRows);
 
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
-
-    // Bind filter expr to result store so "Run" can clear it externally
-    const filterExpr = result?.filterExpr || '';
-    const setFilterExpr = React.useCallback((val: string) => {
-        useResultStore.getState().setFilterExpr(tabId, val);
-    }, [tabId]);
-
-    // Inline edit states — initialized from resultStore if available to persist between subtab switches
+    const [columnDefs, setColumnDefs] = React.useState<models.ColumnDef[]>([]);
     const [editedCells, setEditedCells] = React.useState<Map<string, string>>(() => result?.pendingEdits ? new Map(result.pendingEdits) : new Map());
     const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
     const [deletedRows, setDeletedRows] = React.useState<Set<number>>(() => result?.pendingDeletions ? new Set(result.pendingDeletions) : new Set());
+    const [draftRows, setDraftRows] = React.useState<DraftRow[]>(() => result?.pendingDraftRows ? [...result.pendingDraftRows] : []);
+    const [isSavingDraftRows, setIsSavingDraftRows] = React.useState(false);
+    const [focusCellRequest, setFocusCellRequest] = React.useState<FocusCellRequest | null>(null);
     const [showSaveModal, setShowSaveModal] = React.useState(false);
     const [showExportMenu, setShowExportMenu] = React.useState(false);
     const [showTableNameInput, setShowTableNameInput] = React.useState(false);
     const [tableNameForExport, setTableNameForExport] = React.useState('');
     const containerRef = React.useRef<HTMLDivElement>(null);
-
-    const { openDetail } = useRowDetailStore();
-    const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
     const lastTabTime = React.useRef(0);
 
-    // Helper: build and push detail for a given row index
-    const openRowDetail = React.useCallback((rIdx: number) => {
-        if (!result?.columns || !result?.rows?.[rIdx]) return;
-        openDetail({
-            columns: result.columns,
-            row: result.rows[rIdx],
-            tableName: result.tableName,
-            primaryKeys: result.primaryKeys,
-            onSave: (colIdx, newVal) => {
-                setEditedCells(prev => {
-                    const next = new Map(prev);
-                    next.set(`${rIdx}:${colIdx}`, newVal);
-                    return next;
-                });
-            }
-        });
-    }, [result, openDetail, setEditedCells]);
+    const filterExpr = result?.filterExpr || '';
+    const sourceQuery = baseQuery || result?.lastExecutedQuery;
+    const tableRef = React.useMemo(() => parseTableReference(sourceQuery, result?.tableName), [sourceQuery, result?.tableName]);
+    const qualifiedTableName = React.useMemo(() => resolveQualifiedTableName(sourceQuery, result?.tableName), [sourceQuery, result?.tableName]);
+    const columnDefsByName = React.useMemo(() => new Map(columnDefs.map((column) => [column.Name, column])), [columnDefs]);
+    const displayRows = React.useMemo(() => buildDisplayRows(result?.rows || [], draftRows), [result?.rows, draftRows]);
+    const displayRowsByKey = React.useMemo(() => new Map(displayRows.map((row) => [row.key, row])), [displayRows]);
+    const rowOrder = React.useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
+    const selectedRowKeys = React.useMemo(() => {
+        const rowKeys = new Set<string>();
+        selectedCells.forEach((cellId) => rowKeys.add(parseCellId(cellId).rowKey));
+        return Array.from(rowKeys);
+    }, [selectedCells]);
+    const selectedPersistedRowIndices = React.useMemo(
+        () => selectedRowKeys.filter((rowKey) => rowKey.startsWith('p:')).map((rowKey) => Number(rowKey.slice(2))).filter((rowIndex) => Number.isFinite(rowIndex)),
+        [selectedRowKeys],
+    );
+    const selectedDraftIds = React.useMemo(
+        () => selectedRowKeys.filter((rowKey) => rowKey.startsWith('d:')).map((rowKey) => rowKey.slice(2)),
+        [selectedRowKeys],
+    );
+    const isEditable = Boolean(
+        result?.tableName &&
+        result?.primaryKeys &&
+        result.primaryKeys.length > 0 &&
+        result.primaryKeys.every((primaryKey) => result.columns.includes(primaryKey)),
+    );
+    const canManageDraftRows = Boolean(
+        isEditable &&
+        result?.columns.length &&
+        columnDefs.length > 0 &&
+        result.columns.every((column) => columnDefsByName.has(column)) &&
+        qualifiedTableName,
+    );
+    const hasLegacyChanges = editedCells.size > 0 || deletedRows.size > 0;
+    const hasPendingChanges = hasLegacyChanges || draftRows.length > 0;
+
+    const setFilterExpr = React.useCallback((value: string) => {
+        useResultStore.getState().setFilterExpr(tabId, value);
+    }, [tabId]);
+
+    const queueFocusCell = React.useCallback((rowKey: string, colIdx = 0) => {
+        setFocusCellRequest({ rowKey, colIdx, nonce: Date.now() });
+    }, []);
+
+    const removeDraftRows = React.useCallback((draftIds: string[]) => {
+        if (draftIds.length === 0) return;
+
+        const removedRowKeys = new Set(draftIds.map((draftId) => `d:${draftId}`));
+        setDraftRows((prev) => prev.filter((draftRow) => !removedRowKeys.has(`d:${draftRow.id}`)));
+        setSelectedCells((prev) => new Set(Array.from(prev).filter((cellId) => !removedRowKeys.has(parseCellId(cellId).rowKey))));
+    }, []);
+
+    const getPersistedRowValues = React.useCallback((rowIndex: number): string[] => {
+        if (!result) return [];
+        return result.columns.map((_, colIdx) => editedCells.get(`${rowIndex}:${colIdx}`) ?? result.rows[rowIndex]?.[colIdx] ?? '');
+    }, [editedCells, result]);
 
     const handleCountTotal = React.useCallback(async () => {
         if (!tabId) return;
@@ -94,72 +179,333 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         try {
             const count = await FetchTotalRowCount(tabId);
             setTotalCount(count);
-        } catch (err) {
-            console.warn(`Count failed in background: ${err}`);
+        } catch (error) {
+            console.warn(`Count failed in background: ${error}`);
             setTotalCount(-1);
         } finally {
             setIsCounting(false);
         }
     }, [tabId]);
 
+    React.useEffect(() => {
+        let cancelled = false;
+
+        if (!activeProfile?.name || !activeProfile.db_name || !result?.tableName || !isEditable) {
+            setColumnDefs([]);
+            return;
+        }
+
+        checkAndFetchColumns(
+            activeProfile.name,
+            activeProfile.db_name,
+            tableRef.schema,
+            tableRef.table || result.tableName,
+        ).then((columns) => {
+            if (!cancelled) {
+                setColumnDefs(columns || []);
+            }
+        }).catch((error) => {
+            if (!cancelled) {
+                console.error('Failed to load column metadata', error);
+                setColumnDefs([]);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        activeProfile?.db_name,
+        activeProfile?.name,
+        checkAndFetchColumns,
+        isEditable,
+        result?.tableName,
+        tableRef.schema,
+        tableRef.table,
+    ]);
+
     const prevIsDone = React.useRef(result?.isDone);
 
     React.useEffect(() => {
         if (!result) return;
 
-        // This triggers when result.isDone transitions
         if (prevIsDone.current !== result.isDone) {
             if (!result.isDone) {
-                // New query started
                 setTotalCount(null);
                 setIsCounting(false);
                 setEditedCells(new Map());
                 setSelectedCells(new Set());
                 setDeletedRows(new Set());
+                setDraftRows([]);
                 setShowSaveModal(false);
+                setFocusCellRequest(null);
 
-                // Automatically count in parallel
                 handleCountTotal();
 
-                // Focus container to enable keyboard shortcuts
                 setTimeout(() => {
                     containerRef.current?.focus({ preventScroll: true });
                 }, 50);
             }
             prevIsDone.current = result.isDone;
         }
-    }, [result?.isDone, handleCountTotal]);
-
-    // Auto-load row detail when sidebar is already open and user clicks any cell
-    React.useEffect(() => {
-        if (!showRightSidebar || selectedCells.size === 0 || !result?.isDone) return;
-        const firstCell = Array.from(selectedCells)[0];
-        const rIdx = Number(firstCell.split(':')[0]);
-        openRowDetail(rIdx);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCells]);
-
-    // Sync local edits back to resultStore for persistence across subtab switches
-    const updatePendingEdits = useResultStore(s => s.updatePendingEdits);
-    React.useEffect(() => {
-        updatePendingEdits(tabId, editedCells, deletedRows);
-    }, [tabId, editedCells, deletedRows, updatePendingEdits]);
-
-    // Publish actions to parent whenever relevant state changes
-    const hasChanges = editedCells.size > 0 || deletedRows.size > 0;
-    const isEditable = result?.tableName && result?.primaryKeys && result.primaryKeys.every(pk => result.columns.includes(pk));
+    }, [handleCountTotal, result]);
 
     React.useEffect(() => {
-        if (!onActionsChange) return;
+        updatePendingState(tabId, editedCells, deletedRows, draftRows);
+    }, [deletedRows, draftRows, editedCells, tabId, updatePendingState]);
+
+    React.useEffect(() => {
+        if (!showRightSidebar || selectedRowKeys.length === 0 || !result?.isDone) return;
+
+        const activeRowKey = selectedRowKeys[0];
+        const displayRow = displayRowsByKey.get(activeRowKey);
+        if (!displayRow) return;
+
+        const rowValues = displayRow.kind === 'persisted'
+            ? getPersistedRowValues(displayRow.persistedIndex as number)
+            : [...displayRow.values];
+
+        openDetail({
+            columns: result.columns,
+            columnTypes: result.columns.map((column) => columnDefsByName.get(column)?.DataType || ''),
+            columnDefs: result.columns.map((column) => columnDefsByName.get(column) || models.ColumnDef.createFrom({
+                Name: column,
+                DataType: '',
+                IsNullable: true,
+                IsPrimaryKey: false,
+                DefaultValue: '',
+            })),
+            row: rowValues,
+            tableName: qualifiedTableName || result.tableName,
+            primaryKeys: result.primaryKeys,
+            onSave: (colIdx, newVal) => {
+                if (displayRow.kind === 'persisted') {
+                    setEditedCells((prev) => {
+                        const next = new Map(prev);
+                        next.set(`${displayRow.persistedIndex}:${colIdx}`, newVal);
+                        return next;
+                    });
+                    return;
+                }
+
+                setDraftRows((prev) => prev.map((draftRow) => {
+                    if (draftRow.id !== displayRow.draft?.id) return draftRow;
+                    const nextValues = [...draftRow.values];
+                    nextValues[colIdx] = newVal;
+                    return { ...draftRow, values: nextValues };
+                }));
+            },
+        });
+    }, [
+        columnDefsByName,
+        displayRowsByKey,
+        getPersistedRowValues,
+        openDetail,
+        qualifiedTableName,
+        result,
+        selectedRowKeys,
+        showRightSidebar,
+        toast,
+    ]);
+
+    const generateUpdateScript = React.useCallback(() => {
+        if (!result?.primaryKeys || !qualifiedTableName || (editedCells.size === 0 && deletedRows.size === 0)) {
+            return '';
+        }
+
+        const sqlStatements: string[] = [];
+
+        Array.from(deletedRows).sort((a, b) => b - a).forEach((rowIndex) => {
+            const whereClause = result.primaryKeys!.map((primaryKey) => {
+                const columnIndex = result.columns.indexOf(primaryKey);
+                const baseValue = result.rows[rowIndex]?.[columnIndex] ?? '';
+                return `"${primaryKey}" = ${toSqlLiteral(baseValue, columnDefsByName.get(primaryKey))}`;
+            }).join(' AND ');
+            sqlStatements.push(`DELETE FROM ${qualifiedTableName} WHERE ${whereClause};`);
+        });
+
+        const updatesByRow = new Map<number, { col: string; val: string }[]>();
+        editedCells.forEach((value, cellId) => {
+            const [rowIndex, colIdx] = cellId.split(':').map(Number);
+            if (deletedRows.has(rowIndex)) return;
+            const editsForRow = updatesByRow.get(rowIndex) || [];
+            editsForRow.push({ col: result.columns[colIdx], val: value });
+            updatesByRow.set(rowIndex, editsForRow);
+        });
+
+        updatesByRow.forEach((edits, rowIndex) => {
+            const whereClause = result.primaryKeys!.map((primaryKey) => {
+                const columnIndex = result.columns.indexOf(primaryKey);
+                const baseValue = result.rows[rowIndex]?.[columnIndex] ?? '';
+                return `"${primaryKey}" = ${toSqlLiteral(baseValue, columnDefsByName.get(primaryKey))}`;
+            }).join(' AND ');
+            const setClause = edits
+                .map((edit) => `"${edit.col}" = ${toSqlLiteral(edit.val, columnDefsByName.get(edit.col))}`)
+                .join(', ');
+            sqlStatements.push(`UPDATE ${qualifiedTableName} SET ${setClause} WHERE ${whereClause};`);
+        });
+
+        return sqlStatements.join('\n');
+    }, [columnDefsByName, deletedRows, editedCells, qualifiedTableName, result]);
+
+    const generateInsertScript = React.useCallback(() => {
+        if (!result || draftRows.length === 0 || !canManageDraftRows) {
+            return '';
+        }
+
+        return buildInsertScript(
+            result.tableName || tableRef.table,
+            result.columns,
+            draftRows,
+            columnDefs,
+            sourceQuery,
+        );
+    }, [canManageDraftRows, columnDefs, draftRows, result, sourceQuery, tableRef.table]);
+
+    const generatePendingScript = React.useCallback(() => {
+        return [generateUpdateScript(), generateInsertScript()]
+            .filter((script) => script.trim().length > 0)
+            .join('\n');
+    }, [generateInsertScript, generateUpdateScript]);
+
+    const handleAddRow = React.useCallback(() => {
+        if (!result || !canManageDraftRows) return;
+
+        const draftRow: DraftRow = {
+            id: crypto.randomUUID(),
+            kind: 'new',
+            values: getDraftDefaultValues(result.columns, columnDefs),
+            insertAfterRowIndex: null,
+        };
+
+        setDraftRows((prev) => [draftRow, ...prev]);
+        setSelectedCells(new Set([makeCellId(`d:${draftRow.id}`, 0)]));
+        queueFocusCell(`d:${draftRow.id}`, 0);
+    }, [canManageDraftRows, columnDefs, queueFocusCell, result]);
+
+    const handleDuplicateRows = React.useCallback(() => {
+        if (!result || !canManageDraftRows) return;
+
+        const selectedRowKeySet = new Set(selectedRowKeys);
+        const selectedDisplayRows = displayRows.filter((row) => row.kind === 'persisted' && selectedRowKeySet.has(row.key));
+        if (selectedDisplayRows.length === 0) return;
+
+        const lastSelectedRow = selectedDisplayRows[selectedDisplayRows.length - 1];
+        const duplicatedRows: DraftRow[] = selectedDisplayRows.map((row) => ({
+            id: crypto.randomUUID(),
+            kind: 'duplicate',
+            values: getPersistedRowValues(row.persistedIndex as number),
+            insertAfterRowIndex: lastSelectedRow.persistedIndex ?? null,
+            sourceRowIndex: row.persistedIndex,
+        }));
+
+        setDraftRows((prev) => [...prev, ...duplicatedRows]);
+        setSelectedCells(new Set([makeCellId(`d:${duplicatedRows[0].id}`, 0)]));
+        queueFocusCell(`d:${duplicatedRows[0].id}`, 0);
+    }, [canManageDraftRows, displayRows, getPersistedRowValues, queueFocusCell, result, selectedRowKeys]);
+
+    const requestDeleteSelectedRows = React.useCallback(() => {
+        if (selectedDraftIds.length > 0) {
+            removeDraftRows(selectedDraftIds);
+        }
+
+        if (selectedPersistedRowIndices.length === 0) return;
+        if (!isEditable) {
+            toast.error('Result is read-only. Make sure the query includes the primary key(s).');
+            return;
+        }
+        setDeletedRows((prev) => {
+            const next = new Set(prev);
+            selectedPersistedRowIndices.forEach((rowIndex) => next.add(rowIndex));
+            return next;
+        });
+    }, [isEditable, removeDraftRows, selectedDraftIds, selectedPersistedRowIndices, toast]);
+
+    const handleCopyScript = React.useCallback(() => {
+        navigator.clipboard.writeText(generatePendingScript());
+        toast.success('Script copied to clipboard');
+    }, [generatePendingScript, toast]);
+
+    const handleOpenInNewTab = React.useCallback(() => {
+        addTab({ name: `Apply ${result?.tableName}`, query: generatePendingScript() });
+        setShowSaveModal(false);
+        toast.success('Script opened in a new tab.');
+    }, [addTab, generatePendingScript, result?.tableName, toast]);
+
+    const handleDirectExecute = React.useCallback(async () => {
+        const script = generatePendingScript();
+        if (!script) return;
+
+        try {
+            setIsSavingDraftRows(true);
+            setShowSaveModal(false);
+            const affected = await ExecuteUpdateSync(script);
+            if (editedCells.size > 0 || deletedRows.size > 0) {
+                applyEdits(tabId, editedCells, deletedRows);
+            }
+            if (draftRows.length > 0) {
+                appendInsertedRows(tabId, draftRows.map((draftRow) => [...draftRow.values]));
+            }
+            setEditedCells(new Map());
+            setDeletedRows(new Set());
+            setDraftRows([]);
+            setSelectedCells(new Set());
+            toast.success(`Saved successfully (${affected} row${affected !== 1 ? 's' : ''} affected).`);
+        } catch (error: any) {
+            toast.error(`Save failed: ${error}`);
+            console.error('Execute pending changes error:', error);
+        } finally {
+            setIsSavingDraftRows(false);
+        }
+    }, [appendInsertedRows, applyEdits, deletedRows, draftRows, editedCells, generatePendingScript, tabId, toast]);
+
+    const handleSaveRequest = React.useCallback(async () => {
+        if (!hasPendingChanges) {
+            return;
+        }
+
+        if (hasLegacyChanges) {
+            setShowSaveModal(true);
+            return;
+        }
+
+        await handleDirectExecute();
+    }, [handleDirectExecute, hasLegacyChanges, hasPendingChanges]);
+
+    const panelActions = React.useMemo(() => {
         const actions: ResultPanelAction[] = [];
 
-        if (hasChanges) {
+        if (canManageDraftRows) {
+            actions.push({
+                id: 'add-row',
+                icon: <Plus size={11} />,
+                label: 'Add Row',
+                title: 'Add Row',
+                onClick: handleAddRow,
+                disabled: isSavingDraftRows,
+            });
+            actions.push({
+                id: 'duplicate-rows',
+                icon: <Copy size={11} />,
+                label: 'Duplicate',
+                title: 'Duplicate Selected Rows',
+                onClick: handleDuplicateRows,
+                disabled: selectedPersistedRowIndices.length === 0 || isSavingDraftRows,
+            });
+        }
+
+        if (hasPendingChanges) {
             actions.push({
                 id: 'discard',
                 icon: <RotateCcw size={11} />,
                 label: 'Discard',
                 title: 'Discard',
-                onClick: () => { setEditedCells(new Map()); setDeletedRows(new Set()); },
+                onClick: () => {
+                    setEditedCells(new Map());
+                    setDeletedRows(new Set());
+                    setDraftRows([]);
+                    setSelectedCells(new Set());
+                },
                 danger: true,
             });
             actions.push({
@@ -167,11 +513,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 icon: <Save size={11} />,
                 label: 'Save',
                 title: 'Save',
-                onClick: () => setShowSaveModal(true),
+                onClick: () => { void handleSaveRequest(); },
+                loading: isSavingDraftRows,
             });
         }
 
-        if (!hasChanges && onRun) {
+        if (!hasPendingChanges && onRun) {
             actions.push({
                 id: 'reload',
                 icon: <RefreshCw size={11} />,
@@ -181,11 +528,37 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             });
         }
 
-        onActionsChange(actions);
-    }, [hasChanges, onRun, onActionsChange]);
+        return actions;
+    }, [
+        canManageDraftRows,
+        draftRows,
+        handleAddRow,
+        handleDuplicateRows,
+        handleSaveRequest,
+        hasPendingChanges,
+        isSavingDraftRows,
+        onRun,
+        selectedPersistedRowIndices.length,
+    ]);
 
-    const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newLimit = parseInt(e.target.value) || 1000;
+    React.useEffect(() => {
+        onActionsChange?.(panelActions);
+    }, [onActionsChange, panelActions]);
+
+    React.useEffect(() => {
+        const handleExternalSave = (event: Event) => {
+            const saveEvent = event as CustomEvent<string | undefined>;
+            if (saveEvent.detail && saveEvent.detail !== tabId) return;
+            if (!hasPendingChanges || isSavingDraftRows) return;
+            void handleSaveRequest();
+        };
+
+        window.addEventListener('zentro:save-script', handleExternalSave as EventListener);
+        return () => window.removeEventListener('zentro:save-script', handleExternalSave as EventListener);
+    }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId]);
+
+    const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const newLimit = parseInt(event.target.value, 10) || 1000;
         save(new utils.Preferences({
             theme,
             font_size: fontSize,
@@ -193,71 +566,192 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         }));
     };
 
-    const generateUpdateScript = React.useCallback(() => {
-        if (!result?.tableName || !result?.primaryKeys || (editedCells.size === 0 && deletedRows.size === 0)) return '';
-
-        const sqlStmts: string[] = [];
-
-        // 1. DELETE statements
-        Array.from(deletedRows).sort((a, b) => b - a).forEach(r => {
-            const where = result.primaryKeys!.map(pk => {
-                let v = result.rows[r][result.columns.indexOf(pk)];
-                return typeof v === 'string' ? `"${pk}" = '${v.replace(/'/g, "''")}'` : `"${pk}" = ${v}`;
-            }).join(' AND ');
-            sqlStmts.push(`DELETE FROM "${result.tableName}" WHERE ${where};`);
-        });
-
-        // 2. UPDATE statements
-        const updatesByRow = new Map<number, { col: string, val: string }[]>();
-        editedCells.forEach((val, cellId) => {
-            const [rStr, cStr] = cellId.split(':');
-            const r = Number(rStr);
-            if (deletedRows.has(r)) return; // Skip edits for deleted rows
-            const c = Number(cStr);
-            if (!updatesByRow.has(r)) updatesByRow.set(r, []);
-            updatesByRow.get(r)!.push({ col: result.columns[c], val });
-        });
-
-        updatesByRow.forEach((edits, r) => {
-            const where = result.primaryKeys!.map(pk => {
-                let v = result.rows[r][result.columns.indexOf(pk)];
-                return typeof v === 'string' ? `"${pk}" = '${v.replace(/'/g, "''")}'` : `"${pk}" = ${v}`;
-            }).join(' AND ');
-            const sets = edits.map(e => `"${e.col}" = '${e.val.replace(/'/g, "''")}'`).join(', ');
-            sqlStmts.push(`UPDATE "${result.tableName}" SET ${sets} WHERE ${where};`);
-        });
-
-        return sqlStmts.join('\n');
-    }, [result, editedCells, deletedRows]);
-
-    const handleCopyScript = () => {
-        navigator.clipboard.writeText(generateUpdateScript());
-        toast.success("Script copied to clipboard");
-    };
-
-    const handleOpenInNewTab = () => {
-        addTab({ name: `Update ${result?.tableName}`, query: generateUpdateScript() });
-        setShowSaveModal(false);
-        setEditedCells(new Map());
-        setDeletedRows(new Set());
-        toast.success("Script opened in a new tab.");
-    };
-
-    const applyEdits = useResultStore(s => s.applyEdits);
-
-    const handleDirectExecute = async () => {
-        const script = generateUpdateScript();
-        if (!script) return;
+    const handleExport = async () => {
+        if (!result?.columns || !result.rows) return;
         try {
-            setShowSaveModal(false);
-            const affected = await ExecuteUpdateSync(script);
-            applyEdits(tabId, editedCells, deletedRows);
-            setEditedCells(new Map());
-            setDeletedRows(new Set());
-            toast.success(`Update executed successfully (${affected} row${affected !== 1 ? 's' : ''} modified).`);
-        } catch (err: any) {
-            toast.error(`Update failed: ${err}`);
-            console.error('Execute update error:', err);
+            const path = await ExportCSV(result.columns, result.rows);
+            if (path) {
+                toast.success(`Exported to: ${path}`);
+                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+            }
+        } catch (error) {
+            toast.error(`Export failed: ${error}`);
+            useStatusStore.getState().setMessage(`Export failed: ${error}`);
+        }
+    };
+
+    const handleExportJSON = async () => {
+        if (!result?.columns || !result.rows) return;
+        setShowExportMenu(false);
+        try {
+            const path = await ExportJSON(result.columns, result.rows);
+            if (path) {
+                toast.success(`Exported to: ${path}`);
+                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+            }
+        } catch (error) {
+            toast.error(`Export failed: ${error}`);
+            useStatusStore.getState().setMessage(`Export failed: ${error}`);
+        }
+    };
+
+    const handleExportSQLConfirm = async () => {
+        if (!result?.columns || !result.rows) return;
+        const exportTableName = tableNameForExport.trim() || result.tableName || 'my_table';
+        setShowTableNameInput(false);
+        setTableNameForExport('');
+        try {
+            const path = await ExportSQLInsert(result.columns, result.rows, exportTableName);
+            if (path) {
+                toast.success(`Exported to: ${path}`);
+                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+            }
+        } catch (error) {
+            toast.error(`Export failed: ${error}`);
+            useStatusStore.getState().setMessage(`Export failed: ${error}`);
+        }
+    };
+
+    let displayTotalCount: number | undefined;
+    if (totalCount !== null && totalCount >= 0) {
+        displayTotalCount = totalCount;
+    } else if (result?.isDone && !result.hasMore) {
+        displayTotalCount = result.rows.length;
+    }
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+        if (!result) return;
+
+        if (event.key === 'Tab') {
+            if (selectedCells.size > 0 && result.columns.length > 0) {
+                event.preventDefault();
+                const now = Date.now();
+                if (now - lastTabTime.current < 400) {
+                    const activeRowKey = selectedRowKeys[0];
+                    if (activeRowKey && displayRowsByKey.get(activeRowKey)) {
+                        setShowRightSidebar(true);
+                    }
+                    lastTabTime.current = 0;
+                } else {
+                    lastTabTime.current = now;
+                }
+            }
+        }
+
+        if (event.key === 'Delete' || (event.key === 'Backspace' && (event.ctrlKey || event.metaKey))) {
+            if (selectedCells.size === 0) return;
+            event.preventDefault();
+            requestDeleteSelectedRows();
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+            if (hasPendingChanges) {
+                event.preventDefault();
+                void handleSaveRequest();
+            }
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
+            if (selectedCells.size === 0) return;
+            event.preventDefault();
+
+            let minRowOrder = Infinity;
+            let maxRowOrder = -Infinity;
+            let minCol = Infinity;
+            let maxCol = -Infinity;
+
+            selectedCells.forEach((cellId) => {
+                const { rowKey, colIdx } = parseCellId(cellId);
+                const rowIndex = rowOrder.get(rowKey);
+                if (rowIndex === undefined) return;
+                minRowOrder = Math.min(minRowOrder, rowIndex);
+                maxRowOrder = Math.max(maxRowOrder, rowIndex);
+                minCol = Math.min(minCol, colIdx);
+                maxCol = Math.max(maxCol, colIdx);
+            });
+
+            const matrix: string[][] = [];
+            for (let rowIndex = minRowOrder; rowIndex <= maxRowOrder; rowIndex++) {
+                const displayRow = displayRows[rowIndex];
+                const row: string[] = [];
+                for (let colIdx = minCol; colIdx <= maxCol; colIdx++) {
+                    const cellId = makeCellId(displayRow.key, colIdx);
+                    if (!selectedCells.has(cellId)) {
+                        row.push('');
+                        continue;
+                    }
+
+                    if (displayRow.kind === 'persisted') {
+                        row.push(editedCells.get(`${displayRow.persistedIndex}:${colIdx}`) ?? displayRow.values[colIdx] ?? '');
+                    } else {
+                        row.push(displayRow.values[colIdx] ?? '');
+                    }
+                }
+                matrix.push(row);
+            }
+
+            navigator.clipboard.writeText(matrix.map((row) => row.join('\t')).join('\n'));
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
+            if (!isEditable || selectedCells.size === 0) return;
+            event.preventDefault();
+
+            navigator.clipboard.readText().then((text) => {
+                if (!text) return;
+
+                const lines = text.split(/\r?\n/).map((line) => line.split('\t'));
+                if (lines.length === 0 || lines[0].length === 0) return;
+
+                let minRowOrder = Infinity;
+                let minCol = Infinity;
+
+                selectedCells.forEach((cellId) => {
+                    const { rowKey, colIdx } = parseCellId(cellId);
+                    const rowIndex = rowOrder.get(rowKey);
+                    if (rowIndex === undefined) return;
+                    minRowOrder = Math.min(minRowOrder, rowIndex);
+                    minCol = Math.min(minCol, colIdx);
+                });
+
+                const nextEditedCells = new Map(editedCells);
+                const nextDraftRows = draftRows.map((draftRow) => ({ ...draftRow, values: [...draftRow.values] }));
+                const pastedCells = new Set<string>();
+
+                for (let rowOffset = 0; rowOffset < lines.length; rowOffset++) {
+                    const displayRow = displayRows[minRowOrder + rowOffset];
+                    if (!displayRow) break;
+                    if (displayRow.kind === 'persisted' && deletedRows.has(displayRow.persistedIndex as number)) continue;
+
+                    for (let colOffset = 0; colOffset < lines[rowOffset].length; colOffset++) {
+                        const colIdx = minCol + colOffset;
+                        if (colIdx >= result.columns.length) break;
+
+                        const value = lines[rowOffset][colOffset];
+                        const cellId = makeCellId(displayRow.key, colIdx);
+
+                        if (displayRow.kind === 'persisted') {
+                            nextEditedCells.set(`${displayRow.persistedIndex}:${colIdx}`, value);
+                        } else {
+                            const targetDraft = nextDraftRows.find((draftRow) => draftRow.id === displayRow.draft?.id);
+                            if (targetDraft) {
+                                targetDraft.values[colIdx] = value;
+                            }
+                        }
+                        pastedCells.add(cellId);
+                    }
+                }
+
+                setEditedCells(nextEditedCells);
+                setDraftRows(nextDraftRows);
+                if (pastedCells.size > 0) {
+                    setSelectedCells(pastedCells);
+                }
+            }).catch((error) => {
+                console.error('Paste error:', error);
+                toast.error('Failed to read from clipboard');
+            });
         }
     };
 
@@ -287,193 +781,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         );
     }
 
-    const handleExport = async () => {
-        if (!result.columns || !result.rows) return;
-        try {
-            const path = await ExportCSV(result.columns, result.rows);
-            if (path) {
-                toast.success(`Exported to: ${path}`);
-                useStatusStore.getState().setMessage(`Exported to: ${path}`);
-            }
-        } catch (err) {
-            toast.error(`Export failed: ${err}`);
-            useStatusStore.getState().setMessage(`Export failed: ${err}`);
-            console.error('Export failed:', err);
-        }
-    };
-
-    const handleExportJSON = async () => {
-        if (!result.columns || !result.rows) return;
-        setShowExportMenu(false);
-        try {
-            const path = await ExportJSON(result.columns, result.rows);
-            if (path) {
-                toast.success(`Exported to: ${path}`);
-                useStatusStore.getState().setMessage(`Exported to: ${path}`);
-            }
-        } catch (err) {
-            toast.error(`Export failed: ${err}`);
-            useStatusStore.getState().setMessage(`Export failed: ${err}`);
-            console.error('Export failed:', err);
-        }
-    };
-
-    const handleExportSQLClick = () => {
-        setShowExportMenu(false);
-        setShowTableNameInput(true);
-    };
-
-    const handleExportSQLConfirm = async () => {
-        if (!result.columns || !result.rows) return;
-        const tableName = tableNameForExport.trim() || result.tableName || 'my_table';
-        setShowTableNameInput(false);
-        setTableNameForExport('');
-        try {
-            const path = await ExportSQLInsert(result.columns, result.rows, tableName);
-            if (path) {
-                toast.success(`Exported to: ${path}`);
-                useStatusStore.getState().setMessage(`Exported to: ${path}`);
-            }
-        } catch (err) {
-            toast.error(`Export failed: ${err}`);
-            useStatusStore.getState().setMessage(`Export failed: ${err}`);
-            console.error('Export failed:', err);
-        }
-    };
-
-    let displayTotalCount: number | undefined = undefined;
-    if (totalCount !== null && totalCount >= 0) {
-        displayTotalCount = totalCount;
-    } else if (result.isDone && !result.hasMore) {
-        displayTotalCount = result.rows.length;
-    }
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-        if (e.key === 'Tab') {
-            if (selectedCells.size > 0 && result.columns && result.rows) {
-                e.preventDefault();
-                const now = Date.now();
-                if (now - lastTabTime.current < 400) {
-                    // Double tab — open sidebar if not open
-                    const firstCell = Array.from(selectedCells)[0];
-                    const rIdx = Number(firstCell.split(':')[0]);
-                    openRowDetail(rIdx);
-                    setShowRightSidebar(true);
-                    lastTabTime.current = 0; // reset
-                } else {
-                    lastTabTime.current = now;
-                }
-            }
-        }
-
-        if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) {
-            const rowsToDelete = Array.from(selectedCells).map(cell => Number(cell.split(':')[0]));
-            if (rowsToDelete.length === 0) return;
-            
-            e.preventDefault();
-            setDeletedRows(prev => new Set([...prev, ...rowsToDelete]));
-            setSelectedCells(new Set());
-        }
-
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-            if (editedCells.size > 0 || deletedRows.size > 0) {
-                e.preventDefault();
-                setShowSaveModal(true);
-            }
-        }
-
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-            if (selectedCells.size > 0) {
-                e.preventDefault();
-                let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-                Array.from(selectedCells).map(c => {
-                    const [r, col] = c.split(':').map(Number);
-                    minR = Math.min(minR, r); maxR = Math.max(maxR, r);
-                    minC = Math.min(minC, col); maxC = Math.max(maxC, col);
-                    return { r, c: col };
-                });
-
-                const matrix: string[][] = [];
-                for (let r = minR; r <= maxR; r++) {
-                    const row: string[] = [];
-                    for (let c = minC; c <= maxC; c++) {
-                        const cellId = `${r}:${c}`;
-                        if (selectedCells.has(cellId)) {
-                            row.push(editedCells.has(cellId) ? editedCells.get(cellId)! : String(result.rows[r][c] ?? ''));
-                        } else {
-                            row.push('');
-                        }
-                    }
-                    matrix.push(row);
-                }
-                const text = matrix.map(r => r.join('\t')).join('\n');
-                navigator.clipboard.writeText(text);
-            }
-        }
-
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-            if (isEditable && selectedCells.size > 0) {
-                e.preventDefault();
-                navigator.clipboard.readText().then(text => {
-                    if (!text) return;
-
-                    const lines = text.split(/\r?\n/).map(l => l.split('\t'));
-                    if (lines.length === 0 || lines[0].length === 0) return;
-
-                    let minR = Infinity, minC = Infinity;
-                    selectedCells.forEach(cellId => {
-                        const [r, c] = cellId.split(':').map(Number);
-                        minR = Math.min(minR, r);
-                        minC = Math.min(minC, c);
-                    });
-
-                    // Single value fill mode
-                    if (lines.length === 1 && lines[0].length === 1) {
-                        const val = lines[0][0];
-                        setEditedCells(prev => {
-                            const next = new Map(prev);
-                            selectedCells.forEach(cellId => {
-                                const r = Number(cellId.split(':')[0]);
-                                if (!deletedRows.has(r)) next.set(cellId, val);
-                            });
-                            return next;
-                        });
-                        return;
-                    }
-
-                    // Grid paste mode
-                    const pastedCells = new Set<string>();
-                    setEditedCells(prev => {
-                        const next = new Map(prev);
-                        for (let i = 0; i < lines.length; i++) {
-                            const r = minR + i;
-                            if (r >= result.rows.length || deletedRows.has(r)) continue;
-
-                            for (let j = 0; j < lines[i].length; j++) {
-                                const c = minC + j;
-                                if (c >= result.columns.length) break;
-
-                                const val = lines[i][j];
-                                next.set(`${r}:${c}`, val);
-                                pastedCells.add(`${r}:${c}`);
-                            }
-                        }
-                        return next;
-                    });
-
-                    if (pastedCells.size > 0) {
-                        setSelectedCells(pastedCells);
-                    }
-                }).catch(err => {
-                    console.error('Paste error:', err);
-                    toast.error("Failed to read from clipboard");
-                });
-            }
-        }
-    };
-
     return (
         <div
             className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden"
@@ -482,12 +789,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
             onKeyDown={handleKeyDown}
             style={{ outline: 'none' }}
         >
-            {/* Progressive rendering: keep old table visible while reloading */}
             {(() => {
                 const hasData = result.columns.length > 0;
                 const isLoading = !result.isDone;
 
-                // First run with NO data yet — show minimal streaming indicator
                 if (isLoading && !hasData) {
                     return (
                         <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
@@ -503,26 +808,25 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                     );
                 }
 
-                // Has data (either done or reloading over existing data)
                 return (
                     <div className="flex flex-col flex-1 overflow-hidden min-h-0 relative">
-                        {/* Thin progress bar on reload */}
                         {isLoading && (
                             <div
                                 className="absolute top-0 left-0 right-0 z-10"
                                 style={{ height: 2, background: 'var(--success-color)', opacity: 0.7 }}
                             >
-                                <div style={{
-                                    height: '100%',
-                                    width: '40%',
-                                    background: 'rgba(255,255,255,0.6)',
-                                    animation: 'shimmer 1.2s infinite linear',
-                                    backgroundSize: '400px 100%',
-                                }} />
+                                <div
+                                    style={{
+                                        height: '100%',
+                                        width: '40%',
+                                        background: 'rgba(255,255,255,0.6)',
+                                        animation: 'shimmer 1.2s infinite linear',
+                                        backgroundSize: '400px 100%',
+                                    }}
+                                />
                             </div>
                         )}
 
-                        {/* Filter bar - always visible if it's a select context */}
                         {(result.isSelect || filterExpr !== '') && (
                             <ResultFilterBar
                                 value={filterExpr}
@@ -538,7 +842,25 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                             />
                         )}
 
-                        {/* Table — always visible, slightly dimmed while reloading */}
+                        {!onActionsChange && panelActions.length > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0 overflow-x-auto">
+                                {panelActions.map((action) => (
+                                    <Button
+                                        key={action.id}
+                                        variant={action.danger ? 'danger' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => action.onClick()}
+                                        disabled={action.disabled || action.loading}
+                                        title={action.title || action.label}
+                                        className="whitespace-nowrap"
+                                    >
+                                        <span className="mr-1.5">{action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}</span>
+                                        {action.label || action.title}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
+
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1 }}>
                             <ResultTable
                                 tabId={tabId}
@@ -551,24 +873,29 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                                 setSelectedCells={setSelectedCells}
                                 deletedRows={deletedRows}
                                 setDeletedRows={setDeletedRows}
+                                draftRows={draftRows}
+                                setDraftRows={setDraftRows}
+                                columnDefs={columnDefs}
+                                focusCellRequest={focusCellRequest}
+                                onFocusCellRequestHandled={() => setFocusCellRequest(null)}
+                                onRemoveDraftRows={removeDraftRows}
                             />
                         </div>
                     </div>
                 );
             })()}
-            {/* Bottom status bar */}
             <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
-                        Showing <strong>{result.rows.length.toLocaleString()}</strong> of&nbsp;
+                        Showing <strong>{(result.rows.length + draftRows.length).toLocaleString()}</strong> of&nbsp;
                         <select
                             className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
                             value={defaultLimit}
                             onChange={handleLimitChange}
                             title="Row limit for next query"
                         >
-                            {LIMIT_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n.toLocaleString()}</option>
+                            {LIMIT_OPTIONS.map((value) => (
+                                <option key={value} value={value}>{value.toLocaleString()}</option>
                             ))}
                         </select>
                         &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
@@ -588,17 +915,19 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         </span>
                     ) : null}
                 </div>
+
                 <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
-                    {hasChanges && (
+                    {hasPendingChanges && (
                         <span className="text-[11px] text-warning flex items-center">
-                            {editedCells.size + deletedRows.size} pending change(s)
+                            {editedCells.size + deletedRows.size + draftRows.length} pending change(s)
                         </span>
                     )}
                 </div>
+
                 <div className="flex items-center gap-3">
-                    <div className="relative" ref={containerRef}>
-                        <button 
-                            className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" 
+                    <div className="relative">
+                        <button
+                            className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border"
                             onClick={() => setShowExportMenu(!showExportMenu)}
                             title="Export"
                         >
@@ -623,7 +952,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                                 </button>
                                 <button
                                     className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2"
-                                    onClick={handleExportSQLClick}
+                                    onClick={() => {
+                                        setShowExportMenu(false);
+                                        setShowTableNameInput(true);
+                                    }}
                                 >
                                     <span className="w-4">💾</span>
                                     SQL INSERT
@@ -634,13 +966,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                 </div>
             </div>
 
-            {/* Save Confirmation Modal */}
             <Modal
                 isOpen={showSaveModal}
                 onClose={() => setShowSaveModal(false)}
                 title="Confirm Changes"
                 width={560}
-                footer={
+                footer={(
                     <>
                         <Button variant="ghost" size="icon" onClick={handleCopyScript} title="Copy Script">
                             <Copy size={14} />
@@ -648,12 +979,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab">
                             <FilePlus size={14} />
                         </Button>
-                        <Button variant="primary" onClick={handleDirectExecute} title="Execute Update" autoFocus className="px-6">
+                        <Button variant="primary" onClick={() => { void handleDirectExecute(); }} title="Execute Changes" autoFocus className="px-6">
                             <Play size={14} className="mr-2" />
                             Execute Changes
                         </Button>
                     </>
-                }
+                )}
             >
                 <div>
                     <div className="flex items-start gap-4 mb-4">
@@ -663,33 +994,32 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         <div className="flex-1 min-w-0">
                             <p className="text-[13px] font-medium text-text-primary mb-1">Review generated script</p>
                             <p className="text-[12px] leading-relaxed text-text-secondary">
-                                The following SQL will be executed to apply your pending edits and deletions to <strong>{result?.tableName}</strong>.
+                                Updates and deletes require confirmation. Pending inserts will be executed together with this script for <strong>{qualifiedTableName || result?.tableName}</strong>.
                             </p>
                         </div>
                     </div>
-                    
+
                     <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-lg font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
-                        {generateUpdateScript()}
+                        {generatePendingScript()}
                     </div>
                 </div>
             </Modal>
 
-            {/* SQL Export Table Name Modal */}
             <Modal
                 isOpen={showTableNameInput}
                 onClose={() => { setShowTableNameInput(false); setTableNameForExport(''); }}
                 title="Export as SQL INSERT"
                 width={400}
-                footer={
+                footer={(
                     <>
                         <Button variant="ghost" onClick={() => { setShowTableNameInput(false); setTableNameForExport(''); }}>
                             Cancel
                         </Button>
-                        <Button variant="primary" onClick={handleExportSQLConfirm} autoFocus>
+                        <Button variant="primary" onClick={() => { void handleExportSQLConfirm(); }} autoFocus>
                             Export
                         </Button>
                     </>
-                }
+                )}
             >
                 <div className="py-2">
                     <label className="block text-[12px] text-text-secondary mb-1.5">Table Name</label>
@@ -698,8 +1028,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
                         className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
                         placeholder={result?.tableName || 'my_table'}
                         value={tableNameForExport}
-                        onChange={(e) => setTableNameForExport(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleExportSQLConfirm()}
+                        onChange={(event) => setTableNameForExport(event.target.value)}
+                        onKeyDown={(event) => event.key === 'Enter' && handleExportSQLConfirm()}
                         autoFocus
                     />
                     <p className="text-[11px] text-text-muted mt-2">
@@ -710,7 +1040,3 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({ tabId, result, onRun, 
         </div>
     );
 };
-
-function formatDuration(ms: number): string {
-    return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`;
-}

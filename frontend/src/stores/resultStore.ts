@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DraftRow } from '../lib/dataEditing';
 
 export interface TabResult {
     columns: string[];
@@ -19,6 +20,7 @@ export interface TabResult {
     lastExecutedQuery?: string;
     pendingEdits?: Map<string, string>;
     pendingDeletions?: Set<number>;
+    pendingDraftRows?: DraftRow[];
 }
 
 interface ResultState {
@@ -37,9 +39,10 @@ interface ResultState {
     clearResult: (tabId: string) => void;
     isDone: (tabId: string) => boolean;
     applyEdits: (tabId: string, edits: Map<string, string>, deletedRows?: Set<number>) => void;
+    appendInsertedRows: (tabId: string, rows: string[][]) => void;
     setFilterExpr: (tabId: string, filterExpr: string) => void;
     setLastExecutedQuery: (tabId: string, query: string) => void;
-    updatePendingEdits: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>) => void;
+    updatePendingState: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>, draftRows: DraftRow[]) => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -67,6 +70,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
                     lastExecutedQuery: prev?.lastExecutedQuery,
                     pendingEdits: prev?.pendingEdits || new Map(),
                     pendingDeletions: prev?.pendingDeletions || new Set(),
+                    pendingDraftRows: [],
                 }
             }
         };
@@ -167,6 +171,22 @@ export const useResultStore = create<ResultState>((set, get) => ({
         };
     }),
 
+    appendInsertedRows: (tabId, rows) => set((state) => {
+        const prev = state.results[tabId];
+        if (!prev || rows.length === 0) return state;
+
+        return {
+            results: {
+                ...state.results,
+                [tabId]: {
+                    ...prev,
+                    rows: [...prev.rows, ...rows],
+                    affected: prev.affected + rows.length,
+                }
+            }
+        };
+    }),
+
     setFilterExpr: (tabId, filterExpr) => set((state) => {
         const prev = state.results[tabId];
         if (!prev) return state;
@@ -188,13 +208,13 @@ export const useResultStore = create<ResultState>((set, get) => ({
             }
         };
     }),
-    updatePendingEdits: (tabId, pendingEdits, pendingDeletions) => set((state) => {
+    updatePendingState: (tabId, pendingEdits, pendingDeletions, pendingDraftRows) => set((state) => {
         const prev = state.results[tabId];
         if (!prev) return state;
         return {
             results: {
                 ...state.results,
-                [tabId]: { ...prev, pendingEdits, pendingDeletions }
+                [tabId]: { ...prev, pendingEdits, pendingDeletions, pendingDraftRows }
             }
         };
     }),

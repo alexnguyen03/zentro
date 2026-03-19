@@ -181,6 +181,30 @@
     border-left: 2px solid var(--accent-color);
 }
 
+.result-table-tanstack tr.rt-row-draft td {
+    background: color-mix(in srgb, var(--success-color) 10%, var(--bg-primary)) !important;
+}
+
+.result-table-tanstack tr.rt-row-draft:hover td {
+    background: color-mix(in srgb, var(--success-color) 14%, var(--bg-primary)) !important;
+}
+
+.result-table-tanstack tr.rt-row-draft.rt-row-alt td {
+    background: color-mix(in srgb, var(--success-color) 12%, var(--bg-secondary)) !important;
+}
+
+.result-table-tanstack tr.rt-row-draft.rt-row-selected td {
+    background: color-mix(in srgb, var(--success-color) 16%, var(--bg-primary)) !important;
+}
+
+.result-table-tanstack tr.rt-row-draft td:first-child {
+    border-left: 2px solid var(--success-color) !important;
+}
+
+.result-table-tanstack tr.rt-row-draft.rt-row-selected td:first-child {
+    border-left: 3px solid var(--success-color) !important;
+}
+
 /* ── Skeleton shimmer animation ────────────────────────── */
 .result-skeleton-row {
     height: 18px;

@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import { models } from '../../wailsjs/go/models';
 
 export interface RowDetail {
     columns: string[];
     columnTypes?: string[];
+    columnDefs?: models.ColumnDef[];
     row: string[];
     tableName?: string;
     primaryKeys?: string[];

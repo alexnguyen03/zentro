@@ -1,37 +1,25 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    useReactTable,
+    flexRender,
     getCoreRowModel,
     getSortedRowModel,
-    flexRender,
     type ColumnDef,
     type SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { ArrowDown, ArrowUp, Lock, Unlock } from 'lucide-react';
 import { FetchMoreRows } from '../../../wailsjs/go/app/App';
+import { models } from '../../../wailsjs/go/models';
+import { DraftRow, DisplayRow, buildDisplayRows } from '../../lib/dataEditing';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
 import { useToast } from '../layout/Toast';
-import { ArrowUp, ArrowDown, Lock, Unlock } from 'lucide-react';
 
-// ── Datetime helpers ──────────────────────────────────────────────────────────
-// Matches: 2025-12-07 12:35:59, 2025-12-07T12:35:59.193..., with optional tz.
-const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
-
-const isDatetimeLike = (val: string): boolean => DATETIME_RE.test(val.trim());
-
-/** Strip timezone suffix (+0700 +07, +07:00, Z, etc.) and convert separator to 'T' for datetime-local input. */
-const toDatetimeLocalValue = (val: string): string => {
-    // Normalise separator
-    let s = val.trim().replace(' ', 'T');
-    // Trim timezone: everything from the first +/- after seconds, or trailing Z
-    s = s.replace(/[+-]\d{2}:?\d{2}(\s+\S+)?$/, '').replace(/Z$/, '').trim();
-    // Ensure precision max 3 decimal places (datetime-local limit)
-    s = s.replace(/(\d{2}:\d{2}:\d{2}\.)(\d{3})\d*/, '$1$2');
-    return s;
-};
-
-/** Convert datetime-local value back to DB-compatible format (with space separator). */
-const fromDatetimeLocalValue = (val: string): string => val.replace('T', ' ');
+export interface FocusCellRequest {
+    rowKey: string;
+    colIdx: number;
+    nonce: number;
+}
 
 interface ResultTableProps {
     tabId: string;
@@ -44,6 +32,12 @@ interface ResultTableProps {
     setSelectedCells: React.Dispatch<React.SetStateAction<Set<string>>>;
     deletedRows?: Set<number>;
     setDeletedRows?: React.Dispatch<React.SetStateAction<Set<number>>>;
+    draftRows: DraftRow[];
+    setDraftRows: React.Dispatch<React.SetStateAction<DraftRow[]>>;
+    columnDefs: models.ColumnDef[];
+    focusCellRequest: FocusCellRequest | null;
+    onFocusCellRequestHandled: () => void;
+    onRemoveDraftRows: (draftIds: string[]) => void;
 }
 
 interface TableMeta {
@@ -51,46 +45,88 @@ interface TableMeta {
     editedCells: Map<string, string>;
     editingCell: string | null;
     editValue: string;
-    handleCellMouseDown: (e: React.MouseEvent, rIdx: number, cIdx: number) => void;
-    handleCellMouseEnter: (rIdx: number, cIdx: number) => void;
-    handleCellDoubleClick: (rIdx: number, cIdx: number, val: string) => void;
-    setEditValue: (val: string) => void;
-    handleCommitEdit: () => void;
+    handleCellMouseDown: (event: React.MouseEvent, rowKey: string, colIdx: number) => void;
+    handleCellMouseEnter: (rowKey: string, colIdx: number) => void;
+    handleCellDoubleClick: (rowKey: string, colIdx: number, val: string) => void;
+    setEditValue: (value: string) => void;
     setEditingCell: (cellId: string | null) => void;
-    handleRevertRow: (rIdx: number) => void;
+    handleRevertRow: (rowKey: string) => void;
 }
 
-export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows, setDeletedRows }) => {
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
+const CELL_ID_SEPARATOR = '|';
+
+const isDatetimeLike = (val: string): boolean => DATETIME_RE.test(val.trim());
+
+const toDatetimeLocalValue = (val: string): string => {
+    let s = val.trim().replace(' ', 'T');
+    s = s.replace(/[+-]\d{2}:?\d{2}(\s+\S+)?$/, '').replace(/Z$/, '').trim();
+    s = s.replace(/(\d{2}:\d{2}:\d{2}\.)(\d{3})\d*/, '$1$2');
+    return s;
+};
+
+const fromDatetimeLocalValue = (val: string): string => val.replace('T', ' ');
+
+function makeCellId(rowKey: string, colIdx: number): string {
+    return `${rowKey}${CELL_ID_SEPARATOR}${colIdx}`;
+}
+
+function parseCellId(cellId: string): { rowKey: string; colIdx: number } {
+    const separatorIndex = cellId.lastIndexOf(CELL_ID_SEPARATOR);
+    return {
+        rowKey: cellId.slice(0, separatorIndex),
+        colIdx: Number(cellId.slice(separatorIndex + 1)),
+    };
+}
+
+export const ResultTable: React.FC<ResultTableProps> = ({
+    tabId,
+    columns,
+    rows,
+    isDone,
+    editedCells,
+    setEditedCells,
+    selectedCells,
+    setSelectedCells,
+    deletedRows,
+    setDeletedRows,
+    draftRows,
+    setDraftRows,
+    columnDefs,
+    focusCellRequest,
+    onFocusCellRequestHandled,
+    onRemoveDraftRows,
+}) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
+    const displayRows = useMemo(() => buildDisplayRows(rows, draftRows), [rows, draftRows]);
+    const displayRowsByKey = useMemo(() => new Map(displayRows.map((row) => [row.key, row])), [displayRows]);
+    const rowOrder = useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
 
     const isEditable = useMemo(() => {
         if (!resultState?.tableName || !resultState?.primaryKeys?.length) return false;
         if (!columns.length) return false;
-        return resultState.primaryKeys.every(pk => columns.includes(pk));
-    }, [resultState?.tableName, resultState?.primaryKeys, columns]);
+        return resultState.primaryKeys.every((primaryKey) => columns.includes(primaryKey));
+    }, [columns, resultState?.primaryKeys, resultState?.tableName]);
 
-    // Disable sorting locally if we haven't loaded everything yet (true infinite scroll limitation)
     const canSortClientSide = isDone && !resultState?.hasMore;
     const [sorting, setSorting] = useState<SortingState>([]);
     const parentRef = React.useRef<HTMLDivElement>(null);
-
-    // Batch Edit States
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
     const [lastSelected, setLastSelected] = useState<string | null>(null);
-    const [dragStart, setDragStart] = useState<{ r: number, c: number, active: boolean, append: boolean, initialSelected: Set<string> } | null>(null);
+    const [dragStart, setDragStart] = useState<{ rowKey: string; colIdx: number; active: boolean; initialSelected: Set<string> } | null>(null);
+    const pendingSelectionRef = React.useRef<{ cellId: string; rowKey: string; colIdx: number } | null>(null);
 
-    // Stable ref so closures inside useMemo can always read fresh editValue
     const editValueRef = React.useRef(editValue);
     useEffect(() => { editValueRef.current = editValue; }, [editValue]);
 
-    const selectedCellsRef = React.useRef(selectedCells);
-    useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
-
     const editingCellRef = React.useRef(editingCell);
     useEffect(() => { editingCellRef.current = editingCell; }, [editingCell]);
+
+    const displayRowsRef = React.useRef(displayRows);
+    useEffect(() => { displayRowsRef.current = displayRows; }, [displayRows]);
 
     useEffect(() => {
         if (!isDone) {
@@ -98,128 +134,222 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             setLastSelected(null);
             setDragStart(null);
         }
-    }, [isDone, rows]); // Reset on new query
+    }, [isDone, rows]);
 
-    // Global mouse up
     useEffect(() => {
         const handleMouseUp = () => setDragStart(null);
         window.addEventListener('mouseup', handleMouseUp);
         return () => window.removeEventListener('mouseup', handleMouseUp);
     }, []);
 
-    const handleCellMouseDown = React.useCallback((e: React.MouseEvent, rIdx: number, cIdx: number) => {
-        if (!isDone) return;
-        if (e.button !== 0) return; // Only default left click
-        const id = `${rIdx}:${cIdx}`;
+    const applyDraftValueUpdates = React.useCallback((changes: Array<{ rowKey: string; colIdx: number; value: string }>) => {
+        if (changes.length === 0) return;
+        setDraftRows((prev) => prev.map((draftRow) => {
+            const rowKey = `d:${draftRow.id}`;
+            const rowChanges = changes.filter((change) => change.rowKey === rowKey);
+            if (rowChanges.length === 0) return draftRow;
 
-        if (e.shiftKey && lastSelected) {
-            const [lastR, lastC] = lastSelected.split(':').map(Number);
-            if (lastC === cIdx) {
-                setSelectedCells(prev => {
-                    const newSel = new Set(prev);
-                    const min = Math.min(lastR, rIdx);
-                    const max = Math.max(lastR, rIdx);
-                    for (let i = min; i <= max; i++) newSel.add(`${i}:${cIdx}`);
-                    return newSel;
+            const nextValues = [...draftRow.values];
+            rowChanges.forEach((change) => {
+                nextValues[change.colIdx] = change.value;
+            });
+
+            return { ...draftRow, values: nextValues };
+        }));
+    }, [setDraftRows]);
+
+    const focusCell = React.useCallback((rowKey: string, colIdx: number) => {
+        const displayRow = displayRowsByKey.get(rowKey);
+        if (!displayRow) return;
+
+        const rawValue = displayRow.values[colIdx] ?? '';
+        pendingSelectionRef.current = null;
+        setSelectedCells(new Set([makeCellId(rowKey, colIdx)]));
+        setLastSelected(makeCellId(rowKey, colIdx));
+        setEditingCell(makeCellId(rowKey, colIdx));
+        setEditValue(isDatetimeLike(rawValue) ? toDatetimeLocalValue(rawValue) : rawValue);
+    }, [displayRowsByKey, setSelectedCells]);
+
+    useEffect(() => {
+        if (!focusCellRequest) return;
+        focusCell(focusCellRequest.rowKey, focusCellRequest.colIdx);
+        onFocusCellRequestHandled();
+    }, [focusCell, focusCellRequest, onFocusCellRequestHandled]);
+
+    const handleCellMouseDown = React.useCallback((event: React.MouseEvent, rowKey: string, colIdx: number) => {
+        if (!isDone || event.button !== 0) return;
+        const cellId = makeCellId(rowKey, colIdx);
+
+        if (editingCellRef.current && editingCellRef.current !== cellId) {
+            pendingSelectionRef.current = { cellId, rowKey, colIdx };
+        } else {
+            pendingSelectionRef.current = null;
+        }
+
+        if (event.shiftKey && lastSelected) {
+            const { rowKey: lastRowKey, colIdx: lastColIdx } = parseCellId(lastSelected);
+            const currentRowOrder = rowOrder.get(rowKey);
+            const lastRowOrder = rowOrder.get(lastRowKey);
+            if (currentRowOrder !== undefined && lastRowOrder !== undefined && lastColIdx === colIdx) {
+                setSelectedCells((prev) => {
+                    const next = new Set(prev);
+                    const min = Math.min(currentRowOrder, lastRowOrder);
+                    const max = Math.max(currentRowOrder, lastRowOrder);
+                    for (let rowIndex = min; rowIndex <= max; rowIndex++) {
+                        next.add(makeCellId(displayRows[rowIndex].key, colIdx));
+                    }
+                    return next;
                 });
                 return;
             }
         }
 
-        if (e.ctrlKey || e.metaKey) {
-            setSelectedCells(prev => {
-                const newSel = new Set(prev);
-                if (newSel.has(id)) newSel.delete(id); else newSel.add(id);
-                return newSel;
+        if (event.ctrlKey || event.metaKey) {
+            setSelectedCells((prev) => {
+                const next = new Set(prev);
+                if (next.has(cellId)) next.delete(cellId); else next.add(cellId);
+                return next;
             });
         } else {
-            const isAppend = e.ctrlKey || e.metaKey;
-            setLastSelected(id);
-            setSelectedCells(prev => {
-                const newSel = isAppend ? new Set(prev) : new Set<string>();
-                if (isAppend && newSel.has(id)) {
-                    newSel.delete(id);
-                } else {
-                    newSel.add(id);
-                }
-                setDragStart({ r: rIdx, c: cIdx, active: true, append: isAppend, initialSelected: new Set(newSel) });
-                return newSel;
-            });
-
+            setSelectedCells(new Set([cellId]));
+            setDragStart({ rowKey, colIdx, active: true, initialSelected: new Set([cellId]) });
         }
-    }, [isDone, lastSelected, setSelectedCells]);
 
-    const handleCellMouseEnter = React.useCallback((rIdx: number, cIdx: number) => {
+        setLastSelected(cellId);
+    }, [displayRows, isDone, lastSelected, rowOrder, setSelectedCells]);
+
+    const handleCellMouseEnter = React.useCallback((rowKey: string, colIdx: number) => {
         if (!dragStart?.active) return;
 
-        setSelectedCells(() => {
-            const newSel = new Set(dragStart.initialSelected);
-            const minR = Math.min(dragStart.r, rIdx);
-            const maxR = Math.max(dragStart.r, rIdx);
-            const minC = Math.min(dragStart.c, cIdx);
-            const maxC = Math.max(dragStart.c, cIdx);
+        const startRowOrder = rowOrder.get(dragStart.rowKey);
+        const currentRowOrder = rowOrder.get(rowKey);
+        if (startRowOrder === undefined || currentRowOrder === undefined) return;
 
-            for (let r = minR; r <= maxR; r++) {
-                for (let c = minC; c <= maxC; c++) {
-                    newSel.add(`${r}:${c}`);
+        setSelectedCells(() => {
+            const next = new Set(dragStart.initialSelected);
+            const minRow = Math.min(startRowOrder, currentRowOrder);
+            const maxRow = Math.max(startRowOrder, currentRowOrder);
+            const minCol = Math.min(dragStart.colIdx, colIdx);
+            const maxCol = Math.max(dragStart.colIdx, colIdx);
+
+            for (let rowIndex = minRow; rowIndex <= maxRow; rowIndex++) {
+                for (let nextCol = minCol; nextCol <= maxCol; nextCol++) {
+                    next.add(makeCellId(displayRows[rowIndex].key, nextCol));
                 }
             }
-            return newSel;
+            return next;
         });
-        setLastSelected(`${rIdx}:${cIdx}`);
-    }, [dragStart, setSelectedCells]);
+        setLastSelected(makeCellId(rowKey, colIdx));
+    }, [displayRows, dragStart, rowOrder, setSelectedCells]);
 
-    const handleCellDoubleClick = React.useCallback((rIdx: number, cIdx: number, val: string) => {
+    const handleCellDoubleClick = React.useCallback((rowKey: string, colIdx: number, val: string) => {
         if (!isDone) return;
-        if (!isEditable) {
-            toast.error("Result is read-only. Make sure the query includes the primary key(s).");
+        const displayRow = displayRowsByKey.get(rowKey);
+        if (!displayRow) return;
+        if (displayRow.kind === 'persisted' && !isEditable) {
+            toast.error('Result is read-only. Make sure the query includes the primary key(s).');
             return;
         }
-        const id = `${rIdx}:${cIdx}`;
-        setEditingCell(id);
-        // For datetime values, strip timezone for datetime-local input
-        setEditValue(isDatetimeLike(val) ? toDatetimeLocalValue(val) : val);
-        setSelectedCells(prev => {
-            if (prev.has(id)) return prev;
-            setLastSelected(id);
-            return new Set([id]);
-        });
-    }, [isDone, isEditable, toast, setSelectedCells]);
 
-    const handleCommitEdit = React.useCallback(() => {
+        const cellId = makeCellId(rowKey, colIdx);
+        pendingSelectionRef.current = null;
+        setEditingCell(cellId);
+        setEditValue(isDatetimeLike(val) ? toDatetimeLocalValue(val) : val);
+        setSelectedCells(new Set([cellId]));
+        setLastSelected(cellId);
+    }, [displayRowsByKey, isDone, isEditable, setSelectedCells, toast]);
+
+    const commitEdit = React.useCallback(async (options?: { nextDirection?: 1 | -1 }) => {
         const currentEditingCell = editingCellRef.current;
         if (!currentEditingCell) return;
-        const [, cIdx] = currentEditingCell.split(':').map(Number);
-        const currentEditValue = editValueRef.current;
-        const currentSelectedCells = selectedCellsRef.current;
 
-        setEditedCells((prev: Map<string, string>) => {
-            const newMap = new Map<string, string>(prev);
-            currentSelectedCells.forEach(selId => {
-                const [, selC] = selId.split(':').map(Number);
-                if (selC === cIdx) newMap.set(selId, currentEditValue);
+        const { rowKey, colIdx } = parseCellId(currentEditingCell);
+        const displayRow = displayRowsRef.current.find((row) => row.key === rowKey);
+        if (!displayRow) return;
+
+        const nextValue = editValueRef.current;
+        if (displayRow.kind === 'persisted') {
+            setEditedCells((prev) => {
+                const next = new Map(prev);
+                next.set(`${displayRow.persistedIndex}:${colIdx}`, nextValue);
+                return next;
             });
-            return newMap;
-        });
-        setEditingCell(null);
-    }, [setEditedCells]);
+        } else {
+            applyDraftValueUpdates([{ rowKey: displayRow.key, colIdx, value: nextValue }]);
+        }
 
-    // Build TanStack column definitions - stable
-    const colDefs = useMemo<ColumnDef<any>[]>(() => {
-        const rowNumCol: ColumnDef<any> = {
+        const currentRowOrder = rowOrder.get(rowKey);
+        if (options?.nextDirection && currentRowOrder !== undefined) {
+            const nextColIdx = colIdx + options.nextDirection;
+            if (nextColIdx >= 0 && nextColIdx < columns.length) {
+                pendingSelectionRef.current = null;
+                const nextCellId = makeCellId(rowKey, nextColIdx);
+                const nextCellValue = displayRow.kind === 'persisted'
+                    ? (editedCells.get(`${displayRow.persistedIndex}:${nextColIdx}`) ?? displayRow.values[nextColIdx] ?? '')
+                    : (displayRow.values[nextColIdx] ?? '');
+                setEditingCell(nextCellId);
+                setEditValue(isDatetimeLike(nextCellValue) ? toDatetimeLocalValue(nextCellValue) : nextCellValue);
+                setSelectedCells(new Set([nextCellId]));
+                setLastSelected(nextCellId);
+                return;
+            }
+        }
+
+        setEditingCell(null);
+        if (pendingSelectionRef.current) {
+            const { cellId } = pendingSelectionRef.current;
+            pendingSelectionRef.current = null;
+            setSelectedCells(new Set([cellId]));
+            setLastSelected(cellId);
+            return;
+        }
+
+        setSelectedCells(new Set([makeCellId(rowKey, colIdx)]));
+    }, [applyDraftValueUpdates, columns, editedCells, rowOrder, setEditedCells, setSelectedCells]);
+
+    const handleRevertRow = React.useCallback((rowKey: string) => {
+        const displayRow = displayRowsByKey.get(rowKey);
+        if (!displayRow) return;
+
+        if (displayRow.kind === 'draft') {
+            onRemoveDraftRows([displayRow.draft!.id]);
+            return;
+        }
+
+        const rowIndex = displayRow.persistedIndex as number;
+        setEditedCells((prev) => {
+            const next = new Map(prev);
+            Array.from(next.keys()).forEach((key) => {
+                if (key.startsWith(`${rowIndex}:`)) {
+                    next.delete(key);
+                }
+            });
+            return next;
+        });
+
+        if (setDeletedRows && deletedRows?.has(rowIndex)) {
+            setDeletedRows((prev) => {
+                const next = new Set(prev);
+                next.delete(rowIndex);
+                return next;
+            });
+        }
+    }, [deletedRows, displayRowsByKey, onRemoveDraftRows, setDeletedRows, setEditedCells]);
+
+    const colDefs = useMemo<ColumnDef<DisplayRow>[]>(() => {
+        const rowNumCol: ColumnDef<DisplayRow> = {
             id: '__rownum__',
             header: () => (
                 <div
                     title={isEditable
                         ? `Editable (${resultState?.tableName})`
-                        : "Read-only (No Primary Key or missing PK in SELECT)"}
+                        : 'Read-only (No Primary Key or missing PK in SELECT)'}
                     className="flex items-center justify-center gap-1 cursor-help opacity-70"
                 >
                     <span className="font-mono text-[10px]">#</span>
                     {isEditable
                         ? <Unlock size={10} className="text-success" />
-                        : <Lock size={10} className="text-text-muted" />
-                    }
+                        : <Lock size={10} className="text-text-muted" />}
                 </div>
             ),
             enableSorting: false,
@@ -229,33 +359,38 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return (
                     <div
                         className="rt-cell-content row-num-col"
-                        onDoubleClick={() => meta?.handleRevertRow?.(row.index)}
-                        title="Double-click to revert changes to this row"
+                        onDoubleClick={() => meta?.handleRevertRow?.(row.original.key)}
+                        title={row.original.kind === 'draft' ? 'Double-click to remove this unsaved row' : 'Double-click to revert changes to this row'}
                     >
-                        {row.index + 1}
+                        {row.original.kind === 'draft' ? '+' : (row.original.persistedIndex as number) + 1}
                     </div>
                 );
             },
         };
 
-        const dataCols: ColumnDef<any>[] = columns.map((col, colIdx) => ({
+        const dataCols: ColumnDef<DisplayRow>[] = columns.map((col, colIdx) => ({
             id: col || `col_${colIdx}`,
             header: col,
-            accessorFn: (row: any[]) => row[colIdx] ?? '',
+            accessorFn: (row) => row.values[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
             cell: (info) => {
                 const meta = info.table.options.meta as TableMeta | undefined;
-                const cellId = `${info.row.index}:${colIdx}`;
+                const rowKey = info.row.original.key;
+                const cellId = makeCellId(rowKey, colIdx);
                 const isSelected = meta?.selectedCells?.has(cellId) ?? false;
-                const isDirty = meta?.editedCells?.has(cellId) ?? false;
                 const isEditing = meta?.editingCell === cellId;
-                const origVal = info.getValue() as string;
-                const editedValue = meta?.editedCells?.get(cellId);
-                const value = isDirty && editedValue !== undefined ? editedValue : origVal;
+                const displayRow = info.row.original;
+                const isDirty = displayRow.kind === 'persisted'
+                    ? meta?.editedCells?.has(`${displayRow.persistedIndex}:${colIdx}`) ?? false
+                    : false;
+                const baseValue = info.getValue() as string;
+                const value = displayRow.kind === 'persisted'
+                    ? (meta?.editedCells?.get(`${displayRow.persistedIndex}:${colIdx}`) ?? baseValue)
+                    : (displayRow.values[colIdx] ?? '');
 
                 if (isEditing) {
-                    const dtLike = isDatetimeLike(origVal);
+                    const dtLike = isDatetimeLike(baseValue || value);
                     return (
                         <input
                             autoFocus
@@ -263,21 +398,30 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                             type={dtLike ? 'datetime-local' : 'text'}
                             step={dtLike ? '0.001' : undefined}
                             value={meta?.editValue ?? ''}
-                            onChange={(e) => meta?.setEditValue?.(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    // Convert datetime-local value back to DB format
-                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(e.currentTarget.value));
-                                    meta?.handleCommitEdit?.();
-                                } else if (e.key === 'Escape') {
-                                    meta?.setEditingCell?.(null);
+                            onChange={(event) => meta?.setEditValue?.(event.target.value)}
+                            onKeyDown={async (event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                    await commitEdit();
+                                } else if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    if (displayRow.kind === 'draft') {
+                                        onRemoveDraftRows([displayRow.draft!.id]);
+                                    } else {
+                                        meta?.setEditingCell?.(null);
+                                    }
+                                } else if (event.key === 'Tab') {
+                                    event.preventDefault();
+                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                    await commitEdit({ nextDirection: event.shiftKey ? -1 : 1 });
                                 }
                             }}
-                            onBlur={(e) => {
-                                if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(e.currentTarget.value));
-                                meta?.handleCommitEdit?.();
+                            onBlur={async (event) => {
+                                if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                await commitEdit();
                             }}
-                            onClick={e => e.stopPropagation()}
+                            onClick={(event) => event.stopPropagation()}
                         />
                     );
                 }
@@ -285,23 +429,22 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return (
                     <div
                         className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
-                        onMouseDown={(e) => meta?.handleCellMouseDown?.(e, info.row.index, colIdx)}
-                        onMouseEnter={() => meta?.handleCellMouseEnter?.(info.row.index, colIdx)}
-                        onDoubleClick={() => meta?.handleCellDoubleClick?.(info.row.index, colIdx, String(value))}
+                        onMouseDown={(event) => meta?.handleCellMouseDown?.(event, rowKey, colIdx)}
+                        onMouseEnter={() => meta?.handleCellMouseEnter?.(rowKey, colIdx)}
+                        onDoubleClick={() => meta?.handleCellDoubleClick?.(rowKey, colIdx, String(value))}
                         title={String(value)}
                     >
                         {String(value)}
                     </div>
                 );
-            }
+            },
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns, isEditable, resultState?.tableName, resultState?.hasMore, canSortClientSide]);
+    }, [columns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = useReactTable<any>({
-        data: rows,
+    const table = useReactTable<DisplayRow>({
+        data: displayRows,
         columns: colDefs,
         state: { sorting },
         meta: {
@@ -313,27 +456,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             handleCellMouseEnter,
             handleCellDoubleClick,
             setEditValue,
-            handleCommitEdit,
             setEditingCell,
-            handleRevertRow: (rIdx: number) => {
-                setEditedCells(prev => {
-                    const next = new Map(prev);
-                    for (const key of Array.from(next.keys())) {
-                        if (key.startsWith(`${rIdx}:`)) {
-                            next.delete(key);
-                        }
-                    }
-                    return next;
-                });
-
-                if (setDeletedRows && deletedRows?.has(rIdx)) {
-                    setDeletedRows(prev => {
-                        const next = new Set(prev);
-                        next.delete(rIdx);
-                        return next;
-                    });
-                }
-            }
+            handleRevertRow,
         },
         onSortingChange: canSortClientSide ? setSorting : undefined,
         getCoreRowModel: getCoreRowModel(),
@@ -351,11 +475,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     });
 
     const virtualItems = virtualizer.getVirtualItems();
-
-    // Debounce ref to prevent multiple rapid fetch requests
     const fetchMoreRef = React.useRef(false);
 
-    // Infinite Scroll trigger with debounce
     useEffect(() => {
         if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore || fetchMoreRef.current) return;
 
@@ -371,22 +492,21 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 });
         }
     }, [
-        virtualItems.length ? virtualItems[virtualItems.length - 1].index : 0,
         isDone,
         resultState?.hasMore,
         resultState?.isFetchingMore,
         rows.length,
-        tabId,
         setOffset,
-        tableRows.length
+        tabId,
+        tableRows.length,
+        virtualItems,
     ]);
 
     const totalHeight = virtualizer.getTotalSize();
     const paddingTop = virtualItems.length > 0 ? (virtualItems[0]?.start ?? 0) : 0;
-    const paddingBottom =
-        virtualItems.length > 0
-            ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0)
-            : 0;
+    const paddingBottom = virtualItems.length > 0
+        ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0)
+        : 0;
 
     return (
         <div ref={parentRef} className="result-virtual-scroll">
@@ -422,11 +542,13 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     )}
                     {virtualItems.map((virtualRow) => {
                         const row = tableRows[virtualRow.index];
-                        const isDeleted = deletedRows?.has(virtualRow.index);
+                        const displayRow = row.original;
+                        const isDeleted = displayRow.kind === 'persisted' && deletedRows?.has(displayRow.persistedIndex as number);
                         const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
-                        const hasRowSel = selectedCells.size > 0 && Array.from(selectedCells).some(k => k.startsWith(`${virtualRow.index}:`));
+                        const hasRowSel = Array.from(selectedCells).some((cellId) => parseCellId(cellId).rowKey === displayRow.key);
+                        const draftClass = displayRow.kind === 'draft' ? 'rt-row-draft' : '';
                         return (
-                            <tr key={row.id} className={`${altClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
+                            <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
                                 {row.getVisibleCells().map((cell) => (
                                     <td key={cell.id} style={{ width: cell.column.getSize() }}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -440,20 +562,26 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     )}
                     {resultState?.isFetchingMore && (
                         <tr>
-                            <td colSpan={columns.length + 1} style={{
-                                textAlign: 'center',
-                                padding: '8px',
-                                background: 'var(--bg-primary)'
-                            }}>
-                                <div className="loading-spinner" style={{
-                                    display: 'inline-block',
-                                    width: 12,
-                                    height: 12,
-                                    border: '1.5px solid var(--border-color)',
-                                    borderTopColor: 'var(--accent-color)',
-                                    borderRadius: '50%',
-                                    animation: 'spin 0.8s linear infinite'
-                                }} />
+                            <td
+                                colSpan={columns.length + 1}
+                                style={{
+                                    textAlign: 'center',
+                                    padding: '8px',
+                                    background: 'var(--bg-primary)',
+                                }}
+                            >
+                                <div
+                                    className="loading-spinner"
+                                    style={{
+                                        display: 'inline-block',
+                                        width: 12,
+                                        height: 12,
+                                        border: '1.5px solid var(--border-color)',
+                                        borderTopColor: 'var(--accent-color)',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite',
+                                    }}
+                                />
                                 <span style={{ marginLeft: 8, color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 500 }}>
                                     Loading more rows...
                                 </span>

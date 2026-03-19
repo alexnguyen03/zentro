@@ -322,7 +322,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
         if (!isDirty || !onSave || isPK) return;
         onSave(colIdx, editVal);
         setIsDirty(false);
-    }, [isDirty, onSave, isPK, colIdx, editVal]);
+    }, [colIdx, editVal, isDirty, isPK, onSave]);
 
     const handleChange = (newVal: string) => {
         setEditVal(newVal);
