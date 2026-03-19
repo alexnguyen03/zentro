@@ -8,7 +8,7 @@ import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
 import { SettingsView } from '../layout/SettingsView';
 import { ShortcutsView } from '../layout/ShortcutsView';
-import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../../wailsjs/go/app/App';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 
@@ -48,12 +48,23 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
 
     // ── Run / Cancel ──────────────────────────────────────────────────────
     const handleRun = useCallback(async (queryToRun: string) => {
-        if (!activeTab || !isConnected) return;
+        if (!activeTab || !isConnected || activeTab.readOnly) return;
         useResultStore.getState().setFilterExpr(activeTab.id, '');
         try {
             await ExecuteQuery(activeTab.id, queryToRun);
         } catch (err: any) {
             console.error('ExecuteQuery error:', err);
+        }
+    }, [activeTab, isConnected]);
+
+    const handleExplain = useCallback(async (queryToExplain: string, analyze: boolean) => {
+        if (!activeTab || !isConnected || activeTab.readOnly) return;
+
+        const explainTabId = `${activeTab.id}::explain:${analyze ? 'analyze' : 'plan'}`;
+        try {
+            await ExplainQuery(explainTabId, queryToExplain, analyze);
+        } catch (err: any) {
+            console.error('ExplainQuery error:', err);
         }
     }, [activeTab, isConnected]);
 
@@ -121,8 +132,10 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                                         value={tab.query}
                                         onChange={(v) => updateTabQuery(tab.id, v)}
                                         onRun={handleRun}
+                                        onExplain={handleExplain}
                                         isActive={isActiveGroup && tab.id === activeTabId}
                                         onFocus={handleGroupClick}
+                                        readOnly={tab.readOnly}
                                     />
                                 )}
                             </div>

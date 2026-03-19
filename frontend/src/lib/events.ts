@@ -16,6 +16,7 @@ export const EVENT = {
     QUERY_STARTED: 'query:started',
     QUERY_CHUNK: 'query:chunk',
     QUERY_DONE: 'query:done',
+    TRANSACTION_STATUS: 'transaction:status',
 } as const;
 
 // ── Payload types ─────────────────────────────────────────────────────────
@@ -64,25 +65,43 @@ export interface SchemaErrorPayload {
 
 export interface QueryStartedPayload {
     tabID: string;
+    sourceTabID: string;
     query: string;
+    statementText: string;
+    statementIndex: number;
+    statementCount: number;
 }
 
 export interface QueryChunkPayload {
     tabID: string;
+    sourceTabID: string;
     columns?: string[];
     rows: string[][];
     seq: number;
     tableName?: string;
     primaryKeys?: string[];
+    statementText: string;
+    statementIndex: number;
+    statementCount: number;
 }
 
 export interface QueryDonePayload {
     tabID: string;
+    sourceTabID: string;
     affected: number;
     duration: number;
     isSelect: boolean;
     hasMore: boolean;
     error?: string;
+    statementText: string;
+    statementIndex: number;
+    statementCount: number;
+}
+
+export interface TransactionStatusPayload {
+    status: 'none' | 'active' | 'error';
+    error?: string;
+    driver?: string;
 }
 
 // ── Typed listener factories ───────────────────────────────────────────────
@@ -115,4 +134,8 @@ export function onQueryChunk(cb: (data: QueryChunkPayload) => void): Unsubscribe
 
 export function onQueryDone(cb: (data: QueryDonePayload) => void): Unsubscribe {
     return EventsOn(EVENT.QUERY_DONE, cb);
+}
+
+export function onTransactionStatus(cb: (data: TransactionStatusPayload) => void): Unsubscribe {
+    return EventsOn(EVENT.TRANSACTION_STATUS, cb);
 }

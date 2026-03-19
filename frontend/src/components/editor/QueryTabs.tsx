@@ -219,6 +219,37 @@ export const QueryTabs: React.FC = () => {
         );
     }
 
+    const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
+
+    // Reset sub-tab selection when the main tab changes
+    useEffect(() => {
+        setActiveSubTabId(null);
+    }, [globalActiveTabId]);
+
+    const globalActiveResultKeys = React.useMemo(() => {
+        if (!globalActiveTabId) return [];
+        return Object.keys(results)
+            .filter((k) => k === globalActiveTabId || k.startsWith(`${globalActiveTabId}::result:`) || k.startsWith(`${globalActiveTabId}::explain:`))
+            .sort((a, b) => {
+                if (a === globalActiveTabId) return -1;
+                if (b === globalActiveTabId) return 1;
+                return a.localeCompare(b);
+            });
+    }, [globalActiveTabId, results]);
+
+    const currentResultTabId =
+        activeSubTabId && globalActiveResultKeys.includes(activeSubTabId)
+            ? activeSubTabId
+            : globalActiveResultKeys.length > 0
+            ? globalActiveResultKeys[0]
+            : globalActiveTabId;
+
+    const currentResult = currentResultTabId ? results[currentResultTabId] : undefined;
+    const isMainResult = currentResultTabId === globalActiveTabId;
+    const isExplainResult = currentResultTabId?.includes('::explain:');
+    const isReadOnlySubTab = !isMainResult;
+    const generatedKind = isExplainResult ? 'explain' : (isMainResult ? undefined : 'result');
+
     return (
         <DndContext
             sensors={sensors}
@@ -251,16 +282,52 @@ export const QueryTabs: React.FC = () => {
                         minSize={100} 
                         visible={showResultPanel && activeTabIsQuery}
                     >
-                        <div className="h-full border-t border-border">
-                            <ResultPanel
-                                tabId={globalActiveTabId ?? ''}
-                                result={globalActiveResult}
-                                onRun={handleRunGlobal}
-                                onFilterRun={handleFilterRunGlobal}
-                                baseQuery={globalActiveResult?.lastExecutedQuery || globalActiveTab?.query}
-                                onAppendToQuery={handleAppendToQuery}
-                                onOpenInNewTab={handleOpenFilterInNewTab}
-                            />
+                        <div className="h-full border-t border-border flex flex-col">
+                            {globalActiveResultKeys.length > 1 && (
+                                <div className="flex bg-bg-secondary border-b border-border overflow-x-auto">
+                                    {globalActiveResultKeys.map((subTabId) => {
+                                        let label = 'Result 1';
+                                        if (subTabId !== globalActiveTabId) {
+                                            if (subTabId.includes('::explain:analyze')) label = 'Explain Analyze';
+                                            else if (subTabId.includes('::explain:plan')) label = 'Explain Plan';
+                                            else {
+                                                const match = subTabId.match(/::result:(\d+)/);
+                                                if (match) label = `Result ${parseInt(match[1], 10) + 1}`;
+                                            }
+                                        }
+
+                                        const isActive = subTabId === currentResultTabId;
+                                        return (
+                                            <button
+                                                key={subTabId}
+                                                onClick={() => setActiveSubTabId(subTabId)}
+                                                className={cn(
+                                                    "px-3 py-1.5 text-[11px] whitespace-nowrap border-r border-border truncate max-w-[150px] transition-colors focus:outline-none",
+                                                    isActive 
+                                                        ? "bg-bg-primary text-text-primary border-t-[3px] border-t-success font-medium" 
+                                                        : "bg-bg-tertiary text-text-secondary hover:bg-bg-primary hover:text-text-primary border-t-[3px] border-t-transparent"
+                                                )}
+                                                title={label}
+                                            >
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <div className="flex-1 overflow-hidden relative">
+                                <ResultPanel
+                                    tabId={currentResultTabId ?? ''}
+                                    result={currentResult}
+                                    onRun={handleRunGlobal}
+                                    onFilterRun={handleFilterRunGlobal}
+                                    baseQuery={currentResult?.lastExecutedQuery || globalActiveTab?.query}
+                                    onAppendToQuery={handleAppendToQuery}
+                                    onOpenInNewTab={handleOpenFilterInNewTab}
+                                    isReadOnlyTab={isReadOnlySubTab}
+                                    generatedKind={generatedKind as 'result' | 'explain'}
+                                />
+                            </div>
                         </div>
                     </Allotment.Pane>
                 </Allotment>

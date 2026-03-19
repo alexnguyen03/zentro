@@ -16,27 +16,30 @@ import (
 )
 
 type ConnectionService struct {
-	ctx             context.Context
-	logger          *slog.Logger
-	getPrefs        func() utils.Preferences
-	getDB           func() *sql.DB
-	getProfile      func() *models.ConnectionProfile
-	setDB           func(*sql.DB, *models.ConnectionProfile)
-	keepAliveCancel context.CancelFunc
+	ctx              context.Context
+	logger           *slog.Logger
+	getPrefs         func() utils.Preferences
+	getDB            func() *sql.DB
+	getProfile       func() *models.ConnectionProfile
+	rollbackActiveTx func() error
+	setDB            func(*sql.DB, *models.ConnectionProfile)
+	keepAliveCancel  context.CancelFunc
 }
 
 func NewConnectionService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
 	getDB func() *sql.DB, getProfile func() *models.ConnectionProfile,
+	rollbackActiveTx func() error,
 	setDB func(*sql.DB, *models.ConnectionProfile),
 ) *ConnectionService {
 	return &ConnectionService{
-		ctx:        ctx,
-		logger:     logger,
-		getPrefs:   getPrefs,
-		getDB:      getDB,
-		getProfile: getProfile,
-		setDB:      setDB,
+		ctx:              ctx,
+		logger:           logger,
+		getPrefs:         getPrefs,
+		getDB:            getDB,
+		getProfile:       getProfile,
+		rollbackActiveTx: rollbackActiveTx,
+		setDB:            setDB,
 	}
 }
 
@@ -118,6 +121,9 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	)
 
 	// Clean up previous connection regardless of success to reflect the user's intent to switch
+	if s.rollbackActiveTx != nil {
+		_ = s.rollbackActiveTx()
+	}
 	previousDB := s.getDB()
 	if previousDB != nil {
 		_ = previousDB.Close()
@@ -127,7 +133,7 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 		s.keepAliveCancel = nil
 	}
 
-	// Set active profile immediately with nil DB. If connection fails, 
+	// Set active profile immediately with nil DB. If connection fails,
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
 
@@ -198,6 +204,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	clone.DBName = dbName
 
 	previousDB := s.getDB()
+	if s.rollbackActiveTx != nil {
+		_ = s.rollbackActiveTx()
+	}
 	if previousDB != nil {
 		_ = previousDB.Close()
 	}
@@ -254,6 +263,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 }
 
 func (s *ConnectionService) Disconnect() {
+	if s.rollbackActiveTx != nil {
+		_ = s.rollbackActiveTx()
+	}
 	if s.keepAliveCancel != nil {
 		s.keepAliveCancel()
 		s.keepAliveCancel = nil
@@ -516,7 +528,7 @@ func (s *ConnectionService) FetchTableRelationships(schema, table string) ([]mod
 	prefs := s.getPrefs()
 	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
 	defer cancel()
-	
+
 	s.logger.Info("fetching table relationships", "schema", schema, "table", table)
 	return d.FetchTableRelationships(ctx, db, schema, table)
 }

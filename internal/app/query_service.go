@@ -9,16 +9,32 @@ import (
 	"sync"
 	"time"
 
-	dbpkg "zentro/internal/db"
 	"zentro/internal/constant"
+	dbpkg "zentro/internal/db"
 	"zentro/internal/utils"
 )
+
+type sqlExecutor interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+type queryStatement struct {
+	SourceTabID      string
+	TabID            string
+	Text             string
+	Index            int
+	Count            int
+	SkipEditableMeta bool
+}
 
 type QueryService struct {
 	ctx           context.Context
 	logger        *slog.Logger
 	getPrefs      func() utils.Preferences
 	getDB         func() *sql.DB
+	getExecutor   func() sqlExecutor
 	getDriver     func() string
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error)
 
@@ -31,7 +47,7 @@ type QueryService struct {
 
 func NewQueryService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
-	getDB func() *sql.DB, getDriver func() string,
+	getDB func() *sql.DB, getExecutor func() sqlExecutor, getDriver func() string,
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error),
 ) *QueryService {
 	return &QueryService{
@@ -39,6 +55,7 @@ func NewQueryService(
 		logger:        logger,
 		getPrefs:      getPrefs,
 		getDB:         getDB,
+		getExecutor:   getExecutor,
 		getDriver:     getDriver,
 		appendHistory: appendHistory,
 		sessions:      make(map[string]*QuerySession),
@@ -62,6 +79,42 @@ func (s *QueryService) Shutdown() {
 }
 
 func (s *QueryService) ExecuteQuery(tabID, query string) {
+	s.executeQueryWithOptions(tabID, query, false)
+}
+
+func (s *QueryService) ExplainQuery(tabID, query string, analyze bool) error {
+	driver := s.getDriver()
+	explainSQL, err := buildExplainQuery(driver, query, analyze)
+	if err != nil {
+		return err
+	}
+
+	s.executeQueryWithOptions(tabID, explainSQL, true)
+	return nil
+}
+
+func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditableMeta bool) {
+	statements := dbpkg.SplitStatements(query)
+	if len(statements) == 0 {
+		emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{
+			"tabID":          tabID,
+			"sourceTabID":    tabID,
+			"query":          query,
+			"statementText":  query,
+			"statementIndex": 0,
+			"statementCount": 1,
+		})
+		s.emitDoneWithMore(queryStatement{
+			SourceTabID:      tabID,
+			TabID:            tabID,
+			Text:             query,
+			Index:            0,
+			Count:            1,
+			SkipEditableMeta: skipEditableMeta,
+		}, 0, 0, false, false, fmt.Errorf("no executable SQL statement found"))
+		return
+	}
+
 	s.sessionsMu.Lock()
 	if old, ok := s.sessions[tabID]; ok {
 		old.CancelFunc()
@@ -77,19 +130,6 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 	s.sessions[tabID] = session
 	s.sessionsMu.Unlock()
 
-	emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{"tabID": tabID, "query": query})
-	s.logger.Info("executing query", "tab", tabID)
-
-	if dbpkg.IsSelectQuery(query) {
-		s.activeQueriesMu.Lock()
-		s.activeQueries[tabID] = query
-		s.activeQueriesMu.Unlock()
-	} else {
-		s.activeQueriesMu.Lock()
-		delete(s.activeQueries, tabID)
-		s.activeQueriesMu.Unlock()
-	}
-
 	go func() {
 		defer func() {
 			s.sessionsMu.Lock()
@@ -100,39 +140,83 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 			s.sessionsMu.Unlock()
 		}()
 
-		db := s.getDB()
-		if db == nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("no active connection"))
+		executor := s.getExecutor()
+		if executor == nil {
+			s.emitDoneWithMore(queryStatement{
+				SourceTabID:      tabID,
+				TabID:            tabID,
+				Text:             query,
+				Index:            0,
+				Count:            len(statements),
+				SkipEditableMeta: skipEditableMeta,
+			}, 0, 0, true, false, fmt.Errorf("no active connection"))
 			return
 		}
 
-		start := time.Now()
-		if dbpkg.IsSelectQuery(query) {
-			s.streamSelect(ctx, tabID, query, 0, start)
-		} else {
-			s.execNonSelect(ctx, tabID, query, start)
+		for index, statementText := range statements {
+			statement := queryStatement{
+				SourceTabID:      tabID,
+				TabID:            resultTabID(tabID, index),
+				Text:             statementText,
+				Index:            index,
+				Count:            len(statements),
+				SkipEditableMeta: skipEditableMeta,
+			}
+
+			emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{
+				"tabID":          statement.TabID,
+				"sourceTabID":    statement.SourceTabID,
+				"query":          statement.Text,
+				"statementText":  statement.Text,
+				"statementIndex": statement.Index,
+				"statementCount": statement.Count,
+			})
+
+			s.logger.Info("executing query statement", "tab", statement.TabID, "sourceTab", tabID, "statementIndex", index)
+
+			if dbpkg.IsSelectQuery(statement.Text) {
+				s.activeQueriesMu.Lock()
+				s.activeQueries[statement.TabID] = statement.Text
+				s.activeQueriesMu.Unlock()
+			} else {
+				s.activeQueriesMu.Lock()
+				delete(s.activeQueries, statement.TabID)
+				s.activeQueriesMu.Unlock()
+			}
+
+			start := time.Now()
+			var err error
+			if dbpkg.IsSelectQuery(statement.Text) {
+				err = s.streamSelect(ctx, executor, statement, 0, start)
+			} else {
+				err = s.execNonSelect(ctx, executor, statement, start)
+			}
+			if err != nil || ctx.Err() != nil {
+				return
+			}
 		}
 	}()
 }
 
-func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, offset int, start time.Time) {
+func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, statement queryStatement, offset int, start time.Time) error {
 	driver := s.getDriver()
 	db := s.getDB()
 	prefs := s.getPrefs()
 	fetchLimit := prefs.DefaultLimit
 
 	checkLimit := fetchLimit + 1
-	normalized := dbpkg.InjectPageClause(driver, query, checkLimit, offset)
+	normalized := dbpkg.InjectPageClause(driver, statement.Text, checkLimit, offset)
 
-	if normalized == query && offset > 0 {
-		s.emitDoneWithMore(tabID, 0, time.Since(start), true, false, nil)
-		return
+	if normalized == statement.Text && offset > 0 {
+		s.emitDoneWithMore(statement, 0, time.Since(start), true, false, nil)
+		return nil
 	}
 
-	rows, err := db.QueryContext(ctx, normalized)
+	rows, err := executor.QueryContext(ctx, normalized)
 	if err != nil {
-		s.emitDoneWithMore(tabID, 0, time.Since(start), true, false, fmt.Errorf("query: %w", err))
-		return
+		wrappedErr := fmt.Errorf("query: %w", err)
+		s.emitDoneWithMore(statement, 0, time.Since(start), true, false, wrappedErr)
+		return wrappedErr
 	}
 	defer rows.Close()
 
@@ -141,8 +225,8 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 
 	var tableName string
 	var pks []string
-	if offset == 0 {
-		parsedSchema, table := dbpkg.ExtractTableFromQuery(query)
+	if offset == 0 && !statement.SkipEditableMeta {
+		parsedSchema, table := dbpkg.ExtractTableFromQuery(statement.Text)
 		if table != "" {
 			tableName = table
 			trySchemas := []string{parsedSchema}
@@ -188,9 +272,9 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 			if !sentCols {
 				chunkCols = cols
 				sentCols = true
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
+				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
 			} else {
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, "", nil))
+				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
 			}
 			buf = nil
 			seq++
@@ -201,9 +285,9 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 		var chunkCols []string
 		if !sentCols {
 			chunkCols = cols
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
+			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
 		} else {
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, "", nil))
+			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
 		}
 	}
 
@@ -215,9 +299,13 @@ func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, of
 
 	totalRows := int64(seq*chunkSize + len(buf))
 	if offset == 0 {
-		s.appendHistory(query, totalRows, time.Since(start), rows.Err())
+		s.appendHistory(statement.Text, totalRows, time.Since(start), rows.Err())
 	}
-	s.emitDoneWithMore(tabID, int64(totalRowsFetched), time.Since(start), true, hasMore, rows.Err())
+	if rows.Err() != nil {
+		err = rows.Err()
+	}
+	s.emitDoneWithMore(statement, int64(totalRowsFetched), time.Since(start), true, hasMore, err)
+	return err
 }
 
 func (s *QueryService) FetchMoreRows(tabID string, offset int) {
@@ -226,12 +314,12 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 	s.activeQueriesMu.Unlock()
 
 	if !ok || query == "" {
-		s.emitDone(tabID, 0, 0, true, fmt.Errorf("no active query found for pagination"))
+		s.emitDone(queryStatement{SourceTabID: sourceTabID(tabID), TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("no active query found for pagination"))
 		return
 	}
 
 	driver := s.getDriver()
-	db := s.getDB()
+	executor := s.getExecutor()
 	prefs := s.getPrefs()
 	limit := prefs.DefaultLimit
 
@@ -239,52 +327,53 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 	paginatedQuery := dbpkg.InjectPageClause(driver, query, checkLimit, offset)
 
 	if paginatedQuery == query && offset > 0 {
-		s.emitDoneWithMore(tabID, 0, 0, true, false, nil)
+		s.emitDoneWithMore(queryStatement{SourceTabID: sourceTabID(tabID), TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, false, nil)
 		return
 	}
 
 	s.sessionsMu.Lock()
-	if old, ok := s.sessions[tabID]; ok {
+	sourceID := sourceTabID(tabID)
+	if old, ok := s.sessions[sourceID]; ok {
 		old.CancelFunc()
-		delete(s.sessions, tabID)
+		delete(s.sessions, sourceID)
 	}
 
 	ctx, cancel := context.WithCancel(s.ctx)
 	session := &QuerySession{
-		TabID:      tabID,
+		TabID:      sourceID,
 		StartedAt:  time.Now(),
 		CancelFunc: cancel,
 	}
-	s.sessions[tabID] = session
+	s.sessions[sourceID] = session
 	s.sessionsMu.Unlock()
 
 	go func() {
 		defer func() {
 			s.sessionsMu.Lock()
 			cancel()
-			if s.sessions[tabID] == session {
-				delete(s.sessions, tabID)
+			if s.sessions[sourceID] == session {
+				delete(s.sessions, sourceID)
 			}
 			s.sessionsMu.Unlock()
 		}()
 
-		if db == nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("no active connection"))
+		if executor == nil {
+			s.emitDone(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("no active connection"))
 			return
 		}
 
 		start := time.Now()
 
-		rows, err := db.QueryContext(ctx, paginatedQuery)
+		rows, err := executor.QueryContext(ctx, paginatedQuery)
 		if err != nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("fetch more: query failed: %w", err))
+			s.emitDone(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("fetch more: query failed: %w", err))
 			return
 		}
 		defer rows.Close()
 
 		cols, err := rows.Columns()
 		if err != nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("fetch more: columns error: %w", err))
+			s.emitDone(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("fetch more: columns error: %w", err))
 			return
 		}
 
@@ -301,14 +390,14 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			rowCount++
 
 			if len(chunk) >= 500 {
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, cols, chunk, seq, "", nil))
+				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
 				chunk = nil
 				seq++
 			}
 		}
 
 		if len(chunk) > 0 {
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, cols, chunk, seq, "", nil))
+			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
 		}
 
 		duration := time.Since(start)
@@ -318,23 +407,23 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			rowCount = limit
 		}
 
-		s.emitDoneWithMore(tabID, int64(rowCount), duration, true, hasMore, nil)
+		s.emitDoneWithMore(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, int64(rowCount), duration, true, hasMore, nil)
 	}()
 }
 
-func (s *QueryService) execNonSelect(ctx context.Context, tabID, query string, start time.Time) {
-	db := s.getDB()
-	res, err := db.ExecContext(ctx, query)
+func (s *QueryService) execNonSelect(ctx context.Context, executor sqlExecutor, statement queryStatement, start time.Time) error {
+	res, err := executor.ExecContext(ctx, statement.Text)
 	dur := time.Since(start)
 	if err != nil {
 		wrappedErr := fmt.Errorf("exec: %w", err)
-		s.appendHistory(query, 0, dur, wrappedErr)
-		s.emitDone(tabID, 0, dur, false, wrappedErr)
-		return
+		s.appendHistory(statement.Text, 0, dur, wrappedErr)
+		s.emitDone(statement, 0, dur, false, wrappedErr)
+		return wrappedErr
 	}
 	affected, _ := res.RowsAffected()
-	s.appendHistory(query, affected, dur, nil)
-	s.emitDone(tabID, affected, dur, false, nil)
+	s.appendHistory(statement.Text, affected, dur, nil)
+	s.emitDone(statement, affected, dur, false, nil)
+	return nil
 }
 
 func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
@@ -346,8 +435,8 @@ func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
 		return 0, fmt.Errorf("no active query found for count")
 	}
 
-	db := s.getDB()
-	if db == nil {
+	executor := s.getExecutor()
+	if executor == nil {
 		return 0, fmt.Errorf("no active connection")
 	}
 
@@ -358,7 +447,7 @@ func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
 	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
 	defer cancel()
 
-	err := db.QueryRowContext(ctx, countQuery).Scan(&count)
+	err := executor.QueryRowContext(ctx, countQuery).Scan(&count)
 	if err != nil {
 		return 0, err
 	}
@@ -368,20 +457,21 @@ func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
 func (s *QueryService) CancelQuery(tabID string) {
 	s.sessionsMu.Lock()
 	defer s.sessionsMu.Unlock()
-	if session, ok := s.sessions[tabID]; ok {
+	sourceID := sourceTabID(tabID)
+	if session, ok := s.sessions[sourceID]; ok {
 		s.logger.Info("cancelling query", "tab", tabID)
 		session.CancelFunc()
-		delete(s.sessions, tabID)
+		delete(s.sessions, sourceID)
 	}
 }
 
 func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
-	db := s.getDB()
-	if db == nil {
+	executor := s.getExecutor()
+	if executor == nil {
 		return 0, fmt.Errorf("no active connection")
 	}
 
-	res, err := db.ExecContext(s.ctx, query)
+	res, err := executor.ExecContext(s.ctx, query)
 	if err != nil {
 		return 0, err
 	}
@@ -389,17 +479,21 @@ func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (s *QueryService) emitDone(tabID string, affected int64, duration time.Duration, isSelect bool, err error) {
-	s.emitDoneWithMore(tabID, affected, duration, isSelect, false, err)
+func (s *QueryService) emitDone(statement queryStatement, affected int64, duration time.Duration, isSelect bool, err error) {
+	s.emitDoneWithMore(statement, affected, duration, isSelect, false, err)
 }
 
-func (s *QueryService) emitDoneWithMore(tabID string, affected int64, duration time.Duration, isSelect bool, hasMore bool, err error) {
+func (s *QueryService) emitDoneWithMore(statement queryStatement, affected int64, duration time.Duration, isSelect bool, hasMore bool, err error) {
 	payload := map[string]any{
-		"tabID":    tabID,
-		"affected": affected,
-		"duration": duration.Milliseconds(),
-		"isSelect": isSelect,
-		"hasMore":  hasMore,
+		"tabID":          statement.TabID,
+		"sourceTabID":    statement.SourceTabID,
+		"affected":       affected,
+		"duration":       duration.Milliseconds(),
+		"isSelect":       isSelect,
+		"hasMore":        hasMore,
+		"statementIndex": statement.Index,
+		"statementCount": statement.Count,
+		"statementText":  statement.Text,
 	}
 	if err != nil {
 		payload["error"] = err.Error()
@@ -407,11 +501,15 @@ func (s *QueryService) emitDoneWithMore(tabID string, affected int64, duration t
 	emitEvent(s.ctx, constant.EventQueryDone, payload)
 }
 
-func buildChunk(tabID string, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
+func buildChunk(statement queryStatement, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
 	chunk := map[string]any{
-		"tabID": tabID,
-		"rows":  rows,
-		"seq":   seq,
+		"tabID":          statement.TabID,
+		"sourceTabID":    statement.SourceTabID,
+		"rows":           rows,
+		"seq":            seq,
+		"statementIndex": statement.Index,
+		"statementCount": statement.Count,
+		"statementText":  statement.Text,
 	}
 	if cols != nil {
 		chunk["columns"] = cols
@@ -423,6 +521,50 @@ func buildChunk(tabID string, cols []string, rows [][]string, seq int, tableName
 		chunk["primaryKeys"] = pks
 	}
 	return chunk
+}
+
+func resultTabID(sourceTabID string, statementIndex int) string {
+	if statementIndex <= 0 {
+		return sourceTabID
+	}
+	return fmt.Sprintf("%s::result:%d", sourceTabID, statementIndex+1)
+}
+
+func sourceTabID(tabID string) string {
+	parts := strings.Split(tabID, "::result:")
+	if len(parts) == 2 {
+		return parts[0]
+	}
+	return tabID
+}
+
+func buildExplainQuery(driver, query string, analyze bool) (string, error) {
+	trimmed := strings.TrimSpace(strings.TrimRight(query, ";"))
+	if trimmed == "" {
+		return "", fmt.Errorf("no query to explain")
+	}
+
+	switch driver {
+	case constant.DriverPostgres:
+		if analyze {
+			return fmt.Sprintf("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) %s", trimmed), nil
+		}
+		return fmt.Sprintf("EXPLAIN (FORMAT JSON) %s", trimmed), nil
+	case constant.DriverMySQL:
+		if analyze {
+			return fmt.Sprintf("EXPLAIN ANALYZE %s", trimmed), nil
+		}
+		return fmt.Sprintf("EXPLAIN FORMAT=JSON %s", trimmed), nil
+	case constant.DriverSQLite:
+		if analyze {
+			return "", fmt.Errorf("EXPLAIN ANALYZE is not supported for sqlite in this sprint")
+		}
+		return fmt.Sprintf("EXPLAIN QUERY PLAN %s", trimmed), nil
+	case constant.DriverSQLServer:
+		return "", fmt.Errorf("EXPLAIN is not supported for sqlserver in this sprint")
+	default:
+		return "", fmt.Errorf("EXPLAIN is not supported for driver %q", driver)
+	}
 }
 
 func scanRowAsStrings(rows *sql.Rows, colCount int) []string {

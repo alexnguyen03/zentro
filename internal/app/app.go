@@ -34,6 +34,7 @@ type App struct {
 
 	conn      *ConnectionService
 	query     *QueryService
+	tx        *TransactionService
 	history   *HistoryService
 	scripts   *ScriptService
 	templates *TemplateService
@@ -44,11 +45,23 @@ func NewApp() *App {
 	a := &App{}
 
 	a.history = NewHistoryService(func() *models.ConnectionProfile { return a.profile })
+	a.tx = NewTransactionService(
+		context.Background(),
+		nil,
+		func() *sql.DB { return a.db },
+		func() string {
+			if a.profile != nil {
+				return a.profile.Driver
+			}
+			return ""
+		},
+	)
 
 	a.conn = NewConnectionService(
 		context.Background(), nil, func() utils.Preferences { return a.prefs },
 		func() *sql.DB { return a.db },
 		func() *models.ConnectionProfile { return a.profile },
+		func() error { return a.tx.RollbackActive() },
 		func(db *sql.DB, p *models.ConnectionProfile) {
 			a.db = db
 			a.profile = p
@@ -58,6 +71,7 @@ func NewApp() *App {
 	a.query = NewQueryService(
 		context.Background(), nil, func() utils.Preferences { return a.prefs },
 		func() *sql.DB { return a.db },
+		func() sqlExecutor { return a.tx.GetExecutor() },
 		func() string {
 			if a.profile != nil {
 				return a.profile.Driver
@@ -82,6 +96,8 @@ func (a *App) Startup(ctx context.Context) {
 	a.conn.logger = a.logger
 	a.query.ctx = ctx
 	a.query.logger = a.logger
+	a.tx.ctx = ctx
+	a.tx.logger = a.logger
 	a.scripts.logger = a.logger
 
 	prefs, err := utils.LoadPreferences()
@@ -109,6 +125,7 @@ func (a *App) ForceQuit() {
 func (a *App) Shutdown() {
 	a.logger.Info("zentro shutting down")
 	a.query.Shutdown()
+	_ = a.tx.RollbackActive()
 	if a.db != nil {
 		_ = a.db.Close()
 		a.db = nil
@@ -152,13 +169,20 @@ func (a *App) FetchTableRelationships(schema, table string) ([]models.TableRelat
 
 // ── Query ──────────────────────────────────────────────────────────────────
 
-func (a *App) ExecuteQuery(tabID, query string)       { a.query.ExecuteQuery(tabID, query) }
+func (a *App) ExecuteQuery(tabID, query string) { a.query.ExecuteQuery(tabID, query) }
+func (a *App) ExplainQuery(tabID, query string, analyze bool) error {
+	return a.query.ExplainQuery(tabID, query, analyze)
+}
 func (a *App) FetchMoreRows(tabID string, offset int) { a.query.FetchMoreRows(tabID, offset) }
 func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
 	return a.query.FetchTotalRowCount(tabID)
 }
 func (a *App) CancelQuery(tabID string)                      { a.query.CancelQuery(tabID) }
 func (a *App) ExecuteUpdateSync(query string) (int64, error) { return a.query.ExecuteUpdateSync(query) }
+func (a *App) BeginTransaction() error                       { return a.tx.BeginTransaction() }
+func (a *App) CommitTransaction() error                      { return a.tx.CommitTransaction() }
+func (a *App) RollbackTransaction() error                    { return a.tx.RollbackTransaction() }
+func (a *App) GetTransactionStatus() (string, error)         { return a.tx.GetTransactionStatus() }
 
 // ── Scripts ────────────────────────────────────────────────────────────────
 

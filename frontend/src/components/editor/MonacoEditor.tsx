@@ -12,8 +12,10 @@ interface MonacoEditorProps {
     value: string;
     onChange: (val: string) => void;
     onRun: (query: string) => void;
+    onExplain?: (query: string, analyze: boolean) => void;
     isActive?: boolean;
     onFocus?: () => void;
+    readOnly?: boolean;
 }
 
 export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
@@ -21,12 +23,16 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     value,
     onChange,
     onRun,
+    onExplain,
     isActive,
     onFocus,
+    readOnly,
 }) => {
     const editorRef = useRef<any>(null);
     const onRunRef = useRef(onRun);
     onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
+    const onExplainRef = useRef(onExplain);
+    onExplainRef.current = onExplain;
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
     const isActiveRef = useRef(isActive);
@@ -39,9 +45,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         }
     }, [isActive]);
 
-    const runQueryRef = useRef<() => void>();
-
-    const runQuery = useCallback(() => {
+    const extractRunnableQuery = useCallback(() => {
         if (!editorRef.current) return;
         const editor = editorRef.current;
         const selection = editor.getSelection();
@@ -118,10 +122,16 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         }
 
         textToRun = textToRun.trim().replace(/;+$/, '');
-        if (!textToRun) return;
-        onRunRef.current(textToRun);
+        if (!textToRun) return '';
+        return textToRun;
     }, []);
 
+    const runQueryRef = useRef<() => void>();
+    const runQuery = useCallback(() => {
+        const query = extractRunnableQuery();
+        if (!query) return;
+        onRunRef.current(query);
+    }, [extractRunnableQuery]);
     runQueryRef.current = runQuery;
 
     // Listen to global run action from Toolbar
@@ -134,6 +144,17 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         window.addEventListener(DOM_EVENT.RUN_QUERY_ACTION, handleGlobalRun as EventListener);
         return () => window.removeEventListener(DOM_EVENT.RUN_QUERY_ACTION, handleGlobalRun as EventListener);
     }, [tabId, runQuery]);
+
+    useEffect(() => {
+        const handleGlobalExplain = (e: any) => {
+            if (e.detail?.tabId !== tabId || !isActiveRef.current || !onExplainRef.current) return;
+            const query = extractRunnableQuery();
+            if (!query) return;
+            onExplainRef.current(query, Boolean(e.detail?.analyze));
+        };
+        window.addEventListener(DOM_EVENT.RUN_EXPLAIN_ACTION, handleGlobalExplain as EventListener);
+        return () => window.removeEventListener(DOM_EVENT.RUN_EXPLAIN_ACTION, handleGlobalExplain as EventListener);
+    }, [extractRunnableQuery, tabId]);
 
     const activeProfile = useConnectionStore(s => s.activeProfile);
     const trees = useSchemaStore(s => s.trees);
@@ -219,7 +240,11 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                     defaultLanguage="sql"
                     theme={getMonacoTheme()}
                     value={value}
-                    onChange={(v) => onChange(v ?? '')}
+                    onChange={(v) => {
+                        if (!readOnly) {
+                            onChange(v ?? '');
+                        }
+                    }}
                     onMount={handleMount}
                     options={{
                         automaticLayout: true,
@@ -232,6 +257,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                         wordBasedSuggestions: 'off',
                         suggestOnTriggerCharacters: true,
                         quickSuggestions: { other: true, comments: false, strings: false },
+                        readOnly: Boolean(readOnly),
                         scrollbar: {
                             verticalScrollbarSize: 8,
                             horizontalScrollbarSize: 8,

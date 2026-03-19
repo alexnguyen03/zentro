@@ -12,6 +12,8 @@ export const DOM_EVENT = {
     OPEN_WORKSPACE_MODAL: 'open-workspace-modal',
     CLOSE_ACTIVE_TAB: 'close-active-tab',
     RUN_QUERY_ACTION: 'run-query-action',
+    RUN_EXPLAIN_ACTION: 'run-explain-action',
+    SAVE_TAB_ACTION: 'zentro:save-script',
     RENAME_TAB: 'zentro:rename-tab',
 } as const;
 

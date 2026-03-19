@@ -1,26 +1,27 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Plus, Play, Square, Settings, ChevronDown, Search, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Play, Square, Settings, ChevronDown, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight, GitBranchPlus, Check, Undo2, Search } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { useResultStore } from '../../stores/resultStore';
-import { ExecuteQuery, CancelQuery, Connect, Reconnect } from '../../../wailsjs/go/app/App';
+import { useStatusStore } from '../../stores/statusStore';
+import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
 import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
-import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
 import { Button, Divider } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
-import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
+import { DOM_EVENT } from '../../lib/constants';
+import { useToast } from './Toast';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const { groups, activeGroupId, addTab } = useEditorStore();
     const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
+    const { transactionStatus } = useStatusStore();
+    const { toast } = useToast();
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
@@ -28,11 +29,13 @@ export const Toolbar: React.FC = () => {
 
     const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
 
-    const activeGroup = groups.find(g => g.id === activeGroupId);
-    const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
+    const activeGroup = groups.find((g) => g.id === activeGroupId);
+    const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
     const activeTabId = activeGroup?.activeTabId;
     const isRunning = activeTab?.isRunning ?? false;
     const isQueryTab = activeTab?.type === 'query';
+    const canRunEditorAction = Boolean(isConnected && activeTab && !activeTab.readOnly && isQueryTab);
+    const txActive = transactionStatus === 'active';
 
     useEffect(() => {
         const handleKd = (e: KeyboardEvent) => {
@@ -45,35 +48,69 @@ export const Toolbar: React.FC = () => {
         return () => window.removeEventListener('keydown', handleKd);
     }, []);
 
-    // Listen for command palette's "open-workspace-modal" event
     useEffect(() => {
         const handler = () => setPickerOpen(true);
         window.addEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
         return () => window.removeEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
     }, []);
 
-    const handleRun = async () => {
-        if (!activeTab || !isConnected) return;
+    const handleRun = () => {
+        if (!activeTab || !canRunEditorAction) return;
         window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
+    };
+
+    const handleExplain = (analyze: boolean) => {
+        if (!activeTab || !canRunEditorAction) return;
+        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_EXPLAIN_ACTION, { detail: { tabId: activeTab.id, analyze } }));
     };
 
     const handleCancel = async () => {
         if (!activeTabId) return;
-        try { await CancelQuery(activeTabId); } catch { /* swallow */ }
+        try {
+            await CancelQuery(activeTabId);
+        } catch {
+            // ignore
+        }
+    };
+
+    const handleBeginTransaction = async () => {
+        try {
+            await BeginTransaction();
+            toast.success('Transaction started.');
+        } catch (error: any) {
+            toast.error(`Begin transaction failed: ${error}`);
+        }
+    };
+
+    const handleCommitTransaction = async () => {
+        try {
+            await CommitTransaction();
+            toast.success('Transaction committed.');
+        } catch (error: any) {
+            toast.error(`Commit failed: ${error}`);
+        }
+    };
+
+    const handleRollbackTransaction = async () => {
+        try {
+            await RollbackTransaction();
+            toast.success('Transaction rolled back.');
+        } catch (error: any) {
+            toast.error(`Rollback failed: ${error}`);
+        }
     };
 
     let breadcrumbLabel = 'No Connection';
     if (activeProfile) {
-        breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name} `;
+        breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name}`;
     }
 
     return (
         <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
-            {/* Left */}
             <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div
                     className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative"
-                    title={hasUpdate ? "New version available!" : "About Zentro"}
+                    title={hasUpdate ? 'New version available!' : 'About Zentro'}
                     onClick={() => hasUpdate ? setUpdateModalOpen(true) : setAboutOpen(true)}
                 >
                     <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
@@ -91,7 +128,7 @@ export const Toolbar: React.FC = () => {
                     onClick={() => activeProfile && Reconnect().catch(() => {})}
                     disabled={!activeProfile || connectionStatus === 'connecting'}
                 >
-                    <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && "animate-spin")} />
+                    <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && 'animate-spin')} />
                 </Button>
 
                 <Divider orientation="vertical" className="h-5" />
@@ -100,31 +137,73 @@ export const Toolbar: React.FC = () => {
                     <Plus size={16} />
                 </Button>
                 <Button
-                    variant="ghost" size="icon"
-                    disabled={!isConnected || !activeTab || isRunning}
+                    variant="ghost"
+                    size="icon"
+                    disabled={!canRunEditorAction || isRunning}
                     title="Run Query (Ctrl+Enter)"
                     onClick={handleRun}
                 >
-                    <Play
-                        size={16}
-                        color={!isConnected || isRunning ? 'currentColor' : 'var(--success-color)'}
-                    />
+                    <Play size={16} color={!canRunEditorAction || isRunning ? 'currentColor' : 'var(--success-color)'} />
                 </Button>
                 <Button
-                    variant="ghost" size="icon"
+                    variant="ghost"
+                    size="icon"
+                    disabled={!canRunEditorAction || isRunning}
+                    title="Explain"
+                    onClick={() => handleExplain(false)}
+                >
+                    <Search size={14} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!canRunEditorAction || isRunning}
+                    title="Explain Analyze"
+                    onClick={() => handleExplain(true)}
+                >
+                    <Search size={14} className="text-accent" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
                     disabled={!isRunning}
                     title="Cancel Execution"
                     onClick={handleCancel}
                 >
-                    <Square
-                        size={16}
-                        fill={isRunning ? 'currentColor' : 'none'}
-                        color={isRunning ? 'var(--error-color)' : 'currentColor'}
-                    />
+                    <Square size={16} fill={isRunning ? 'currentColor' : 'none'} color={isRunning ? 'var(--error-color)' : 'currentColor'} />
+                </Button>
+
+                <Divider orientation="vertical" className="h-5" />
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!isConnected || txActive}
+                    title="Begin Transaction"
+                    onClick={handleBeginTransaction}
+                >
+                    <GitBranchPlus size={14} color={!isConnected || txActive ? 'currentColor' : 'var(--success-color)'} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!isConnected || !txActive}
+                    title="Commit Transaction"
+                    onClick={handleCommitTransaction}
+                >
+                    <Check size={14} color={!isConnected || !txActive ? 'currentColor' : 'var(--accent-color)'} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!isConnected || !txActive}
+                    title="Rollback Transaction"
+                    onClick={handleRollbackTransaction}
+                >
+                    <Undo2 size={14} color={!isConnected || !txActive ? 'currentColor' : 'var(--error-color)'} />
                 </Button>
             </div>
 
-            {/* Center drag region */}
             <div
                 className="flex-1 flex items-center justify-center h-full"
                 style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}
@@ -152,26 +231,6 @@ export const Toolbar: React.FC = () => {
                             title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
                         />
                         <span className="flex-1 text-center truncate">{breadcrumbLabel}</span>
-                        {/* {activeProfile ? (
-                            <button
-                                className={cn(
-                                    "w-5 h-5 flex items-center justify-center rounded-sm transition-colors opacity-100 hover:opacity-80",
-                                    connectionStatus !== 'connected' ? 'bg-bg-tertiary hover:bg-bg-primary' : 'hover:bg-bg-primary'
-                                )}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPickerOpen(true);
-                                }}
-                                title="Connection details"
-                            >
-                                <img
-                                    src={getProvider(activeProfile.driver).icon}
-                                    alt={activeProfile.driver}
-                                    className={cn('w-[20px] h-[20px] shrink-0 transition-all duration-300', connectionStatus === 'connected' ? 'grayscale-0' : 'grayscale')}
-                                />
-                            </button>
-                        ) : (
-                        )} */}
                         <ChevronDown
                             size={14}
                             strokeWidth={pickerOpen ? 2.5 : 2}
@@ -180,31 +239,27 @@ export const Toolbar: React.FC = () => {
                     </div>
                 </div>
 
-                {pickerOpen && (
-                    <WorkspaceModal onClose={() => setPickerOpen(false)} />
-                )}
+                {pickerOpen && <WorkspaceModal onClose={() => setPickerOpen(false)} />}
             </div>
 
-            {/* Right */}
             <div className="flex items-center shrink-0">
                 <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
                     <Settings size={14} />
                 </Button>
 
-                {/* <Divider orientation="vertical" className="h-5" /> */}
-
-                {/* Layout toggles */}
                 <Button
-                    variant="ghost" size="icon"
-                    className={cn(showSidebar && "text-accent")}
+                    variant="ghost"
+                    size="icon"
+                    className={cn(showSidebar && 'text-accent')}
                     title="Toggle Sidebar (Ctrl+B)"
                     onClick={toggleSidebar}
                 >
                     <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
                 </Button>
                 <Button
-                    variant="ghost" size="icon"
-                    className={cn(showResultPanel && "text-accent")}
+                    variant="ghost"
+                    size="icon"
+                    className={cn(showResultPanel && 'text-accent')}
                     disabled={!isQueryTab}
                     title="Toggle Result Panel (Ctrl+J)"
                     onClick={toggleResultPanel}
@@ -212,16 +267,15 @@ export const Toolbar: React.FC = () => {
                     <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
                 </Button>
                 <Button
-                    variant="ghost" size="icon"
-                    className={cn(showRightSidebar && "text-accent")}
+                    variant="ghost"
+                    size="icon"
+                    className={cn(showRightSidebar && 'text-accent')}
                     title="Toggle Right Sidebar (Ctrl+Alt+B)"
                     onClick={toggleRightSidebar}
                 >
                     <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                 </Button>
 
-
-                {/* Window controls */}
                 <div className="flex items-center gap-0.5 ml-0.5">
                     <Button
                         variant="ghost"
@@ -253,13 +307,9 @@ export const Toolbar: React.FC = () => {
                 </div>
             </div>
 
-            {/* Overlays */}
-            {aboutOpen && (
-                <AboutModal onClose={() => setAboutOpen(false)} />
-            )}
-            
+            {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
             {updateModalOpen && updateInfo && (
-                <UpdateModal 
+                <UpdateModal
                     latestVersion={updateInfo.latest_version}
                     changelog={updateInfo.changelog}
                     releaseUrl={updateInfo.release_url}

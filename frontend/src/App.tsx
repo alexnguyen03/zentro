@@ -12,39 +12,50 @@ import { useLayoutStore } from './stores/layoutStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
-    onSchemaLoaded,
     onSchemaError,
     onQueryStarted,
     onQueryChunk,
     onQueryDone,
+    onTransactionStatus,
     type ConnectionChangedPayload,
+    type QueryStartedPayload,
+    type QueryChunkPayload,
+    type QueryDonePayload,
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn, WindowReloadApp } from '../wailsjs/runtime/runtime';
-import { ForceQuit, Connect } from '../wailsjs/go/app/App';
+import { ForceQuit, Connect, GetTransactionStatus } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
 import { TAB_TYPE } from './lib/constants';
 import { CommandPalette } from './components/layout/CommandPalette';
 
+function clearGeneratedResults(sourceTabID: string) {
+    const resultState = useResultStore.getState();
+    Object.keys(resultState.results).forEach((k) => {
+        if (
+            k !== sourceTabID &&
+            (k.startsWith(`${sourceTabID}::result:`) || k.startsWith(`${sourceTabID}::explain:`))
+        ) {
+            resultState.clearResult(k);
+        }
+    });
+}
+
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
-    const { setTabRunning, addTab } = useEditorStore();
-    const { initTab, appendRows, setDone, results } = useResultStore();
-    const { setQueryStats } = useStatusStore();
+    const { addTab } = useEditorStore();
+    const { setTransactionStatus } = useStatusStore();
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
 
-    // ── Before-close guard ────────────────────────────────────────────────
     useEffect(() => {
         const off = EventsOn('app:before-close', () => {
-            const running = useEditorStore.getState().groups.some(g => g.tabs.some(t => t.isRunning));
+            const running = useEditorStore.getState().groups.some((g) => g.tabs.some((t) => t.isRunning));
             if (!running) {
                 ForceQuit().catch(() => { });
                 return;
             }
-            const ok = window.confirm(
-                'One or more queries are still running.\nStop them and close anyway?'
-            );
+            const ok = window.confirm('One or more queries are still running.\nStop them and close anyway?');
             if (ok) {
                 ForceQuit().catch(() => { });
             }
@@ -55,7 +66,6 @@ function App() {
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);
 
-
     const startResizing = React.useCallback(() => { isResizing.current = true; }, []);
     const stopResizing = React.useCallback(() => { isResizing.current = false; }, []);
 
@@ -65,9 +75,7 @@ function App() {
         }
     }, []);
 
-    // ── Global Wails event wiring ─────────────────────────────────────────
     useEffect(() => {
-        // Load global settings on starup
         useSettingsStore.getState().load();
 
         const subs = [
@@ -78,6 +86,9 @@ function App() {
                     setConnectionStatus('connected');
                     setActiveProfile(data.profile as any);
                     setDatabases(data.databases ?? []);
+                    GetTransactionStatus()
+                        .then((status) => setTransactionStatus((status as any) || 'none'))
+                        .catch(() => setTransactionStatus('none'));
                 } else if (data.status === 'connecting' && data.profile) {
                     setConnectionStatus('connecting');
                     setActiveProfile(data.profile as any);
@@ -86,15 +97,17 @@ function App() {
                     setConnectionStatus('disconnected');
                     setActiveProfile(null);
                     setDatabases([]);
+                    setTransactionStatus('none');
                 } else if (data.status === 'error') {
                     if (data.profile) {
                         setActiveProfile(data.profile as any);
                     }
                     setConnectionStatus('error');
-                    setIsConnected(false); // Ensure we show the empty state on physical connect failure
-                    toast.error(`Connection failed or lost. Please check your settings.`);
+                    setIsConnected(false);
+                    setTransactionStatus('error', 'connection error');
+                    toast.error('Connection failed or lost. Please check your settings.');
                 } else {
-                    toast.error(`Connection failed`);
+                    toast.error('Connection failed');
                 }
             }),
             onSchemaDatabases((data) => {
@@ -105,37 +118,48 @@ function App() {
                 console.warn('[zentro] schema:error', data);
                 toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
             }),
-            onQueryStarted(({ tabID, query }) => {
-                useEditorStore.getState().setTabRunning(tabID, true);
-                useResultStore.getState().initTab(tabID);
-                // Automatically show result panel if hidden
+            onQueryStarted((payload) => {
+                if (payload.statementIndex === 0) {
+                    clearGeneratedResults(payload.sourceTabID);
+                }
+                
+                useEditorStore.getState().setTabRunning(payload.sourceTabID, true);
+                useResultStore.getState().initTab(payload.tabID);
                 useLayoutStore.getState().setShowResultPanel(true);
-                // Store the original query for tooltip/filter — skip filter-wrapped queries
-                // so the base stays as the user's original query
-                if (query && !query.includes('_zentro_filter')) {
-                    useResultStore.getState().setLastExecutedQuery(tabID, query);
+
+                const executedText = payload.statementText || payload.query;
+                if (executedText && !executedText.includes('_zentro_filter')) {
+                    useResultStore.getState().setLastExecutedQuery(payload.tabID, executedText);
                 }
             }),
-            onQueryChunk(({ tabID, columns, rows, tableName, primaryKeys }) => {
-                useResultStore.getState().appendRows(tabID, columns, rows, tableName, primaryKeys);
+            onQueryChunk((payload) => {
+                useResultStore.getState().appendRows(payload.tabID, payload.columns, payload.rows, payload.tableName, payload.primaryKeys);
             }),
-            onQueryDone(({ tabID, affected, duration, isSelect, hasMore, error }) => {
-                useEditorStore.getState().setTabRunning(tabID, false);
-                useResultStore.getState().setDone(tabID, affected, duration, isSelect, hasMore, error);
-                if (error) {
-                    toast.error(`Query failed: ${error}`);
+            onQueryDone((payload) => {
+                if (payload.statementCount <= 1 || payload.statementIndex === payload.statementCount - 1 || Boolean(payload.error)) {
+                    useEditorStore.getState().setTabRunning(payload.sourceTabID, false);
                 }
-                // Use getState() to get fresh results to avoid stale closure issues in prod
+                useResultStore.getState().setDone(payload.tabID, payload.affected, payload.duration, payload.isSelect, payload.hasMore, payload.error);
+                if (payload.error) {
+                    toast.error(`Query failed: ${payload.error}`);
+                }
+
                 const currentResults = useResultStore.getState().results;
-                const rowCount = isSelect
-                    ? (currentResults[tabID]?.rows.length ?? affected)
-                    : affected;
-                useStatusStore.getState().setQueryStats(Number(rowCount), duration);
+                const rowCount = payload.isSelect
+                    ? (currentResults[payload.tabID]?.rows.length ?? payload.affected)
+                    : payload.affected;
+                useStatusStore.getState().setQueryStats(Number(rowCount), payload.duration);
+            }),
+            onTransactionStatus((payload) => {
+                setTransactionStatus(payload.status, payload.error || null);
+                if (payload.status === 'error' && payload.error) {
+                    toast.error(`Transaction failed: ${payload.error}`);
+                }
             }),
         ];
-        return () => subs.forEach(unsub => unsub());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+
+        return () => subs.forEach((unsub) => unsub());
+    }, [setActiveProfile, setConnectionStatus, setDatabases, setIsConnected, setTransactionStatus, toast]);
 
     useEffect(() => {
         window.addEventListener('mousemove', resize);
@@ -146,7 +170,6 @@ function App() {
         };
     }, [resize, stopResizing]);
 
-    // ── Global Layout Shortcuts ───────────────────────────────────────────
     const chordRef = useRef<string | null>(null);
     const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -154,28 +177,24 @@ function App() {
         const handleLayoutShortcuts = (e: KeyboardEvent) => {
             const mod = e.ctrlKey || e.metaKey;
 
-            // Ctrl + Shift + P: Command Palette
             if (mod && e.shiftKey && e.key.toLowerCase() === 'p') {
                 e.preventDefault();
                 setShowCommandPalette(true);
                 return;
             }
 
-            // Ctrl + Alt + B: Toggle Right Sidebar
             if (mod && e.altKey && e.key.toLowerCase() === 'b') {
                 e.preventDefault();
                 toggleRightSidebar();
                 return;
             }
 
-            // Ctrl + Shift + R: Reload App
             if (mod && e.shiftKey && e.key.toLowerCase() === 'r') {
                 e.preventDefault();
                 WindowReloadApp();
                 return;
             }
 
-            // Chords: Ctrl+K, Ctrl+B
             if (mod && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 chordRef.current = 'k';
@@ -200,33 +219,27 @@ function App() {
                 return;
             }
 
-            // Ctrl + ,: Open Settings
             if (mod && e.key === ',') {
                 e.preventDefault();
                 addTab({ type: 'settings', name: 'Settings' });
                 return;
             }
 
-            // Ctrl + B: Toggle Left Sidebar
             if (mod && !e.altKey && e.key.toLowerCase() === 'b') {
                 e.preventDefault();
                 toggleSidebar();
                 return;
             }
 
-            // Ctrl + J: Toggle Result Panel
             if (mod && !e.altKey && e.key.toLowerCase() === 'j') {
                 e.preventDefault();
-
-                // Only toggle if the active tab is a query tab
                 const editorState = useEditorStore.getState();
-                const activeGroup = editorState.groups.find(g => g.id === editorState.activeGroupId);
-                const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
+                const activeGroup = editorState.groups.find((g) => g.id === editorState.activeGroupId);
+                const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
 
                 if (activeTab?.type === TAB_TYPE.QUERY) {
                     toggleResultPanel();
                 }
-                return;
             }
         };
 
@@ -251,7 +264,7 @@ function App() {
                     <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
                         {!isConnected ? (
                             <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
-                                <span className="text-3xl">🔌</span>
+                                <span className="text-3xl">Plug</span>
                                 <h3 className="m-0 text-sm font-semibold text-text-primary">No active connection</h3>
                                 <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
                                 {activeProfile && (
@@ -268,9 +281,7 @@ function App() {
                         )}
                     </div>
                 </div>
-                {showRightSidebar && (
-                    <RowDetailSidebar />
-                )}
+                {showRightSidebar && <RowDetailSidebar />}
             </div>
             <StatusBar />
         </div>

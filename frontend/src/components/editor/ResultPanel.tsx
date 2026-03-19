@@ -36,6 +36,8 @@ import { useToast } from '../layout/Toast';
 import { Button } from '../ui';
 import { ResultTable, type FocusCellRequest } from './ResultTable';
 import { ResultFilterBar } from './ResultFilterBar';
+import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
+import { DOM_EVENT } from '../../lib/constants';
 
 export interface ResultPanelAction {
     id: string;
@@ -57,6 +59,8 @@ interface ResultPanelProps {
     baseQuery?: string;
     onAppendToQuery?: (fullQuery: string) => void;
     onOpenInNewTab?: (fullQuery: string) => void;
+    isReadOnlyTab?: boolean;
+    generatedKind?: 'result' | 'explain';
 }
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
@@ -87,6 +91,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     baseQuery,
     onAppendToQuery,
     onOpenInNewTab,
+    isReadOnlyTab = false,
+    generatedKind,
 }) => {
     const { defaultLimit, theme, fontSize, save } = useSettingsStore();
     const { activeProfile } = useConnectionStore();
@@ -137,6 +143,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         [selectedRowKeys],
     );
     const isEditable = Boolean(
+        !isReadOnlyTab &&
         result?.tableName &&
         result?.primaryKeys &&
         result.primaryKeys.length > 0 &&
@@ -518,15 +525,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             });
         }
 
-        if (!hasPendingChanges && onRun) {
-            actions.push({
-                id: 'reload',
-                icon: <RefreshCw size={11} />,
-                label: 'Reload',
-                title: 'Reload',
-                onClick: onRun,
-            });
-        }
+        // Handle F5 elsewhere
 
         return actions;
     }, [
@@ -536,6 +535,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         handleDuplicateRows,
         handleSaveRequest,
         hasPendingChanges,
+        isReadOnlyTab,
         isSavingDraftRows,
         onRun,
         selectedPersistedRowIndices.length,
@@ -553,8 +553,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             void handleSaveRequest();
         };
 
-        window.addEventListener('zentro:save-script', handleExternalSave as EventListener);
-        return () => window.removeEventListener('zentro:save-script', handleExternalSave as EventListener);
+        window.addEventListener(DOM_EVENT.SAVE_TAB_ACTION, handleExternalSave as EventListener);
+        return () => window.removeEventListener(DOM_EVENT.SAVE_TAB_ACTION, handleExternalSave as EventListener);
     }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId]);
 
     const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -622,6 +622,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
         if (!result) return;
+
+        if (event.key === 'F5') {
+            event.preventDefault();
+            if (onRun && !hasPendingChanges && !isReadOnlyTab) {
+                onRun();
+            }
+            return;
+        }
 
         if (event.key === 'Tab') {
             if (selectedCells.size > 0 && result.columns.length > 0) {
@@ -781,6 +789,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         );
     }
 
+    const explainJsonValue = generatedKind === 'explain' && result.rows.length === 1 && result.rows[0]?.length === 1 && isJsonValue(result.rows[0][0])
+        ? result.rows[0][0]
+        : null;
+
     return (
         <div
             className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden"
@@ -827,7 +839,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             </div>
                         )}
 
-                        {(result.isSelect || filterExpr !== '') && (
+                        {(result.isSelect || filterExpr !== '') && generatedKind !== 'explain' && (
                             <ResultFilterBar
                                 value={filterExpr}
                                 onChange={setFilterExpr}
@@ -839,47 +851,52 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     setFilterExpr('');
                                     onFilterRun?.('');
                                 }}
-                            />
-                        )}
-
-                        {!onActionsChange && panelActions.length > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0 overflow-x-auto">
-                                {panelActions.map((action) => (
-                                    <Button
-                                        key={action.id}
-                                        variant={action.danger ? 'danger' : 'ghost'}
-                                        size="sm"
-                                        onClick={() => action.onClick()}
-                                        disabled={action.disabled || action.loading}
-                                        title={action.title || action.label}
-                                        className="whitespace-nowrap"
-                                    >
-                                        <span className="mr-1.5">{action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}</span>
-                                        {action.label || action.title}
-                                    </Button>
-                                ))}
-                            </div>
+                            >
+                                {!onActionsChange && panelActions.length > 0 && (
+                                    <>
+                                        {panelActions.map((action) => (
+                                            <Button
+                                                key={action.id}
+                                                variant="ghost"
+                                                size="icon"
+                                                danger={action.danger}
+                                                onClick={() => action.onClick()}
+                                                disabled={action.disabled || action.loading}
+                                                title={action.title || action.label}
+                                            >
+                                                {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
+                                            </Button>
+                                        ))}
+                                    </>
+                                )}
+                            </ResultFilterBar>
                         )}
 
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1 }}>
-                            <ResultTable
-                                tabId={tabId}
-                                columns={result.columns}
-                                rows={result.rows}
-                                isDone={result.isDone}
-                                editedCells={editedCells}
-                                setEditedCells={setEditedCells}
-                                selectedCells={selectedCells}
-                                setSelectedCells={setSelectedCells}
-                                deletedRows={deletedRows}
-                                setDeletedRows={setDeletedRows}
-                                draftRows={draftRows}
-                                setDraftRows={setDraftRows}
-                                columnDefs={columnDefs}
-                                focusCellRequest={focusCellRequest}
-                                onFocusCellRequestHandled={() => setFocusCellRequest(null)}
-                                onRemoveDraftRows={removeDraftRows}
-                            />
+                            {explainJsonValue ? (
+                                <div className="flex-1 overflow-hidden p-3">
+                                    <JsonViewer value={explainJsonValue} height="100%" useMonaco={true} />
+                                </div>
+                            ) : (
+                                <ResultTable
+                                    tabId={tabId}
+                                    columns={result.columns}
+                                    rows={result.rows}
+                                    isDone={result.isDone}
+                                    editedCells={editedCells}
+                                    setEditedCells={setEditedCells}
+                                    selectedCells={selectedCells}
+                                    setSelectedCells={setSelectedCells}
+                                    deletedRows={deletedRows}
+                                    setDeletedRows={setDeletedRows}
+                                    draftRows={draftRows}
+                                    setDraftRows={setDraftRows}
+                                    columnDefs={columnDefs}
+                                    focusCellRequest={focusCellRequest}
+                                    onFocusCellRequestHandled={() => setFocusCellRequest(null)}
+                                    onRemoveDraftRows={removeDraftRows}
+                                />
+                            )}
                         </div>
                     </div>
                 );

@@ -9,6 +9,9 @@ export interface Tab {
     isRunning: boolean;
     type?: TabType;
     content?: string; // used for table name if type === 'table'
+    readOnly?: boolean;
+    sourceTabId?: string;
+    generatedKind?: 'result' | 'explain';
 }
 
 export interface TabGroup {
@@ -66,6 +69,26 @@ export const useEditorStore = create<EditorState>()(
                     const targetId = targetGroupId || state.activeGroupId || state.groups[0].id;
                     const groupIndex = state.groups.findIndex(g => g.id === targetId);
                     if (groupIndex === -1) return state;
+
+                    if (tabInit?.id) {
+                        for (const g of state.groups) {
+                            const existingTab = g.tabs.find(t => t.id === tabInit.id);
+                            if (existingTab) {
+                                id = existingTab.id;
+                                return {
+                                    groups: state.groups.map(grp => {
+                                        if (grp.id !== g.id) return grp;
+                                        return {
+                                            ...grp,
+                                            activeTabId: existingTab.id,
+                                            tabs: grp.tabs.map(tab => tab.id === existingTab.id ? { ...tab, ...tabInit, id: existingTab.id } : tab),
+                                        };
+                                    }),
+                                    activeGroupId: g.id,
+                                };
+                            }
+                        }
+                    }
 
                     // If it's a table tab, verify if one already exists with the same content
                     if (tabInit?.type === 'table' && tabInit.content) {

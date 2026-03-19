@@ -11,14 +11,14 @@ export const StatusBar: React.FC = () => {
         status,
         message,
         currentDriver,
+        transactionStatus,
         setStatus,
         setConnectionLabel,
         setMessage,
-        setCurrentDriver
+        setCurrentDriver,
     } = useStatusStore();
     const { activeProfile, connectionStatus } = useConnectionStore();
 
-    // Initial sync with connectionStore state (handles reloads)
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.CONNECTED && activeProfile) {
             setStatus(CONNECTION_STATUS.CONNECTED);
@@ -64,7 +64,6 @@ export const StatusBar: React.FC = () => {
         return () => unsub();
     }, [setStatus, setConnectionLabel, setCurrentDriver]);
 
-    // Clear message after 4s
     useEffect(() => {
         if (!message) return;
         const timer = setTimeout(() => setMessage(null), 4000);
@@ -78,30 +77,32 @@ export const StatusBar: React.FC = () => {
         disconnected: 'bg-yellow-500',
     }[status] ?? 'bg-bg-tertiary';
 
-
+    const txLabel = {
+        none: 'TX: none',
+        active: 'TX: active',
+        error: 'TX: error',
+    }[transactionStatus];
 
     return (
-        <div className={cn(
-            'relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300', 
-            barColor,
-            status === 'connecting' && 'animate-pulse brightness-110'
-        )}>
-            <div className="flex items-center gap-1">
-                {/* Connection Info Container */}
-                <div className="relative flex items-center gap-3">
-
-
-                    <div className="flex items-center gap-2 font-medium text-[11px] text-white/90">
-                        <span className="tracking-wide uppercase text-[10px] opacity-90">{connectionLabel}</span>
-                        {message && (
-                            <span className="bg-white/10 px-2 py-0.5 rounded ml-4 animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5">
-                                {message}
-                            </span>
-                        )}
-                    </div>
-                </div>
+        <div
+            className={cn(
+                'relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300',
+                barColor,
+                status === 'connecting' && 'animate-pulse brightness-110'
+            )}
+        >
+            <div className="flex items-center gap-3 font-medium text-[11px] text-white/90">
+                <span className="tracking-wide uppercase text-[10px] opacity-90">{connectionLabel}</span>
+                <span className="uppercase text-[10px] opacity-80">{txLabel}</span>
+                {message && (
+                    <span className="bg-white/10 px-2 py-0.5 rounded animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5">
+                        {message}
+                    </span>
+                )}
             </div>
-
+            <div className="text-[10px] uppercase opacity-70">
+                {currentDriver || 'idle'}
+            </div>
         </div>
     );
 };

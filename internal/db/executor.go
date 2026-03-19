@@ -69,3 +69,106 @@ func fallbackInjectPage(query string, limit, offset int) string {
 	}
 	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
 }
+
+// SplitStatements separates SQL statements on semicolons outside of strings/comments.
+func SplitStatements(query string) []string {
+	var statements []string
+	var current strings.Builder
+
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inLineComment := false
+	inBlockComment := false
+
+	runes := []rune(query)
+	for i := 0; i < len(runes); i++ {
+		ch := runes[i]
+		next := rune(0)
+		if i+1 < len(runes) {
+			next = runes[i+1]
+		}
+
+		if inLineComment {
+			current.WriteRune(ch)
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+
+		if inBlockComment {
+			current.WriteRune(ch)
+			if ch == '*' && next == '/' {
+				current.WriteRune(next)
+				i++
+				inBlockComment = false
+			}
+			continue
+		}
+
+		if !inSingle && !inDouble && !inBacktick {
+			if ch == '-' && next == '-' {
+				current.WriteRune(ch)
+				current.WriteRune(next)
+				i++
+				inLineComment = true
+				continue
+			}
+			if ch == '/' && next == '*' {
+				current.WriteRune(ch)
+				current.WriteRune(next)
+				i++
+				inBlockComment = true
+				continue
+			}
+		}
+
+		switch ch {
+		case '\'':
+			current.WriteRune(ch)
+			if !inDouble && !inBacktick {
+				if inSingle && next == '\'' {
+					current.WriteRune(next)
+					i++
+				} else {
+					inSingle = !inSingle
+				}
+			}
+		case '"':
+			current.WriteRune(ch)
+			if !inSingle && !inBacktick {
+				if inDouble && next == '"' {
+					current.WriteRune(next)
+					i++
+				} else {
+					inDouble = !inDouble
+				}
+			}
+		case '`':
+			current.WriteRune(ch)
+			if !inSingle && !inDouble {
+				inBacktick = !inBacktick
+			}
+		case ';':
+			if inSingle || inDouble || inBacktick {
+				current.WriteRune(ch)
+				continue
+			}
+			statement := strings.TrimSpace(current.String())
+			if statement != "" {
+				statements = append(statements, statement)
+			}
+			current.Reset()
+		default:
+			current.WriteRune(ch)
+		}
+	}
+
+	statement := strings.TrimSpace(current.String())
+	if statement != "" {
+		statements = append(statements, statement)
+	}
+
+	return statements
+}
