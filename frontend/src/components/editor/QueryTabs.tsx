@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
@@ -26,9 +25,8 @@ import { buildFilterQuery } from '../../lib/queryBuilder';
 export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
     const { results } = useResultStore();
-    const { isConnected, activeProfile } = useConnectionStore();
+    const { isConnected } = useConnectionStore();
     const { showResultPanel } = useLayoutStore();
-    const { saveScript } = useScriptStore();
 
     // Global active tab for the shared result panel
     const globalActiveGroup = groups.find(g => g.id === activeGroupId);
@@ -76,6 +74,7 @@ export const QueryTabs: React.FC = () => {
 
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<any>(null);
+    const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -84,46 +83,6 @@ export const QueryTabs: React.FC = () => {
             },
         })
     );
-
-    // ── Keyboard shortcuts ────────────────────────────────────────────────
-    useEffect(() => {
-        const handleKey = (e: KeyboardEvent) => {
-            const mod = e.ctrlKey || e.metaKey;
-            if (mod && e.key === 't') { e.preventDefault(); addTab(undefined, activeGroupId || undefined); }
-            if (mod && e.key === 'w') {
-                e.preventDefault();
-                if (activeGroupId) {
-                    const activeGroup = groups.find(g => g.id === activeGroupId);
-                    if (activeGroup && activeGroup.activeTabId) {
-                        const tab = activeGroup.tabs.find(t => t.id === activeGroup.activeTabId);
-                        if (tab?.type === 'query' && tab.query?.trim() && activeProfile?.name) {
-                            saveScript(activeProfile.name, tab.name, tab.query).catch(err => console.error('Auto save failed', err));
-                        }
-                        removeTab(activeGroup.activeTabId, activeGroupId);
-                    }
-                }
-            }
-            if (mod && e.key === 's') {
-                e.preventDefault();
-                if (activeGroupId) {
-                    const activeGroup = groups.find(g => g.id === activeGroupId);
-                    if (activeGroup && activeGroup.activeTabId) {
-                        window.dispatchEvent(new CustomEvent('zentro:save-script', { detail: activeGroup.activeTabId }));
-                    }
-                }
-            }
-            if (e.key === 'F2' && activeGroupId) {
-                e.preventDefault();
-                const activeGroup = groups.find(g => g.id === activeGroupId);
-                if (activeGroup && activeGroup.activeTabId) {
-                    window.dispatchEvent(new CustomEvent(DOM_EVENT.RENAME_TAB, { detail: activeGroup.activeTabId }));
-                }
-            }
-
-            };
-        window.addEventListener('keydown', handleKey);
-        return () => window.removeEventListener('keydown', handleKey);
-    }, [activeGroupId, addTab, groups, removeTab, activeProfile, saveScript]);
 
     // Global event listener for command palette's 'close-active-tab'
     useEffect(() => {
@@ -199,28 +158,6 @@ export const QueryTabs: React.FC = () => {
     };
 
     // ── Empty state ───────────────────────────────────────────────────────
-    if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
-        return (
-            <div className="flex items-center justify-center h-full text-text-secondary">
-                <div className="text-center max-w-[320px]">
-                    <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
-                    {!isConnected && (
-                        <p className="text-xs">Connect to a database using the sidebar first.</p>
-                    )}
-                    <button
-                        className="mt-4 bg-success text-white px-3 py-1.5 rounded text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
-                        onClick={() => addTab()}
-                    >
-                        New Query
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
-
     // Reset sub-tab selection when the main tab changes
     useEffect(() => {
         setActiveSubTabId(null);
@@ -249,6 +186,26 @@ export const QueryTabs: React.FC = () => {
     const isExplainResult = currentResultTabId?.includes('::explain:');
     const isReadOnlySubTab = !isMainResult;
     const generatedKind = isExplainResult ? 'explain' : (isMainResult ? undefined : 'result');
+
+    if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
+        return (
+            <div className="flex items-center justify-center h-full text-text-secondary">
+                <div className="text-center max-w-[320px]">
+                    <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    {!isConnected && (
+                        <p className="text-xs">Connect to a database using the sidebar first.</p>
+                    )}
+                    <button
+                        className="mt-4 bg-success text-white px-3 py-1.5 rounded text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
+                        onClick={() => addTab()}
+                    >
+                        New Query
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <DndContext

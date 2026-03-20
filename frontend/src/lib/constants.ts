@@ -13,6 +13,11 @@ export const DOM_EVENT = {
     CLOSE_ACTIVE_TAB: 'close-active-tab',
     RUN_QUERY_ACTION: 'run-query-action',
     RUN_EXPLAIN_ACTION: 'run-explain-action',
+    FORMAT_QUERY_ACTION: 'format-query-action',
+    TOGGLE_BOOKMARK_ACTION: 'toggle-bookmark-action',
+    NEXT_BOOKMARK_ACTION: 'next-bookmark-action',
+    OPEN_QUERY_COMPARE: 'open-query-compare',
+    JUMP_TO_LINE_ACTION: 'jump-to-line-action',
     SAVE_TAB_ACTION: 'zentro:save-script',
     RENAME_TAB: 'zentro:rename-tab',
 } as const;

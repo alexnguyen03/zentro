@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { GetPreferences, SetPreferences } from '../../wailsjs/go/app/App';
 import { utils } from '../../wailsjs/go/models';
 import { ToastPlacement } from '../components/layout/Toast';
+import { useShortcutStore } from './shortcutStore';
 
 let saveTimeout: any = null;
 
@@ -41,6 +42,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 queryTimeout: prefs.query_timeout || 60,
                 autoCheckUpdates: prefs.auto_check_updates !== false,
             });
+            useShortcutStore.getState().loadFromPreferences(prefs.shortcuts);
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme || 'system');
         } catch (err) {
@@ -50,6 +52,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
     save: async (prefs: utils.Preferences) => {
         try {
+            if (!prefs.shortcuts) {
+                prefs.shortcuts = useShortcutStore.getState().bindings;
+            }
             await SetPreferences(prefs);
             set({
                 theme: prefs.theme,
@@ -83,6 +88,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 connect_timeout: state.connectTimeout,
                 query_timeout: state.queryTimeout,
                 auto_check_updates: state.autoCheckUpdates
+                ,
+                shortcuts: useShortcutStore.getState().bindings
             });
             SetPreferences(prefs).catch(err => console.error('Failed to auto-save font size:', err));
         }, 1000);

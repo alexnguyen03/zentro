@@ -54,3 +54,17 @@
 @import "./styles/base.css";
 @import "./styles/animations.css";
 @import "./styles/components.css";
+
+.zentro-bookmark-glyph {
+  background: var(--success-color);
+  border-radius: 999px;
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: 4px;
+  margin-top: 4px;
+}
+
+.zentro-bookmark-line {
+  border-left: 2px solid var(--success-color);
+  margin-left: 2px;
+}

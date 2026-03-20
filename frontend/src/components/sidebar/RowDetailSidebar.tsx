@@ -1,10 +1,14 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces, RefreshCcw } from 'lucide-react';
+import { X, Copy, AlignLeft, FileJson, CheckSquare, Braces, RefreshCcw, Bookmark } from 'lucide-react';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
 import { JsonViewer } from '../viewers/JsonViewer';
+import { useEditorStore } from '../../stores/editorStore';
+import { useConnectionStore } from '../../stores/connectionStore';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
+import { DOM_EVENT } from '../../lib/constants';
 
 // JSON type column name patterns
 const JSON_COLUMN_PATTERNS = [
@@ -47,6 +51,12 @@ export const RowDetailSidebar: React.FC = () => {
     const { detail, clearDetail } = useRowDetailStore();
     const { setShowRightSidebar } = useLayoutStore();
     const { toast } = useToast();
+    const { groups, activeGroupId } = useEditorStore();
+    const activeGroup = groups.find(g => g.id === activeGroupId);
+    const activeTabId = activeGroup?.activeTabId || '';
+    const { activeProfile } = useConnectionStore();
+    const { byTab, loadBookmarks } = useBookmarkStore();
+    const bookmarks = byTab[activeTabId] || [];
 
     // Resize state
     const [width, setWidth] = useState(300);
@@ -158,6 +168,38 @@ export const RowDetailSidebar: React.FC = () => {
     const actionBtnClass = "bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary";
     const actionBtnActiveClass = "bg-bg-tertiary text-[#7c6af7]";
 
+    React.useEffect(() => {
+        if (activeProfile?.name && activeTabId) {
+            loadBookmarks(activeProfile.name, activeTabId).catch((err) => console.error('load bookmarks failed', err));
+        }
+    }, [activeProfile?.name, activeTabId, loadBookmarks]);
+
+    const BookmarkPanel = (
+        <div className="border-b border-border px-2 py-2 bg-bg-secondary">
+            <div className="flex items-center gap-1.5 text-xs text-text-primary mb-2">
+                <Bookmark size={12} />
+                <span>Bookmarks ({bookmarks.length})</span>
+            </div>
+            <div className="max-h-[120px] overflow-auto">
+                {bookmarks.length === 0 ? (
+                    <div className="text-[11px] text-text-muted px-1 py-1">No bookmarks for this tab.</div>
+                ) : (
+                    bookmarks.map((item) => (
+                        <button
+                            key={item.id || item.line}
+                            className="w-full text-left px-2 py-1 text-[11px] rounded hover:bg-bg-tertiary text-text-secondary hover:text-text-primary border-none bg-transparent cursor-pointer"
+                            onClick={() => {
+                                window.dispatchEvent(new CustomEvent(DOM_EVENT.JUMP_TO_LINE_ACTION, { detail: { tabId: activeTabId, line: item.line } }));
+                            }}
+                        >
+                            Line {item.line}
+                        </button>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+
     const EmptyState = (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
@@ -171,6 +213,7 @@ export const RowDetailSidebar: React.FC = () => {
                         <X size={14} />
                     </button>
                 </div>
+                {BookmarkPanel}
                 <div className="flex-1 flex items-center justify-center text-text-muted text-xs h-full">
                     <p>No row selected</p>
                 </div>
@@ -252,6 +295,7 @@ export const RowDetailSidebar: React.FC = () => {
                         </button>
                     </div>
                 </div>
+                {BookmarkPanel}
 
                 <div className="flex-1 overflow-hidden p-1">
                     {viewMode === 'json' ? (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Play, Square, Settings, ChevronDown, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight, GitBranchPlus, Check, Undo2, Search } from 'lucide-react';
+import { Plus, Play, Square, Settings, ChevronDown, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight, GitBranchPlus, Check, Undo2, Search, Columns2 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -36,17 +36,6 @@ export const Toolbar: React.FC = () => {
     const isQueryTab = activeTab?.type === 'query';
     const canRunEditorAction = Boolean(isConnected && activeTab && !activeTab.readOnly && isQueryTab);
     const txActive = transactionStatus === 'active';
-
-    useEffect(() => {
-        const handleKd = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
-                e.preventDefault();
-                setPickerOpen(true);
-            }
-        };
-        window.addEventListener('keydown', handleKd);
-        return () => window.removeEventListener('keydown', handleKd);
-    }, []);
 
     useEffect(() => {
         const handler = () => setPickerOpen(true);
@@ -162,6 +151,14 @@ export const Toolbar: React.FC = () => {
                     onClick={() => handleExplain(true)}
                 >
                     <Search size={14} className="text-accent" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Compare Queries"
+                    onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_QUERY_COMPARE))}
+                >
+                    <Columns2 size={14} />
                 </Button>
                 <Button
                     variant="ghost"

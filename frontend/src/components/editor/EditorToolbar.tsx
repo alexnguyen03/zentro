@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookDashed, Settings, Sparkles } from 'lucide-react';
+import { BookDashed, AlignJustify } from 'lucide-react';
 import { Button } from '../ui';
 import { useTemplateStore } from '../../stores/templateStore';
 import { cn } from '../../lib/cn';
 import { TemplatePopover } from './TemplatePopover';
 import { models } from '../../../wailsjs/go/models';
+import { DOM_EVENT } from '../../lib/constants';
 
 type Template = models.Template;
 
@@ -21,23 +22,21 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive }) => {
         loadTemplates();
     }, []);
 
-    // Global shortcut Alt + Shift + T
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.altKey && e.shiftKey && (e.key === 'T' || e.key === 't')) {
-                if (isActive) {
-                    e.preventDefault();
-                    setShowPopover(prev => !prev);
-                }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isActive]);
-
     return (
         <div className="h-10 flex items-center justify-end shrink-0 select-none px-3">
             <div className="flex items-center gap-1 pl-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:text-success"
+                    title="Format Query (Ctrl+Shift+F)"
+                    onClick={() => {
+                        if (!isActive) return;
+                        window.dispatchEvent(new CustomEvent(DOM_EVENT.FORMAT_QUERY_ACTION));
+                    }}
+                >
+                    <AlignJustify size={14} />
+                </Button>
                 <Button
                     ref={plusBtnRef}
                     variant="ghost"
@@ -47,7 +46,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive }) => {
                         showPopover && "bg-success/20 text-success"
                     )}
                     onClick={() => setShowPopover(!showPopover)}
-                    title="Manage Templates (Alt+Shift+T)"
+                    title="Manage Templates"
                 >
                     <BookDashed size={14} />
                 </Button>

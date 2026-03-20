@@ -38,6 +38,9 @@ type App struct {
 	history   *HistoryService
 	scripts   *ScriptService
 	templates *TemplateService
+	bookmarks *BookmarkService
+	formatter *QueryFormatterService
+	compare   *QueryCompareService
 	update    *UpdateService
 }
 
@@ -83,6 +86,9 @@ func NewApp() *App {
 
 	a.scripts = NewScriptService(nil)
 	a.templates = NewTemplateService()
+	a.bookmarks = NewBookmarkService()
+	a.formatter = NewQueryFormatterService()
+	a.compare = NewQueryCompareService()
 	a.update = NewUpdateService("alexnguyen03/zentro")
 
 	return a
@@ -209,6 +215,32 @@ func (a *App) ClearHistory() error               { return a.history.ClearHistory
 func (a *App) LoadTemplates() ([]models.Template, error) { return a.templates.LoadTemplates() }
 func (a *App) SaveTemplate(t models.Template) error      { return a.templates.SaveTemplate(t) }
 func (a *App) DeleteTemplate(id string) error            { return a.templates.DeleteTemplate(id) }
+
+// ── Formatter ──────────────────────────────────────────────────────────────
+
+func (a *App) FormatSQL(query string, dialect string) (string, error) {
+	return a.formatter.FormatSQL(query, dialect)
+}
+
+// ── Bookmarks ──────────────────────────────────────────────────────────────
+
+func (a *App) GetBookmarks(connectionID, tabID string) ([]models.Bookmark, error) {
+	return a.bookmarks.GetBookmarks(connectionID, tabID)
+}
+
+func (a *App) SaveBookmark(connectionID, tabID string, bookmark models.Bookmark) error {
+	return a.bookmarks.SaveBookmark(connectionID, tabID, bookmark)
+}
+
+func (a *App) DeleteBookmark(connectionID, tabID string, line int) error {
+	return a.bookmarks.DeleteBookmark(connectionID, tabID, line)
+}
+
+// ── Compare ────────────────────────────────────────────────────────────────
+
+func (a *App) CompareQueries(query1, query2 string) (string, error) {
+	return a.compare.CompareQueries(query1, query2)
+}
 
 // ── Preferences ────────────────────────────────────────────────────────────
 

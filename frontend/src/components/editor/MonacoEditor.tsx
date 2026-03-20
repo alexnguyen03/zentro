@@ -3,9 +3,11 @@ import Editor, { OnMount } from '@monaco-editor/react';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
 import { EditorToolbar } from './EditorToolbar';
 import { DOM_EVENT } from '../../lib/constants';
+import { FormatSQL } from '../../../wailsjs/go/app/App';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -37,6 +39,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     onFocusRef.current = onFocus;
     const isActiveRef = useRef(isActive);
     isActiveRef.current = isActive;
+    const decorationRef = useRef<string[]>([]);
 
     // Focus editor when it becomes active
     useEffect(() => {
@@ -159,6 +162,30 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     const activeProfile = useConnectionStore(s => s.activeProfile);
     const trees = useSchemaStore(s => s.trees);
     const { fontSize, theme, updateFontSize } = useSettingsStore();
+    const { byTab, loadBookmarks, toggleLine, nextLine } = useBookmarkStore();
+    const bookmarks = byTab[tabId] || [];
+
+    useEffect(() => {
+        if (!activeProfile?.name) return;
+        loadBookmarks(activeProfile.name, tabId).catch((err) => console.error('load bookmarks failed', err));
+    }, [activeProfile?.name, tabId, loadBookmarks]);
+
+    useEffect(() => {
+        const editor = editorRef.current;
+        const monaco = (window as any).monaco;
+        if (!editor || !monaco) return;
+
+        const nextDecorations = bookmarks.map((bookmark) => ({
+            range: new monaco.Range(bookmark.line, 1, bookmark.line, 1),
+            options: {
+                isWholeLine: true,
+                glyphMarginClassName: 'zentro-bookmark-glyph',
+                glyphMarginHoverMessage: { value: `Bookmark: line ${bookmark.line}` },
+                lineDecorationsClassName: 'zentro-bookmark-line',
+            }
+        }));
+        decorationRef.current = editor.deltaDecorations(decorationRef.current, nextDecorations);
+    }, [bookmarks]);
 
     // Resolve 'system' theme to actual monaco theme
     const getMonacoTheme = () => {
@@ -213,17 +240,6 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             editorFocusKey.set(false);
         });
 
-        // Use addAction with unique precondition so Ctrl+Enter doesn't leak to other split editors
-        editor.addAction({
-            id: `run-query-${safeId}`,
-            label: 'Run Query',
-            keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
-            precondition: `isEditorFocused_${safeId}`,
-            run: () => {
-                if (runQueryRef.current) runQueryRef.current();
-            }
-        });
-
         if (isActiveRef.current) {
             // Need a tiny timeout because monaco layout might need to settle
             setTimeout(() => {
@@ -231,6 +247,67 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             }, 10);
         }
     }, [tabId, updateFontSize]);
+
+    useEffect(() => {
+        const handleFormat = async (e: any) => {
+            if (e.detail?.tabId && e.detail?.tabId !== tabId) return;
+            if (!isActiveRef.current || !editorRef.current) return;
+            const query = extractRunnableQuery() || editorRef.current.getModel()?.getValue() || '';
+            if (!query.trim()) return;
+            try {
+                const dialect = activeProfile?.driver || '';
+                const formatted = await FormatSQL(query, dialect);
+                const model = editorRef.current.getModel();
+                if (!model) return;
+                model.pushEditOperations([], [{
+                    range: model.getFullModelRange(),
+                    text: formatted
+                }], () => null);
+                onChange(formatted);
+            } catch (err) {
+                console.error('format failed', err);
+            }
+        };
+
+        const handleToggleBookmark = async (e: any) => {
+            if (e.detail?.tabId && e.detail?.tabId !== tabId) return;
+            if (!isActiveRef.current || !editorRef.current || !activeProfile?.name) return;
+            const line = editorRef.current.getPosition()?.lineNumber;
+            if (!line) return;
+            await toggleLine(activeProfile.name, tabId, line);
+        };
+
+        const handleNextBookmark = (e: any) => {
+            if (e.detail?.tabId && e.detail?.tabId !== tabId) return;
+            if (!isActiveRef.current || !editorRef.current) return;
+            const currentLine = editorRef.current.getPosition()?.lineNumber || 0;
+            const target = nextLine(tabId, currentLine);
+            if (!target) return;
+            editorRef.current.revealLineInCenter(target);
+            editorRef.current.setPosition({ lineNumber: target, column: 1 });
+            editorRef.current.focus();
+        };
+
+        const handleJumpLine = (e: any) => {
+            if (e.detail?.tabId !== tabId) return;
+            const line = Number(e.detail?.line || 0);
+            if (!line || !editorRef.current) return;
+            editorRef.current.revealLineInCenter(line);
+            editorRef.current.setPosition({ lineNumber: line, column: 1 });
+            editorRef.current.focus();
+        };
+
+        window.addEventListener(DOM_EVENT.FORMAT_QUERY_ACTION, handleFormat as EventListener);
+        window.addEventListener(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, handleToggleBookmark as EventListener);
+        window.addEventListener(DOM_EVENT.NEXT_BOOKMARK_ACTION, handleNextBookmark as EventListener);
+        window.addEventListener(DOM_EVENT.JUMP_TO_LINE_ACTION, handleJumpLine as EventListener);
+        return () => {
+            window.removeEventListener(DOM_EVENT.FORMAT_QUERY_ACTION, handleFormat as EventListener);
+            window.removeEventListener(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, handleToggleBookmark as EventListener);
+            window.removeEventListener(DOM_EVENT.NEXT_BOOKMARK_ACTION, handleNextBookmark as EventListener);
+            window.removeEventListener(DOM_EVENT.JUMP_TO_LINE_ACTION, handleJumpLine as EventListener);
+        };
+    }, [activeProfile?.driver, activeProfile?.name, extractRunnableQuery, nextLine, onChange, tabId, toggleLine]);
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
@@ -249,6 +326,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                     options={{
                         automaticLayout: true,
                         minimap: { enabled: false },
+                        glyphMargin: true,
                         fontSize: fontSize,
                         lineHeight: fontSize * 1.5,
                         scrollBeyondLastLine: false,

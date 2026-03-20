@@ -16,15 +16,16 @@ import (
 
 // Preferences holds all user-configurable settings.
 type Preferences struct {
-	Theme          string `json:"theme"`           // "light" | "dark" | "system"
-	FontSize       int    `json:"font_size"`       // default 14
-	DefaultLimit   int    `json:"default_limit"`   // default 1000
-	ChunkSize      int    `json:"chunk_size"`      // default 500
-	ToastPlacement string `json:"toast_placement"` // default bottom-left
-	QueryTimeout   int    `json:"query_timeout"`   // seconds, default 60
-	ConnectTimeout int    `json:"connect_timeout"` // seconds, default 10
-	SchemaTimeout  int    `json:"schema_timeout"`  // seconds, default 15
-	AutoCheckUpdates bool `json:"auto_check_updates"` // default true
+	Theme            string            `json:"theme"`              // "light" | "dark" | "system"
+	FontSize         int               `json:"font_size"`          // default 14
+	DefaultLimit     int               `json:"default_limit"`      // default 1000
+	ChunkSize        int               `json:"chunk_size"`         // default 500
+	ToastPlacement   string            `json:"toast_placement"`    // default bottom-left
+	QueryTimeout     int               `json:"query_timeout"`      // seconds, default 60
+	ConnectTimeout   int               `json:"connect_timeout"`    // seconds, default 10
+	SchemaTimeout    int               `json:"schema_timeout"`     // seconds, default 15
+	AutoCheckUpdates bool              `json:"auto_check_updates"` // default true
+	Shortcuts        map[string]string `json:"shortcuts"`
 }
 
 // config is the root JSON structure written to disk.
@@ -107,6 +108,9 @@ func loadConfig() (*config, error) {
 	} else if cfg.Preferences.SchemaTimeout > 1000000 {
 		cfg.Preferences.SchemaTimeout /= int(time.Second)
 	}
+	if cfg.Preferences.Shortcuts == nil {
+		cfg.Preferences.Shortcuts = map[string]string{}
+	}
 	// Load passwords from keyring or fall back to base64 (backward compat)
 	for _, p := range cfg.Connections {
 		if p.SavePassword {
@@ -173,15 +177,16 @@ func saveConfig(cfg *config) error {
 func defaultConfig() *config {
 	return &config{
 		Preferences: Preferences{
-			Theme:          "system",
-			FontSize:       14,
-			DefaultLimit:   1000,
-			ChunkSize:      500,
-			ToastPlacement: "bottom-left",
-			QueryTimeout:   60,
-			ConnectTimeout: 10,
-			SchemaTimeout:  15,
+			Theme:            "system",
+			FontSize:         14,
+			DefaultLimit:     1000,
+			ChunkSize:        500,
+			ToastPlacement:   "bottom-left",
+			QueryTimeout:     60,
+			ConnectTimeout:   10,
+			SchemaTimeout:    15,
 			AutoCheckUpdates: true,
+			Shortcuts:        map[string]string{},
 		},
 		Connections: []*models.ConnectionProfile{},
 	}

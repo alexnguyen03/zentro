@@ -17,17 +17,16 @@ export const CommandPalette: React.FC = () => {
     const activeItemRef = useRef<HTMLButtonElement>(null);
 
     // Re-build commands on each render so actions get fresh store state
-    const allCommands = useMemo(() => buildCommands(), []);
+    const allCommands = buildCommands();
 
     const filtered = useMemo<CommandItem[]>(() => {
         const q = query.trim().toLowerCase();
         if (!q) return allCommands;
-        return allCommands.filter(
-            c =>
-                c.label.toLowerCase().includes(q) ||
-                c.category.toLowerCase().includes(q) ||
-                (c.keybinding?.toLowerCase().includes(q) ?? false)
-        );
+        return allCommands
+            .map((c) => ({ cmd: c, score: fuzzyScore(q, `${c.label} ${c.category} ${c.keybinding ?? ''}`.toLowerCase()) }))
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map((item) => item.cmd);
     }, [query, allCommands]);
 
     // Group filtered results by category, preserving CATEGORY_ORDER
@@ -188,3 +187,29 @@ export const CommandPalette: React.FC = () => {
         </ModalBackdrop>
     );
 };
+
+function fuzzyScore(needle: string, haystack: string): number {
+    if (!needle) return 1;
+    if (haystack.includes(needle)) return 1000 - haystack.indexOf(needle);
+
+    let score = 0;
+    let hIdx = 0;
+    let streak = 0;
+    for (let i = 0; i < needle.length; i++) {
+        const ch = needle[i];
+        let found = false;
+        while (hIdx < haystack.length) {
+            if (haystack[hIdx] === ch) {
+                found = true;
+                streak++;
+                score += 10 + streak*2;
+                hIdx++;
+                break;
+            }
+            streak = 0;
+            hIdx++;
+        }
+        if (!found) return 0;
+    }
+    return score;
+}

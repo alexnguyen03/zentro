@@ -23,11 +23,14 @@ import {
     type QueryDonePayload,
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
-import { EventsOn, WindowReloadApp } from '../wailsjs/runtime/runtime';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 import { ForceQuit, Connect, GetTransactionStatus } from '../wailsjs/go/app/App';
 import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
-import { TAB_TYPE } from './lib/constants';
 import { CommandPalette } from './components/layout/CommandPalette';
+import { QueryCompareModal } from './components/editor/QueryCompareModal';
+import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/shortcutRegistry';
+import { useShortcutStore } from './stores/shortcutStore';
+import { DOM_EVENT } from './lib/constants';
 
 function clearGeneratedResults(sourceTabID: string) {
     const resultState = useResultStore.getState();
@@ -43,10 +46,10 @@ function clearGeneratedResults(sourceTabID: string) {
 
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
-    const { addTab } = useEditorStore();
     const { setTransactionStatus } = useStatusStore();
     const { toast } = useToast();
-    const { showSidebar, showRightSidebar, showCommandPalette, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
+    const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
+    const { bindings, chordStart, chordUntil, setChord } = useShortcutStore();
 
     useEffect(() => {
         const off = EventsOn('app:before-close', () => {
@@ -170,86 +173,69 @@ function App() {
         };
     }, [resize, stopResizing]);
 
-    const chordRef = useRef<string | null>(null);
-    const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
     useEffect(() => {
-        const handleLayoutShortcuts = (e: KeyboardEvent) => {
-            const mod = e.ctrlKey || e.metaKey;
+        const isTypingTarget = (target: EventTarget | null) => {
+            const el = target as HTMLElement | null;
+            if (!el) return false;
+            return Boolean(el.closest('input, textarea, [contenteditable="true"]'));
+        };
 
-            if (mod && e.shiftKey && e.key.toLowerCase() === 'p') {
-                e.preventDefault();
-                setShowCommandPalette(true);
-                return;
-            }
+        const execute = (entry: (typeof shortcutRegistry)[number]) => {
+            Promise.resolve(entry.action()).catch((err) => {
+                console.error(`Shortcut ${entry.id} failed`, err);
+                toast.error(`Shortcut failed: ${entry.label}`);
+            });
+        };
 
-            if (mod && e.altKey && e.key.toLowerCase() === 'b') {
-                e.preventDefault();
-                toggleRightSidebar();
-                return;
-            }
+        const handler = (e: KeyboardEvent) => {
+            if (isTypingTarget(e.target)) return;
+            const token = eventToKeyToken(e);
+            const now = Date.now();
 
-            if (mod && e.shiftKey && e.key.toLowerCase() === 'r') {
-                e.preventDefault();
-                WindowReloadApp();
-                return;
-            }
-
-            if (mod && e.key.toLowerCase() === 'k') {
-                e.preventDefault();
-                chordRef.current = 'k';
-                if (chordTimerRef.current) {
-                    clearTimeout(chordTimerRef.current);
+            for (const entry of shortcutRegistry) {
+                const binding = normalizeBinding(bindings[entry.id] || entry.defaultBinding);
+                const parts = binding.split(' ');
+                if (parts.length === 2) {
+                    if (token === parts[0]) {
+                        e.preventDefault();
+                        setChord(parts[0]);
+                        return;
+                    }
+                    if (chordStart === parts[0] && now <= chordUntil && token === parts[1]) {
+                        e.preventDefault();
+                        setChord(null);
+                        execute(entry);
+                        return;
+                    }
+                    continue;
                 }
-                chordTimerRef.current = setTimeout(() => {
-                    chordRef.current = null;
-                }, 1000);
-                return;
-            }
-
-            if (chordRef.current === 'k') {
-                if (mod && e.key.toLowerCase() === 'b') {
+                if (token === parts[0]) {
                     e.preventDefault();
-                    addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' });
+                    execute(entry);
+                    return;
                 }
-                chordRef.current = null;
-                if (chordTimerRef.current) {
-                    clearTimeout(chordTimerRef.current);
-                }
-                return;
             }
 
-            if (mod && e.key === ',') {
-                e.preventDefault();
-                addTab({ type: 'settings', name: 'Settings' });
-                return;
-            }
-
-            if (mod && !e.altKey && e.key.toLowerCase() === 'b') {
-                e.preventDefault();
-                toggleSidebar();
-                return;
-            }
-
-            if (mod && !e.altKey && e.key.toLowerCase() === 'j') {
-                e.preventDefault();
-                const editorState = useEditorStore.getState();
-                const activeGroup = editorState.groups.find((g) => g.id === editorState.activeGroupId);
-                const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
-
-                if (activeTab?.type === TAB_TYPE.QUERY) {
-                    toggleResultPanel();
-                }
+            if (chordStart && now > chordUntil) {
+                setChord(null);
             }
         };
 
-        window.addEventListener('keydown', handleLayoutShortcuts);
-        return () => window.removeEventListener('keydown', handleLayoutShortcuts);
-    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar, addTab, setShowCommandPalette]);
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [bindings, chordStart, chordUntil, setChord, toast]);
+
+    const [showCompareModal, setShowCompareModal] = useState(false);
+    useEffect(() => {
+        const open = () => setShowCompareModal(true);
+        window.addEventListener(DOM_EVENT.OPEN_QUERY_COMPARE, open);
+        return () => window.removeEventListener(DOM_EVENT.OPEN_QUERY_COMPARE, open);
+    }, []);
 
     return (
         <div className="flex flex-col h-full w-full">
             {showCommandPalette && <CommandPalette />}
+            {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
             <Toolbar />
             <div className="flex flex-1 overflow-hidden">
                 {showSidebar && (
