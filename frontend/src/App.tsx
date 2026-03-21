@@ -25,7 +25,7 @@ import {
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
 import { ForceQuit, Connect, GetTransactionStatus } from '../wailsjs/go/app/App';
-import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
+import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
 import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/shortcutRegistry';
@@ -275,7 +275,7 @@ function App() {
                         )}
                     </div>
                 </div>
-                {showRightSidebar && <RowDetailSidebar />}
+                {showRightSidebar && <SecondarySidebar />}
             </div>
             <StatusBar />
         </div>
