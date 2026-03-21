@@ -1,6 +1,7 @@
 # Build outputs
 build/bin/
 frontend/dist/
+frontend/coverage/
 *.exe
 
 # Node
