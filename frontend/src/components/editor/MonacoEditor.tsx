@@ -176,12 +176,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     const activeProfileNameRef = useRef(activeProfile?.name);
     activeProfileNameRef.current = activeProfile?.name;
 
-    useEffect(() => {
-        if (!activeProfile?.name) return;
-        loadBookmarks(activeProfile.name, tabId).catch((err) => console.error('load bookmarks failed', err));
-    }, [activeProfile?.name, tabId, loadBookmarks]);
-
-    useEffect(() => {
+    const applyBookmarkDecorations = useCallback(() => {
         const editor = editorRef.current;
         const monaco = (window as any).monaco;
         if (!editor || !monaco) return;
@@ -197,6 +192,15 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         }));
         decorationRef.current = editor.deltaDecorations(decorationRef.current, nextDecorations);
     }, [bookmarks]);
+
+    useEffect(() => {
+        if (!activeProfile?.name) return;
+        loadBookmarks(activeProfile.name, tabId).catch((err) => console.error('load bookmarks failed', err));
+    }, [activeProfile?.name, tabId, loadBookmarks]);
+
+    useEffect(() => {
+        applyBookmarkDecorations();
+    }, [applyBookmarkDecorations]);
 
     // Resolve 'system' theme to actual monaco theme
     const getMonacoTheme = () => {
@@ -287,7 +291,10 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 editor.focus();
             }, 10);
         }
-    }, [tabId, updateFontSize]);
+
+        // If bookmarks were already hydrated before Monaco mounted, render them now.
+        applyBookmarkDecorations();
+    }, [applyBookmarkDecorations, tabId, updateFontSize]);
 
     useEffect(() => {
         const handleFormat = async (e: any) => {
