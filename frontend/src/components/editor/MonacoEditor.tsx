@@ -30,6 +30,11 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     onFocus,
     readOnly,
 }) => {
+    const ULTRA_COMPACT_GUTTER = {
+        lineNumbersMinChars: 1,
+        lineDecorationsWidth: 16,
+    } as const;
+
     const editorRef = useRef<any>(null);
     const onRunRef = useRef(onRun);
     onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
@@ -39,6 +44,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     onFocusRef.current = onFocus;
     const isActiveRef = useRef(isActive);
     isActiveRef.current = isActive;
+    const readOnlyRef = useRef(readOnly);
+    readOnlyRef.current = readOnly;
     const decorationRef = useRef<string[]>([]);
 
     // Focus editor when it becomes active
@@ -164,6 +171,10 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     const { fontSize, theme, updateFontSize } = useSettingsStore();
     const { byTab, loadBookmarks, toggleLine, nextLine } = useBookmarkStore();
     const bookmarks = byTab[tabId] || [];
+    const toggleLineRef = useRef(toggleLine);
+    toggleLineRef.current = toggleLine;
+    const activeProfileNameRef = useRef(activeProfile?.name);
+    activeProfileNameRef.current = activeProfile?.name;
 
     useEffect(() => {
         if (!activeProfile?.name) return;
@@ -180,7 +191,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             options: {
                 isWholeLine: true,
                 glyphMarginClassName: 'zentro-bookmark-glyph',
-                glyphMarginHoverMessage: { value: `Bookmark: line ${bookmark.line}` },
+                glyphMarginHoverMessage: { value: `Bookmark line ${bookmark.line}\nRight-click line number to toggle.` },
                 lineDecorationsClassName: 'zentro-bookmark-line',
             }
         }));
@@ -247,6 +258,28 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 if (runQueryRef.current) runQueryRef.current();
             }
         );
+
+        editor.onMouseDown((e: any) => {
+            const isRightClick = Boolean(e?.event?.rightButton) || e?.event?.browserEvent?.button === 2;
+            if (!isRightClick) return;
+            if (readOnlyRef.current) return;
+            if (!isActiveRef.current) return;
+
+            const targetType = e?.target?.type;
+            const mt = monacoInstance.editor.MouseTargetType;
+            const inBookmarkGutter =
+                targetType === mt.GUTTER_LINE_NUMBERS ||
+                targetType === mt.GUTTER_GLYPH_MARGIN;
+            if (!inBookmarkGutter) return;
+
+            const line = Number(e?.target?.position?.lineNumber || 0);
+            const connectionName = activeProfileNameRef.current;
+            if (!connectionName || line <= 0) return;
+
+            toggleLineRef.current(connectionName, tabId, line).catch((err: unknown) => {
+                console.error('toggle bookmark by gutter failed', err);
+            });
+        });
 
         if (isActiveRef.current) {
             // Need a tiny timeout because monaco layout might need to settle
@@ -318,7 +351,15 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     }, [activeProfile?.driver, activeProfile?.name, extractRunnableQuery, nextLine, onChange, tabId, toggleLine]);
 
     return (
-        <div className="flex flex-col h-full overflow-hidden">
+        <div
+            className="zentro-sql-editor flex flex-col h-full overflow-hidden"
+            style={
+                {
+                    '--zentro-editor-font-size': `${fontSize}px`,
+                    '--zentro-editor-line-height': `${fontSize * 1.5}px`,
+                } as React.CSSProperties
+            }
+        >
             <div className="flex-1 min-h-0">
                 <Editor
                     height="100%"
@@ -335,6 +376,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                         automaticLayout: true,
                         minimap: { enabled: false },
                         glyphMargin: true,
+                        lineNumbersMinChars: ULTRA_COMPACT_GUTTER.lineNumbersMinChars,
+                        lineDecorationsWidth: ULTRA_COMPACT_GUTTER.lineDecorationsWidth,
                         fontSize: fontSize,
                         lineHeight: fontSize * 1.5,
                         scrollBeyondLastLine: false,
