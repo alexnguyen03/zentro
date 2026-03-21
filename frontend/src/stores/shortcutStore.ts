@@ -8,6 +8,7 @@ interface ShortcutState {
   chordUntil: number;
   loadFromPreferences: (shortcuts?: Record<string, string>) => void;
   setBinding: (id: CommandId, binding: string) => Promise<{ ok: boolean; conflictWith?: CommandId }>;
+  restoreBinding: (id: CommandId) => Promise<void>;
   resetDefaults: () => Promise<void>;
   getBinding: (id: CommandId) => string;
   setChord: (token: string | null) => void;
@@ -55,6 +56,12 @@ export const useShortcutStore = create<ShortcutState>((set, get) => ({
     set({ bindings: next });
     await persistBindings(next);
     return { ok: true };
+  },
+
+  restoreBinding: async (id) => {
+    const next = { ...get().bindings, [id]: defaultShortcutMap[id] };
+    set({ bindings: next });
+    await persistBindings(next);
   },
 
   resetDefaults: async () => {

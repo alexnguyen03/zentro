@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,6 +11,16 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+type funcEventEmitter struct {
+	fn func(context.Context, string, any)
+}
+
+func (f funcEventEmitter) Emit(ctx context.Context, eventName string, payload any) {
+	if f.fn != nil {
+		f.fn(ctx, eventName, payload)
+	}
+}
 
 func setupTestDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("sqlite", ":memory:")
@@ -37,20 +48,26 @@ func TestExecuteQuery_50kRows_Integration(t *testing.T) {
 
 	// Track emitted events
 	events := make([]map[string]any, 0)
+	var mu sync.Mutex
 	doneChan := make(chan bool)
 
-	// Mock Wails EventsEmit
-	emitEvent = func(ctx context.Context, eventName string, optionalData ...interface{}) {
-		if len(optionalData) > 0 {
-			if data, ok := optionalData[0].(map[string]any); ok {
-				data["_eventName"] = eventName
-				events = append(events, data)
-				if eventName == "query:done" {
-					doneChan <- true
-				}
-			}
+	em := funcEventEmitter{fn: func(ctx context.Context, eventName string, payload any) {
+		data, ok := payload.(map[string]any)
+		if !ok {
+			return
 		}
-	}
+		mu.Lock()
+		data["_eventName"] = eventName
+		events = append(events, data)
+		mu.Unlock()
+		if eventName == "query:done" {
+			doneChan <- true
+		}
+	}}
+	a.emitter = em
+	a.conn.emitter = em
+	a.query.emitter = em
+	a.tx.emitter = em
 
 	tabID := "test-tab-1"
 
@@ -131,27 +148,34 @@ func TestExecuteQuery_CancelMidStream(t *testing.T) {
 	defer a.db.Close()
 
 	events := make([]map[string]any, 0)
+	var mu sync.Mutex
 	doneChan := make(chan bool)
 
-	emitEvent = func(ctx context.Context, eventName string, optionalData ...interface{}) {
-		if len(optionalData) > 0 {
-			if data, ok := optionalData[0].(map[string]any); ok {
-				data["_eventName"] = eventName
-				events = append(events, data)
-				if eventName == "query:done" {
-					doneChan <- true
-				}
+	em := funcEventEmitter{fn: func(ctx context.Context, eventName string, payload any) {
+		data, ok := payload.(map[string]any)
+		if !ok {
+			return
+		}
+		mu.Lock()
+		data["_eventName"] = eventName
+		events = append(events, data)
+		mu.Unlock()
+		if eventName == "query:done" {
+			doneChan <- true
+		}
 
-				// Cancel query on the second chunk
-				if eventName == "query:chunk" {
-					seq := data["seq"].(int)
-					if seq == 1 {
-						a.CancelQuery("test-tab-2")
-					}
-				}
+		// Cancel query on the second chunk
+		if eventName == "query:chunk" {
+			seq := data["seq"].(int)
+			if seq == 1 {
+				a.CancelQuery("test-tab-2")
 			}
 		}
-	}
+	}}
+	a.emitter = em
+	a.conn.emitter = em
+	a.query.emitter = em
+	a.tx.emitter = em
 
 	// Wait randomly or read from a slow sequence to ensure cancellation happens before finish
 	// randomblob generates fake data to slow down? Or just relying on the chunk interrupt.
@@ -210,15 +234,17 @@ func TestExecuteQuery_NonSelect(t *testing.T) {
 
 	doneChan := make(chan map[string]any)
 
-	emitEvent = func(ctx context.Context, eventName string, optionalData ...interface{}) {
+	em := funcEventEmitter{fn: func(ctx context.Context, eventName string, payload any) {
 		if eventName == "query:done" {
-			if len(optionalData) > 0 {
-				if data, ok := optionalData[0].(map[string]any); ok {
-					doneChan <- data
-				}
+			if data, ok := payload.(map[string]any); ok {
+				doneChan <- data
 			}
 		}
-	}
+	}}
+	a.emitter = em
+	a.conn.emitter = em
+	a.query.emitter = em
+	a.tx.emitter = em
 
 	a.db.Exec("CREATE TABLE users (id INTEGER, name TEXT);")
 

@@ -27,7 +27,11 @@ func GetPassword(connectionName string) (string, error) {
 }
 
 func DeletePassword(connectionName string) error {
-	return keyring.Delete(keyringService, connectionName)
+	err := keyring.Delete(keyringService, connectionName)
+	if err == nil || err == keyring.ErrNotFound {
+		return nil
+	}
+	return err
 }
 
 func DeleteAllPasswords(connectionNames []string) error {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEY, TabType, TAB_TYPE } from '../lib/constants';
+import { withStoreLogger } from './logger';
 
 export interface Tab {
     id: string;
@@ -58,7 +59,7 @@ const getNextTabName = (groups: TabGroup[], baseName: string = 'New Query'): str
 
 export const useEditorStore = create<EditorState>()(
     persist(
-        (set, get) => ({
+        withStoreLogger('editorStore', (set, get) => ({
             groups: [{ id: 'group-1', tabs: [], activeTabId: null }],
             activeGroupId: 'group-1',
 
@@ -344,7 +345,7 @@ export const useEditorStore = create<EditorState>()(
                     activeGroupId: targetGroupId,
                 };
             })
-        }),
+        })),
         {
             name: STORAGE_KEY.EDITOR_SESSION, // Change name to drop old state because schema changed
             partialize: (state) => ({

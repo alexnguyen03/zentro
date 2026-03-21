@@ -1,13 +1,11 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { models } from '../../../wailsjs/go/models';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { Button } from '../ui';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../../types/connection';
 
 interface ConnectionDialogProps {
     isOpen: boolean;

@@ -8,8 +8,7 @@ import {
     validateConnectionForm,
 } from '../lib/providers';
 import { DRIVER } from '../lib/constants';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../types/connection';
 
 export type TestResult = 'idle' | 'ok' | 'error';
 
@@ -93,7 +92,23 @@ export function useConnectionForm({
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         if (type === 'checkbox') {
-            setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+            const checked = (e.target as HTMLInputElement).checked;
+            setFormData(prev => {
+                if (name === 'save_password') {
+                    return {
+                        ...prev,
+                        save_password: checked,
+                        encrypt_password: checked ? (prev.encrypt_password ?? true) : false,
+                    };
+                }
+                if (name === 'encrypt_password') {
+                    return {
+                        ...prev,
+                        encrypt_password: checked && (prev.save_password ?? true),
+                    };
+                }
+                return { ...prev, [name]: checked };
+            });
         } else if (name === 'port' || name === 'connect_timeout') {
             setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
         } else {

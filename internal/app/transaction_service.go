@@ -15,6 +15,7 @@ type TransactionService struct {
 	logger    *slog.Logger
 	getDB     func() *sql.DB
 	getDriver func() string
+	emitter   EventEmitter
 
 	mu        sync.RWMutex
 	tx        *sql.Tx
@@ -27,12 +28,14 @@ func NewTransactionService(
 	logger *slog.Logger,
 	getDB func() *sql.DB,
 	getDriver func() string,
+	emitter EventEmitter,
 ) *TransactionService {
 	return &TransactionService{
 		ctx:       ctx,
 		logger:    logger,
 		getDB:     getDB,
 		getDriver: getDriver,
+		emitter:   emitter,
 		status:    constant.TransactionStatusNone,
 	}
 }
@@ -154,5 +157,5 @@ func (s *TransactionService) emitStatusLocked() {
 	if s.lastError != "" {
 		payload["error"] = s.lastError
 	}
-	emitEvent(s.ctx, constant.EventTransactionStatus, payload)
+	s.emitter.Emit(s.ctx, constant.EventTransactionStatus, payload)
 }

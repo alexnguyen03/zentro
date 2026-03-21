@@ -4,6 +4,34 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 
 ---
 
+## v0.2.0-beta (2026-03-21)
+
+### Security & Privacy
+* Migrated connection persistence to AES-GCM encrypted config + OS keyring-backed password storage.
+* Added backward-compatible migration path for legacy plaintext/base64 password data.
+* Added `encrypt_password` profile flag and surfaced it in the connection form.
+
+### Observability & Reliability
+* Added frontend Zustand logging middleware for store transitions and error traces.
+* Added global React `ErrorBoundary` to capture runtime render failures consistently.
+* Replaced backend global `emitEvent` function with dependency-injected `EventEmitter` for improved testability.
+
+### Testing
+* Added backend unit tests and benchmarks for query execution helpers and driver contracts.
+* Set up frontend Vitest + React Testing Library test framework.
+* Added test coverage reporting scripts (soft gate policy).
+
+### Performance
+* Optimized SQL pagination fallback string generation using builder-based construction.
+* Reduced query row-scan allocations with pooled scan buffers and faster value conversion paths.
+
+### Build & Release
+* Updated product version metadata to `v0.2.0-beta`.
+* Added release matrix script for Windows/macOS/Linux (`scripts/release-matrix.ps1`).
+* Added frontend build-time Wails model check.
+
+---
+
 ## v0.0.1 (2026-03-15)
 
 ### 🔌 Connection & Workspace Management
@@ -52,3 +80,4 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 *   **Tech Stack Migration**: Successfully migrated from Fyne (Go UI) to Wails v2 + React + TypeScript stack ([c13e5f6](https://github.com/alexnguyen03/zentro/commit/c13e5f666ce12fc56d54f3893acdedf39d8510c6))
 *   **Design System**: Integrated Tailwind v4 with a unified Super-Flat design system and Title-case rules ([2fd4b5d](https://github.com/alexnguyen03/zentro/commit/2fd4b5d082ec0574ea12a4c21a365d23c7154cdb))
 *   **Driver Support**: Enhanced MSSQL support with TLS 1.0 compatibility and Postgres database discovery improvements ([7e1e89f](https://github.com/alexnguyen03/zentro/commit/7e1e89f583aca20515942a8f1ccdd77216077f96), [00b0fc4](https://github.com/alexnguyen03/zentro/commit/00b0fc4e6abaadfb1518cff4ce12a32bce222600))
+

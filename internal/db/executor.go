@@ -2,8 +2,8 @@
 package db
 
 import (
-	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"zentro/internal/core"
@@ -64,10 +64,16 @@ func fallbackInjectPage(query string, limit, offset int) string {
 		return query
 	}
 	trimmed := strings.TrimSpace(query)
+	var b strings.Builder
+	b.Grow(len(trimmed) + 32)
+	b.WriteString(trimmed)
+	b.WriteString(" LIMIT ")
+	b.WriteString(strconv.Itoa(limit))
 	if offset > 0 {
-		return trimmed + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+		b.WriteString(" OFFSET ")
+		b.WriteString(strconv.Itoa(offset))
 	}
-	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
+	return b.String()
 }
 
 // SplitStatements separates SQL statements on semicolons outside of strings/comments.

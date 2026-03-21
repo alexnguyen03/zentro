@@ -1,10 +1,13 @@
 {
   "name": "zentro",
-  "version": "0.1.0",
+  "version": "0.2.0-beta",
   "private": true,
   "scripts": {
     "build": "powershell -ExecutionPolicy Bypass -File build_zentro.ps1",
     "build:dev": "powershell -ExecutionPolicy Bypass -File build_zentro.ps1 -Dev",
+    "test:backend": "go test ./... -coverprofile=coverage-backend.out",
+    "test:frontend": "cmd /c \"cd frontend && npm run test\"",
+    "smoke": "go build ./... && go test ./... && cmd /c \"cd frontend && npm run check:wails-models && npm run build && npm run test\"",
     "release": "commit-and-tag-version",
     "release:patch": "commit-and-tag-version --release-as patch",
     "release:minor": "commit-and-tag-version --release-as minor",

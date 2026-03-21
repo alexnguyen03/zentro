@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { DraftRow } from '../lib/dataEditing';
+import { withStoreLogger } from './logger';
 
 export interface TabResult {
     columns: string[];
@@ -45,7 +46,7 @@ interface ResultState {
     updatePendingState: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>, draftRows: DraftRow[]) => void;
 }
 
-export const useResultStore = create<ResultState>((set, get) => ({
+export const useResultStore = create<ResultState>(withStoreLogger('resultStore', (set, get) => ({
     results: {},
 
     initTab: (tabId) => set((state) => {
@@ -223,4 +224,4 @@ export const useResultStore = create<ResultState>((set, get) => ({
         const r = get().results[tabId];
         return r ? r.isDone : true; // If not found, assume it's not running
     }
-}));
+})));

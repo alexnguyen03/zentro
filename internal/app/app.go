@@ -13,8 +13,6 @@ import (
 	"zentro/internal/utils"
 )
 
-var emitEvent = runtime.EventsEmit
-
 // QuerySession tracks one active query execution per tab.
 type QuerySession struct {
 	TabID      string
@@ -31,6 +29,7 @@ type App struct {
 	prefs   utils.Preferences
 
 	forceQuit bool
+	emitter   EventEmitter
 
 	conn      *ConnectionService
 	query     *QueryService
@@ -45,7 +44,9 @@ type App struct {
 }
 
 func NewApp() *App {
-	a := &App{}
+	a := &App{
+		emitter: NewWailsEventEmitter(),
+	}
 
 	a.history = NewHistoryService(func() *models.ConnectionProfile { return a.profile })
 	a.tx = NewTransactionService(
@@ -58,6 +59,7 @@ func NewApp() *App {
 			}
 			return ""
 		},
+		a.emitter,
 	)
 
 	a.conn = NewConnectionService(
@@ -69,6 +71,7 @@ func NewApp() *App {
 			a.db = db
 			a.profile = p
 		},
+		a.emitter,
 	)
 
 	a.query = NewQueryService(
@@ -82,6 +85,7 @@ func NewApp() *App {
 			return ""
 		},
 		a.history.AppendEntry,
+		a.emitter,
 	)
 
 	a.scripts = NewScriptService(nil)
@@ -111,14 +115,14 @@ func (a *App) Startup(ctx context.Context) {
 		a.logger.Warn("load preferences failed", "err", err)
 	}
 	a.prefs = prefs
-	a.logger.Info("zentro starting", "version", "0.2.0")
+	a.logger.Info("zentro starting", "version", "v0.2.0-beta")
 }
 
 func (a *App) OnBeforeClose(ctx context.Context) bool {
 	if a.forceQuit {
 		return false
 	}
-	emitEvent(ctx, constant.EventAppBeforeClose, nil)
+	a.emitter.Emit(ctx, constant.EventAppBeforeClose, nil)
 	return true
 }
 
@@ -266,8 +270,8 @@ func (a *App) ExportSQLInsert(columns []string, rows [][]string, tableName strin
 
 // ── Updates ────────────────────────────────────────────────────────────────
 
-// Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0'"
-var Version = "v0.2.0-dev"
+// Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0-beta'"
+var Version = "v0.2.0-beta"
 
 func (a *App) GetCurrentVersion() string {
 	return Version

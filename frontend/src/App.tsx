@@ -31,6 +31,7 @@ import { QueryCompareModal } from './components/editor/QueryCompareModal';
 import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/shortcutRegistry';
 import { useShortcutStore } from './stores/shortcutStore';
 import { DOM_EVENT } from './lib/constants';
+import { appLogger } from './lib/logger';
 
 function clearGeneratedResults(sourceTabID: string) {
     const resultState = useResultStore.getState();
@@ -83,7 +84,7 @@ function App() {
 
         const subs = [
             onConnectionChanged((data: ConnectionChangedPayload) => {
-                console.log('[zentro] connection:changed', data);
+                appLogger.info('connection changed', data);
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
                     setConnectionStatus('connected');
@@ -114,11 +115,11 @@ function App() {
                 }
             }),
             onSchemaDatabases((data) => {
-                console.log('[zentro] schema:databases', data);
+                appLogger.info('schema databases', data);
                 setDatabases(data.databases ?? []);
             }),
             onSchemaError((data) => {
-                console.warn('[zentro] schema:error', data);
+                appLogger.warn('schema error', data);
                 toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
             }),
             onQueryStarted((payload) => {
@@ -177,12 +178,13 @@ function App() {
         const isTypingTarget = (target: EventTarget | null) => {
             const el = target as HTMLElement | null;
             if (!el) return false;
+            if (el.closest('.monaco-editor')) return false;
             return Boolean(el.closest('input, textarea, [contenteditable="true"]'));
         };
 
         const execute = (entry: (typeof shortcutRegistry)[number]) => {
             Promise.resolve(entry.action()).catch((err) => {
-                console.error(`Shortcut ${entry.id} failed`, err);
+                appLogger.error(`shortcut ${entry.id} failed`, err);
                 toast.error(`Shortcut failed: ${entry.label}`);
             });
         };
@@ -191,6 +193,12 @@ function App() {
             if (isTypingTarget(e.target)) return;
             const token = eventToKeyToken(e);
             const now = Date.now();
+            const inMonaco = Boolean((e.target as HTMLElement | null)?.closest('.monaco-editor'));
+
+            // Ctrl+Enter is handled by Monaco editor action to avoid duplicate handling/newline side effects.
+            if (inMonaco && token === 'ctrl+enter') {
+                return;
+            }
 
             for (const entry of shortcutRegistry) {
                 const binding = normalizeBinding(bindings[entry.id] || entry.defaultBinding);
@@ -221,8 +229,8 @@ function App() {
             }
         };
 
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
+        window.addEventListener('keydown', handler, true);
+        return () => window.removeEventListener('keydown', handler, true);
     }, [bindings, chordStart, chordUntil, setChord, toast]);
 
     const [showCompareModal, setShowCompareModal] = useState(false);

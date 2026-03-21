@@ -240,6 +240,14 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             editorFocusKey.set(false);
         });
 
+        // Bind run query directly on this editor instance for reliable Ctrl/Cmd+Enter behavior.
+        editor.addCommand(
+            monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
+            () => {
+                if (runQueryRef.current) runQueryRef.current();
+            }
+        );
+
         if (isActiveRef.current) {
             // Need a tiny timeout because monaco layout might need to settle
             setTimeout(() => {

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Search, ArrowLeft, X, Info, Database, Plus } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase, LoadConnections } from '../../../wailsjs/go/app/App';
-import { models } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
 import { getProvider, makeDefaultForm } from '../../lib/providers';
 import { DRIVER } from '../../lib/constants';
@@ -10,8 +9,8 @@ import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { Button, Spinner, ModalBackdrop } from '../ui';
+import type { ConnectionProfile } from '../../types/connection';
 
-type ConnectionProfile = models.ConnectionProfile;
 type View = 'list' | 'new-connection';
 
 interface WorkspaceModalProps { onClose: () => void; }

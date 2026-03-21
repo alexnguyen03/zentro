@@ -64,10 +64,15 @@ func loadConfig() (*config, error) {
 		return defaultConfig(), fmt.Errorf("prefs: read: %w", err)
 	}
 
-	// Try to decrypt - if fails, might be old unencrypted config
+	needsEncryptMigration := false
+	needsPasswordMigration := false
+
+	// Try to decrypt - if fails, treat as legacy plaintext config.
 	plaintext, decryptErr := decryptConfig(data)
 	if decryptErr == nil {
 		data = plaintext
+	} else {
+		needsEncryptMigration = true
 	}
 
 	var cfg config
@@ -111,21 +116,35 @@ func loadConfig() (*config, error) {
 	if cfg.Preferences.Shortcuts == nil {
 		cfg.Preferences.Shortcuts = map[string]string{}
 	}
-	// Load passwords from keyring or fall back to base64 (backward compat)
+	// Load passwords from keyring or migrate legacy base64 values.
 	for _, p := range cfg.Connections {
+		if p.SavePassword && !p.EncryptPassword {
+			p.EncryptPassword = true
+			needsPasswordMigration = true
+		}
 		if p.SavePassword {
 			// First try keyring
 			keyringPw, err := GetPassword(p.Name)
 			if err == nil && keyringPw != "" {
 				p.Password = keyringPw
 			} else if keyringPw == "" && p.Password != "" {
-				// Fall back to base64 (legacy)
+				// Fall back to base64 (legacy), then migrate.
 				if b, err := base64.StdEncoding.DecodeString(p.Password); err == nil {
 					p.Password = string(b)
+					needsPasswordMigration = true
 				}
 			}
+		} else {
+			p.Password = ""
 		}
 	}
+
+	if needsEncryptMigration || needsPasswordMigration {
+		if err := saveConfig(&cfg); err != nil {
+			return &cfg, fmt.Errorf("prefs: migrate: %w", err)
+		}
+	}
+
 	return &cfg, nil
 }
 
@@ -142,6 +161,9 @@ func saveConfig(cfg *config) error {
 	for i, p := range cfg.Connections {
 		cp := *p
 		if cp.SavePassword && cp.Password != "" {
+			if !cp.EncryptPassword {
+				cp.EncryptPassword = true
+			}
 			// Store in keyring
 			if err := StorePassword(cp.Name, cp.Password); err != nil {
 				return fmt.Errorf("keyring store: %w", err)
@@ -150,6 +172,12 @@ func saveConfig(cfg *config) error {
 			cp.Password = ""
 		} else {
 			cp.Password = ""
+			cp.EncryptPassword = false
+			if cp.Name != "" {
+				if err := DeletePassword(cp.Name); err != nil {
+					return fmt.Errorf("keyring delete: %w", err)
+				}
+			}
 		}
 		encoded[i] = &cp
 	}
@@ -162,8 +190,7 @@ func saveConfig(cfg *config) error {
 	// Encrypt the config content
 	encrypted, err := encryptConfig(data)
 	if err != nil {
-		// If encryption fails, save as plaintext (backward compat)
-		encrypted = data
+		return fmt.Errorf("prefs: encrypt: %w", err)
 	}
 
 	// Write to temp file then rename for atomicity

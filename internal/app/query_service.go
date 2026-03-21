@@ -3,8 +3,10 @@ package app
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +39,7 @@ type QueryService struct {
 	getExecutor   func() sqlExecutor
 	getDriver     func() string
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error)
+	emitter       EventEmitter
 
 	sessions   map[string]*QuerySession
 	sessionsMu sync.Mutex
@@ -49,6 +52,7 @@ func NewQueryService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
 	getDB func() *sql.DB, getExecutor func() sqlExecutor, getDriver func() string,
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error),
+	emitter EventEmitter,
 ) *QueryService {
 	return &QueryService{
 		ctx:           ctx,
@@ -58,6 +62,7 @@ func NewQueryService(
 		getExecutor:   getExecutor,
 		getDriver:     getDriver,
 		appendHistory: appendHistory,
+		emitter:       emitter,
 		sessions:      make(map[string]*QuerySession),
 		activeQueries: make(map[string]string),
 	}
@@ -96,7 +101,7 @@ func (s *QueryService) ExplainQuery(tabID, query string, analyze bool) error {
 func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditableMeta bool) {
 	statements := dbpkg.SplitStatements(query)
 	if len(statements) == 0 {
-		emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{
+		s.emitter.Emit(s.ctx, constant.EventQueryStarted, map[string]any{
 			"tabID":          tabID,
 			"sourceTabID":    tabID,
 			"query":          query,
@@ -163,7 +168,7 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 				SkipEditableMeta: skipEditableMeta,
 			}
 
-			emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{
+			s.emitter.Emit(s.ctx, constant.EventQueryStarted, map[string]any{
 				"tabID":          statement.TabID,
 				"sourceTabID":    statement.SourceTabID,
 				"query":          statement.Text,
@@ -272,9 +277,9 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 			if !sentCols {
 				chunkCols = cols
 				sentCols = true
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
+				s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
 			} else {
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
+				s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
 			}
 			buf = nil
 			seq++
@@ -285,9 +290,9 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 		var chunkCols []string
 		if !sentCols {
 			chunkCols = cols
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
+			s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
 		} else {
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
+			s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
 		}
 	}
 
@@ -305,6 +310,7 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 		err = rows.Err()
 	}
 	s.emitDoneWithMore(statement, int64(totalRowsFetched), time.Since(start), true, hasMore, err)
+	s.logger.Debug("query profile", "stage", "stream-select", "tab", statement.TabID, "rows", totalRowsFetched, "duration_ms", time.Since(start).Milliseconds())
 	return err
 }
 
@@ -390,14 +396,14 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			rowCount++
 
 			if len(chunk) >= 500 {
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
+				s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
 				chunk = nil
 				seq++
 			}
 		}
 
 		if len(chunk) > 0 {
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
+			s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
 		}
 
 		duration := time.Since(start)
@@ -498,7 +504,7 @@ func (s *QueryService) emitDoneWithMore(statement queryStatement, affected int64
 	if err != nil {
 		payload["error"] = err.Error()
 	}
-	emitEvent(s.ctx, constant.EventQueryDone, payload)
+	s.emitter.Emit(s.ctx, constant.EventQueryDone, payload)
 }
 
 func buildChunk(statement queryStatement, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
@@ -568,40 +574,127 @@ func buildExplainQuery(driver, query string, analyze bool) (string, error) {
 }
 
 func scanRowAsStrings(rows *sql.Rows, colCount int) []string {
-	raw := make([]interface{}, colCount)
-	ptrs := make([]interface{}, colCount)
-	for i := range raw {
-		ptrs[i] = &raw[i]
-	}
+	raw, ptrs := acquireScanBuffers(colCount)
+	defer releaseScanBuffers(raw, ptrs)
 	_ = rows.Scan(ptrs...)
 
 	result := make([]string, colCount)
 	for i, v := range raw {
 		if v == nil {
 			result[i] = ""
-		} else if b, ok := v.([]byte); ok {
-			// MSSQL uniqueidentifier is returned as 16 raw bytes in mixed-endian order.
-			// Format: Data1(4LE) Data2(2LE) Data3(2LE) Data4(8BE)
-			if len(b) == 16 {
-				result[i] = fmt.Sprintf(
-					"%08x-%04x-%04x-%04x-%012x",
-					// Data1: bytes 0-3 little-endian
-					uint32(b[3])<<24|uint32(b[2])<<16|uint32(b[1])<<8|uint32(b[0]),
-					// Data2: bytes 4-5 little-endian
-					uint16(b[5])<<8|uint16(b[4]),
-					// Data3: bytes 6-7 little-endian
-					uint16(b[7])<<8|uint16(b[6]),
-					// Data4a: bytes 8-9 big-endian
-					[]byte{b[8], b[9]},
-					// Data4b: bytes 10-15 big-endian
-					[]byte{b[10], b[11], b[12], b[13], b[14], b[15]},
-				)
-			} else {
-				result[i] = string(b)
-			}
 		} else {
-			result[i] = fmt.Sprintf("%v", v)
+			result[i] = scanValueToString(v)
 		}
 	}
 	return result
+}
+
+var scanRawPool = sync.Pool{
+	New: func() any { return make([]interface{}, 0, 32) },
+}
+
+var scanPtrPool = sync.Pool{
+	New: func() any { return make([]interface{}, 0, 32) },
+}
+
+func acquireScanBuffers(colCount int) ([]interface{}, []interface{}) {
+	raw := scanRawPool.Get().([]interface{})
+	ptrs := scanPtrPool.Get().([]interface{})
+
+	if cap(raw) < colCount {
+		raw = make([]interface{}, colCount)
+	} else {
+		raw = raw[:colCount]
+		for i := range raw {
+			raw[i] = nil
+		}
+	}
+
+	if cap(ptrs) < colCount {
+		ptrs = make([]interface{}, colCount)
+	} else {
+		ptrs = ptrs[:colCount]
+	}
+
+	for i := range raw {
+		ptrs[i] = &raw[i]
+	}
+	return raw, ptrs
+}
+
+func releaseScanBuffers(raw []interface{}, ptrs []interface{}) {
+	for i := range raw {
+		raw[i] = nil
+	}
+	for i := range ptrs {
+		ptrs[i] = nil
+	}
+	scanRawPool.Put(raw[:0])
+	scanPtrPool.Put(ptrs[:0])
+}
+
+func scanValueToString(v interface{}) string {
+	switch tv := v.(type) {
+	case []byte:
+		if len(tv) == 16 {
+			return formatSQLServerUUID(tv)
+		}
+		return string(tv)
+	case string:
+		return tv
+	case int:
+		return strconv.Itoa(tv)
+	case int8:
+		return strconv.FormatInt(int64(tv), 10)
+	case int16:
+		return strconv.FormatInt(int64(tv), 10)
+	case int32:
+		return strconv.FormatInt(int64(tv), 10)
+	case int64:
+		return strconv.FormatInt(tv, 10)
+	case uint:
+		return strconv.FormatUint(uint64(tv), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(tv), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(tv), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(tv), 10)
+	case uint64:
+		return strconv.FormatUint(tv, 10)
+	case float32:
+		return strconv.FormatFloat(float64(tv), 'g', -1, 32)
+	case float64:
+		return strconv.FormatFloat(tv, 'g', -1, 64)
+	case bool:
+		return strconv.FormatBool(tv)
+	default:
+		return fmt.Sprint(v)
+	}
+}
+
+func formatSQLServerUUID(b []byte) string {
+	if len(b) != 16 {
+		return string(b)
+	}
+
+	ordered := [16]byte{
+		b[3], b[2], b[1], b[0], // Data1 LE
+		b[5], b[4], // Data2 LE
+		b[7], b[6], // Data3 LE
+		b[8], b[9], // Data4a BE
+		b[10], b[11], b[12], b[13], b[14], b[15], // Data4b BE
+	}
+
+	dst := make([]byte, 36)
+	hex.Encode(dst[0:8], ordered[0:4])
+	dst[8] = '-'
+	hex.Encode(dst[9:13], ordered[4:6])
+	dst[13] = '-'
+	hex.Encode(dst[14:18], ordered[6:8])
+	dst[18] = '-'
+	hex.Encode(dst[19:23], ordered[8:10])
+	dst[23] = '-'
+	hex.Encode(dst[24:36], ordered[10:16])
+	return string(dst)
 }

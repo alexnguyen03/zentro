@@ -24,6 +24,7 @@ type ConnectionService struct {
 	rollbackActiveTx func() error
 	setDB            func(*sql.DB, *models.ConnectionProfile)
 	keepAliveCancel  context.CancelFunc
+	emitter          EventEmitter
 }
 
 func NewConnectionService(
@@ -31,6 +32,7 @@ func NewConnectionService(
 	getDB func() *sql.DB, getProfile func() *models.ConnectionProfile,
 	rollbackActiveTx func() error,
 	setDB func(*sql.DB, *models.ConnectionProfile),
+	emitter EventEmitter,
 ) *ConnectionService {
 	return &ConnectionService{
 		ctx:              ctx,
@@ -40,6 +42,7 @@ func NewConnectionService(
 		getProfile:       getProfile,
 		rollbackActiveTx: rollbackActiveTx,
 		setDB:            setDB,
+		emitter:          emitter,
 	}
 }
 
@@ -53,6 +56,9 @@ func (s *ConnectionService) LoadConnections() ([]*models.ConnectionProfile, erro
 }
 
 func (s *ConnectionService) SaveConnection(p models.ConnectionProfile) error {
+	if p.SavePassword && !p.EncryptPassword {
+		p.EncryptPassword = true
+	}
 	profiles, err := utils.LoadConnections()
 	if err != nil {
 		return err
@@ -137,7 +143,7 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
 
-	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": prof,
 		"status":  constant.StatusConnecting,
 	})
@@ -146,7 +152,7 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	if err != nil {
 		s.logger.Error("open connection failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": prof,
 			"status":  constant.StatusError,
 		})
@@ -160,7 +166,7 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 		db.Close()
 		s.logger.Error("ping failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": prof,
 			"status":  constant.StatusError,
 		})
@@ -174,7 +180,7 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	s.keepAliveCancel = kaCancel
 	go s.startKeepAlive(kaCtx, db, prof)
 
-	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": prof,
 		"status":  constant.StatusConnected,
 	})
@@ -216,7 +222,7 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	}
 	s.setDB(nil, &clone)
 
-	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": &clone,
 		"status":  constant.StatusConnecting,
 	})
@@ -225,7 +231,7 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	if err != nil {
 		s.logger.Error("switch database failed", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": &clone,
 			"status":  constant.StatusError,
 		})
@@ -239,7 +245,7 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 		db.Close()
 		s.logger.Error("ping failed on new db", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 			"profile": &clone,
 			"status":  constant.StatusError,
 		})
@@ -253,7 +259,7 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	go s.startKeepAlive(kaCtx, db, &clone)
 
 	s.logger.Info("switched database ok")
-	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 		"profile": &clone,
 		"status":  constant.StatusConnected,
 	})
@@ -275,7 +281,7 @@ func (s *ConnectionService) Disconnect() {
 		_ = db.Close()
 	}
 	s.setDB(nil, nil)
-	emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{"status": constant.StatusDisconnected})
+	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{"status": constant.StatusDisconnected})
 	runtime.WindowSetTitle(s.ctx, "Zentro")
 	s.logger.Info("disconnected")
 }
@@ -333,7 +339,7 @@ func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof
 
 			if newState != currentState {
 				currentState = newState
-				emitEvent(s.ctx, constant.EventConnectionChanged, map[string]any{
+				s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
 					"profile": prof,
 					"status":  currentState,
 				})
@@ -388,7 +394,7 @@ func (s *ConnectionService) fetchDatabaseList(db *sql.DB, prof *models.Connectio
 		}
 	}
 
-	emitEvent(s.ctx, "schema:databases", map[string]any{
+	s.emitter.Emit(s.ctx, "schema:databases", map[string]any{
 		"profileName": prof.Name,
 		"databases":   names,
 	})
@@ -407,7 +413,7 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 		conn, err := dbpkg.OpenConnection(&clone)
 		if err != nil {
 			s.logger.Warn("cannot open db for schema fetch", "db", dbName, "err", err)
-			emitEvent(s.ctx, "schema:error", map[string]any{
+			s.emitter.Emit(s.ctx, "schema:error", map[string]any{
 				"profileName": profileName,
 				"dbName":      dbName,
 				"error":       err.Error(),
@@ -422,7 +428,7 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 
 		d, ok := getDriver(prof.Driver)
 		if !ok {
-			emitEvent(s.ctx, "schema:error", map[string]any{
+			s.emitter.Emit(s.ctx, "schema:error", map[string]any{
 				"profileName": profileName,
 				"dbName":      dbName,
 				"error":       "driver not found",
@@ -432,14 +438,14 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 		schemas, err := d.FetchSchema(ctx, conn, prof.ShowAllSchemas, s.logger)
 		if err != nil {
 			s.logger.Warn("fetch schema failed", "db", dbName, "err", err)
-			emitEvent(s.ctx, "schema:error", map[string]any{
+			s.emitter.Emit(s.ctx, "schema:error", map[string]any{
 				"profileName": profileName,
 				"dbName":      dbName,
 				"error":       err.Error(),
 			})
 			return
 		}
-		emitEvent(s.ctx, "schema:loaded", map[string]any{
+		s.emitter.Emit(s.ctx, "schema:loaded", map[string]any{
 			"profileName": profileName,
 			"dbName":      dbName,
 			"schemas":     schemas,

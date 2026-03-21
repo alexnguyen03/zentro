@@ -4,10 +4,8 @@ import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import { DRIVER } from '../../lib/constants';
 import { TestResult } from '../../hooks/useConnectionForm';
-import { models } from '../../../wailsjs/go/models';
 import { Button, Spinner } from '../ui';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../../types/connection';
 
 // ── Style tokens (shared, defined once) ──────────────────────────────────────
 export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded text-[12px] outline-none focus:border-success transition-colors w-full';
@@ -203,6 +201,17 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         className="w-3 h-3 cursor-pointer accent-success"
                     />
                     Save password
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
+                    <input
+                        type="checkbox"
+                        name="encrypt_password"
+                        checked={formData.encrypt_password ?? true}
+                        onChange={onChange}
+                        disabled={!(formData.save_password ?? true)}
+                        className="w-3 h-3 cursor-pointer accent-success"
+                    />
+                    Encrypt password
                 </label>
             </div>
 

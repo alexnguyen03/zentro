@@ -1,11 +1,9 @@
-import { models } from '../../wailsjs/go/models';
 import PostgresLogo from '../assets/images/postgresql-logo-svgrepo-com.svg';
 import SqlServerLogo from '../assets/images/microsoft-sql-server-logo-svgrepo-com.svg';
 import MySqlLogo from '../assets/images/mysql-logo-svgrepo-com.svg';
 import SqliteLogo from '../assets/images/sqlite-svgrepo-com.svg';
 import { DRIVER } from './constants';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../types/connection';
 
 // ── Extra field descriptor ────────────────────────────────────────────────────
 export interface ExtraField {
@@ -94,6 +92,7 @@ export const makeDefaultForm = (driver = DRIVER.POSTGRES): Partial<ConnectionPro
         ssl_mode: p.defaultSsl,
         connect_timeout: 30,
         save_password: true,
+        encrypt_password: true,
         name: '',
         username: '',
         password: '',
@@ -142,6 +141,7 @@ export const validateConnectionForm = (
     const p = getProvider(form.driver ?? DRIVER.POSTGRES);
     if (p.requiresHost && !form.host?.trim()) return 'Host is required';
     if (p.requiresAuth && !form.username?.trim()) return 'Username is required';
+    if (form.save_password && !form.encrypt_password) return 'Encrypt password must be enabled when saving password';
     if (!form.db_name?.trim()) return 'Database name is required';
     if (p.requiresHost && (!form.port || form.port <= 0)) return 'Port must be a positive number';
     return null;

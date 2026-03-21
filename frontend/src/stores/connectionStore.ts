@@ -1,9 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { models } from '../../wailsjs/go/models';
 import { STORAGE_KEY, ConnectionStatus, CONNECTION_STATUS } from '../lib/constants';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../types/connection';
+import { withStoreLogger } from './logger';
 
 interface ConnectionState {
     connections: ConnectionProfile[];
@@ -23,7 +22,7 @@ interface ConnectionState {
 
 export const useConnectionStore = create<ConnectionState>()(
     persist(
-        (set) => ({
+        withStoreLogger('connectionStore', (set) => ({
             connections: [],
             activeProfile: null,
             isConnected: false,
@@ -41,7 +40,7 @@ export const useConnectionStore = create<ConnectionState>()(
             setIsConnected: (connected) => set({ isConnected: connected }),
             setConnectionStatus: (status) => set({ connectionStatus: status }),
             setDatabases: (dbs) => set({ databases: dbs })
-        }),
+        })),
         {
             name: STORAGE_KEY.CONNECTION_STORE,
             partialize: (state) => ({
