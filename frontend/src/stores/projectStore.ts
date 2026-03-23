@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEY } from '../lib/constants';
-import { getActiveProject, listProjects, openProject } from '../lib/projectApi';
+import { createProject, getActiveProject, listProjects, openProject } from '../lib/projectApi';
 import type { Project } from '../types/project';
 import { withStoreLogger } from './logger';
 
@@ -15,7 +15,9 @@ interface ProjectState {
     loadProjects: () => Promise<Project[]>;
     bootstrap: () => Promise<void>;
     openProject: (projectId: string) => Promise<Project | null>;
+    createProject: (input: Pick<Project, 'name' | 'description' | 'tags'>) => Promise<Project | null>;
     setActiveProject: (project: Project | null) => void;
+    clearActiveProject: () => void;
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -47,18 +49,10 @@ export const useProjectStore = create<ProjectState>()(
                     const active = await getActiveProject();
                     const selectedProjectId = get().selectedProjectId;
 
-                    let nextActive = active;
-                    if (!nextActive && selectedProjectId) {
-                        nextActive = await openProject(selectedProjectId);
-                    }
-                    if (!nextActive && projects.length > 0) {
-                        nextActive = await openProject(projects[0].id);
-                    }
-
                     set({
                         projects,
-                        activeProject: nextActive,
-                        selectedProjectId: nextActive?.id || selectedProjectId || null,
+                        activeProject: active,
+                        selectedProjectId: active?.id || selectedProjectId || null,
                         isLoading: false,
                     });
                 } catch (error) {
@@ -86,10 +80,44 @@ export const useProjectStore = create<ProjectState>()(
                 }
             },
 
+            createProject: async (input) => {
+                set({ isLoading: true, error: null });
+                try {
+                    const project = await createProject({
+                        id: '',
+                        slug: '',
+                        name: input.name,
+                        description: input.description || '',
+                        tags: input.tags || [],
+                        created_at: '',
+                        updated_at: '',
+                        default_environment_key: 'loc',
+                        last_workspace_id: '',
+                        environments: [],
+                        connections: [],
+                        workspaces: [],
+                        assets: [],
+                    });
+                    const projects = await listProjects();
+                    set({
+                        projects,
+                        activeProject: project,
+                        selectedProjectId: project.id,
+                        isLoading: false,
+                    });
+                    return project;
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    set({ isLoading: false, error: message });
+                    return null;
+                }
+            },
+
             setActiveProject: (project) => set({
                 activeProject: project,
                 selectedProjectId: project?.id || null,
             }),
+            clearActiveProject: () => set({ activeProject: null }),
         })),
         {
             name: STORAGE_KEY.PROJECT_STORE,

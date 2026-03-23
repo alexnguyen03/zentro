@@ -11,6 +11,7 @@ export const STORAGE_KEY = {
 
 export const DOM_EVENT = {
     OPEN_WORKSPACE_MODAL: 'open-workspace-modal',
+    OPEN_PROJECT_HUB: 'open-project-hub',
     CLOSE_ACTIVE_TAB: 'close-active-tab',
     RUN_QUERY_ACTION: 'run-query-action',
     RUN_EXPLAIN_ACTION: 'run-explain-action',

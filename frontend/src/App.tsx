@@ -29,6 +29,7 @@ import { ForceQuit, Connect, GetTransactionStatus } from '../wailsjs/go/app/App'
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
+import { ProjectHub } from './components/layout/ProjectHub';
 import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/shortcutRegistry';
 import { useShortcutStore } from './stores/shortcutStore';
 import { DOM_EVENT } from './lib/constants';
@@ -240,16 +241,32 @@ function App() {
     }, [bindings, chordStart, chordUntil, setChord, toast]);
 
     const [showCompareModal, setShowCompareModal] = useState(false);
+    const [showProjectHub, setShowProjectHub] = useState(false);
     useEffect(() => {
         const open = () => setShowCompareModal(true);
         window.addEventListener(DOM_EVENT.OPEN_QUERY_COMPARE, open);
         return () => window.removeEventListener(DOM_EVENT.OPEN_QUERY_COMPARE, open);
     }, []);
 
+    useEffect(() => {
+        const open = () => setShowProjectHub(true);
+        window.addEventListener(DOM_EVENT.OPEN_PROJECT_HUB, open);
+        return () => window.removeEventListener(DOM_EVENT.OPEN_PROJECT_HUB, open);
+    }, []);
+
+    if (!activeProject) {
+        return (
+            <div className="h-full w-full bg-bg-primary">
+                <ProjectHub />
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full w-full">
             {showCommandPalette && <CommandPalette />}
             {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
+            {showProjectHub && <ProjectHub overlay onClose={() => setShowProjectHub(false)} />}
             <Toolbar />
             <div className="flex flex-1 overflow-hidden">
                 {showSidebar && (

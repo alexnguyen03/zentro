@@ -17,6 +17,7 @@ import {
     Undo2,
     Search,
     Columns2,
+    Layers3,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -139,6 +140,14 @@ export const Toolbar: React.FC = () => {
                 </div>
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
                     <Lock size={14} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Open Project Hub"
+                    onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_PROJECT_HUB))}
+                >
+                    <Layers3 size={14} />
                 </Button>
                 <Button
                     variant="ghost"
