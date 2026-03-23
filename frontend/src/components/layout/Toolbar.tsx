@@ -69,8 +69,6 @@ export const Toolbar: React.FC = () => {
     const canRunEditorAction = Boolean(isConnected && activeTab && !activeTab.readOnly && isQueryTab);
     const txActive = transactionStatus === 'active';
 
-
-
     useEffect(() => {
         const handler = () => setEnvironmentSwitcherOpen(true);
         window.addEventListener(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, handler);

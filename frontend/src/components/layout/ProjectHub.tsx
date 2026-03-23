@@ -71,6 +71,7 @@ const EnvSetupStep: React.FC<EnvSetupStepProps> = ({ onEnterApp, onBack }) => {
     const bindEnvironmentConnection = useProjectStore((s) => s.bindEnvironmentConnection);
     const { connections, setConnections } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((s) => s.activeEnvironmentKey);
+    const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
     const { toast } = useToast();
 
     const [selectedEnvKey, setSelectedEnvKey] = React.useState<EnvironmentKey>('loc');
@@ -201,6 +202,8 @@ const EnvSetupStep: React.FC<EnvSetupStepProps> = ({ onEnterApp, onBack }) => {
             toast.error('Could not bind connection.');
             return;
         }
+        setActiveEnvironment(selectedEnvKey);
+        useProjectStore.getState().setActiveProject(bound);
         try {
             await Connect(profile.name!);
             await SwitchDatabase(dbName);

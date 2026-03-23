@@ -26,7 +26,7 @@ import {
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
-import { ForceQuit, Connect, GetTransactionStatus } from '../wailsjs/go/app/App';
+import { ForceQuit, Connect, GetTransactionStatus, SwitchDatabase } from '../wailsjs/go/app/App';
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
@@ -198,16 +198,21 @@ function App() {
             clearEnvironment();
             return;
         }
+        if (activeEnvironmentKey) {
+            return;
+        }
         bootstrapEnvironment(activeProject);
-    }, [activeProject, bootstrapEnvironment, clearEnvironment]);
+    }, [activeProject, activeEnvironmentKey, bootstrapEnvironment, clearEnvironment]);
 
     useEffect(() => {
-        if (!activeProject || !activeEnvironmentKey) return;
+        if (!activeEnvironmentKey) return;
 
-        const connection = activeProject.connections?.find((item) => item.environment_key === activeEnvironmentKey);
+        const connection = activeProject?.connections?.find((item) => item.environment_key === activeEnvironmentKey);
         const profileName = connection?.advanced_meta?.profile_name || connection?.name;
+        const dbName = connection?.database || connection?.advanced_meta?.db_name;
 
         if (!profileName) return;
+
         if (
             activeProfile?.name === profileName &&
             (connectionStatus === 'connected' || connectionStatus === 'connecting')
@@ -215,10 +220,19 @@ function App() {
             return;
         }
 
-        Connect(profileName).catch((error) => {
-            appLogger.warn('auto reconnect failed', { profileName, error });
-        });
-    }, [activeEnvironmentKey, activeProfile?.name, activeProject, connectionStatus]);
+        const doConnect = async () => {
+            try {
+                await Connect(profileName);
+                if (dbName) {
+                    await SwitchDatabase(dbName);
+                }
+            } catch (error) {
+                appLogger.warn('auto reconnect failed', { profileName, error });
+            }
+        };
+
+        doConnect();
+    }, [activeEnvironmentKey]);
 
     useEffect(() => {
         const isTypingTarget = (target: EventTarget | null) => {

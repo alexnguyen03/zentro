@@ -122,7 +122,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     }, [selectedConnectionProfile?.name, activeProfile?.name, databases, toast]);
 
     const handleSwitchEnvironment = async (environmentKey: EnvironmentKey) => {
-        if (!activeProject) {
+        const currentProject = useProjectStore.getState().activeProject;
+        if (!currentProject) {
             toast.error('No active project is available for environment switching.');
             return;
         }
@@ -135,28 +136,14 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
             return;
         }
 
-        setActiveEnvironment(environmentKey);
-
-        const connectionToUse = saved.connections?.find((connection) => connection.environment_key === environmentKey);
-        const profileName = connectionToUse?.advanced_meta?.profile_name || connectionToUse?.name;
-
-        if (profileName) {
-            try {
-                await Connect(profileName);
-                if (connectionToUse?.database) {
-                    await SwitchDatabase(connectionToUse.database);
-                }
-            } catch (error) {
-                toast.error(`Environment switched, but reconnect failed: ${error}`);
-                setIsSaving(false);
-                onClose();
-                return;
-            }
-        }
-
+        useProjectStore.getState().setActiveProject(saved);
+        useEnvironmentStore.getState().setActiveEnvironment(environmentKey);
         setIsSaving(false);
         toast.success(`Switched to ${getEnvironmentMeta(environmentKey).label}.`);
-        onClose();
+
+        setTimeout(() => {
+            onClose();
+        }, 0);
     };
 
     const handleBindProfile = async (profile: ConnectionProfile, databaseName?: string) => {
@@ -182,6 +169,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         }
 
         setActiveEnvironment(selectedEnvironmentKey);
+        useProjectStore.getState().setActiveProject(switched);
 
         try {
             await Connect(profile.name);
