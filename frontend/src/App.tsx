@@ -10,6 +10,8 @@ import { useStatusStore } from './stores/statusStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useProjectStore } from './stores/projectStore';
+import { useEnvironmentStore } from './stores/environmentStore';
+import { useWorkspaceStore, getWorkspaceEnvironmentKey } from './stores/workspaceStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
@@ -52,6 +54,14 @@ function App() {
     const { setTransactionStatus } = useStatusStore();
     const bootstrapProjects = useProjectStore((state) => state.bootstrap);
     const activeProject = useProjectStore((state) => state.activeProject);
+    const bootstrapEnvironment = useEnvironmentStore((state) => state.bootstrap);
+    const clearEnvironment = useEnvironmentStore((state) => state.clear);
+    const bootstrapWorkspaces = useWorkspaceStore((state) => state.bootstrap);
+    const clearWorkspaces = useWorkspaceStore((state) => state.clear);
+    const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
+    const workspaces = useWorkspaceStore((state) => state.workspaces);
+    const switchEditorWorkspace = useEditorStore((state) => state.switchWorkspace);
+    const switchResultWorkspace = useResultStore((state) => state.switchWorkspace);
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
     const { bindings, chordStart, chordUntil, setChord } = useShortcutStore();
@@ -182,6 +192,39 @@ function App() {
     }, [resize, stopResizing]);
 
     useEffect(() => {
+        if (!activeProject) {
+            clearWorkspaces();
+            clearEnvironment();
+            switchEditorWorkspace(null);
+            switchResultWorkspace(null);
+            return;
+        }
+
+        bootstrapWorkspaces(activeProject);
+    }, [activeProject, bootstrapWorkspaces, clearEnvironment, clearWorkspaces, switchEditorWorkspace, switchResultWorkspace]);
+
+    useEffect(() => {
+        if (!activeProject) return;
+
+        const environmentKey = getWorkspaceEnvironmentKey(
+            workspaces,
+            activeWorkspaceId,
+            activeProject.default_environment_key
+        );
+
+        bootstrapEnvironment(activeProject, environmentKey);
+        switchEditorWorkspace(activeWorkspaceId);
+        switchResultWorkspace(activeWorkspaceId);
+    }, [
+        activeProject,
+        activeWorkspaceId,
+        bootstrapEnvironment,
+        switchEditorWorkspace,
+        switchResultWorkspace,
+        workspaces,
+    ]);
+
+    useEffect(() => {
         const isTypingTarget = (target: EventTarget | null) => {
             const el = target as HTMLElement | null;
             if (!el) return false;
@@ -287,8 +330,8 @@ function App() {
                                 </h3>
                                 <p className="m-0 text-xs text-center max-w-[320px]">
                                     {activeProject
-                                        ? `Project "${activeProject.name}" is loaded. Select or add a connection from the sidebar to begin.`
-                                        : 'Phase 1 foundation is ready, but no project is currently loaded. Project Hub will land in Phase 2.'}
+                                        ? `Project "${activeProject.name}" is loaded. Connect an environment from the sidebar to start working inside its workspace context.`
+                                        : 'No project is currently loaded.'}
                                 </p>
                                 {activeProfile && (
                                     <button

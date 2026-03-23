@@ -24,6 +24,8 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
@@ -40,6 +42,10 @@ import { useToast } from './Toast';
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const activeWorkspace = useWorkspaceStore((state) =>
+        state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) || null
+    );
     const { groups, activeGroupId, addTab } = useEditorStore();
     const {
         showSidebar,
@@ -123,7 +129,7 @@ export const Toolbar: React.FC = () => {
         breadcrumbLabel = `${activeProfile.name} / ${activeProfile.db_name}`;
     }
 
-    const envMeta = getEnvironmentMeta(activeProject?.default_environment_key);
+    const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
 
     return (
         <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
@@ -268,7 +274,7 @@ export const Toolbar: React.FC = () => {
                                         envMeta.colorClass
                                     )}
                                 >
-                                    {activeProject.default_environment_key}
+                                    {activeEnvironmentKey || activeProject.default_environment_key}
                                 </span>
                                 <span className="text-text-secondary/40 shrink-0">/</span>
                             </>
@@ -284,7 +290,10 @@ export const Toolbar: React.FC = () => {
                             )}
                             title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
                         />
-                        <span className="flex-1 text-center truncate">{breadcrumbLabel}</span>
+                        <span className="flex-1 text-center truncate">
+                            {activeWorkspace ? `${activeWorkspace.name} / ` : ''}
+                            {breadcrumbLabel}
+                        </span>
                         <ChevronDown
                             size={14}
                             strokeWidth={pickerOpen ? 2.5 : 2}

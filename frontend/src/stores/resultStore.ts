@@ -17,16 +17,21 @@ export interface TabResult {
     tableName?: string;
     primaryKeys?: string[];
     filterExpr: string;
-    /** The actual query that was last executed — used for filter tooltip display */
     lastExecutedQuery?: string;
     pendingEdits?: Map<string, string>;
     pendingDeletions?: Set<number>;
     pendingDraftRows?: DraftRow[];
 }
 
-interface ResultState {
-    results: Record<string, TabResult>;
+type WorkspaceResultBucket = Record<string, TabResult>;
 
+interface ResultState {
+    workspaceResults: Record<string, WorkspaceResultBucket>;
+    activeWorkspaceId: string | null;
+    results: WorkspaceResultBucket;
+
+    switchWorkspace: (workspaceId: string | null) => void;
+    clearWorkspace: (workspaceId?: string | null) => void;
     initTab: (tabId: string) => void;
     appendRows: (
         tabId: string,
@@ -46,182 +51,226 @@ interface ResultState {
     updatePendingState: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>, draftRows: DraftRow[]) => void;
 }
 
+const DEFAULT_WORKSPACE_ID = '__default__';
+
+const createEmptyBucket = (): WorkspaceResultBucket => ({});
+
+const getWorkspaceId = (workspaceId?: string | null) => workspaceId || DEFAULT_WORKSPACE_ID;
+
+function getActiveBucket(state: Pick<ResultState, 'workspaceResults' | 'activeWorkspaceId'>) {
+    return state.workspaceResults[getWorkspaceId(state.activeWorkspaceId)] || createEmptyBucket();
+}
+
+function updateActiveBucket(
+    state: ResultState,
+    updater: (bucket: WorkspaceResultBucket) => WorkspaceResultBucket
+) {
+    const workspaceId = getWorkspaceId(state.activeWorkspaceId);
+    const nextBucket = updater(getActiveBucket(state));
+
+    return {
+        workspaceResults: {
+            ...state.workspaceResults,
+            [workspaceId]: nextBucket,
+        },
+        results: nextBucket,
+    };
+}
+
 export const useResultStore = create<ResultState>(withStoreLogger('resultStore', (set, get) => ({
+    workspaceResults: {
+        [DEFAULT_WORKSPACE_ID]: createEmptyBucket(),
+    },
+    activeWorkspaceId: DEFAULT_WORKSPACE_ID,
     results: {},
 
-    initTab: (tabId) => set((state) => {
-        const prev = state.results[tabId];
+    switchWorkspace: (workspaceId) => set((state) => {
+        const nextWorkspaceId = getWorkspaceId(workspaceId);
+        const results = state.workspaceResults[nextWorkspaceId] || createEmptyBucket();
+
         return {
-            results: {
-                ...state.results,
-                [tabId]: {
-                    columns: prev?.columns || [],
-                    rows: prev?.rows || [],
-                    isDone: false,
-                    affected: 0,
-                    duration: 0,
-                    isSelect: true,
-                    error: undefined,
-                    hasMore: true,
-                    offset: 0,
-                    isFetchingMore: false,
-                    tableName: prev?.tableName,
-                    primaryKeys: prev?.primaryKeys,
-                    filterExpr: prev?.filterExpr || '',
-                    lastExecutedQuery: prev?.lastExecutedQuery,
-                    pendingEdits: prev?.pendingEdits || new Map(),
-                    pendingDeletions: prev?.pendingDeletions || new Set(),
-                    pendingDraftRows: [],
-                }
-            }
+            workspaceResults: {
+                ...state.workspaceResults,
+                [nextWorkspaceId]: results,
+            },
+            activeWorkspaceId: nextWorkspaceId,
+            results,
         };
     }),
 
-    appendRows: (tabId, columns, rows, tableName, primaryKeys) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state; // Should be initialized
+    clearWorkspace: (workspaceId) => set((state) => {
+        const nextWorkspaceId = getWorkspaceId(workspaceId || state.activeWorkspaceId);
+        const workspaceResults = {
+            ...state.workspaceResults,
+            [nextWorkspaceId]: createEmptyBucket(),
+        };
+        const isActive = nextWorkspaceId === getWorkspaceId(state.activeWorkspaceId);
+
+        return {
+            workspaceResults,
+            ...(isActive ? { results: workspaceResults[nextWorkspaceId] } : {}),
+        };
+    }),
+
+    initTab: (tabId) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        return {
+            ...bucket,
+            [tabId]: {
+                columns: prev?.columns || [],
+                rows: prev?.rows || [],
+                isDone: false,
+                affected: 0,
+                duration: 0,
+                isSelect: true,
+                error: undefined,
+                hasMore: true,
+                offset: 0,
+                isFetchingMore: false,
+                tableName: prev?.tableName,
+                primaryKeys: prev?.primaryKeys,
+                filterExpr: prev?.filterExpr || '',
+                lastExecutedQuery: prev?.lastExecutedQuery,
+                pendingEdits: prev?.pendingEdits || new Map(),
+                pendingDeletions: prev?.pendingDeletions || new Set(),
+                pendingDraftRows: [],
+            },
+        };
+    })),
+
+    appendRows: (tabId, columns, rows, tableName, primaryKeys) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
 
         const isFirstChunk = columns !== undefined && columns.length > 0;
-        const newRows = isFirstChunk ? rows : [...prev.rows, ...rows];
+        const nextRows = isFirstChunk ? rows : [...prev.rows, ...rows];
 
         return {
-            results: {
-                ...state.results,
-                [tabId]: {
-                    ...prev,
-                    columns: columns || prev.columns,
-                    rows: newRows,
-                    tableName: tableName || prev.tableName,
-                    primaryKeys: primaryKeys || prev.primaryKeys,
-                }
-            }
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                columns: columns || prev.columns,
+                rows: nextRows,
+                tableName: tableName || prev.tableName,
+                primaryKeys: primaryKeys || prev.primaryKeys,
+            },
         };
-    }),
+    })),
 
-    setDone: (tabId, affected, duration, isSelect, hasMore, error) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state;
+    setDone: (tabId, affected, duration, isSelect, hasMore, error) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
 
         return {
-            results: {
-                ...state.results,
-                [tabId]: {
-                    ...prev,
-                    isDone: true,
-                    // keep cumulative row count for status bar
-                    affected: isSelect ? prev.rows.length : affected,
-                    duration,
-                    isSelect,
-                    error,
-                    hasMore,
-                    isFetchingMore: false,
-                    rows: isSelect ? prev.rows : [],
-                    columns: isSelect ? prev.columns : [],
-                }
-            }
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                isDone: true,
+                affected: isSelect ? prev.rows.length : affected,
+                duration,
+                isSelect,
+                error,
+                hasMore,
+                isFetchingMore: false,
+                rows: isSelect ? prev.rows : [],
+                columns: isSelect ? prev.columns : [],
+            },
         };
-    }),
+    })),
 
-    setOffset: (tabId, offset) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state;
+    setOffset: (tabId, offset) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+
         return {
-            results: {
-                ...state.results,
-                [tabId]: {
-                    ...prev,
-                    offset,
-                    isFetchingMore: true,
-                }
-            }
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                offset,
+                isFetchingMore: true,
+            },
         };
-    }),
+    })),
 
-    clearResult: (tabId) => set((state) => {
-        const newResults = { ...state.results };
-        delete newResults[tabId];
-        return { results: newResults };
-    }),
+    clearResult: (tabId) => set((state) => updateActiveBucket(state, (bucket) => {
+        const nextBucket = { ...bucket };
+        delete nextBucket[tabId];
+        return nextBucket;
+    })),
 
-    applyEdits: (tabId, edits, deletedRows) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state;
+    applyEdits: (tabId, edits, deletedRows) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
 
-        let newRows = [...prev.rows];
-        edits.forEach((val, cellId) => {
-            const [rIdx, cIdx] = cellId.split(':').map(Number);
-            if (newRows[rIdx]) {
-                const newRow = [...newRows[rIdx]];
-                newRow[cIdx] = val;
-                newRows[rIdx] = newRow;
-            }
+        let rows = [...prev.rows];
+        edits.forEach((value, cellId) => {
+            const [rowIndex, columnIndex] = cellId.split(':').map(Number);
+            if (!rows[rowIndex]) return;
+
+            const nextRow = [...rows[rowIndex]];
+            nextRow[columnIndex] = value;
+            rows[rowIndex] = nextRow;
         });
 
         if (deletedRows && deletedRows.size > 0) {
-            newRows = newRows.filter((_, idx) => !deletedRows.has(idx));
+            rows = rows.filter((_, index) => !deletedRows.has(index));
         }
 
         return {
-            results: {
-                ...state.results,
-                [tabId]: {
-                    ...prev,
-                    rows: newRows
-                }
-            }
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                rows,
+            },
         };
-    }),
+    })),
 
-    appendInsertedRows: (tabId, rows) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev || rows.length === 0) return state;
+    appendInsertedRows: (tabId, rows) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev || rows.length === 0) return bucket;
 
         return {
-            results: {
-                ...state.results,
-                [tabId]: {
-                    ...prev,
-                    rows: [...prev.rows, ...rows],
-                    affected: prev.affected + rows.length,
-                }
-            }
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                rows: [...prev.rows, ...rows],
+                affected: prev.affected + rows.length,
+            },
         };
-    }),
+    })),
 
-    setFilterExpr: (tabId, filterExpr) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state;
-        return {
-            results: {
-                ...state.results,
-                [tabId]: { ...prev, filterExpr }
-            }
-        };
-    }),
+    setFilterExpr: (tabId, filterExpr) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
 
-    setLastExecutedQuery: (tabId, query) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state;
         return {
-            results: {
-                ...state.results,
-                [tabId]: { ...prev, lastExecutedQuery: query }
-            }
+            ...bucket,
+            [tabId]: { ...prev, filterExpr },
         };
-    }),
-    updatePendingState: (tabId, pendingEdits, pendingDeletions, pendingDraftRows) => set((state) => {
-        const prev = state.results[tabId];
-        if (!prev) return state;
+    })),
+
+    setLastExecutedQuery: (tabId, query) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+
         return {
-            results: {
-                ...state.results,
-                [tabId]: { ...prev, pendingEdits, pendingDeletions, pendingDraftRows }
-            }
+            ...bucket,
+            [tabId]: { ...prev, lastExecutedQuery: query },
         };
-    }),
+    })),
+
+    updatePendingState: (tabId, pendingEdits, pendingDeletions, pendingDraftRows) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+
+        return {
+            ...bucket,
+            [tabId]: { ...prev, pendingEdits, pendingDeletions, pendingDraftRows },
+        };
+    })),
 
     isDone: (tabId) => {
-        const r = get().results[tabId];
-        return r ? r.isDone : true; // If not found, assume it's not running
-    }
+        const result = get().results[tabId];
+        return result ? result.isDone : true;
+    },
 })));

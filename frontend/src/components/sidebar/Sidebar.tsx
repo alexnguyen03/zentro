@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Database, Clock, BookMarked, Terminal, Zap, Hash } from 'lucide-react';
+import { Plus, Clock, BookMarked, Zap, Hash } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { ConnectionTree } from './ConnectionTree';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
-import { LoadConnections, Connect, SwitchDatabase, GetConnectionStatus } from '../../../wailsjs/go/app/App';
+import { LoadConnections, GetConnectionStatus } from '../../../wailsjs/go/app/App';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
 import { useProjectStore } from '../../stores/projectStore';
 import { getEnvironmentLabel } from '../../lib/projects';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
 export const Sidebar: React.FC = () => {
-    const { setConnections, connections, isConnected } = useConnectionStore();
+    const { setConnections, isConnected } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
     const [isCompact, setIsCompact] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -48,27 +50,12 @@ export const Sidebar: React.FC = () => {
                     store.setIsConnected(true);
                     store.setConnectionStatus('connected');
                     return;
-                } else {
-                    store.setIsConnected(false);
                 }
-
-                if (store.lastProfileName) {
-                    const profile = data?.find(p => p.name === store.lastProfileName);
-                    if (profile) {
-                        try {
-                            await Connect(profile.name);
-                            if (store.lastDatabaseName && store.lastDatabaseName !== profile.db_name) {
-                                await SwitchDatabase(store.lastDatabaseName);
-                            }
-                        } catch (err) {
-                            toast.error(`Auto-connect to ${profile.name} failed: ${err}`);
-                            useConnectionStore.setState({ lastProfileName: null, lastDatabaseName: null });
-                        }
-                    }
-                }
+                store.resetRuntime();
             }
         } catch (e: any) {
             console.error('Failed to load connections:', e);
+            toast.error(`Failed to load connections: ${e}`);
         }
     };
 
@@ -121,11 +108,11 @@ export const Sidebar: React.FC = () => {
                              <div className={cn("mb-8", isCompact && "text-center")}>
                                 <h3 className="text-[15px] font-bold text-text-primary tracking-tight">Explorer</h3>
                                 {!isCompact && (
-                                    <p className="text-[12px] text-text-muted mt-1">
-                                        {activeProject
-                                            ? `${activeProject.name} / ${getEnvironmentLabel(activeProject.default_environment_key)}`
+                                        <p className="text-[12px] text-text-muted mt-1">
+                                            {activeProject
+                                            ? `${activeProject.name} / ${getEnvironmentLabel(activeEnvironmentKey || activeProject.default_environment_key)}`
                                             : 'Project foundation loaded'}
-                                    </p>
+                                        </p>
                                 )}
                              </div>
 

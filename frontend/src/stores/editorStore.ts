@@ -9,7 +9,7 @@ export interface Tab {
     query: string;
     isRunning: boolean;
     type?: TabType;
-    content?: string; // used for table name if type === 'table'
+    content?: string;
     readOnly?: boolean;
     sourceTabId?: string;
     generatedKind?: 'result' | 'explain';
@@ -21,10 +21,19 @@ export interface TabGroup {
     activeTabId: string | null;
 }
 
+interface WorkspaceEditorSession {
+    groups: TabGroup[];
+    activeGroupId: string | null;
+}
+
 interface EditorState {
+    workspaceSessions: Record<string, WorkspaceEditorSession>;
+    activeWorkspaceId: string | null;
     groups: TabGroup[];
     activeGroupId: string | null;
 
+    switchWorkspace: (workspaceId: string | null) => void;
+    resetWorkspace: (workspaceId?: string | null) => void;
     addTab: (tabInit?: Partial<Tab>, targetGroupId?: string) => string;
     removeTab: (id: string, groupId?: string) => void;
     setActiveTabId: (tabId: string, groupId: string) => void;
@@ -33,93 +42,190 @@ interface EditorState {
     setTabRunning: (id: string, isRunning: boolean) => void;
     renameTab: (id: string, newName: string) => void;
     setTabQuery: (id: string, query: string) => void;
-
-    // Split View Actions
     splitGroup: (sourceGroupId: string, tabId: string) => void;
     splitGroupFromDrag: (sourceGroupId: string, tabId: string, targetGroupId: string, direction: 'left' | 'right') => void;
     closeGroup: (groupId: string) => void;
-
-    // DnD Actions
     moveTab: (tabId: string, sourceGroupId: string, targetGroupId: string, newIndex: number) => void;
 }
 
-// Helper to generate a unique query name
-const getNextTabName = (groups: TabGroup[], baseName: string = 'New Query'): string => {
+const DEFAULT_WORKSPACE_ID = '__default__';
+
+const createEmptySession = (): WorkspaceEditorSession => ({
+    groups: [{ id: 'group-1', tabs: [], activeTabId: null }],
+    activeGroupId: 'group-1',
+});
+
+const normalizeSession = (session?: Partial<WorkspaceEditorSession> | null): WorkspaceEditorSession => {
+    const groups = session?.groups?.length
+        ? session.groups.map((group, index) => ({
+            id: group.id || `group-${index + 1}`,
+            tabs: (group.tabs || []).map((tab) => ({
+                ...tab,
+                isRunning: false,
+                type: tab.type || TAB_TYPE.QUERY,
+            })),
+            activeTabId: group.activeTabId || group.tabs?.[0]?.id || null,
+        }))
+        : createEmptySession().groups;
+
+    return {
+        groups,
+        activeGroupId: session?.activeGroupId && groups.some((group) => group.id === session.activeGroupId)
+            ? session.activeGroupId
+            : groups[0]?.id || null,
+    };
+};
+
+const getSessionWorkspaceId = (workspaceId?: string | null) => workspaceId || DEFAULT_WORKSPACE_ID;
+
+const getNextTabName = (groups: TabGroup[], baseName = 'New Query'): string => {
     let name = baseName;
     let count = 1;
     let checkName = name;
 
-    // Check across all groups
-    while (groups.some(g => g.tabs.some(t => t.name === checkName))) {
-        count++;
+    while (groups.some((group) => group.tabs.some((tab) => tab.name === checkName))) {
+        count += 1;
         checkName = `${name} ${count}`;
     }
+
     return checkName;
 };
+
+function getActiveSession(state: Pick<EditorState, 'workspaceSessions' | 'activeWorkspaceId'>) {
+    const workspaceId = getSessionWorkspaceId(state.activeWorkspaceId);
+    return normalizeSession(state.workspaceSessions[workspaceId]);
+}
+
+function updateActiveSession(
+    state: EditorState,
+    updater: (session: WorkspaceEditorSession) => WorkspaceEditorSession
+) {
+    const workspaceId = getSessionWorkspaceId(state.activeWorkspaceId);
+    const nextSession = normalizeSession(updater(getActiveSession(state)));
+    return {
+        workspaceSessions: {
+            ...state.workspaceSessions,
+            [workspaceId]: nextSession,
+        },
+        groups: nextSession.groups,
+        activeGroupId: nextSession.activeGroupId,
+    };
+}
 
 export const useEditorStore = create<EditorState>()(
     persist(
         withStoreLogger('editorStore', (set, get) => ({
-            groups: [{ id: 'group-1', tabs: [], activeTabId: null }],
-            activeGroupId: 'group-1',
+            workspaceSessions: {
+                [DEFAULT_WORKSPACE_ID]: createEmptySession(),
+            },
+            activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+            groups: createEmptySession().groups,
+            activeGroupId: createEmptySession().activeGroupId,
+
+            switchWorkspace: (workspaceId) => set((state) => {
+                const nextWorkspaceId = getSessionWorkspaceId(workspaceId);
+                const nextSession = normalizeSession(state.workspaceSessions[nextWorkspaceId]);
+
+                return {
+                    workspaceSessions: {
+                        ...state.workspaceSessions,
+                        [nextWorkspaceId]: nextSession,
+                    },
+                    activeWorkspaceId: nextWorkspaceId,
+                    groups: nextSession.groups,
+                    activeGroupId: nextSession.activeGroupId,
+                };
+            }),
+
+            resetWorkspace: (workspaceId) => set((state) => {
+                const nextWorkspaceId = getSessionWorkspaceId(workspaceId || state.activeWorkspaceId);
+                const nextSession = createEmptySession();
+                const isActive = nextWorkspaceId === getSessionWorkspaceId(state.activeWorkspaceId);
+
+                return {
+                    workspaceSessions: {
+                        ...state.workspaceSessions,
+                        [nextWorkspaceId]: nextSession,
+                    },
+                    ...(isActive ? {
+                        groups: nextSession.groups,
+                        activeGroupId: nextSession.activeGroupId,
+                    } : {}),
+                };
+            }),
 
             addTab: (tabInit, targetGroupId) => {
                 let id = tabInit?.id || crypto.randomUUID();
 
-                set((state) => {
-                    const targetId = targetGroupId || state.activeGroupId || state.groups[0].id;
-                    const groupIndex = state.groups.findIndex(g => g.id === targetId);
-                    if (groupIndex === -1) return state;
+                set((state) => updateActiveSession(state, (session) => {
+                    const targetId = targetGroupId || session.activeGroupId || session.groups[0]?.id;
+                    const groupIndex = session.groups.findIndex((group) => group.id === targetId);
+                    if (groupIndex === -1 || !targetId) {
+                        return session;
+                    }
 
                     if (tabInit?.id) {
-                        for (const g of state.groups) {
-                            const existingTab = g.tabs.find(t => t.id === tabInit.id);
+                        for (const group of session.groups) {
+                            const existingTab = group.tabs.find((tab) => tab.id === tabInit.id);
                             if (existingTab) {
                                 id = existingTab.id;
                                 return {
-                                    groups: state.groups.map(grp => {
-                                        if (grp.id !== g.id) return grp;
-                                        return {
-                                            ...grp,
-                                            activeTabId: existingTab.id,
-                                            tabs: grp.tabs.map(tab => tab.id === existingTab.id ? { ...tab, ...tabInit, id: existingTab.id } : tab),
-                                        };
-                                    }),
-                                    activeGroupId: g.id,
+                                    groups: session.groups.map((currentGroup) => (
+                                        currentGroup.id !== group.id
+                                            ? currentGroup
+                                            : {
+                                                ...currentGroup,
+                                                activeTabId: existingTab.id,
+                                                tabs: currentGroup.tabs.map((tab) => (
+                                                    tab.id === existingTab.id
+                                                        ? { ...tab, ...tabInit, id: existingTab.id }
+                                                        : tab
+                                                )),
+                                            }
+                                    )),
+                                    activeGroupId: group.id,
                                 };
                             }
                         }
                     }
 
-                    // If it's a table tab, verify if one already exists with the same content
-                    if (tabInit?.type === 'table' && tabInit.content) {
-                        for (const g of state.groups) {
-                            const existingTab = g.tabs.find(t => t.type === 'table' && t.content === tabInit.content);
+                    if (tabInit?.type === TAB_TYPE.TABLE && tabInit.content) {
+                        for (const group of session.groups) {
+                            const existingTab = group.tabs.find((tab) => tab.type === 'table' && tab.content === tabInit.content);
                             if (existingTab) {
                                 id = existingTab.id;
                                 return {
-                                    groups: state.groups.map(grp => grp.id === g.id ? { ...grp, activeTabId: existingTab.id } : grp),
-                                    activeGroupId: g.id,
+                                    groups: session.groups.map((currentGroup) => (
+                                        currentGroup.id === group.id
+                                            ? { ...currentGroup, activeTabId: existingTab.id }
+                                            : currentGroup
+                                    )),
+                                    activeGroupId: group.id,
                                 };
                             }
                         }
                     }
 
-                    // If it's a settings or shortcuts tab, only allow one
                     if (tabInit?.type === 'settings' || tabInit?.type === 'shortcuts') {
-                        for (const g of state.groups) {
-                            const existingTab = g.tabs.find(t => t.type === tabInit.type);
+                        for (const group of session.groups) {
+                            const existingTab = group.tabs.find((tab) => tab.type === tabInit.type);
                             if (existingTab) {
                                 id = existingTab.id;
                                 return {
-                                    groups: state.groups.map(grp => grp.id === g.id ? { ...grp, activeTabId: existingTab.id } : grp),
-                                    activeGroupId: g.id,
+                                    groups: session.groups.map((currentGroup) => (
+                                        currentGroup.id === group.id
+                                            ? { ...currentGroup, activeTabId: existingTab.id }
+                                            : currentGroup
+                                    )),
+                                    activeGroupId: group.id,
                                 };
                             }
                         }
                     }
 
-                    const name = tabInit?.name || (tabInit?.type === TAB_TYPE.TABLE ? tabInit.content! : getNextTabName(state.groups));
+                    const name = tabInit?.name || (tabInit?.type === TAB_TYPE.TABLE
+                        ? tabInit.content || 'Table'
+                        : getNextTabName(session.groups));
                     const newTab: Tab = {
                         id,
                         name,
@@ -127,259 +233,243 @@ export const useEditorStore = create<EditorState>()(
                         isRunning: false,
                         type: tabInit?.type || TAB_TYPE.QUERY,
                         content: tabInit?.content,
-                        ...tabInit
+                        ...tabInit,
                     };
-
-                    const newGroups = state.groups.map(g => {
-                        if (g.id === targetId) {
-                            return {
-                                ...g,
-                                tabs: [...g.tabs, newTab],
-                                activeTabId: id,
-                            };
-                        }
-                        return g;
-                    });
 
                     return {
-                        groups: newGroups,
+                        groups: session.groups.map((group) => (
+                            group.id === targetId
+                                ? {
+                                    ...group,
+                                    tabs: [...group.tabs, newTab],
+                                    activeTabId: id,
+                                }
+                                : group
+                        )),
                         activeGroupId: targetId,
                     };
-                });
+                }));
+
                 return id;
             },
 
-            removeTab: (id, targetGroupId) => set((state) => {
-                const newGroups = state.groups.map(g => {
-                    if (targetGroupId && g.id !== targetGroupId) return g;
+            removeTab: (id, targetGroupId) => set((state) => updateActiveSession(state, (session) => ({
+                ...session,
+                groups: session.groups.map((group) => {
+                    if (targetGroupId && group.id !== targetGroupId) return group;
+                    if (!group.tabs.some((tab) => tab.id === id)) return group;
 
-                    if (!g.tabs.some(t => t.id === id)) return g;
+                    const tabs = group.tabs.filter((tab) => tab.id !== id);
+                    const activeTabId = group.activeTabId === id
+                        ? (tabs.length > 0 ? tabs[tabs.length - 1].id : null)
+                        : group.activeTabId;
 
-                    const newTabs = g.tabs.filter(t => t.id !== id);
-                    let newActiveId = g.activeTabId;
-                    if (newActiveId === id) {
-                        newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
-                    }
-                    return { ...g, tabs: newTabs, activeTabId: newActiveId };
+                    return { ...group, tabs, activeTabId };
+                }),
+            }))),
+
+            setActiveTabId: (tabId, groupId) => set((state) => updateActiveSession(state, (session) => ({
+                groups: session.groups.map((group) => (
+                    group.id === groupId ? { ...group, activeTabId: tabId } : group
+                )),
+                activeGroupId: groupId,
+            }))),
+
+            setActiveGroupId: (groupId) => set((state) => updateActiveSession(state, (session) => ({
+                ...session,
+                activeGroupId: groupId,
+            }))),
+
+            updateTabQuery: (id, query) => set((state) => updateActiveSession(state, (session) => ({
+                ...session,
+                groups: session.groups.map((group) => ({
+                    ...group,
+                    tabs: group.tabs.map((tab) => (tab.id === id ? { ...tab, query } : tab)),
+                })),
+            }))),
+
+            setTabRunning: (id, isRunning) => set((state) => updateActiveSession(state, (session) => ({
+                ...session,
+                groups: session.groups.map((group) => ({
+                    ...group,
+                    tabs: group.tabs.map((tab) => (tab.id === id ? { ...tab, isRunning } : tab)),
+                })),
+            }))),
+
+            renameTab: (id, newName) => set((state) => updateActiveSession(state, (session) => ({
+                ...session,
+                groups: session.groups.map((group) => ({
+                    ...group,
+                    tabs: group.tabs.map((tab) => (tab.id === id ? { ...tab, name: newName } : tab)),
+                })),
+            }))),
+
+            setTabQuery: (id, query) => set((state) => updateActiveSession(state, (session) => ({
+                ...session,
+                groups: session.groups.map((group) => ({
+                    ...group,
+                    tabs: group.tabs.map((tab) => (tab.id === id ? { ...tab, query } : tab)),
+                })),
+            }))),
+
+            splitGroup: (sourceGroupId, tabId) => set((state) => updateActiveSession(state, (session) => {
+                const sourceGroup = session.groups.find((group) => group.id === sourceGroupId);
+                const tabToMove = sourceGroup?.tabs.find((tab) => tab.id === tabId);
+                if (!sourceGroup || !tabToMove) return session;
+
+                const tabs = sourceGroup.tabs.filter((tab) => tab.id !== tabId);
+                const activeTabId = sourceGroup.activeTabId === tabId
+                    ? (tabs.length > 0 ? tabs[tabs.length - 1].id : null)
+                    : sourceGroup.activeTabId;
+
+                const newGroupId = crypto.randomUUID();
+                const nextGroups = session.groups.map((group) => (
+                    group.id === sourceGroupId ? { ...group, tabs, activeTabId } : group
+                ));
+                const sourceIndex = nextGroups.findIndex((group) => group.id === sourceGroupId);
+                nextGroups.splice(sourceIndex + 1, 0, {
+                    id: newGroupId,
+                    tabs: [tabToMove],
+                    activeTabId: tabId,
                 });
-                return { groups: newGroups };
-            }),
 
-            setActiveTabId: (tabId, groupId) => set((state) => {
                 return {
-                    groups: state.groups.map(g => g.id === groupId ? { ...g, activeTabId: tabId } : g),
-                    activeGroupId: groupId, // Also focus the group
+                    groups: nextGroups,
+                    activeGroupId: newGroupId,
                 };
-            }),
-
-            setActiveGroupId: (groupId) => set({ activeGroupId: groupId }),
-
-            updateTabQuery: (id, query) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, query } : t)
-                }))
             })),
 
-            setTabRunning: (id, isRunning) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, isRunning } : t)
-                }))
-            })),
+            splitGroupFromDrag: (sourceGroupId, tabId, targetGroupId, direction) => set((state) => updateActiveSession(state, (session) => {
+                const sourceGroup = session.groups.find((group) => group.id === sourceGroupId);
+                const tabToMove = sourceGroup?.tabs.find((tab) => tab.id === tabId);
+                if (!sourceGroup || !tabToMove) return session;
 
-            renameTab: (id, newName) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, name: newName } : t)
-                }))
-            })),
-
-            setTabQuery: (id, query) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, query } : t)
-                }))
-            })),
-
-            splitGroup: (sourceGroupId, tabId) => set((state) => {
-                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
-                if (!sourceGroup) return state;
-
-                const tabToMove = sourceGroup.tabs.find(t => t.id === tabId);
-                if (!tabToMove) return state;
-
-                // Move tab out of source group
-                const newSourceTabs = sourceGroup.tabs.filter(t => t.id !== tabId);
-                let newSourceActiveId = sourceGroup.activeTabId;
-                if (newSourceActiveId === tabId) {
-                    newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
-                }
+                const tabs = sourceGroup.tabs.filter((tab) => tab.id !== tabId);
+                const activeTabId = sourceGroup.activeTabId === tabId
+                    ? (tabs.length > 0 ? tabs[tabs.length - 1].id : null)
+                    : sourceGroup.activeTabId;
 
                 const newGroupId = crypto.randomUUID();
-                const newGroup: TabGroup = {
+                const nextGroups = session.groups.map((group) => (
+                    group.id === sourceGroupId ? { ...group, tabs, activeTabId } : group
+                ));
+                const targetIndex = nextGroups.findIndex((group) => group.id === targetGroupId);
+                if (targetIndex === -1) return session;
+
+                nextGroups.splice(direction === 'left' ? targetIndex : targetIndex + 1, 0, {
                     id: newGroupId,
                     tabs: [tabToMove],
                     activeTabId: tabId,
-                };
-
-                const newGroups = state.groups.map(g =>
-                    g.id === sourceGroupId
-                        ? { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId }
-                        : g
-                );
-
-                // Insert the new group immediately after the source group
-                const sourceIndex = newGroups.findIndex(g => g.id === sourceGroupId);
-                newGroups.splice(sourceIndex + 1, 0, newGroup);
+                });
 
                 return {
-                    groups: newGroups,
-                    activeGroupId: newGroupId
+                    groups: nextGroups,
+                    activeGroupId: newGroupId,
                 };
-            }),
+            })),
 
-            splitGroupFromDrag: (sourceGroupId, tabId, targetGroupId, direction) => set((state) => {
-                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
-                if (!sourceGroup) return state;
-
-                const tabToMove = sourceGroup.tabs.find(t => t.id === tabId);
-                if (!tabToMove) return state;
-
-                // Move tab out of source group
-                const newSourceTabs = sourceGroup.tabs.filter(t => t.id !== tabId);
-                let newSourceActiveId = sourceGroup.activeTabId;
-                if (newSourceActiveId === tabId) {
-                    newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
+            closeGroup: (groupId) => set((state) => updateActiveSession(state, (session) => {
+                let groups = session.groups.filter((group) => group.id !== groupId);
+                if (groups.length === 0) {
+                    groups = createEmptySession().groups;
                 }
 
-                const newGroupId = crypto.randomUUID();
-                const newGroup: TabGroup = {
-                    id: newGroupId,
-                    tabs: [tabToMove],
-                    activeTabId: tabId,
-                };
+                const activeGroupId = session.activeGroupId === groupId
+                    ? groups[0]?.id || null
+                    : session.activeGroupId;
 
-                const intermediateGroups = state.groups.map(g =>
-                    g.id === sourceGroupId
-                        ? { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId }
-                        : g
-                );
+                return { groups, activeGroupId };
+            })),
 
-                const targetIndex = intermediateGroups.findIndex(g => g.id === targetGroupId);
-                if (targetIndex === -1) return state;
+            moveTab: (tabId, sourceGroupId, targetGroupId, newIndex) => set((state) => updateActiveSession(state, (session) => {
+                const sourceGroup = session.groups.find((group) => group.id === sourceGroupId);
+                const targetGroup = session.groups.find((group) => group.id === targetGroupId);
+                if (!sourceGroup || !targetGroup) return session;
 
-                const insertIndex = direction === 'left' ? targetIndex : targetIndex + 1;
-                intermediateGroups.splice(insertIndex, 0, newGroup);
-
-                return {
-                    groups: intermediateGroups,
-                    activeGroupId: newGroupId
-                };
-            }),
-
-            closeGroup: (groupId) => set((state) => {
-                let newGroups = state.groups.filter(g => g.id !== groupId);
-
-                // Fallback to a default group if we closed the last one
-                if (newGroups.length === 0) {
-                    newGroups = [{ id: 'group-1', tabs: [], activeTabId: null }];
-                }
-
-                let newActiveGrpId = state.activeGroupId;
-                if (newActiveGrpId === groupId) {
-                    newActiveGrpId = newGroups[0].id;
-                }
-
-                return {
-                    groups: newGroups,
-                    activeGroupId: newActiveGrpId
-                };
-            }),
-
-            moveTab: (tabId, sourceGroupId, targetGroupId, newIndex) => set((state) => {
-                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
-                const targetGroup = state.groups.find(g => g.id === targetGroupId);
-                if (!sourceGroup || !targetGroup) return state;
-
-                const tabIndexInSource = sourceGroup.tabs.findIndex(t => t.id === tabId);
-                if (tabIndexInSource === -1) return state;
+                const tabIndexInSource = sourceGroup.tabs.findIndex((tab) => tab.id === tabId);
+                if (tabIndexInSource === -1) return session;
 
                 const tab = sourceGroup.tabs[tabIndexInSource];
 
-                let newGroups = [...state.groups];
-
                 if (sourceGroupId === targetGroupId) {
-                    // Reorder within the same group
-                    const newTabs = [...sourceGroup.tabs];
-                    newTabs.splice(tabIndexInSource, 1);
-                    newTabs.splice(newIndex, 0, tab);
+                    const tabs = [...sourceGroup.tabs];
+                    tabs.splice(tabIndexInSource, 1);
+                    tabs.splice(newIndex, 0, tab);
 
-                    newGroups = newGroups.map(g => g.id === sourceGroupId ? { ...g, tabs: newTabs } : g);
-                } else {
-                    // Move to a different group
-                    const newSourceTabs = [...sourceGroup.tabs];
-                    newSourceTabs.splice(tabIndexInSource, 1);
-
-                    let newSourceActiveId = sourceGroup.activeTabId;
-                    if (newSourceActiveId === tabId) {
-                        newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
-                    }
-
-                    const newTargetTabs = [...targetGroup.tabs];
-                    newTargetTabs.splice(newIndex, 0, tab);
-
-                    newGroups = newGroups.map(g => {
-                        if (g.id === sourceGroupId) {
-                            return { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId };
-                        }
-                        if (g.id === targetGroupId) {
-                            return { ...g, tabs: newTargetTabs, activeTabId: tabId }; // activate moved tab
-                        }
-                        return g;
-                    });
+                    return {
+                        ...session,
+                        groups: session.groups.map((group) => (
+                            group.id === sourceGroupId ? { ...group, tabs } : group
+                        )),
+                    };
                 }
 
+                const sourceTabs = [...sourceGroup.tabs];
+                sourceTabs.splice(tabIndexInSource, 1);
+                const sourceActiveTabId = sourceGroup.activeTabId === tabId
+                    ? (sourceTabs.length > 0 ? sourceTabs[sourceTabs.length - 1].id : null)
+                    : sourceGroup.activeTabId;
+
+                const targetTabs = [...targetGroup.tabs];
+                targetTabs.splice(newIndex, 0, tab);
+
                 return {
-                    groups: newGroups,
+                    groups: session.groups.map((group) => {
+                        if (group.id === sourceGroupId) {
+                            return { ...group, tabs: sourceTabs, activeTabId: sourceActiveTabId };
+                        }
+                        if (group.id === targetGroupId) {
+                            return { ...group, tabs: targetTabs, activeTabId: tabId };
+                        }
+                        return group;
+                    }),
                     activeGroupId: targetGroupId,
                 };
-            })
+            })),
         })),
         {
-            name: STORAGE_KEY.EDITOR_SESSION, // Change name to drop old state because schema changed
+            name: STORAGE_KEY.EDITOR_SESSION,
             partialize: (state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => ({ ...t, isRunning: false }))
-                })),
-                activeGroupId: state.activeGroupId,
+                workspaceSessions: Object.fromEntries(
+                    Object.entries(state.workspaceSessions).map(([workspaceId, session]) => [
+                        workspaceId,
+                        {
+                            groups: session.groups.map((group) => ({
+                                ...group,
+                                tabs: group.tabs.map((tab) => ({ ...tab, isRunning: false })),
+                            })),
+                            activeGroupId: session.activeGroupId,
+                        },
+                    ])
+                ),
             }),
             onRehydrateStorage: () => (state, error) => {
                 if (error) {
                     console.error('Failed to hydrate editor session', error);
-                } else if (state) {
-                    // Fix: Ensure all tabs have a type (migration for older sessions)
-                    state.groups?.forEach(g => {
-                        g.tabs?.forEach(t => {
-                            if (!t.type) t.type = TAB_TYPE.QUERY;
-                        });
-                    });
-
-                    if (!state.groups || state.groups.length === 0) {
-                        const newId = crypto.randomUUID();
-                        const newTab: Tab = { id: newId, name: 'New Query', query: '', isRunning: false, type: TAB_TYPE.QUERY };
-                        state.groups = [{ id: 'group-1', tabs: [newTab], activeTabId: newId }];
-                        state.activeGroupId = 'group-1';
-                    } else if (state.groups.every(g => g.tabs.length === 0)) {
-                        const g = state.groups[0];
-                        const newId = crypto.randomUUID();
-                        const newTab: Tab = { id: newId, name: 'New Query', query: '', isRunning: false, type: TAB_TYPE.QUERY };
-                        g.tabs.push(newTab);
-                        g.activeTabId = newId;
-                    }
+                    return;
                 }
-            }
+
+                if (!state) return;
+
+                const workspaceSessions = state.workspaceSessions && Object.keys(state.workspaceSessions).length > 0
+                    ? Object.fromEntries(
+                        Object.entries(state.workspaceSessions).map(([workspaceId, session]) => [
+                            workspaceId,
+                            normalizeSession(session),
+                        ])
+                    )
+                    : { [DEFAULT_WORKSPACE_ID]: createEmptySession() };
+
+                const activeWorkspaceId = state.activeWorkspaceId && workspaceSessions[state.activeWorkspaceId]
+                    ? state.activeWorkspaceId
+                    : DEFAULT_WORKSPACE_ID;
+                const activeSession = normalizeSession(workspaceSessions[activeWorkspaceId]);
+
+                state.workspaceSessions = workspaceSessions;
+                state.activeWorkspaceId = activeWorkspaceId;
+                state.groups = activeSession.groups;
+                state.activeGroupId = activeSession.activeGroupId;
+            },
         }
     )
 );

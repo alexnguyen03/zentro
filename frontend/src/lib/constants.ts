@@ -3,7 +3,7 @@
  */
 
 export const STORAGE_KEY = {
-    EDITOR_SESSION: 'zentro:editor-session-v2',
+    EDITOR_SESSION: 'zentro:editor-session-v3',
     CONNECTION_STORE: 'zentro:connection-store',
     PROJECT_STORE: 'zentro:project-store',
     DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version',

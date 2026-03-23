@@ -21,7 +21,7 @@ function formatDateLabel(value?: string) {
 
 export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose }) => {
     const { projects, isLoading, error, openProject, createProject } = useProjectStore();
-    const { setActiveProfile, setConnectionStatus, setDatabases, setIsConnected } = useConnectionStore();
+    const resetRuntime = useConnectionStore((state) => state.resetRuntime);
     const [name, setName] = React.useState('');
     const [description, setDescription] = React.useState('');
     const [isCreating, setIsCreating] = React.useState(false);
@@ -37,10 +37,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
         } catch {
             // ignore and continue opening the project
         }
-        setActiveProfile(null);
-        setConnectionStatus('disconnected');
-        setDatabases([]);
-        setIsConnected(false);
+        resetRuntime();
 
         const project = await openProject(projectId);
         if (project && onClose) onClose();
