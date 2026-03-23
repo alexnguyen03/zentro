@@ -62,78 +62,53 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         const model = editor.getModel();
         if (!model) return;
 
-        let textToRun = '';
         if (selection && !selection.isEmpty()) {
-            textToRun = model.getValueInRange(selection);
-        } else {
-            // Find current block separated by empty lines
-            const position = editor.getPosition();
-            if (position) {
-                const currentLine = position.lineNumber;
-                const lineCount = model.getLineCount();
+            return model.getValueInRange(selection).trim().replace(/;+$/, '');
+        }
 
-                // If currently on an empty line, look up to find the nearest block
-                let searchLine = currentLine;
-                while (searchLine > 0 && model.getLineContent(searchLine).trim() === '') {
-                    searchLine--;
-                }
+        const position = editor.getPosition();
+        if (!position) return '';
 
-                // If nothing above, look down
-                if (searchLine === 0) {
-                    searchLine = currentLine;
-                    while (searchLine <= lineCount && model.getLineContent(searchLine).trim() === '') {
-                        searchLine++;
-                    }
-                    if (searchLine > lineCount) searchLine = 0;
-                }
+        const currentLine = position.lineNumber;
+        const lineCount = model.getLineCount();
 
-                if (searchLine > 0) {
-                    let startLine = searchLine;
-                    while (startLine > 1) {
-                        if (model.getLineContent(startLine - 1).trim() === '') {
-                            break;
-                        }
-                        startLine--;
-                    }
+        let searchLine = currentLine;
+        while (searchLine > 0 && model.getLineContent(searchLine).trim() === '') {
+            searchLine--;
+        }
 
-                    let endLine = searchLine;
-                    while (endLine < lineCount) {
-                        if (model.getLineContent(endLine + 1).trim() === '') {
-                            break;
-                        }
-                        endLine++;
-                    }
-
-                    const blockText = model.getValueInRange({
-                        startLineNumber: startLine,
-                        startColumn: 1,
-                        endLineNumber: endLine,
-                        endColumn: model.getLineMaxColumn(endLine)
-                    });
-
-                    if (blockText.trim()) {
-                        textToRun = blockText;
-
-                        // Visually select the executed block to give feedback
-                        editor.setSelection({
-                            startLineNumber: startLine,
-                            startColumn: 1,
-                            endLineNumber: endLine,
-                            endColumn: model.getLineMaxColumn(endLine)
-                        });
-                    }
-                }
+        if (searchLine === 0) {
+            searchLine = currentLine;
+            while (searchLine <= lineCount && model.getLineContent(searchLine).trim() === '') {
+                searchLine++;
             }
+            if (searchLine > lineCount) return '';
         }
 
-        // Fallback to full file run if for some reason extracted text is still empty
-        if (!textToRun.trim()) {
-            textToRun = model.getValue();
+        let startLine = searchLine;
+        while (startLine > 1) {
+            if (model.getLineContent(startLine - 1).trim() === '') {
+                break;
+            }
+            startLine--;
         }
 
-        textToRun = textToRun.trim().replace(/;+$/, '');
-        if (!textToRun) return '';
-        return textToRun;
+        let endLine = searchLine;
+        while (endLine < lineCount) {
+            if (model.getLineContent(endLine + 1).trim() === '') {
+                break;
+            }
+            endLine++;
+        }
+
+        const blockText = model.getValueInRange({
+            startLineNumber: startLine,
+            startColumn: 1,
+            endLineNumber: endLine,
+            endColumn: model.getLineMaxColumn(endLine),
+        }).trim().replace(/;+$/, '');
+
+        return blockText;
     }, []);
 
     const runQueryRef = useRef<() => void>();

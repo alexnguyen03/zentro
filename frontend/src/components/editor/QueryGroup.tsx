@@ -134,7 +134,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                                         onRun={handleRun}
                                         onExplain={handleExplain}
                                         isActive={isActiveGroup && tab.id === activeTabId}
-                                        onFocus={handleGroupClick}
+                                        onFocus={() => setActiveTabId(tab.id, groupId)}
                                         readOnly={tab.readOnly}
                                     />
                                 )}
