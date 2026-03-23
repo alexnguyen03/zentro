@@ -11,7 +11,6 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useProjectStore } from './stores/projectStore';
 import { useEnvironmentStore } from './stores/environmentStore';
-import { useWorkspaceStore, getWorkspaceEnvironmentKey } from './stores/workspaceStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
@@ -50,18 +49,21 @@ function clearGeneratedResults(sourceTabID: string) {
 }
 
 function App() {
-    const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
+    const {
+        isConnected,
+        setIsConnected,
+        setActiveProfile,
+        setDatabases,
+        setConnectionStatus,
+        activeProfile,
+        connectionStatus,
+    } = useConnectionStore();
     const { setTransactionStatus } = useStatusStore();
     const bootstrapProjects = useProjectStore((state) => state.bootstrap);
     const activeProject = useProjectStore((state) => state.activeProject);
     const bootstrapEnvironment = useEnvironmentStore((state) => state.bootstrap);
     const clearEnvironment = useEnvironmentStore((state) => state.clear);
-    const bootstrapWorkspaces = useWorkspaceStore((state) => state.bootstrap);
-    const clearWorkspaces = useWorkspaceStore((state) => state.clear);
-    const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
-    const workspaces = useWorkspaceStore((state) => state.workspaces);
-    const switchEditorWorkspace = useEditorStore((state) => state.switchWorkspace);
-    const switchResultWorkspace = useResultStore((state) => state.switchWorkspace);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
     const { bindings, chordStart, chordUntil, setChord } = useShortcutStore();
@@ -193,36 +195,30 @@ function App() {
 
     useEffect(() => {
         if (!activeProject) {
-            clearWorkspaces();
             clearEnvironment();
-            switchEditorWorkspace(null);
-            switchResultWorkspace(null);
+            return;
+        }
+        bootstrapEnvironment(activeProject);
+    }, [activeProject, bootstrapEnvironment, clearEnvironment]);
+
+    useEffect(() => {
+        if (!activeProject || !activeEnvironmentKey) return;
+
+        const connection = activeProject.connections?.find((item) => item.environment_key === activeEnvironmentKey);
+        const profileName = connection?.advanced_meta?.profile_name || connection?.name;
+
+        if (!profileName) return;
+        if (
+            activeProfile?.name === profileName &&
+            (connectionStatus === 'connected' || connectionStatus === 'connecting')
+        ) {
             return;
         }
 
-        bootstrapWorkspaces(activeProject);
-    }, [activeProject, bootstrapWorkspaces, clearEnvironment, clearWorkspaces, switchEditorWorkspace, switchResultWorkspace]);
-
-    useEffect(() => {
-        if (!activeProject) return;
-
-        const environmentKey = getWorkspaceEnvironmentKey(
-            workspaces,
-            activeWorkspaceId,
-            activeProject.default_environment_key
-        );
-
-        bootstrapEnvironment(activeProject, environmentKey);
-        switchEditorWorkspace(activeWorkspaceId);
-        switchResultWorkspace(activeWorkspaceId);
-    }, [
-        activeProject,
-        activeWorkspaceId,
-        bootstrapEnvironment,
-        switchEditorWorkspace,
-        switchResultWorkspace,
-        workspaces,
-    ]);
+        Connect(profileName).catch((error) => {
+            appLogger.warn('auto reconnect failed', { profileName, error });
+        });
+    }, [activeEnvironmentKey, activeProfile?.name, activeProject, connectionStatus]);
 
     useEffect(() => {
         const isTypingTarget = (target: EventTarget | null) => {
@@ -321,31 +317,20 @@ function App() {
                     </>
                 )}
                 <div className="flex flex-1 flex-col overflow-hidden">
-                    <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
-                        {!isConnected ? (
-                            <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
-                                <span className="text-3xl">Plug</span>
-                                <h3 className="m-0 text-sm font-semibold text-text-primary">
-                                    {activeProject ? 'No active connection' : 'No active project'}
-                                </h3>
-                                <p className="m-0 text-xs text-center max-w-[320px]">
-                                    {activeProject
-                                        ? `Project "${activeProject.name}" is loaded. Connect an environment from the sidebar to start working inside its workspace context.`
-                                        : 'No project is currently loaded.'}
-                                </p>
-                                {activeProfile && (
+                        <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
+                            {!isConnected && activeProject && (
+                                <div className="flex items-center justify-between px-4 py-1.5 bg-bg-tertiary border-b border-border text-[11px] text-text-secondary shrink-0">
+                                    <span>No active connection — switch environment to connect.</span>
                                     <button
-                                        onClick={() => Connect(activeProfile.name).catch(() => { })}
-                                        className="mt-2 px-4 py-2 bg-success text-white text-xs font-bold rounded-lg hover:bg-success/90 transition-all active:scale-95 shadow-lg shadow-success/20"
+                                        onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER))}
+                                        className="text-accent font-semibold hover:underline"
                                     >
-                                        Reconnect to {activeProfile.name}
+                                        Switch env
                                     </button>
-                                )}
-                            </div>
-                        ) : (
+                                </div>
+                            )}
                             <QueryTabs />
-                        )}
-                    </div>
+                        </div>
                 </div>
                 {showRightSidebar && <SecondarySidebar />}
             </div>

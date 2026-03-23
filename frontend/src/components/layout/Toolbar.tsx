@@ -18,7 +18,6 @@ import {
     Search,
     Columns2,
     Layers3,
-    LayoutTemplate,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -26,11 +25,10 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
-import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
-import { WorkspaceModal } from './WorkspaceModal';
-import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
+
+import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
 import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
@@ -45,9 +43,6 @@ export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
-    const activeWorkspace = useWorkspaceStore((state) =>
-        state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) || null
-    );
     const { groups, activeGroupId, addTab } = useEditorStore();
     const {
         showSidebar,
@@ -60,10 +55,9 @@ export const Toolbar: React.FC = () => {
     const { transactionStatus } = useStatusStore();
     const { toast } = useToast();
 
-    const [pickerOpen, setPickerOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
-    const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
+    const [environmentSwitcherOpen, setEnvironmentSwitcherOpen] = useState(false);
 
     const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
 
@@ -75,10 +69,12 @@ export const Toolbar: React.FC = () => {
     const canRunEditorAction = Boolean(isConnected && activeTab && !activeTab.readOnly && isQueryTab);
     const txActive = transactionStatus === 'active';
 
+
+
     useEffect(() => {
-        const handler = () => setPickerOpen(true);
-        window.addEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
-        return () => window.removeEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
+        const handler = () => setEnvironmentSwitcherOpen(true);
+        window.addEventListener(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, handler);
+        return () => window.removeEventListener(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, handler);
     }, []);
 
     const handleRun = () => {
@@ -169,17 +165,6 @@ export const Toolbar: React.FC = () => {
                 </Button>
 
                 <Divider orientation="vertical" className="h-5" />
-
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Switch Workspace"
-                    onClick={() => setWorkspaceSwitcherOpen(true)}
-                    className="gap-2 max-w-[180px] px-2.5"
-                >
-                    <LayoutTemplate size={13} />
-                    <span className="truncate">{activeWorkspace?.name || 'Workspace'}</span>
-                </Button>
 
                 <Button variant="ghost" size="icon" title="New Tab (Ctrl+T)" onClick={() => addTab()}>
                     <Plus size={16} />
@@ -272,10 +257,10 @@ export const Toolbar: React.FC = () => {
                         className={cn(
                             'flex items-center gap-2 w-full px-3 rounded-full text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
                             'bg-success/10',
-                            pickerOpen && 'border-success text-text-primary',
-                            !pickerOpen && 'hover:text-text-primary hover:border-border'
+                            environmentSwitcherOpen && 'border-success text-text-primary',
+                            !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border'
                         )}
-                        onClick={() => setPickerOpen(true)}
+                        onClick={() => setEnvironmentSwitcherOpen(true)}
                     >
                         {activeProject && (
                             <>
@@ -305,19 +290,17 @@ export const Toolbar: React.FC = () => {
                             title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
                         />
                         <span className="flex-1 text-center truncate">
-                            {activeWorkspace ? `${activeWorkspace.name} / ` : ''}
                             {breadcrumbLabel}
                         </span>
                         <ChevronDown
                             size={14}
-                            strokeWidth={pickerOpen ? 2.5 : 2}
-                            className={cn('opacity-50 transition-transform duration-200', pickerOpen && 'rotate-180 opacity-100 text-accent')}
+                            strokeWidth={environmentSwitcherOpen ? 2.5 : 2}
+                            className={cn('opacity-50 transition-transform duration-200', environmentSwitcherOpen && 'rotate-180 opacity-100 text-accent')}
                         />
                     </div>
                 </div>
 
-                {pickerOpen && <WorkspaceModal onClose={() => setPickerOpen(false)} />}
-                {workspaceSwitcherOpen && <WorkspaceSwitcherModal onClose={() => setWorkspaceSwitcherOpen(false)} />}
+                {environmentSwitcherOpen && <EnvironmentSwitcherModal onClose={() => setEnvironmentSwitcherOpen(false)} />}
             </div>
 
             <div className="flex items-center shrink-0">

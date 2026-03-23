@@ -50,7 +50,7 @@ func configPath() (string, error) {
 
 // loadConfig reads and parses the config file.
 // Returns a default config if the file doesn't exist.
-// Config file is encrypted with AES-GCM using machine-specific key from keyring.
+// Legacy encrypted config files are still supported for backward compatibility.
 func loadConfig() (*config, error) {
 	path, err := configPath()
 	if err != nil {
@@ -67,7 +67,7 @@ func loadConfig() (*config, error) {
 	needsEncryptMigration := false
 	needsPasswordMigration := false
 
-	// Try to decrypt - if fails, treat as legacy plaintext config.
+	// Try to decrypt first for backward compatibility with legacy encrypted config files.
 	plaintext, decryptErr := decryptConfig(data)
 	if decryptErr == nil {
 		data = plaintext
@@ -141,7 +141,10 @@ func loadConfig() (*config, error) {
 
 	if needsEncryptMigration || needsPasswordMigration {
 		if err := saveConfig(&cfg); err != nil {
-			return &cfg, fmt.Errorf("prefs: migrate: %w", err)
+			// Migration is best-effort. The config was already loaded successfully,
+			// so callers should keep working even if a concurrent writer temporarily
+			// prevents rewriting the file in the new format.
+			return &cfg, nil
 		}
 	}
 
@@ -150,7 +153,7 @@ func loadConfig() (*config, error) {
 
 // saveConfig writes the config to disk atomically.
 // Passwords are stored in OS keyring, not in the config file.
-// Config content is encrypted with AES-GCM.
+// The config file itself is intentionally stored as plaintext JSON so it remains human-readable.
 func saveConfig(cfg *config) error {
 	path, err := configPath()
 	if err != nil {
@@ -186,18 +189,26 @@ func saveConfig(cfg *config) error {
 	if err != nil {
 		return fmt.Errorf("prefs: marshal: %w", err)
 	}
+	data = append(data, '\n')
 
-	// Encrypt the config content
-	encrypted, err := encryptConfig(data)
+	// Write to a unique temp file in the same directory, then rename for atomicity.
+	tmpFile, err := os.CreateTemp(filepath.Dir(path), "config.json.*.tmp")
 	if err != nil {
-		return fmt.Errorf("prefs: encrypt: %w", err)
-	}
-
-	// Write to temp file then rename for atomicity
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, encrypted, 0o644); err != nil {
 		return fmt.Errorf("prefs: write: %w", err)
 	}
+	tmp := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmp)
+	}()
+
+	if _, err := tmpFile.Write(data); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("prefs: write: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("prefs: write: %w", err)
+	}
+
 	return os.Rename(tmp, path)
 }
 

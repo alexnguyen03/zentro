@@ -78,6 +78,8 @@ export interface Project {
     created_at: string;
     updated_at: string;
     default_environment_key: EnvironmentKey;
+    last_active_environment_key?: EnvironmentKey;
+    // Deprecated compatibility fields. Frontend runtime should no longer depend on them.
     last_workspace_id?: string;
     environments?: ProjectEnvironment[];
     connections?: ProjectConnection[];
@@ -88,7 +90,6 @@ export interface Project {
 export interface ExecutionContext {
     project_id: string;
     environment_key: string;
-    workspace_id: string;
     connection_id: string;
     database?: string;
     schema?: string;

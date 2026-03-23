@@ -21,19 +21,19 @@ export interface TabGroup {
     activeTabId: string | null;
 }
 
-interface WorkspaceEditorSession {
+interface ProjectEditorSession {
     groups: TabGroup[];
     activeGroupId: string | null;
 }
 
 interface EditorState {
-    workspaceSessions: Record<string, WorkspaceEditorSession>;
-    activeWorkspaceId: string | null;
+    projectSessions: Record<string, ProjectEditorSession>;
+    activeProjectId: string | null;
     groups: TabGroup[];
     activeGroupId: string | null;
 
-    switchWorkspace: (workspaceId: string | null) => void;
-    resetWorkspace: (workspaceId?: string | null) => void;
+    switchProject: (projectId: string | null) => void;
+    resetProject: (projectId?: string | null) => void;
     addTab: (tabInit?: Partial<Tab>, targetGroupId?: string) => string;
     removeTab: (id: string, groupId?: string) => void;
     setActiveTabId: (tabId: string, groupId: string) => void;
@@ -50,12 +50,12 @@ interface EditorState {
 
 const DEFAULT_WORKSPACE_ID = '__default__';
 
-const createEmptySession = (): WorkspaceEditorSession => ({
+const createEmptySession = (): ProjectEditorSession => ({
     groups: [{ id: 'group-1', tabs: [], activeTabId: null }],
     activeGroupId: 'group-1',
 });
 
-const normalizeSession = (session?: Partial<WorkspaceEditorSession> | null): WorkspaceEditorSession => {
+const normalizeSession = (session?: Partial<ProjectEditorSession> | null): ProjectEditorSession => {
     const groups = session?.groups?.length
         ? session.groups.map((group, index) => ({
             id: group.id || `group-${index + 1}`,
@@ -76,7 +76,7 @@ const normalizeSession = (session?: Partial<WorkspaceEditorSession> | null): Wor
     };
 };
 
-const getSessionWorkspaceId = (workspaceId?: string | null) => workspaceId || DEFAULT_WORKSPACE_ID;
+const getSessionProjectId = (projectId?: string | null) => projectId || DEFAULT_WORKSPACE_ID;
 
 const getNextTabName = (groups: TabGroup[], baseName = 'New Query'): string => {
     let name = baseName;
@@ -91,21 +91,21 @@ const getNextTabName = (groups: TabGroup[], baseName = 'New Query'): string => {
     return checkName;
 };
 
-function getActiveSession(state: Pick<EditorState, 'workspaceSessions' | 'activeWorkspaceId'>) {
-    const workspaceId = getSessionWorkspaceId(state.activeWorkspaceId);
-    return normalizeSession(state.workspaceSessions[workspaceId]);
+function getActiveSession(state: Pick<EditorState, 'projectSessions' | 'activeProjectId'>) {
+    const projectId = getSessionProjectId(state.activeProjectId);
+    return normalizeSession(state.projectSessions[projectId]);
 }
 
 function updateActiveSession(
     state: EditorState,
-    updater: (session: WorkspaceEditorSession) => WorkspaceEditorSession
+    updater: (session: ProjectEditorSession) => ProjectEditorSession
 ) {
-    const workspaceId = getSessionWorkspaceId(state.activeWorkspaceId);
+    const projectId = getSessionProjectId(state.activeProjectId);
     const nextSession = normalizeSession(updater(getActiveSession(state)));
     return {
-        workspaceSessions: {
-            ...state.workspaceSessions,
-            [workspaceId]: nextSession,
+        projectSessions: {
+            ...state.projectSessions,
+            [projectId]: nextSession,
         },
         groups: nextSession.groups,
         activeGroupId: nextSession.activeGroupId,
@@ -115,37 +115,37 @@ function updateActiveSession(
 export const useEditorStore = create<EditorState>()(
     persist(
         withStoreLogger('editorStore', (set, get) => ({
-            workspaceSessions: {
+            projectSessions: {
                 [DEFAULT_WORKSPACE_ID]: createEmptySession(),
             },
-            activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+            activeProjectId: DEFAULT_WORKSPACE_ID,
             groups: createEmptySession().groups,
             activeGroupId: createEmptySession().activeGroupId,
 
-            switchWorkspace: (workspaceId) => set((state) => {
-                const nextWorkspaceId = getSessionWorkspaceId(workspaceId);
-                const nextSession = normalizeSession(state.workspaceSessions[nextWorkspaceId]);
+            switchProject: (projectId) => set((state) => {
+                const nextProjectId = getSessionProjectId(projectId);
+                const nextSession = normalizeSession(state.projectSessions[nextProjectId]);
 
                 return {
-                    workspaceSessions: {
-                        ...state.workspaceSessions,
-                        [nextWorkspaceId]: nextSession,
+                    projectSessions: {
+                        ...state.projectSessions,
+                        [nextProjectId]: nextSession,
                     },
-                    activeWorkspaceId: nextWorkspaceId,
+                    activeProjectId: nextProjectId,
                     groups: nextSession.groups,
                     activeGroupId: nextSession.activeGroupId,
                 };
             }),
 
-            resetWorkspace: (workspaceId) => set((state) => {
-                const nextWorkspaceId = getSessionWorkspaceId(workspaceId || state.activeWorkspaceId);
+            resetProject: (projectId) => set((state) => {
+                const nextProjectId = getSessionProjectId(projectId || state.activeProjectId);
                 const nextSession = createEmptySession();
-                const isActive = nextWorkspaceId === getSessionWorkspaceId(state.activeWorkspaceId);
+                const isActive = nextProjectId === getSessionProjectId(state.activeProjectId);
 
                 return {
-                    workspaceSessions: {
-                        ...state.workspaceSessions,
-                        [nextWorkspaceId]: nextSession,
+                    projectSessions: {
+                        ...state.projectSessions,
+                        [nextProjectId]: nextSession,
                     },
                     ...(isActive ? {
                         groups: nextSession.groups,
@@ -430,9 +430,9 @@ export const useEditorStore = create<EditorState>()(
         {
             name: STORAGE_KEY.EDITOR_SESSION,
             partialize: (state) => ({
-                workspaceSessions: Object.fromEntries(
-                    Object.entries(state.workspaceSessions).map(([workspaceId, session]) => [
-                        workspaceId,
+                projectSessions: Object.fromEntries(
+                    Object.entries(state.projectSessions).map(([projectId, session]) => [
+                        projectId,
                         {
                             groups: session.groups.map((group) => ({
                                 ...group,
@@ -451,22 +451,30 @@ export const useEditorStore = create<EditorState>()(
 
                 if (!state) return;
 
-                const workspaceSessions = state.workspaceSessions && Object.keys(state.workspaceSessions).length > 0
+                const legacySessions = (state as any).workspaceSessions;
+                const rawProjectSessions: Record<string, Partial<ProjectEditorSession> | null | undefined> | undefined =
+                    state.projectSessions && Object.keys(state.projectSessions).length > 0
+                    ? state.projectSessions
+                    : legacySessions;
+
+                const projectSessions = rawProjectSessions && Object.keys(rawProjectSessions).length > 0
                     ? Object.fromEntries(
-                        Object.entries(state.workspaceSessions).map(([workspaceId, session]) => [
-                            workspaceId,
+                        Object.entries(rawProjectSessions).map(([projectId, session]) => [
+                            projectId,
                             normalizeSession(session),
                         ])
                     )
                     : { [DEFAULT_WORKSPACE_ID]: createEmptySession() };
 
-                const activeWorkspaceId = state.activeWorkspaceId && workspaceSessions[state.activeWorkspaceId]
-                    ? state.activeWorkspaceId
+                const legacyActiveProjectId = (state as any).activeWorkspaceId;
+                const rawActiveProjectId = state.activeProjectId || legacyActiveProjectId;
+                const activeProjectId = rawActiveProjectId && projectSessions[rawActiveProjectId]
+                    ? rawActiveProjectId
                     : DEFAULT_WORKSPACE_ID;
-                const activeSession = normalizeSession(workspaceSessions[activeWorkspaceId]);
+                const activeSession = normalizeSession(projectSessions[activeProjectId]);
 
-                state.workspaceSessions = workspaceSessions;
-                state.activeWorkspaceId = activeWorkspaceId;
+                state.projectSessions = projectSessions;
+                state.activeProjectId = activeProjectId;
                 state.groups = activeSession.groups;
                 state.activeGroupId = activeSession.activeGroupId;
             },

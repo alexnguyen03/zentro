@@ -5,7 +5,6 @@ import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
-import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { getEnvironmentLabel } from '../../lib/projects';
 import { DRIVER, CONNECTION_STATUS } from '../../lib/constants';
 
@@ -24,9 +23,6 @@ export const StatusBar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
-    const activeWorkspace = useWorkspaceStore((state) =>
-        state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) || null
-    );
 
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.CONNECTED && activeProfile) {
@@ -106,12 +102,6 @@ export const StatusBar: React.FC = () => {
         >
             <div className="flex items-center gap-3 font-medium text-[11px] text-white/90 min-w-0">
                 <span className="tracking-wide uppercase text-[10px] opacity-90 shrink-0">{projectLabel}</span>
-                {activeWorkspace && (
-                    <>
-                        <span className="opacity-40 shrink-0">|</span>
-                        <span className="tracking-wide uppercase text-[10px] opacity-90 truncate">{activeWorkspace.name}</span>
-                    </>
-                )}
                 <span className="opacity-40 shrink-0">|</span>
                 <span className="tracking-wide uppercase text-[10px] opacity-90 truncate">{connectionLabel}</span>
                 <span className="uppercase text-[10px] opacity-80 shrink-0">{txLabel}</span>

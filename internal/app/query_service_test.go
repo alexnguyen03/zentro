@@ -1,9 +1,13 @@
 package app
 
 import (
+	"context"
+	"database/sql"
 	"testing"
+	"time"
 
 	"zentro/internal/constant"
+	"zentro/internal/utils"
 )
 
 func TestBuildExplainQuery(t *testing.T) {
@@ -84,5 +88,68 @@ func TestFormatSQLServerUUID(t *testing.T) {
 	want := "01234567-89ab-cdef-0123-456789abcdef"
 	if got != want {
 		t.Fatalf("unexpected uuid: got %s want %s", got, want)
+	}
+}
+
+func TestStreamSelect_SkipsPrimaryKeyLookupWhenDBIsNil(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	if _, err := db.Exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);"); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+	if _, err := db.Exec("INSERT INTO users (name) VALUES ('alice'), ('bob');"); err != nil {
+		t.Fatalf("failed to seed table: %v", err)
+	}
+
+	doneCh := make(chan map[string]any, 1)
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{DefaultLimit: 100, ChunkSize: 10, QueryTimeout: 5}
+		},
+		func() *sql.DB { return nil },
+		func() sqlExecutor { return db },
+		func() string { return constant.DriverSQLite },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
+			if eventName != constant.EventQueryDone {
+				return
+			}
+			data, ok := payload.(map[string]any)
+			if ok {
+				doneCh <- data
+			}
+		}},
+	)
+
+	err := svc.streamSelect(
+		context.Background(),
+		db,
+		queryStatement{
+			SourceTabID: "source-tab",
+			TabID:       "tab-users",
+			Text:        "SELECT id, name FROM users",
+			Index:       0,
+			Count:       1,
+		},
+		0,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("expected query to succeed even without metadata db, got %v", err)
+	}
+
+	select {
+	case done := <-doneCh:
+		if got, ok := done["affected"].(int64); !ok || got != 2 {
+			t.Fatalf("expected affected=2, got %#v", done["affected"])
+		}
+		if _, hasErr := done["error"]; hasErr {
+			t.Fatalf("expected no query error, got %#v", done["error"])
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for done event")
 	}
 }

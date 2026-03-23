@@ -7,7 +7,7 @@ interface EnvironmentState {
     environments: ProjectEnvironment[];
     activeEnvironmentKey: EnvironmentKey | null;
 
-    bootstrap: (project: Project | null, preferredKey?: EnvironmentKey | null) => void;
+    bootstrap: (project: Project | null) => void;
     setActiveEnvironment: (key: EnvironmentKey | null) => void;
     clear: () => void;
 }
@@ -30,7 +30,7 @@ export const useEnvironmentStore = create<EnvironmentState>()(
         environments: [],
         activeEnvironmentKey: null,
 
-        bootstrap: (project, preferredKey) => {
+        bootstrap: (project) => {
             if (!project) {
                 set({ environments: [], activeEnvironmentKey: null });
                 return;
@@ -40,7 +40,7 @@ export const useEnvironmentStore = create<EnvironmentState>()(
                 ? project.environments
                 : [buildFallbackEnvironment(project)];
 
-            const requestedKey = preferredKey || project.default_environment_key || environments[0]?.key || null;
+            const requestedKey = project.last_active_environment_key || project.default_environment_key || environments[0]?.key || 'loc';
             const activeEnvironmentKey = environments.some((environment) => environment.key === requestedKey)
                 ? requestedKey
                 : environments[0]?.key || null;
@@ -54,10 +54,6 @@ export const useEnvironmentStore = create<EnvironmentState>()(
         setActiveEnvironment: (key) => set((state) => {
             if (!key) {
                 return { activeEnvironmentKey: null };
-            }
-
-            if (!state.environments.some((environment) => environment.key === key)) {
-                return state;
             }
 
             return { activeEnvironmentKey: key };

@@ -234,22 +234,28 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 		parsedSchema, table := dbpkg.ExtractTableFromQuery(statement.Text)
 		if table != "" {
 			tableName = table
-			trySchemas := []string{parsedSchema}
-			if parsedSchema == "" {
-				if d, ok := getDriver(driver); ok {
-					trySchemas = []string{d.DefaultSchema()}
+			if db == nil {
+				s.logger.Warn("skipping primary key lookup because active db is nil", "tab", statement.TabID, "table", table)
+			} else {
+				trySchemas := []string{parsedSchema}
+				if parsedSchema == "" {
+					if d, ok := getDriver(driver); ok {
+						trySchemas = []string{d.DefaultSchema()}
+					} else {
+						trySchemas = []string{""}
+					}
 				} else {
-					trySchemas = []string{""}
+					trySchemas = []string{parsedSchema}
 				}
-			}
-			for _, sch := range trySchemas {
-				keys, err := dbpkg.FetchTablePrimaryKeys(db, driver, sch, table)
-				if err == nil && len(keys) > 0 {
-					pks = keys
-					s.logger.Info("pk fetch ok", "table", table, "schema", sch, "pks", keys)
-					break
+				for _, sch := range trySchemas {
+					keys, err := dbpkg.FetchTablePrimaryKeys(db, driver, sch, table)
+					if err == nil && len(keys) > 0 {
+						pks = keys
+						s.logger.Info("pk fetch ok", "table", table, "schema", sch, "pks", keys)
+						break
+					}
+					s.logger.Warn("pk fetch failed", "table", table, "schema", sch, "err", err)
 				}
-				s.logger.Warn("pk fetch failed", "table", table, "schema", sch, "err", err)
 			}
 		}
 	}

@@ -10,7 +10,6 @@ import { cn } from '../../lib/cn';
 import { useProjectStore } from '../../stores/projectStore';
 import { getEnvironmentLabel } from '../../lib/projects';
 import { useEnvironmentStore } from '../../stores/environmentStore';
-import { useWorkspaceStore } from '../../stores/workspaceStore';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
@@ -18,9 +17,6 @@ export const Sidebar: React.FC = () => {
     const { setConnections, isConnected } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
-    const activeWorkspace = useWorkspaceStore((state) =>
-        state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) || null
-    );
     const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
     const [isCompact, setIsCompact] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -120,16 +116,6 @@ export const Sidebar: React.FC = () => {
                                 )}
                              </div>
 
-                             {!isCompact && activeWorkspace && (
-                                <div className="mb-6 rounded-2xl border border-border/40 bg-bg-primary/50 p-4">
-                                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Workspace</div>
-                                    <div className="mt-2 text-[13px] font-semibold text-text-primary">{activeWorkspace.name}</div>
-                                    <div className="mt-1 text-[11px] text-text-secondary">
-                                        {activeWorkspace.type} workspace
-                                    </div>
-                                </div>
-                             )}
-
                              <div className="space-y-6 w-full">
                                 <button 
                                     onClick={() => (window as any).dispatchEvent(new KeyboardEvent('keydown', { key: 'C', ctrlKey: true, shiftKey: true }))}
@@ -160,8 +146,8 @@ export const Sidebar: React.FC = () => {
                                             <li className="flex items-start gap-3">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5" />
                                                 <div>
-                                                    <div className="text-[12px] text-text-secondary">Open Workspaces</div>
-                                                    <div className="text-[10px] text-text-muted">Manage your saved profiles</div>
+                                                    <div className="text-[12px] text-text-secondary">Bind Environments</div>
+                                                    <div className="text-[10px] text-text-muted">Attach saved profiles to each target once</div>
                                                 </div>
                                             </li>
                                         </ul>

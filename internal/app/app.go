@@ -184,6 +184,7 @@ func (a *App) GetActiveProject() *models.Project { return a.project }
 // ── Connection ─────────────────────────────────────────────────────────────
 
 func (a *App) LoadConnections() ([]*models.ConnectionProfile, error) { return a.conn.LoadConnections() }
+func (a *App) LoadDatabasesForProfile(name string) ([]string, error) { return a.conn.LoadDatabasesForProfile(name) }
 func (a *App) SaveConnection(p models.ConnectionProfile) error       { return a.conn.SaveConnection(p) }
 func (a *App) DeleteConnection(name string) error                    { return a.conn.DeleteConnection(name) }
 func (a *App) TestConnection(p models.ConnectionProfile) error       { return a.conn.TestConnection(p) }

@@ -23,15 +23,15 @@ export interface TabResult {
     pendingDraftRows?: DraftRow[];
 }
 
-type WorkspaceResultBucket = Record<string, TabResult>;
+type ProjectResultBucket = Record<string, TabResult>;
 
 interface ResultState {
-    workspaceResults: Record<string, WorkspaceResultBucket>;
-    activeWorkspaceId: string | null;
-    results: WorkspaceResultBucket;
+    projectResults: Record<string, ProjectResultBucket>;
+    activeProjectId: string | null;
+    results: ProjectResultBucket;
 
-    switchWorkspace: (workspaceId: string | null) => void;
-    clearWorkspace: (workspaceId?: string | null) => void;
+    switchProject: (projectId: string | null) => void;
+    clearProject: (projectId?: string | null) => void;
     initTab: (tabId: string) => void;
     appendRows: (
         tabId: string,
@@ -53,62 +53,62 @@ interface ResultState {
 
 const DEFAULT_WORKSPACE_ID = '__default__';
 
-const createEmptyBucket = (): WorkspaceResultBucket => ({});
+const createEmptyBucket = (): ProjectResultBucket => ({});
 
-const getWorkspaceId = (workspaceId?: string | null) => workspaceId || DEFAULT_WORKSPACE_ID;
+const getProjectId = (projectId?: string | null) => projectId || DEFAULT_WORKSPACE_ID;
 
-function getActiveBucket(state: Pick<ResultState, 'workspaceResults' | 'activeWorkspaceId'>) {
-    return state.workspaceResults[getWorkspaceId(state.activeWorkspaceId)] || createEmptyBucket();
+function getActiveBucket(state: Pick<ResultState, 'projectResults' | 'activeProjectId'>) {
+    return state.projectResults[getProjectId(state.activeProjectId)] || createEmptyBucket();
 }
 
 function updateActiveBucket(
     state: ResultState,
-    updater: (bucket: WorkspaceResultBucket) => WorkspaceResultBucket
+    updater: (bucket: ProjectResultBucket) => ProjectResultBucket
 ) {
-    const workspaceId = getWorkspaceId(state.activeWorkspaceId);
+    const projectId = getProjectId(state.activeProjectId);
     const nextBucket = updater(getActiveBucket(state));
 
     return {
-        workspaceResults: {
-            ...state.workspaceResults,
-            [workspaceId]: nextBucket,
+        projectResults: {
+            ...state.projectResults,
+            [projectId]: nextBucket,
         },
         results: nextBucket,
     };
 }
 
 export const useResultStore = create<ResultState>(withStoreLogger('resultStore', (set, get) => ({
-    workspaceResults: {
+    projectResults: {
         [DEFAULT_WORKSPACE_ID]: createEmptyBucket(),
     },
-    activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+    activeProjectId: DEFAULT_WORKSPACE_ID,
     results: {},
 
-    switchWorkspace: (workspaceId) => set((state) => {
-        const nextWorkspaceId = getWorkspaceId(workspaceId);
-        const results = state.workspaceResults[nextWorkspaceId] || createEmptyBucket();
+    switchProject: (projectId) => set((state) => {
+        const nextProjectId = getProjectId(projectId);
+        const results = state.projectResults[nextProjectId] || createEmptyBucket();
 
         return {
-            workspaceResults: {
-                ...state.workspaceResults,
-                [nextWorkspaceId]: results,
+            projectResults: {
+                ...state.projectResults,
+                [nextProjectId]: results,
             },
-            activeWorkspaceId: nextWorkspaceId,
+            activeProjectId: nextProjectId,
             results,
         };
     }),
 
-    clearWorkspace: (workspaceId) => set((state) => {
-        const nextWorkspaceId = getWorkspaceId(workspaceId || state.activeWorkspaceId);
-        const workspaceResults = {
-            ...state.workspaceResults,
-            [nextWorkspaceId]: createEmptyBucket(),
+    clearProject: (projectId) => set((state) => {
+        const nextProjectId = getProjectId(projectId || state.activeProjectId);
+        const projectResults = {
+            ...state.projectResults,
+            [nextProjectId]: createEmptyBucket(),
         };
-        const isActive = nextWorkspaceId === getWorkspaceId(state.activeWorkspaceId);
+        const isActive = nextProjectId === getProjectId(state.activeProjectId);
 
         return {
-            workspaceResults,
-            ...(isActive ? { results: workspaceResults[nextWorkspaceId] } : {}),
+            projectResults,
+            ...(isActive ? { results: projectResults[nextProjectId] } : {}),
         };
     }),
 

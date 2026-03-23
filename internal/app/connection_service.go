@@ -55,6 +55,58 @@ func (s *ConnectionService) LoadConnections() ([]*models.ConnectionProfile, erro
 	return utils.LoadConnections()
 }
 
+func (s *ConnectionService) LoadDatabasesForProfile(name string) ([]string, error) {
+	profiles, err := utils.LoadConnections()
+	if err != nil {
+		return nil, err
+	}
+
+	var prof *models.ConnectionProfile
+	for _, p := range profiles {
+		if p.Name == name {
+			prof = p
+			break
+		}
+	}
+	if prof == nil {
+		return nil, fmt.Errorf("connection %q not found", name)
+	}
+
+	db, err := dbpkg.OpenConnection(prof)
+	if err != nil {
+		return nil, dbpkg.FriendlyError(prof.Driver, err)
+	}
+	defer db.Close()
+
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.ConnectTimeout)*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		return nil, dbpkg.FriendlyError(prof.Driver, err)
+	}
+
+	dbs, err := dbpkg.FetchDatabases(db, prof.Driver, prof.DBName, prof.ShowAllSchemas, s.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(dbs)+1)
+	seen := make(map[string]bool)
+	if prof.DBName != "" {
+		names = append(names, prof.DBName)
+		seen[prof.DBName] = true
+	}
+	for _, d := range dbs {
+		if d.Name == "" || seen[d.Name] {
+			continue
+		}
+		names = append(names, d.Name)
+		seen[d.Name] = true
+	}
+
+	return names, nil
+}
+
 func (s *ConnectionService) SaveConnection(p models.ConnectionProfile) error {
 	if p.SavePassword && !p.EncryptPassword {
 		p.EncryptPassword = true
@@ -377,20 +429,6 @@ func (s *ConnectionService) fetchDatabaseList(db *sql.DB, prof *models.Connectio
 		if !seen[d.Name] {
 			names = append(names, d.Name)
 			seen[d.Name] = true
-		}
-	}
-
-	allProfiles, loadErr := utils.LoadConnections()
-	if loadErr == nil {
-		for _, p := range allProfiles {
-			if p.Driver == prof.Driver &&
-				p.Host == prof.Host &&
-				p.Port == prof.Port &&
-				p.DBName != "" &&
-				!seen[p.DBName] {
-				names = append(names, p.DBName)
-				seen[p.DBName] = true
-			}
 		}
 	}
 
