@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEY } from '../lib/constants';
-import { createProject, getActiveProject, listProjects, openProject } from '../lib/projectApi';
-import type { Project } from '../types/project';
+import { createProject, getActiveProject, listProjects, openProject, saveProject as persistProject } from '../lib/projectApi';
+import type { Project, Workspace } from '../types/project';
 import { withStoreLogger } from './logger';
 
 interface ProjectState {
@@ -16,8 +16,18 @@ interface ProjectState {
     bootstrap: () => Promise<void>;
     openProject: (projectId: string) => Promise<Project | null>;
     createProject: (input: Pick<Project, 'name' | 'description' | 'tags'>) => Promise<Project | null>;
+    saveProject: (project: Project) => Promise<Project | null>;
+    setLastWorkspace: (workspaceId: string) => Promise<Project | null>;
     setActiveProject: (project: Project | null) => void;
     clearActiveProject: () => void;
+}
+
+function patchProjects(projects: Project[], project: Project) {
+    const nextProjects = projects.some((item) => item.id === project.id)
+        ? projects.map((item) => (item.id === project.id ? project : item))
+        : [...projects, project];
+
+    return [...nextProjects].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -111,6 +121,43 @@ export const useProjectStore = create<ProjectState>()(
                     set({ isLoading: false, error: message });
                     return null;
                 }
+            },
+
+            saveProject: async (project) => {
+                set({ isLoading: true, error: null });
+                try {
+                    const savedProject = await persistProject(project);
+                    set((state) => ({
+                        projects: patchProjects(state.projects, savedProject),
+                        activeProject: state.activeProject?.id === savedProject.id ? savedProject : state.activeProject,
+                        selectedProjectId: state.selectedProjectId || savedProject.id,
+                        isLoading: false,
+                    }));
+                    return savedProject;
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    set({ isLoading: false, error: message });
+                    return null;
+                }
+            },
+
+            setLastWorkspace: async (workspaceId: string) => {
+                const activeProject = get().activeProject;
+                if (!activeProject) return null;
+
+                const matchedWorkspace = activeProject.workspaces?.find((workspace) => workspace.id === workspaceId);
+                const workspaces: Workspace[] = (activeProject.workspaces || []).map((workspace) => (
+                    workspace.id === workspaceId
+                        ? { ...workspace, last_opened_at: new Date().toISOString() }
+                        : workspace
+                ));
+
+                return get().saveProject({
+                    ...activeProject,
+                    last_workspace_id: workspaceId,
+                    default_environment_key: matchedWorkspace?.environment_key || activeProject.default_environment_key,
+                    workspaces,
+                });
             },
 
             setActiveProject: (project) => set({

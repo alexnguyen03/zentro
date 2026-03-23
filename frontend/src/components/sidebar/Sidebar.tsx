@@ -10,6 +10,7 @@ import { cn } from '../../lib/cn';
 import { useProjectStore } from '../../stores/projectStore';
 import { getEnvironmentLabel } from '../../lib/projects';
 import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
@@ -17,6 +18,9 @@ export const Sidebar: React.FC = () => {
     const { setConnections, isConnected } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const activeWorkspace = useWorkspaceStore((state) =>
+        state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) || null
+    );
     const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
     const [isCompact, setIsCompact] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -108,13 +112,23 @@ export const Sidebar: React.FC = () => {
                              <div className={cn("mb-8", isCompact && "text-center")}>
                                 <h3 className="text-[15px] font-bold text-text-primary tracking-tight">Explorer</h3>
                                 {!isCompact && (
-                                        <p className="text-[12px] text-text-muted mt-1">
-                                            {activeProject
+                                    <p className="text-[12px] text-text-muted mt-1">
+                                        {activeProject
                                             ? `${activeProject.name} / ${getEnvironmentLabel(activeEnvironmentKey || activeProject.default_environment_key)}`
                                             : 'Project foundation loaded'}
-                                        </p>
+                                    </p>
                                 )}
                              </div>
+
+                             {!isCompact && activeWorkspace && (
+                                <div className="mb-6 rounded-2xl border border-border/40 bg-bg-primary/50 p-4">
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">Workspace</div>
+                                    <div className="mt-2 text-[13px] font-semibold text-text-primary">{activeWorkspace.name}</div>
+                                    <div className="mt-1 text-[11px] text-text-secondary">
+                                        {activeWorkspace.type} workspace
+                                    </div>
+                                </div>
+                             )}
 
                              <div className="space-y-6 w-full">
                                 <button 

@@ -18,6 +18,7 @@ import {
     Search,
     Columns2,
     Layers3,
+    LayoutTemplate,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -29,6 +30,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
+import { WorkspaceSwitcherModal } from './WorkspaceSwitcherModal';
 import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
@@ -61,6 +63,7 @@ export const Toolbar: React.FC = () => {
     const [pickerOpen, setPickerOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
+    const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 
     const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
 
@@ -166,6 +169,17 @@ export const Toolbar: React.FC = () => {
                 </Button>
 
                 <Divider orientation="vertical" className="h-5" />
+
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Switch Workspace"
+                    onClick={() => setWorkspaceSwitcherOpen(true)}
+                    className="gap-2 max-w-[180px] px-2.5"
+                >
+                    <LayoutTemplate size={13} />
+                    <span className="truncate">{activeWorkspace?.name || 'Workspace'}</span>
+                </Button>
 
                 <Button variant="ghost" size="icon" title="New Tab (Ctrl+T)" onClick={() => addTab()}>
                     <Plus size={16} />
@@ -303,6 +317,7 @@ export const Toolbar: React.FC = () => {
                 </div>
 
                 {pickerOpen && <WorkspaceModal onClose={() => setPickerOpen(false)} />}
+                {workspaceSwitcherOpen && <WorkspaceSwitcherModal onClose={() => setWorkspaceSwitcherOpen(false)} />}
             </div>
 
             <div className="flex items-center shrink-0">
