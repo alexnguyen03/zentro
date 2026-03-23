@@ -203,10 +203,10 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
   },
   {
     id: 'connection.openWorkspaces',
-    label: 'Open Workspaces / Switch Connection',
+    label: 'Switch Environment / Connection',
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+C',
-    action: () => { window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_WORKSPACE_MODAL)); },
+    action: () => { window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)); },
   },
   {
     id: 'connection.beginTx',
