@@ -9,6 +9,7 @@ import { useResultStore } from './stores/resultStore';
 import { useStatusStore } from './stores/statusStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useLayoutStore } from './stores/layoutStore';
+import { useProjectStore } from './stores/projectStore';
 import {
     onConnectionChanged,
     onSchemaDatabases,
@@ -48,6 +49,8 @@ function clearGeneratedResults(sourceTabID: string) {
 function App() {
     const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
     const { setTransactionStatus } = useStatusStore();
+    const bootstrapProjects = useProjectStore((state) => state.bootstrap);
+    const activeProject = useProjectStore((state) => state.activeProject);
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
     const { bindings, chordStart, chordUntil, setChord } = useShortcutStore();
@@ -81,6 +84,9 @@ function App() {
 
     useEffect(() => {
         useSettingsStore.getState().load();
+        bootstrapProjects().catch((error) => {
+            appLogger.warn('project bootstrap failed', error);
+        });
 
         const subs = [
             onConnectionChanged((data: ConnectionChangedPayload) => {
@@ -163,7 +169,7 @@ function App() {
         ];
 
         return () => subs.forEach((unsub) => unsub());
-    }, [setActiveProfile, setConnectionStatus, setDatabases, setIsConnected, setTransactionStatus, toast]);
+    }, [bootstrapProjects, setActiveProfile, setConnectionStatus, setDatabases, setIsConnected, setTransactionStatus, toast]);
 
     useEffect(() => {
         window.addEventListener('mousemove', resize);
@@ -259,8 +265,14 @@ function App() {
                         {!isConnected ? (
                             <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
                                 <span className="text-3xl">Plug</span>
-                                <h3 className="m-0 text-sm font-semibold text-text-primary">No active connection</h3>
-                                <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
+                                <h3 className="m-0 text-sm font-semibold text-text-primary">
+                                    {activeProject ? 'No active connection' : 'No active project'}
+                                </h3>
+                                <p className="m-0 text-xs text-center max-w-[320px]">
+                                    {activeProject
+                                        ? `Project "${activeProject.name}" is loaded. Select or add a connection from the sidebar to begin.`
+                                        : 'Phase 1 foundation is ready, but no project is currently loaded. Project Hub will land in Phase 2.'}
+                                </p>
                                 {activeProfile && (
                                     <button
                                         onClick={() => Connect(activeProfile.name).catch(() => { })}

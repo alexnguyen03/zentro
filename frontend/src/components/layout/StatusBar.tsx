@@ -3,6 +3,8 @@ import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { getEnvironmentLabel } from '../../lib/projects';
 import { DRIVER, CONNECTION_STATUS } from '../../lib/constants';
 
 export const StatusBar: React.FC = () => {
@@ -18,6 +20,7 @@ export const StatusBar: React.FC = () => {
         setCurrentDriver,
     } = useStatusStore();
     const { activeProfile, connectionStatus } = useConnectionStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
 
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.CONNECTED && activeProfile) {
@@ -83,6 +86,10 @@ export const StatusBar: React.FC = () => {
         error: 'TX: error',
     }[transactionStatus];
 
+    const projectLabel = activeProject
+        ? `${activeProject.name} / ${getEnvironmentLabel(activeProject.default_environment_key)}`
+        : 'No Project';
+
     return (
         <div
             className={cn(
@@ -91,16 +98,18 @@ export const StatusBar: React.FC = () => {
                 status === 'connecting' && 'animate-pulse brightness-110'
             )}
         >
-            <div className="flex items-center gap-3 font-medium text-[11px] text-white/90">
-                <span className="tracking-wide uppercase text-[10px] opacity-90">{connectionLabel}</span>
-                <span className="uppercase text-[10px] opacity-80">{txLabel}</span>
+            <div className="flex items-center gap-3 font-medium text-[11px] text-white/90 min-w-0">
+                <span className="tracking-wide uppercase text-[10px] opacity-90 shrink-0">{projectLabel}</span>
+                <span className="opacity-40 shrink-0">|</span>
+                <span className="tracking-wide uppercase text-[10px] opacity-90 truncate">{connectionLabel}</span>
+                <span className="uppercase text-[10px] opacity-80 shrink-0">{txLabel}</span>
                 {message && (
-                    <span className="bg-white/10 px-2 py-0.5 rounded animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5">
+                    <span className="bg-white/10 px-2 py-0.5 rounded animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0">
                         {message}
                     </span>
                 )}
             </div>
-            <div className="text-[10px] uppercase opacity-70">
+            <div className="text-[10px] uppercase opacity-70 shrink-0">
                 {currentDriver || 'idle'}
             </div>
         </div>

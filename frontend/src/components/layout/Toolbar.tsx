@@ -1,9 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Play, Square, Settings, ChevronDown, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight, GitBranchPlus, Check, Undo2, Search, Columns2 } from 'lucide-react';
+import {
+    Plus,
+    Play,
+    Square,
+    Settings,
+    ChevronDown,
+    RefreshCw,
+    Lock,
+    Minus,
+    X,
+    PanelLeft,
+    PanelBottom,
+    PanelRight,
+    GitBranchPlus,
+    Check,
+    Undo2,
+    Search,
+    Columns2,
+} from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useStatusStore } from '../../stores/statusStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery, Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 import { WorkspaceModal } from './WorkspaceModal';
@@ -11,6 +30,7 @@ import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { cn } from '../../lib/cn';
+import { getEnvironmentMeta } from '../../lib/projects';
 import { Button, Divider } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
 import { DOM_EVENT } from '../../lib/constants';
@@ -18,8 +38,16 @@ import { useToast } from './Toast';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
     const { groups, activeGroupId, addTab } = useEditorStore();
-    const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
+    const {
+        showSidebar,
+        showResultPanel,
+        showRightSidebar,
+        toggleSidebar,
+        toggleResultPanel,
+        toggleRightSidebar,
+    } = useLayoutStore();
     const { transactionStatus } = useStatusStore();
     const { toast } = useToast();
 
@@ -91,8 +119,10 @@ export const Toolbar: React.FC = () => {
 
     let breadcrumbLabel = 'No Connection';
     if (activeProfile) {
-        breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name}`;
+        breadcrumbLabel = `${activeProfile.name} / ${activeProfile.db_name}`;
     }
+
+    const envMeta = getEnvironmentMeta(activeProject?.default_environment_key);
 
     return (
         <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
@@ -100,7 +130,7 @@ export const Toolbar: React.FC = () => {
                 <div
                     className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative"
                     title={hasUpdate ? 'New version available!' : 'About Zentro'}
-                    onClick={() => hasUpdate ? setUpdateModalOpen(true) : setAboutOpen(true)}
+                    onClick={() => (hasUpdate ? setUpdateModalOpen(true) : setAboutOpen(true))}
                 >
                     <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
                     {hasUpdate && (
@@ -207,23 +237,41 @@ export const Toolbar: React.FC = () => {
             >
                 <div
                     className="flex justify-center relative h-10/12 my-1"
-                    style={{ width: 'min(400px, 33vw)', ['--wails-draggable' as any]: 'no-drag' }}
+                    style={{ width: 'min(520px, 44vw)', ['--wails-draggable' as any]: 'no-drag' }}
                 >
                     <div
                         className={cn(
                             'flex items-center gap-2 w-full px-3 rounded-full text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
                             'bg-success/10',
                             pickerOpen && 'border-success text-text-primary',
-                            !pickerOpen && 'hover:text-text-primary hover:border-border',
+                            !pickerOpen && 'hover:text-text-primary hover:border-border'
                         )}
                         onClick={() => setPickerOpen(true)}
                     >
+                        {activeProject && (
+                            <>
+                                <span className="truncate shrink max-w-[150px] text-text-primary font-semibold">
+                                    {activeProject.name}
+                                </span>
+                                <span
+                                    className={cn(
+                                        'shrink-0 px-1.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider leading-none',
+                                        envMeta.colorClass
+                                    )}
+                                >
+                                    {activeProject.default_environment_key}
+                                </span>
+                                <span className="text-text-secondary/40 shrink-0">/</span>
+                            </>
+                        )}
                         <span
                             className={cn(
                                 'w-2 h-2 rounded-full shrink-0 transition-all duration-300',
-                                connectionStatus === 'connected' ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]' :
-                                    connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_6px_rgba(255,95,87,0.5)] animate-pulse' :
-                                        'bg-text-secondary'
+                                connectionStatus === 'connected'
+                                    ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]'
+                                    : connectionStatus === 'error'
+                                        ? 'bg-red-500 shadow-[0_0_6px_rgba(255,95,87,0.5)] animate-pulse'
+                                        : 'bg-text-secondary'
                             )}
                             title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
                         />

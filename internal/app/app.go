@@ -26,11 +26,13 @@ type App struct {
 	logger  *slog.Logger
 	db      *sql.DB
 	profile *models.ConnectionProfile
+	project *models.Project
 	prefs   utils.Preferences
 
 	forceQuit bool
 	emitter   EventEmitter
 
+	projects  *ProjectService
 	conn      *ConnectionService
 	query     *QueryService
 	tx        *TransactionService
@@ -94,6 +96,7 @@ func NewApp() *App {
 	a.formatter = NewQueryFormatterService()
 	a.compare = NewQueryCompareService()
 	a.update = NewUpdateService("alexnguyen03/zentro")
+	a.projects = NewProjectService(nil)
 
 	return a
 }
@@ -109,6 +112,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.tx.ctx = ctx
 	a.tx.logger = a.logger
 	a.scripts.logger = a.logger
+	a.projects.logger = a.logger
 
 	prefs, err := utils.LoadPreferences()
 	if err != nil {
@@ -141,8 +145,41 @@ func (a *App) Shutdown() {
 		a.db = nil
 	}
 	a.profile = nil
+	a.project = nil
 	a.logger.Info("zentro shutdown complete")
 }
+
+func (a *App) ListProjects() ([]*models.Project, error) { return a.projects.ListProjects() }
+
+func (a *App) GetProject(projectID string) (*models.Project, error) {
+	return a.projects.GetProject(projectID)
+}
+
+func (a *App) CreateProject(p models.Project) (*models.Project, error) {
+	return a.projects.CreateProject(p)
+}
+
+func (a *App) SaveProject(p models.Project) (*models.Project, error) {
+	return a.projects.SaveProject(p)
+}
+
+func (a *App) DeleteProject(projectID string) error {
+	if a.project != nil && a.project.ID == projectID {
+		a.project = nil
+	}
+	return a.projects.DeleteProject(projectID)
+}
+
+func (a *App) OpenProject(projectID string) (*models.Project, error) {
+	project, err := a.projects.GetProject(projectID)
+	if err != nil {
+		return nil, err
+	}
+	a.project = project
+	return project, nil
+}
+
+func (a *App) GetActiveProject() *models.Project { return a.project }
 
 // ── Connection ─────────────────────────────────────────────────────────────
 

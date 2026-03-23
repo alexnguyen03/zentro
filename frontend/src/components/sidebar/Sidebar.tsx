@@ -7,11 +7,14 @@ import { SavedScriptsPanel } from './SavedScriptsPanel';
 import { LoadConnections, Connect, SwitchDatabase, GetConnectionStatus } from '../../../wailsjs/go/app/App';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
+import { useProjectStore } from '../../stores/projectStore';
+import { getEnvironmentLabel } from '../../lib/projects';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
 export const Sidebar: React.FC = () => {
     const { setConnections, connections, isConnected } = useConnectionStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
     const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
     const [isCompact, setIsCompact] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -117,7 +120,13 @@ export const Sidebar: React.FC = () => {
                         )}>
                              <div className={cn("mb-8", isCompact && "text-center")}>
                                 <h3 className="text-[15px] font-bold text-text-primary tracking-tight">Explorer</h3>
-                                {!isCompact && <p className="text-[12px] text-text-muted mt-1">Connect to a workspace</p>}
+                                {!isCompact && (
+                                    <p className="text-[12px] text-text-muted mt-1">
+                                        {activeProject
+                                            ? `${activeProject.name} / ${getEnvironmentLabel(activeProject.default_environment_key)}`
+                                            : 'Project foundation loaded'}
+                                    </p>
+                                )}
                              </div>
 
                              <div className="space-y-6 w-full">
