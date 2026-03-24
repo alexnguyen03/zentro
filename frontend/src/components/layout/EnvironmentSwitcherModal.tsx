@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgeCheck, Plug, RefreshCw } from 'lucide-react';
+import { BadgeCheck, Plug } from 'lucide-react';
 import { ModalBackdrop, Button, Spinner } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -13,6 +13,11 @@ import { Connect, LoadConnections, LoadDatabasesForProfile, SwitchDatabase } fro
 
 interface EnvironmentSwitcherModalProps {
     onClose: () => void;
+}
+
+interface EnvironmentDraftSelection {
+    profileName: string | null;
+    databaseName: string;
 }
 
 export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> = ({ onClose }) => {
@@ -30,15 +35,41 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     );
     const [isSaving, setIsSaving] = React.useState(false);
     const [isLoadingConnections, setIsLoadingConnections] = React.useState(false);
-    const [bindingProfileName, setBindingProfileName] = React.useState<string | null>(null);
+    const [draftSelections, setDraftSelections] = React.useState<Record<EnvironmentKey, EnvironmentDraftSelection>>({
+        loc: { profileName: null, databaseName: '' },
+        tes: { profileName: null, databaseName: '' },
+        dev: { profileName: null, databaseName: '' },
+        sta: { profileName: null, databaseName: '' },
+        pro: { profileName: null, databaseName: '' },
+    });
     const [availableDatabases, setAvailableDatabases] = React.useState<string[]>([]);
     const [isLoadingDatabases, setIsLoadingDatabases] = React.useState(false);
-    const [selectedDatabaseName, setSelectedDatabaseName] = React.useState('');
-    const [isUpdatingDatabase, setIsUpdatingDatabase] = React.useState(false);
 
     React.useEffect(() => {
         setSelectedEnvironmentKey((activeEnvironmentKey || activeProject?.last_active_environment_key || activeProject?.default_environment_key || 'loc') as EnvironmentKey);
     }, [activeEnvironmentKey, activeProject?.default_environment_key, activeProject?.last_active_environment_key]);
+
+    React.useEffect(() => {
+        if (!activeProject) return;
+
+        const nextSelections: Record<EnvironmentKey, EnvironmentDraftSelection> = {
+            loc: { profileName: null, databaseName: '' },
+            tes: { profileName: null, databaseName: '' },
+            dev: { profileName: null, databaseName: '' },
+            sta: { profileName: null, databaseName: '' },
+            pro: { profileName: null, databaseName: '' },
+        };
+
+        ENVIRONMENT_KEYS.forEach((environmentKey) => {
+            const projectConnection = activeProject.connections?.find((connection) => connection.environment_key === environmentKey);
+            nextSelections[environmentKey] = {
+                profileName: projectConnection?.advanced_meta?.profile_name || projectConnection?.name || null,
+                databaseName: projectConnection?.database || '',
+            };
+        });
+
+        setDraftSelections(nextSelections);
+    }, [activeProject]);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -75,13 +106,13 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const selectedProjectConnection = activeProject?.connections?.find(
         (connection) => connection.environment_key === selectedEnvironmentKey
     );
-    const boundProfileName = selectedProjectConnection?.advanced_meta?.profile_name || selectedProjectConnection?.name || null;
-    const selectedConnectionProfile = connections.find((profile) => profile.name === boundProfileName) || null;
-    const boundDatabaseName = selectedProjectConnection?.database || selectedConnectionProfile?.db_name || '';
-
-    React.useEffect(() => {
-        setSelectedDatabaseName(boundDatabaseName);
-    }, [boundDatabaseName, selectedEnvironmentKey]);
+    const persistedProfileName = selectedProjectConnection?.advanced_meta?.profile_name || selectedProjectConnection?.name || null;
+    const persistedDatabaseName = selectedProjectConnection?.database || '';
+    const persistedConnectionProfile = connections.find((profile) => profile.name === persistedProfileName) || null;
+    const selectedDraft = draftSelections[selectedEnvironmentKey];
+    const draftProfileName = selectedDraft?.profileName ?? persistedProfileName;
+    const selectedConnectionProfile = connections.find((profile) => profile.name === draftProfileName) || null;
+    const selectedDatabaseName = selectedDraft?.databaseName || persistedDatabaseName || selectedConnectionProfile?.db_name || '';
 
     React.useEffect(() => {
         let cancelled = false;
@@ -121,106 +152,87 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         };
     }, [selectedConnectionProfile?.name, activeProfile?.name, databases, toast]);
 
-    const handleSwitchEnvironment = async (environmentKey: EnvironmentKey) => {
-        const currentProject = useProjectStore.getState().activeProject;
-        if (!currentProject) {
-            toast.error('No active project is available for environment switching.');
-            return;
-        }
+    const updateDraftSelection = React.useCallback(
+        (environmentKey: EnvironmentKey, updater: (current: EnvironmentDraftSelection) => EnvironmentDraftSelection) => {
+            setDraftSelections((current) => ({
+                ...current,
+                [environmentKey]: updater(current[environmentKey] || { profileName: null, databaseName: '' }),
+            }));
+        },
+        []
+    );
 
-        setIsSaving(true);
-        const saved = await setProjectEnvironment(environmentKey);
-        if (!saved) {
-            setIsSaving(false);
-            toast.error('Could not switch environment.');
-            return;
-        }
-
-        useProjectStore.getState().setActiveProject(saved);
-        useEnvironmentStore.getState().setActiveEnvironment(environmentKey);
-        setIsSaving(false);
-        toast.success(`Switched to ${getEnvironmentMeta(environmentKey).label}.`);
-
-        setTimeout(() => {
-            onClose();
-        }, 0);
+    const handleSelectProfile = (profile: ConnectionProfile) => {
+        updateDraftSelection(selectedEnvironmentKey, (current) => ({
+            ...current,
+            profileName: profile.name,
+            databaseName: current.profileName === profile.name ? current.databaseName || profile.db_name : profile.db_name,
+        }));
     };
 
-    const handleBindProfile = async (profile: ConnectionProfile, databaseName?: string) => {
-        if (!activeProject) {
+    const handleSelectDatabase = (databaseName: string) => {
+        if (!selectedConnectionProfile) return;
+
+        updateDraftSelection(selectedEnvironmentKey, (current) => ({
+            ...current,
+            profileName: current.profileName || selectedConnectionProfile.name,
+            databaseName,
+        }));
+    };
+
+    const handleApply = async () => {
+        const currentProject = useProjectStore.getState().activeProject;
+        if (!currentProject) {
             toast.error('No active project is available for environment setup.');
             return;
         }
 
-        setBindingProfileName(profile.name);
-        const profileWithDatabase = databaseName ? { ...profile, db_name: databaseName } : profile;
-        const bound = await bindEnvironmentConnection(selectedEnvironmentKey, profileWithDatabase);
-        if (!bound) {
-            setBindingProfileName(null);
-            toast.error('Could not bind connection to environment.');
-            return;
-        }
-
-        const switched = await setProjectEnvironment(selectedEnvironmentKey);
-        if (!switched) {
-            setBindingProfileName(null);
-            toast.error('Connection was bound, but environment switching failed.');
-            return;
-        }
-
-        setActiveEnvironment(selectedEnvironmentKey);
-        useProjectStore.getState().setActiveProject(switched);
-
+        setIsSaving(true);
         try {
-            await Connect(profile.name);
-            if (databaseName || profile.db_name) {
-                await SwitchDatabase(databaseName || profile.db_name);
-            }
-        } catch (error) {
-            setBindingProfileName(null);
-            toast.error(`Environment configured, but connect failed: ${error}`);
-            onClose();
-            return;
-        }
+            const profileToBind = selectedConnectionProfile;
+            const databaseToUse = selectedDatabaseName || profileToBind?.db_name || '';
 
-        setBindingProfileName(null);
-        toast.success(`Bound ${profile.name} to ${getEnvironmentMeta(selectedEnvironmentKey).label}.`);
-        onClose();
-    };
-
-    const handleChangeDatabase = async (databaseName: string) => {
-        if (!selectedConnectionProfile) return;
-
-        setIsUpdatingDatabase(true);
-        const bound = await bindEnvironmentConnection(selectedEnvironmentKey, {
-            ...selectedConnectionProfile,
-            db_name: databaseName,
-        });
-        if (!bound) {
-            setIsUpdatingDatabase(false);
-            toast.error('Could not update the bound database.');
-            return;
-        }
-
-        setSelectedDatabaseName(databaseName);
-
-        const isCurrentEnvironment = (activeEnvironmentKey || activeProject?.default_environment_key) === selectedEnvironmentKey;
-        if (isCurrentEnvironment) {
-            try {
-                if (activeProfile?.name !== selectedConnectionProfile.name) {
-                    await Connect(selectedConnectionProfile.name);
+            if (profileToBind) {
+                const bound = await bindEnvironmentConnection(selectedEnvironmentKey, {
+                    ...profileToBind,
+                    db_name: databaseToUse,
+                });
+                if (!bound) {
+                    toast.error('Could not bind connection to environment.');
+                    return;
                 }
-                await SwitchDatabase(databaseName);
-            } catch (error) {
-                setIsUpdatingDatabase(false);
-                toast.error(`Database updated, but live switch failed: ${error}`);
+            }
+
+            const switched = await setProjectEnvironment(selectedEnvironmentKey);
+            if (!switched) {
+                toast.error('Could not switch environment.');
                 return;
             }
-        }
 
-        setIsUpdatingDatabase(false);
-        toast.success(`Database updated to ${databaseName}.`);
+            useProjectStore.getState().setActiveProject(switched);
+            setActiveEnvironment(selectedEnvironmentKey);
+
+            if (profileToBind) {
+                await Connect(profileToBind.name);
+                if (databaseToUse) {
+                    await SwitchDatabase(databaseToUse);
+                }
+            }
+
+            toast.success(`Applied ${getEnvironmentMeta(selectedEnvironmentKey).label}.`);
+            onClose();
+        } catch (error) {
+            toast.error(`Could not apply environment changes: ${error}`);
+        } finally {
+            setIsSaving(false);
+        }
     };
+
+    const isCurrentEnvironment = (activeEnvironmentKey || activeProject?.last_active_environment_key || activeProject?.default_environment_key) === selectedEnvironmentKey;
+    const hasDraftProfileChange = draftProfileName !== persistedProfileName;
+    const normalizedPersistedDatabaseName = persistedDatabaseName || persistedConnectionProfile?.db_name || '';
+    const hasDraftDatabaseChange = selectedDatabaseName !== normalizedPersistedDatabaseName;
+    const hasPendingChanges = !isCurrentEnvironment || hasDraftProfileChange || hasDraftDatabaseChange;
 
     if (!activeProject) return null;
 
@@ -235,7 +247,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                         <div className="text-[11px] font-semibold text-text-secondary">Project</div>
                         <div className="mt-2 text-[22px] font-bold tracking-tight text-text-primary">{activeProject.name}</div>
                         <p className="mt-2 text-[12px] leading-5 text-text-secondary">
-                            Pick an environment. If a connection is already bound, switching will reconnect automatically.
+                            Pick an environment. Changes stay in this modal until you apply them.
                         </p>
 
                         <div className="mt-5 rounded-3xl border border-border/30 bg-bg-secondary px-4 py-4">
@@ -324,19 +336,19 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 </div>
                                 <p className="m-0 mt-2 text-[12px] leading-5 text-text-secondary">
                                     {selectedConnectionProfile
-                                        ? `Bound to ${selectedConnectionProfile.name}.`
-                                        : 'No connection bound yet.'}
+                                        ? `Draft connection: ${selectedConnectionProfile.name}.`
+                                        : 'No connection selected yet.'}
                                 </p>
                             </div>
 
                             <div className="flex items-center gap-2">
                                 <Button
                                     variant="primary"
-                                    onClick={() => void handleSwitchEnvironment(selectedEnvironmentKey)}
-                                    disabled={isSaving}
+                                    onClick={() => void handleApply()}
+                                    disabled={isSaving || !hasPendingChanges}
                                     className="rounded-2xl"
                                 >
-                                    {isSaving ? 'Switching...' : 'Switch'}
+                                    {isSaving ? 'Applying...' : hasPendingChanges ? 'Apply' : 'Current'}
                                 </Button>
                                 <Button variant="ghost" onClick={onClose} className="rounded-2xl">
                                     Close
@@ -347,7 +359,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                         <div className="mt-5 rounded-3xl border border-border/30 bg-bg-primary/25 px-5 py-4">
                             <div className="flex items-center gap-2 text-[11px] font-semibold text-text-secondary">
                                 <Plug size={12} />
-                                Bound Connection
+                                Selected Connection
                             </div>
                             {selectedConnectionProfile ? (
                                 <div className="mt-3 space-y-4">
@@ -355,18 +367,14 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                         <div className="min-w-0">
                                             <div className="truncate text-[14px] font-semibold text-text-primary">{selectedConnectionProfile.name}</div>
                                             <div className="mt-1 text-[11px] text-text-secondary">
-                                                {selectedConnectionProfile.driver} / {selectedConnectionProfile.host}:{selectedConnectionProfile.port} / {boundDatabaseName || selectedConnectionProfile.db_name}
+                                                {selectedConnectionProfile.driver} / {selectedConnectionProfile.host}:{selectedConnectionProfile.port} / {selectedDatabaseName || selectedConnectionProfile.db_name}
                                             </div>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            className="gap-2 rounded-2xl"
-                                            onClick={() => selectedConnectionProfile && handleBindProfile(selectedConnectionProfile, selectedDatabaseName || boundDatabaseName || selectedConnectionProfile.db_name)}
-                                            disabled={bindingProfileName === selectedConnectionProfile.name}
-                                        >
-                                            {bindingProfileName === selectedConnectionProfile.name ? <Spinner size={12} /> : <RefreshCw size={13} />}
-                                            Rebind
-                                        </Button>
+                                        {(hasDraftProfileChange || hasDraftDatabaseChange) && (
+                                            <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                                                Pending
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div>
@@ -383,13 +391,12 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                         ) : (
                                             <div className="mt-2 max-h-[140px] space-y-2 overflow-y-auto">
                                                 {availableDatabases.map((databaseName) => {
-                                                    const isCurrentDb = (selectedDatabaseName || boundDatabaseName) === databaseName;
+                                                    const isCurrentDb = selectedDatabaseName === databaseName;
                                                     return (
                                                         <button
                                                             key={databaseName}
                                                             type="button"
-                                                            onClick={() => void handleChangeDatabase(databaseName)}
-                                                            disabled={isUpdatingDatabase}
+                                                            onClick={() => handleSelectDatabase(databaseName)}
                                                             className={cn(
                                                                 'flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-left transition-colors',
                                                                 isCurrentDb
@@ -400,7 +407,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                             <span className="truncate text-[12px] font-medium text-text-primary">{databaseName}</span>
                                                             {isCurrentDb && (
                                                                 <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                                                                    Current
+                                                                    Selected
                                                                 </span>
                                                             )}
                                                         </button>
@@ -412,7 +419,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 </div>
                             ) : (
                                 <div className="mt-3 text-[12px] text-text-secondary">
-                                    Choose one saved connection below to make this environment ready.
+                                    Choose one saved connection below. It will not affect the app until you apply.
                                 </div>
                             )}
                         </div>
@@ -435,9 +442,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             ) : (
                                 <div className="space-y-2">
                                     {connections.map((profile) => {
-                                        const isBound = profile.name === boundProfileName;
+                                        const isBound = profile.name === draftProfileName;
                                         const isCurrentProfile = profile.name === activeProfile?.name;
-                                        const isBinding = bindingProfileName === profile.name;
 
                                         return (
                                             <div
@@ -457,7 +463,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                         )}
                                                         {isBound && (
                                                             <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                                                                Bound
+                                                                Selected
                                                             </span>
                                                         )}
                                                     </div>
@@ -467,11 +473,10 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                 </div>
                                                 <Button
                                                     variant={isBound ? 'ghost' : 'primary'}
-                                                    onClick={() => void handleBindProfile(profile, profile.db_name)}
-                                                    disabled={isBinding}
+                                                    onClick={() => handleSelectProfile(profile)}
                                                     className="shrink-0 rounded-2xl"
                                                 >
-                                                    {isBinding ? 'Binding...' : isBound ? 'Use' : 'Bind'}
+                                                    {isBound ? 'Selected' : 'Choose'}
                                                 </Button>
                                             </div>
                                         );

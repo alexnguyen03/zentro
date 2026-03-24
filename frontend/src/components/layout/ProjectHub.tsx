@@ -3,7 +3,7 @@ import {
     ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, ChevronRight,
     FolderPlus, Layers3, Plus, Plug,
 } from 'lucide-react';
-import { Disconnect, LoadConnections, Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { Disconnect, LoadConnections, LoadDatabasesForProfile, Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
 import { Button, Input, ModalBackdrop, Spinner } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -15,7 +15,6 @@ import { ConnectionForm } from '../connection/ConnectionForm';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import { DRIVER } from '../../lib/constants';
-import { onConnectionChanged, onSchemaDatabases } from '../../lib/events';
 import type { EnvironmentKey } from '../../types/project';
 import type { ConnectionProfile } from '../../types/connection';
 import { useToast } from './Toast';
@@ -125,44 +124,10 @@ const EnvSetupStep: React.FC<EnvSetupStepProps> = ({ onEnterApp, onBack }) => {
         return { profileName, dbName };
     };
 
-    const fetchDatabasesForProfile = React.useCallback((profile: ConnectionProfile) => (
-        new Promise<string[]>((resolve, reject) => {
-            let settled = false;
-            let timer = 0;
-
-            const cleanup = () => {
-                if (settled) return;
-                settled = true;
-                window.clearTimeout(timer);
-                offSchema();
-                offConnection();
-            };
-
-            const offSchema = onSchemaDatabases((data) => {
-                if (data.profileName !== profile.name) return;
-                cleanup();
-                resolve(data.databases || []);
-            });
-
-            const offConnection = onConnectionChanged((data) => {
-                if (data.profile?.name !== profile.name) return;
-                if (data.status === 'error' || data.status === 'disconnected') {
-                    cleanup();
-                    reject(new Error(`connection ${data.status}`));
-                }
-            });
-
-            timer = window.setTimeout(() => {
-                cleanup();
-                reject(new Error('timeout'));
-            }, 15000);
-
-            Connect(profile.name!).catch((err) => {
-                cleanup();
-                reject(err);
-            });
-        })
-    ), []);
+    const fetchDatabasesForProfile = React.useCallback(
+        async (profile: ConnectionProfile) => LoadDatabasesForProfile(profile.name!),
+        []
+    );
 
     const handleExpandServer = async (serverKey: string, group: ServerGroup) => {
         if (expandedServer === serverKey) {
@@ -354,7 +319,7 @@ const EnvSetupStep: React.FC<EnvSetupStepProps> = ({ onEnterApp, onBack }) => {
                                                     <div className="border-t border-border/15">
                                                         {isLoading ? (
                                                             <div className="flex items-center gap-2 px-6 py-4 text-[12px] text-text-secondary">
-                                                                <Spinner size={12} /> Connecting...
+                                                                <Spinner size={12} /> Loading databases...
                                                             </div>
                                                         ) : !cachedDbs || Object.values(cachedDbs).flat().length === 0 ? (
                                                             <div className="px-6 py-4 text-[12px] text-text-secondary italic">
