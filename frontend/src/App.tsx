@@ -85,6 +85,7 @@ function App() {
 
     const [sidebarWidth, setSidebarWidth] = useState(250);
     const isResizing = useRef(false);
+    const connectAttemptRef = useRef<string>('');
 
     const startResizing = React.useCallback(() => { isResizing.current = true; }, []);
     const stopResizing = React.useCallback(() => { isResizing.current = false; }, []);
@@ -198,33 +199,44 @@ function App() {
             clearEnvironment();
             return;
         }
-        if (activeEnvironmentKey) {
-            return;
-        }
         bootstrapEnvironment(activeProject);
-    }, [activeProject, activeEnvironmentKey, bootstrapEnvironment, clearEnvironment]);
+    }, [activeProject, bootstrapEnvironment, clearEnvironment]);
 
     useEffect(() => {
-        if (!activeEnvironmentKey) return;
+        const targetEnvironmentKey = activeEnvironmentKey || activeProject?.last_active_environment_key || activeProject?.default_environment_key;
+        if (!activeProject || !targetEnvironmentKey) return;
 
-        const connection = activeProject?.connections?.find((item) => item.environment_key === activeEnvironmentKey);
+        const connection = activeProject.connections?.find((item) => item.environment_key === targetEnvironmentKey);
         const profileName = connection?.advanced_meta?.profile_name || connection?.name;
         const dbName = connection?.database || connection?.advanced_meta?.db_name;
+        const targetDbName = dbName || '';
 
         if (!profileName) return;
 
+        const targetKey = `${activeProject.id}:${targetEnvironmentKey}:${profileName}:${targetDbName}`;
+        const isSameProfile = activeProfile?.name === profileName;
+        const isSameDatabase = (activeProfile?.db_name || '') === targetDbName;
+
         if (
-            activeProfile?.name === profileName &&
-            (connectionStatus === 'connected' || connectionStatus === 'connecting')
+            isSameProfile &&
+            isSameDatabase &&
+            connectionStatus === 'connected'
         ) {
+            connectAttemptRef.current = targetKey;
             return;
         }
+
+        if (connectionStatus === 'connecting' && connectAttemptRef.current === targetKey) {
+            return;
+        }
+
+        connectAttemptRef.current = targetKey;
 
         const doConnect = async () => {
             try {
                 await Connect(profileName);
-                if (dbName) {
-                    await SwitchDatabase(dbName);
+                if (targetDbName) {
+                    await SwitchDatabase(targetDbName);
                 }
             } catch (error) {
                 appLogger.warn('auto reconnect failed', { profileName, error });
@@ -232,7 +244,7 @@ function App() {
         };
 
         doConnect();
-    }, [activeEnvironmentKey]);
+    }, [activeEnvironmentKey, activeProfile?.db_name, activeProfile?.name, activeProject, connectionStatus]);
 
     useEffect(() => {
         const isTypingTarget = (target: EventTarget | null) => {
