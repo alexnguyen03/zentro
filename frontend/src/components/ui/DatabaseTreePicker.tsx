@@ -6,7 +6,7 @@ import { Spinner } from './Spinner';
 import type { ConnectionProfile } from '../../types/connection';
 
 interface DatabaseTreePickerProps {
-    onSelect: (profileName: string, database: string) => void;
+    onSelect: (profile: ConnectionProfile, database: string) => void;
     selectedProfile?: string | null;
     selectedDatabase?: string;
 }
@@ -114,9 +114,11 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
 
     const handleSelect = useCallback(
         (profileName: string, database: string) => {
-            onSelect(profileName, database);
+            const node = connections.find((item) => item.profile.name === profileName);
+            if (!node) return;
+            onSelect(node.profile, database);
         },
-        [onSelect],
+        [connections, onSelect],
     );
 
     if (loading) {

@@ -72,6 +72,14 @@ func (s *ConnectionService) LoadDatabasesForProfile(name string) ([]string, erro
 		return nil, fmt.Errorf("connection %q not found", name)
 	}
 
+	return s.LoadDatabasesForConnectionProfile(prof)
+}
+
+func (s *ConnectionService) LoadDatabasesForConnectionProfile(prof *models.ConnectionProfile) ([]string, error) {
+	if prof == nil {
+		return nil, fmt.Errorf("connection profile is required")
+	}
+
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
 		return nil, dbpkg.FriendlyError(prof.Driver, err)

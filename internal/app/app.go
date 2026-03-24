@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -27,6 +28,7 @@ type App struct {
 	db      *sql.DB
 	profile *models.ConnectionProfile
 	project *models.Project
+	draft   []*models.ConnectionProfile
 	prefs   utils.Preferences
 
 	forceQuit bool
@@ -48,6 +50,7 @@ type App struct {
 func NewApp() *App {
 	a := &App{
 		emitter: NewWailsEventEmitter(),
+		draft:   []*models.ConnectionProfile{},
 	}
 
 	a.history = NewHistoryService(func() *models.ConnectionProfile { return a.profile })
@@ -156,11 +159,24 @@ func (a *App) GetProject(projectID string) (*models.Project, error) {
 }
 
 func (a *App) CreateProject(p models.Project) (*models.Project, error) {
-	return a.projects.CreateProject(p)
+	project, err := a.projects.CreateProject(p)
+	if err != nil {
+		return nil, err
+	}
+	a.project = project
+	a.draft = []*models.ConnectionProfile{}
+	return project, nil
 }
 
 func (a *App) SaveProject(p models.Project) (*models.Project, error) {
-	return a.projects.SaveProject(p)
+	project, err := a.projects.SaveProject(p)
+	if err != nil {
+		return nil, err
+	}
+	if a.project == nil || a.project.ID == project.ID {
+		a.project = project
+	}
+	return project, nil
 }
 
 func (a *App) DeleteProject(projectID string) error {
@@ -176,6 +192,7 @@ func (a *App) OpenProject(projectID string) (*models.Project, error) {
 		return nil, err
 	}
 	a.project = project
+	a.draft = []*models.ConnectionProfile{}
 	return project, nil
 }
 
@@ -183,16 +200,115 @@ func (a *App) GetActiveProject() *models.Project { return a.project }
 
 // ── Connection ─────────────────────────────────────────────────────────────
 
-func (a *App) LoadConnections() ([]*models.ConnectionProfile, error) { return a.conn.LoadConnections() }
-func (a *App) LoadDatabasesForProfile(name string) ([]string, error) { return a.conn.LoadDatabasesForProfile(name) }
-func (a *App) SaveConnection(p models.ConnectionProfile) error       { return a.conn.SaveConnection(p) }
-func (a *App) DeleteConnection(name string) error                    { return a.conn.DeleteConnection(name) }
-func (a *App) TestConnection(p models.ConnectionProfile) error       { return a.conn.TestConnection(p) }
-func (a *App) Connect(name string) error                             { return a.conn.Connect(name) }
-func (a *App) Reconnect() error                                      { return a.conn.Reconnect() }
-func (a *App) SwitchDatabase(dbName string) error                    { return a.conn.SwitchDatabase(dbName) }
-func (a *App) Disconnect()                                           { a.conn.Disconnect() }
-func (a *App) GetConnectionStatus() (map[string]any, error)          { return a.conn.GetConnectionStatus() }
+func (a *App) LoadConnections() ([]*models.ConnectionProfile, error) {
+	if a.project != nil {
+		return a.projectConnectionProfiles(), nil
+	}
+	return a.cloneDraftConnections(), nil
+}
+
+func (a *App) LoadDatabasesForProfile(name string) ([]string, error) {
+	if pc := a.findProjectConnectionByProfileName(name); pc != nil {
+		return a.conn.LoadDatabasesForConnectionProfile(projectConnectionToProfile(pc))
+	}
+	if draft := a.findDraftConnectionByName(name); draft != nil {
+		return a.conn.LoadDatabasesForConnectionProfile(draft)
+	}
+	return []string{}, nil
+}
+func (a *App) SaveConnection(p models.ConnectionProfile) error {
+	if a.project == nil {
+		a.upsertDraftConnection(&p)
+		return nil
+	}
+
+	matched := false
+	for i := range a.project.Connections {
+		connection := &a.project.Connections[i]
+		if connection.EnvironmentKey == "" && projectConnectionMatchesName(connection, p.Name) {
+			a.project.Connections[i] = profileToProjectConnection(a.project.ID, "", p, connection.ID)
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		a.project.Connections = append(a.project.Connections, profileToProjectConnection(a.project.ID, "", p, ""))
+	}
+
+	_, err := a.saveActiveProject()
+	return err
+}
+
+func (a *App) DeleteConnection(name string) error {
+	if name == "" {
+		return nil
+	}
+
+	if a.project == nil {
+		a.deleteDraftConnection(name)
+		return nil
+	}
+
+	deleted := map[string]bool{}
+	filtered := make([]models.ProjectConnection, 0, len(a.project.Connections))
+	for i := range a.project.Connections {
+		connection := a.project.Connections[i]
+		if projectConnectionMatchesName(&connection, name) {
+			if connection.ID != "" {
+				deleted[connection.ID] = true
+			}
+			continue
+		}
+		filtered = append(filtered, connection)
+	}
+	a.project.Connections = filtered
+
+	if len(deleted) > 0 {
+		for i := range a.project.Environments {
+			if deleted[a.project.Environments[i].ConnectionID] {
+				a.project.Environments[i].ConnectionID = ""
+			}
+		}
+	}
+
+	if a.profile != nil && a.profile.Name == name {
+		a.conn.Disconnect()
+	}
+
+	_, err := a.saveActiveProject()
+	return err
+}
+func (a *App) TestConnection(p models.ConnectionProfile) error { return a.conn.TestConnection(p) }
+func (a *App) Connect(name string) error {
+	if pc := a.findProjectConnectionByProfileName(name); pc != nil {
+		return a.conn.ConnectWithProfile(projectConnectionToProfile(pc))
+	}
+	if draft := a.findDraftConnectionByName(name); draft != nil {
+		return a.conn.ConnectWithProfile(draft)
+	}
+	return sql.ErrNoRows
+}
+
+func (a *App) ConnectProjectEnvironment(envKey string) error {
+	if a.project == nil {
+		return sql.ErrConnDone
+	}
+	targetKey := models.EnvironmentKey(envKey)
+	if targetKey == "" {
+		targetKey = a.project.DefaultEnvironmentKey
+	}
+
+	for i := range a.project.Connections {
+		if a.project.Connections[i].EnvironmentKey == targetKey {
+			return a.conn.ConnectWithProfile(projectConnectionToProfile(&a.project.Connections[i]))
+		}
+	}
+	return sql.ErrNoRows
+}
+func (a *App) Reconnect() error                             { return a.conn.Reconnect() }
+func (a *App) SwitchDatabase(dbName string) error           { return a.conn.SwitchDatabase(dbName) }
+func (a *App) Disconnect()                                  { a.conn.Disconnect() }
+func (a *App) GetConnectionStatus() (map[string]any, error) { return a.conn.GetConnectionStatus() }
 func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 	return a.conn.FetchDatabaseSchema(profileName, dbName)
 }
@@ -322,25 +438,220 @@ func (a *App) CheckForUpdates() (*UpdateInfo, error) {
 // ── Schema ─────────────────────────────────────────────────────────────────
 
 func (a *App) GetTableDDL(profileName, schema, tableName string) (string, error) {
-	return GetTableDDL(profileName, schema, tableName)
+	_ = profileName
+	return GetTableDDLWithConnection(a.profile, a.db, schema, tableName)
 }
 
 func (a *App) DropObject(profileName, schema, objectName, objectType string) error {
-	return DropObject(profileName, schema, objectName, objectType)
+	_ = profileName
+	return DropObjectWithConnection(a.profile, a.db, schema, objectName, objectType)
 }
 
 func (a *App) CreateIndex(profileName, schema, tableName, indexName string, columns []string, unique bool) error {
-	return CreateIndex(profileName, schema, tableName, indexName, columns, unique)
+	_ = profileName
+	return CreateIndexWithConnection(a.profile, a.db, schema, tableName, indexName, columns, unique)
 }
 
 func (a *App) DropIndex(profileName, schema, indexName string) error {
-	return DropIndex(profileName, schema, indexName)
+	_ = profileName
+	return DropIndexWithConnection(a.profile, a.db, schema, indexName)
 }
 
 func (a *App) GetIndexes(profileName, schema, tableName string) ([]IndexInfo, error) {
-	return GetIndexes(profileName, schema, tableName)
+	_ = profileName
+	return GetIndexesWithConnection(a.profile, a.db, schema, tableName)
 }
 
 func (a *App) CreateTable(profileName, schema, tableName string, columns []models.ColumnDef) error {
-	return CreateTable(profileName, schema, tableName, columns)
+	_ = profileName
+	return CreateTableWithConnection(a.profile, a.db, schema, tableName, columns)
+}
+
+func (a *App) findProjectConnectionByProfileName(profileName string) *models.ProjectConnection {
+	if a.project == nil || profileName == "" {
+		return nil
+	}
+	for i := range a.project.Connections {
+		c := &a.project.Connections[i]
+		if c.EnvironmentKey == a.project.DefaultEnvironmentKey {
+			if c.Name == profileName || c.AdvancedMeta["profile_name"] == profileName {
+				return c
+			}
+		}
+	}
+	for i := range a.project.Connections {
+		c := &a.project.Connections[i]
+		if c.Name == profileName || c.AdvancedMeta["profile_name"] == profileName {
+			return c
+		}
+	}
+	return nil
+}
+
+func (a *App) projectConnectionProfiles() []*models.ConnectionProfile {
+	if a.project == nil {
+		return []*models.ConnectionProfile{}
+	}
+	profiles := make([]*models.ConnectionProfile, 0, len(a.project.Connections))
+	seen := make(map[string]int)
+	for i := range a.project.Connections {
+		connection := &a.project.Connections[i]
+		profile := projectConnectionToProfile(connection)
+		if profile == nil || profile.Name == "" {
+			continue
+		}
+		if idx, ok := seen[profile.Name]; ok {
+			// Prefer local draft entries (environment_key = "") over bound env entries
+			// when names collide, so quick-saved credentials are visible immediately.
+			if connection.EnvironmentKey == "" {
+				profiles[idx] = profile
+			}
+			continue
+		}
+		seen[profile.Name] = len(profiles)
+		profiles = append(profiles, profile)
+	}
+	return profiles
+}
+
+func projectConnectionToProfile(c *models.ProjectConnection) *models.ConnectionProfile {
+	if c == nil {
+		return nil
+	}
+	p := &models.ConnectionProfile{
+		Name:            c.Name,
+		Driver:          c.Driver,
+		Host:            c.Host,
+		Port:            c.Port,
+		DBName:          c.Database,
+		Username:        c.Username,
+		Password:        c.Password,
+		SSLMode:         c.SSLMode,
+		SavePassword:    c.SavePassword,
+		EncryptPassword: boolFromMeta(c.AdvancedMeta, "encrypt_password", true),
+		ShowAllSchemas:  boolFromMeta(c.AdvancedMeta, "show_all_schemas", false),
+		TrustServerCert: boolFromMeta(c.AdvancedMeta, "trust_server_cert", false),
+		ConnectTimeout:  30,
+	}
+	if p.DBName == "" {
+		p.DBName = c.AdvancedMeta["db_name"]
+	}
+	if p.Name == "" {
+		p.Name = c.AdvancedMeta["profile_name"]
+	}
+	return p
+}
+
+func boolFromMeta(meta map[string]string, key string, fallback bool) bool {
+	if meta == nil {
+		return fallback
+	}
+	raw, ok := meta[key]
+	if !ok || raw == "" {
+		return fallback
+	}
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func (a *App) saveActiveProject() (*models.Project, error) {
+	if a.project == nil {
+		return nil, sql.ErrNoRows
+	}
+	saved, err := a.projects.SaveProject(*a.project)
+	if err != nil {
+		return nil, err
+	}
+	a.project = saved
+	return saved, nil
+}
+
+func (a *App) cloneDraftConnections() []*models.ConnectionProfile {
+	profiles := make([]*models.ConnectionProfile, 0, len(a.draft))
+	for i := range a.draft {
+		profiles = append(profiles, cloneConnectionProfile(a.draft[i]))
+	}
+	return profiles
+}
+
+func (a *App) findDraftConnectionByName(name string) *models.ConnectionProfile {
+	for i := range a.draft {
+		profile := a.draft[i]
+		if profile != nil && profile.Name == name {
+			return cloneConnectionProfile(profile)
+		}
+	}
+	return nil
+}
+
+func (a *App) upsertDraftConnection(profile *models.ConnectionProfile) {
+	if profile == nil || profile.Name == "" {
+		return
+	}
+
+	next := cloneConnectionProfile(profile)
+	for i := range a.draft {
+		if a.draft[i] != nil && a.draft[i].Name == next.Name {
+			a.draft[i] = next
+			return
+		}
+	}
+	a.draft = append(a.draft, next)
+}
+
+func (a *App) deleteDraftConnection(name string) {
+	filtered := make([]*models.ConnectionProfile, 0, len(a.draft))
+	for i := range a.draft {
+		profile := a.draft[i]
+		if profile == nil || profile.Name == name {
+			continue
+		}
+		filtered = append(filtered, profile)
+	}
+	a.draft = filtered
+}
+
+func cloneConnectionProfile(profile *models.ConnectionProfile) *models.ConnectionProfile {
+	if profile == nil {
+		return nil
+	}
+	copy := *profile
+	return &copy
+}
+
+func projectConnectionMatchesName(connection *models.ProjectConnection, name string) bool {
+	if connection == nil || name == "" {
+		return false
+	}
+	return connection.Name == name || connection.AdvancedMeta["profile_name"] == name
+}
+
+func profileToProjectConnection(projectID string, environmentKey models.EnvironmentKey, profile models.ConnectionProfile, existingID string) models.ProjectConnection {
+	if profile.SavePassword && !profile.EncryptPassword {
+		profile.EncryptPassword = true
+	}
+	return models.ProjectConnection{
+		ID:             existingID,
+		ProjectID:      projectID,
+		EnvironmentKey: environmentKey,
+		Name:           profile.Name,
+		Driver:         profile.Driver,
+		Host:           profile.Host,
+		Port:           profile.Port,
+		Database:       profile.DBName,
+		Username:       profile.Username,
+		Password:       profile.Password,
+		SavePassword:   profile.SavePassword,
+		SSLMode:        profile.SSLMode,
+		AdvancedMeta: map[string]string{
+			"profile_name":      profile.Name,
+			"db_name":           profile.DBName,
+			"encrypt_password":  strconv.FormatBool(profile.EncryptPassword),
+			"show_all_schemas":  strconv.FormatBool(profile.ShowAllSchemas),
+			"trust_server_cert": strconv.FormatBool(profile.TrustServerCert),
+		},
+	}
 }

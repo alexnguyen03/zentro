@@ -26,7 +26,7 @@ import {
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
-import { ForceQuit, Connect, GetTransactionStatus, SwitchDatabase } from '../wailsjs/go/app/App';
+import { ForceQuit, ConnectProjectEnvironment, GetTransactionStatus } from '../wailsjs/go/app/App';
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
@@ -216,7 +216,7 @@ function App() {
 
         const targetKey = `${activeProject.id}:${targetEnvironmentKey}:${profileName}:${targetDbName}`;
         const isSameProfile = activeProfile?.name === profileName;
-        const isSameDatabase = (activeProfile?.db_name || '') === targetDbName;
+        const isSameDatabase = !targetDbName || (activeProfile?.db_name || '') === targetDbName;
 
         if (
             isSameProfile &&
@@ -236,12 +236,9 @@ function App() {
         const doConnect = async () => {
             if (activeProject?.id !== currentProjectId) return;
             try {
-                await Connect(profileName);
-                if (targetDbName) {
-                    await SwitchDatabase(targetDbName);
-                }
+                await ConnectProjectEnvironment(targetEnvironmentKey);
             } catch (error) {
-                appLogger.warn('auto reconnect failed', { profileName, error });
+                appLogger.warn('auto reconnect failed', { envKey: targetEnvironmentKey, profileName, error });
             }
         };
 

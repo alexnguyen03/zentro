@@ -10,7 +10,7 @@ import {
     Sparkles,
     Trash2,
 } from 'lucide-react';
-import { Disconnect, LoadConnections } from '../../../wailsjs/go/app/App';
+import { Disconnect } from '../../../wailsjs/go/app/App';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -161,12 +161,14 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
         starterEnv: 'loc',
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
+    const [selectedProfile, setSelectedProfile] = React.useState<ConnectionProfile | null>(null);
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
     const [selectedDatabase, setSelectedDatabase] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
 
-    const handleSelectFromTree = React.useCallback((profileName: string, database: string) => {
-        setSelectedProfileName(profileName);
+    const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
+        setSelectedProfile(profile);
+        setSelectedProfileName(profile.name || null);
         setSelectedDatabase(database);
     }, []);
 
@@ -179,6 +181,10 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
             const savedName = form.formData.name || '';
             if (savedName) {
                 setSelectedProfileName(savedName);
+            }
+            setSelectedProfile(form.formData as ConnectionProfile);
+            if (form.formData.db_name) {
+                setSelectedDatabase(form.formData.db_name);
             }
             setConnectionMode('existing');
         },
@@ -208,7 +214,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
     };
 
     const handleCreateAndEnter = async () => {
-        if (!selectedProfileName) return;
+        if (!selectedProfileName || !selectedProfile) return;
 
         setSubmitting(true);
         try {
@@ -234,9 +240,10 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
 
             const dbName = selectedDatabase.trim();
             const boundProject = await bindEnvironmentConnection(draft.starterEnv, {
+                ...selectedProfile,
                 name: selectedProfileName,
                 db_name: dbName,
-            } as ConnectionProfile);
+            });
 
             if (!boundProject) {
                 toast.error('Could not bind starter environment.');
@@ -534,7 +541,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                         <Button
                             variant="success"
                             onClick={() => void handleCreateAndEnter()}
-                            disabled={!selectedProfileName || !selectedDatabase || submitting}
+                            disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
                             className="rounded-2xl px-5"
                         >
                             {submitting ? <><Spinner size={12} className="mr-2 text-white" /> Creating...</> : <>Create project and enter <ArrowRight size={14} /></>}
