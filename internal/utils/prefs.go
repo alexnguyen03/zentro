@@ -25,6 +25,7 @@ type Preferences struct {
 	ConnectTimeout   int               `json:"connect_timeout"`    // seconds, default 10
 	SchemaTimeout    int               `json:"schema_timeout"`     // seconds, default 15
 	AutoCheckUpdates bool              `json:"auto_check_updates"` // default true
+	ViewMode         bool              `json:"view_mode"`          // default false (read-only DB mode)
 	Shortcuts        map[string]string `json:"shortcuts"`
 }
 
@@ -224,6 +225,7 @@ func defaultConfig() *config {
 			ConnectTimeout:   10,
 			SchemaTimeout:    15,
 			AutoCheckUpdates: true,
+			ViewMode:         false,
 			Shortcuts:        map[string]string{},
 		},
 		Connections: []*models.ConnectionProfile{},

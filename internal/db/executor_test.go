@@ -52,6 +52,41 @@ func TestInjectPageClauseFallback(t *testing.T) {
 	}
 }
 
+func TestIsReadOnlyStatement(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{name: "select", query: "SELECT * FROM users", want: true},
+		{name: "show", query: "SHOW TABLES", want: true},
+		{name: "explain", query: "EXPLAIN SELECT 1", want: true},
+		{name: "with select", query: "WITH cte AS (SELECT 1) SELECT * FROM cte", want: true},
+		{name: "with insert", query: "WITH cte AS (INSERT INTO t VALUES (1) RETURNING *) SELECT * FROM cte", want: false},
+		{name: "insert", query: "INSERT INTO t VALUES (1)", want: false},
+		{name: "update", query: "UPDATE t SET a = 1", want: false},
+		{name: "leading comments", query: "/* hello */ -- world\nSELECT 1", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsReadOnlyStatement(tt.query); got != tt.want {
+				t.Fatalf("IsReadOnlyStatement() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBatchHasMutatingStatements(t *testing.T) {
+	if BatchHasMutatingStatements([]string{"SELECT 1", "SHOW TABLES"}) {
+		t.Fatalf("expected read-only batch to be allowed")
+	}
+
+	if !BatchHasMutatingStatements([]string{"SELECT 1", "UPDATE users SET name='x'"}) {
+		t.Fatalf("expected mixed batch to be marked mutating")
+	}
+}
+
 func BenchmarkSplitStatements(b *testing.B) {
 	query := `
 SELECT * FROM users WHERE id = 1;

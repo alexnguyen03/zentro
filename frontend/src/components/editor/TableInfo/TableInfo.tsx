@@ -6,6 +6,7 @@ import { models } from '../../../../wailsjs/go/models';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEditorStore } from '../../../stores/editorStore';
 import { useResultStore } from '../../../stores/resultStore';
+import { useSettingsStore } from '../../../stores/settingsStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
 import { buildFilterQuery } from '../../../lib/queryBuilder';
 import { DRIVER } from '../../../lib/constants';
@@ -75,6 +76,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const prevConnRef = useRef<string>('');
 
     const { activeProfile } = useConnectionStore();
+    const viewMode = useSettingsStore((state) => state.viewMode);
     const { activeGroupId, groups } = useEditorStore();
     const driver = activeProfile?.driver ?? 'sqlserver';
     const types = getTypesForDriver(driver);
@@ -145,6 +147,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     }, []);
 
     const toggleDeleteRows = useCallback(() => {
+        if (viewMode) return;
         if (!selectedRows.size) return;
         
         setRows(prev => prev.map((r, i) => {
@@ -155,7 +158,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             return r;
         }).filter(Boolean) as RowState[]);
         setSelectedRows(new Set());
-    }, [selectedRows]);
+    }, [selectedRows, viewMode]);
 
     useEffect(() => {
         if (activeSubTab !== 'info') return;
@@ -186,6 +189,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     }, [activeProfile?.name, activeProfile?.db_name, activeSubTab, tabReload]);
 
     const performSave = useCallback(async () => {
+        if (viewMode) return;
         setSaving(true);
         const errs: Record<number, string> = {};
         for (let i = 0; i < rows.length; i++) {
@@ -199,16 +203,17 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);
         setSaving(false);
-    }, [rows, schema, table, loadInfo]);
+    }, [rows, schema, table, loadInfo, viewMode]);
 
     const saveAll = useCallback(async () => {
+        if (viewMode) return;
         const deletedCount = rows.filter(r => r.deleted).length;
         if (deletedCount > 0) {
             setShowDeleteConfirm(true);
             return;
         }
         await performSave();
-    }, [rows, performSave]);
+    }, [rows, performSave, viewMode]);
 
     const hasChanges = useMemo(() => rows.some(r => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
 
@@ -221,7 +226,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             // Ctrl + S to Save
             if (e.ctrlKey && e.key.toLowerCase() === 's' && isTabActive) {
                 e.preventDefault();
-                if (activeSubTab === 'info' && hasChanges && !saving) {
+                if (activeSubTab === 'info' && hasChanges && !saving && !viewMode) {
                     saveAll();
                 }
                 return;
@@ -237,7 +242,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         };
         window.addEventListener('keydown', h);
         return () => window.removeEventListener('keydown', h);
-    }, [groups, activeGroupId, tabId, activeSubTab, tabReload, hasChanges, saving, saveAll]);
+    }, [groups, activeGroupId, tabId, activeSubTab, tabReload, hasChanges, saving, saveAll, viewMode]);
 
     const displayIds = useMemo(() => {
         let rs = rows;
@@ -255,7 +260,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         }).map(r => r.id);
     }, [rows, filterCol, sortCol, sortDir]);
 
-    const updateRow = (idx: number, patch: Partial<models.ColumnDef>) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.current, ...patch } } : r));
+    const updateRow = (idx: number, patch: Partial<models.ColumnDef>) => {
+        if (viewMode) return;
+        setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.current, ...patch } } : r));
+    };
     const discardRow = (idx: number) => {
         setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.original }, deleted: false } : r));
         setRowErrors(e => { const ne = { ...e }; delete ne[idx]; return ne; });
@@ -266,6 +274,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setSelectedRows(new Set());
     };
     const addColumn = () => {
+        if (viewMode) return;
         const newCol: models.ColumnDef = {
             Name: `new_column_${rows.length + 1}`,
             DataType: driver === 'postgres' || driver === 'mysql' ? 'varchar(255)' : 'nvarchar(255)',
@@ -280,11 +289,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const actions: Record<SubTab, TabAction[]> = {
         info: [
             ...(activeInfoTab === 'columns' ? [
-                { id: 'add', icon: <Plus size={12} />, label: 'Add Column', onClick: addColumn, disabled: saving },
-                ...(selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
+                ...(viewMode ? [] : [{ id: 'add', icon: <Plus size={12} />, label: 'Add Column', onClick: addColumn, disabled: saving }]),
+                ...(!viewMode && selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
                 ...(hasChanges ? [
                     { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
+                    ...(!viewMode ? [
                     { id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving },
+                    ] : []),
                 ] : []),
             ] : []),
             reloadAction,
@@ -421,6 +432,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
                                 onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
                                 onRowMouseDown={handleRowMouseDown} onRowMouseEnter={handleRowMouseEnter}
+                                readOnlyMode={viewMode}
                                 sortCol={sortCol} sortDir={sortDir} onSort={c => {
                                     if (sortCol !== c) {
                                         setSortCol(c);
@@ -435,7 +447,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         )}
                         {activeInfoTab === 'indexes' && (
                             <div className="flex-1 overflow-hidden">
-                            <IndexInfoView schema={schema} tableName={table} filterText={filterCol} refreshKey={infoRefreshKey} />
+                            <IndexInfoView schema={schema} tableName={table} filterText={filterCol} refreshKey={infoRefreshKey} readOnlyMode={viewMode} />
                             </div>
                         )}
                         {activeInfoTab === 'ddl' && (
@@ -446,7 +458,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     </>
                 )}
                 {activeSubTab === 'data' && (
-                    <DataExplorerView tabId={dataTabId} onRun={loadData} result={dataResult} onActionsChange={setDataTabActions} schema={schema} table={table} />
+                    <DataExplorerView tabId={dataTabId} onRun={loadData} result={dataResult} onActionsChange={setDataTabActions} schema={schema} table={table} isReadOnlyMode={viewMode} />
                 )}
                 {activeSubTab === 'erd' && (
                     <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={setErdRelCount} />

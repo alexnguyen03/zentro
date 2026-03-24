@@ -3,6 +3,7 @@ import { WindowReloadApp } from '../../wailsjs/runtime/runtime';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useLayoutStore } from '../stores/layoutStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { DOM_EVENT, TAB_TYPE } from './constants';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
@@ -214,7 +215,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+7',
     action: async () => {
-      if (useConnectionStore.getState().isConnected) {
+      if (useConnectionStore.getState().isConnected && !useSettingsStore.getState().viewMode) {
         await BeginTransaction();
       }
     },
@@ -225,7 +226,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+8',
     action: async () => {
-      if (useConnectionStore.getState().isConnected) {
+      if (useConnectionStore.getState().isConnected && !useSettingsStore.getState().viewMode) {
         await CommitTransaction();
       }
     },
@@ -236,7 +237,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+9',
     action: async () => {
-      if (useConnectionStore.getState().isConnected) {
+      if (useConnectionStore.getState().isConnected && !useSettingsStore.getState().viewMode) {
         await RollbackTransaction();
       }
     },

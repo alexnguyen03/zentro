@@ -9,10 +9,11 @@ interface DataExplorerViewProps {
     onActionsChange: (actions: TabAction[]) => void;
     schema: string;
     table: string;
+    isReadOnlyMode?: boolean;
 }
 
 export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
-    tabId, onRun, result, onActionsChange, schema, table
+    tabId, onRun, result, onActionsChange, schema, table, isReadOnlyMode = false
 }) => {
     const handleActionsChange = React.useCallback((actions: ResultPanelAction[]) => {
         onActionsChange(actions as unknown as TabAction[]);
@@ -31,6 +32,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 onActionsChange={handleActionsChange}
                 onFilterRun={handleFilterRun}
                 baseQuery={result?.lastExecutedQuery || `SELECT * FROM "${schema}"."${table}"`}
+                isReadOnlyTab={isReadOnlyMode}
             />
         </div>
     );

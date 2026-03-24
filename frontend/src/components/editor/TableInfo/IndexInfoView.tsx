@@ -18,9 +18,10 @@ interface IndexInfoViewProps {
     tableName: string;
     filterText: string;
     refreshKey: number; // Trigger reload
+    readOnlyMode?: boolean;
 }
 
-export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName, filterText, refreshKey }) => {
+export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName, filterText, refreshKey, readOnlyMode = false }) => {
     const [indexes, setIndexes] = useState<IndexInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [dropIndexTarget, setDropIndexTarget] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     }, [schema, tableName, activeProfile?.name, refreshKey]);
 
     const handleDrop = async () => {
+        if (readOnlyMode) return;
         if (!dropIndexTarget || !activeProfile?.name) return;
         try {
             await DropIndex(activeProfile.name, schema, dropIndexTarget);
@@ -63,6 +65,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     };
 
     const handleCreate = async () => {
+        if (readOnlyMode) return;
         if (!newIndexName.trim()) {
             toast.error('Index name is required');
             return;
@@ -152,6 +155,20 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
         </div>
     );
 
+    if (indexes.length === 0 && !loading && !showCreateForm && readOnlyMode) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 h-full text-center">
+                <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mb-6">
+                    <Hash size={32} className="text-text-muted" />
+                </div>
+                <h2 className="text-lg font-bold text-text-primary mb-2">No Indexes Found</h2>
+                <p className="text-[13px] text-text-secondary max-w-sm mb-6">
+                    This table does not have any indexes.
+                </p>
+            </div>
+        );
+    }
+
     if (indexes.length === 0 && !loading && !showCreateForm) {
         return (
             <div className="flex flex-col items-center justify-center p-12 h-full text-center">
@@ -162,7 +179,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                 <p className="text-[13px] text-text-secondary max-w-sm mb-6">
                     This table does not have any indexes.
                 </p>
-                <Button variant="ghost" onClick={() => setShowCreateForm(true)}>
+                <Button variant="ghost" onClick={() => setShowCreateForm(true)} disabled={readOnlyMode}>
                     <Plus size={14} className="mr-1.5" /> Add First Index
                 </Button>
             </div>
@@ -187,7 +204,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             {!showCreateForm && indexes.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 shrink-0">
                     <span className="text-[11px] font-medium text-text-secondary">{indexes.length} index(es)</span>
-                    <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(true)} className="h-7 px-2 text-[11px]">
+                    <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(true)} className="h-7 px-2 text-[11px]" disabled={readOnlyMode}>
                         <Plus size={13} className="mr-1.5" />
                         New Index
                     </Button>
@@ -222,8 +239,9 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                             <div className="w-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => setDropIndexTarget(idx.Name)}
-                                    className="text-text-muted hover:text-error hover:bg-error/10 p-1.5 rounded"
+                                    className="text-text-muted hover:text-error hover:bg-error/10 p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed"
                                     title="Drop Index"
+                                    disabled={readOnlyMode}
                                 >
                                     <Trash2 size={13} />
                                 </button>

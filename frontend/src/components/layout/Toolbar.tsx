@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-    Plus,
-    Play,
-    Square,
     Settings,
     RefreshCw,
     Lock,
@@ -11,11 +8,6 @@ import {
     PanelLeft,
     PanelBottom,
     PanelRight,
-    GitBranchPlus,
-    Check,
-    Undo2,
-    Search,
-    Columns2,
     Layers3,
     SlidersHorizontal,
     Server,
@@ -27,7 +19,8 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
-import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery, Reconnect } from '../../../wailsjs/go/app/App';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { Reconnect } from '../../../wailsjs/go/app/App';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 
 import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
@@ -41,6 +34,7 @@ import zentroLogo from '../../assets/images/main-logo.png';
 import { DOM_EVENT } from '../../lib/constants';
 import { useToast } from './Toast';
 import type { EnvironmentKey } from '../../types/project';
+import { utils } from '../../../wailsjs/go/models';
 
 export const Toolbar: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
@@ -58,8 +52,10 @@ export const Toolbar: React.FC = () => {
         toggleResultPanel,
         toggleRightSidebar,
     } = useLayoutStore();
-    const { transactionStatus } = useStatusStore();
     const { toast } = useToast();
+    const transactionStatus = useStatusStore((state) => state.transactionStatus);
+    const viewMode = useSettingsStore((state) => state.viewMode);
+    const savePrefs = useSettingsStore((state) => state.save);
 
     const [aboutOpen, setAboutOpen] = useState(false);
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
@@ -72,11 +68,7 @@ export const Toolbar: React.FC = () => {
 
     const activeGroup = groups.find((g) => g.id === activeGroupId);
     const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
-    const activeTabId = activeGroup?.activeTabId;
-    const isRunning = activeTab?.isRunning ?? false;
     const isQueryTab = activeTab?.type === 'query';
-    const canRunEditorAction = Boolean(isConnected && activeTab && !activeTab.readOnly && isQueryTab);
-    const txActive = transactionStatus === 'active';
 
     useEffect(() => {
         const handler = () => {
@@ -97,52 +89,6 @@ export const Toolbar: React.FC = () => {
         window.addEventListener('mousedown', onDocMouseDown);
         return () => window.removeEventListener('mousedown', onDocMouseDown);
     }, [quickEnvOpen]);
-
-    const handleRun = () => {
-        if (!activeTab || !canRunEditorAction) return;
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
-    };
-
-    const handleExplain = (analyze: boolean) => {
-        if (!activeTab || !canRunEditorAction) return;
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_EXPLAIN_ACTION, { detail: { tabId: activeTab.id, analyze } }));
-    };
-
-    const handleCancel = async () => {
-        if (!activeTabId) return;
-        try {
-            await CancelQuery(activeTabId);
-        } catch {
-            // ignore
-        }
-    };
-
-    const handleBeginTransaction = async () => {
-        try {
-            await BeginTransaction();
-            toast.success('Transaction started.');
-        } catch (error: any) {
-            toast.error(`Begin transaction failed: ${error}`);
-        }
-    };
-
-    const handleCommitTransaction = async () => {
-        try {
-            await CommitTransaction();
-            toast.success('Transaction committed.');
-        } catch (error: any) {
-            toast.error(`Commit failed: ${error}`);
-        }
-    };
-
-    const handleRollbackTransaction = async () => {
-        try {
-            await RollbackTransaction();
-            toast.success('Transaction rolled back.');
-        } catch (error: any) {
-            toast.error(`Rollback failed: ${error}`);
-        }
-    };
 
     const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
     const databaseLabel = activeProfile?.db_name || 'No database';
@@ -213,6 +159,17 @@ export const Toolbar: React.FC = () => {
         }
     };
 
+    const handleToggleViewMode = async () => {
+        const next = !viewMode;
+        if (next && transactionStatus === 'active') {
+            toast.error('Cannot enable View Mode while a transaction is active. Please commit or rollback first.');
+            return;
+        }
+
+        await savePrefs(new utils.Preferences({ view_mode: next }));
+        toast.success(next ? 'View Mode enabled (read-only).' : 'View Mode disabled.');
+    };
+
     return (
         <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
             <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -226,7 +183,15 @@ export const Toolbar: React.FC = () => {
                         <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success rounded-full border border-bg-secondary animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                     )}
                 </div>
-                <Button variant="ghost" size="icon" title="Toggle Safe Mode">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    title={viewMode ? 'Disable View Mode' : 'Enable View Mode (Read-only)'}
+                    className={cn(viewMode && 'text-warning')}
+                    onClick={() => {
+                        void handleToggleViewMode();
+                    }}
+                >
                     <Lock size={14} />
                 </Button>
                 <Button
@@ -237,86 +202,6 @@ export const Toolbar: React.FC = () => {
                     disabled={!activeProfile || connectionStatus === 'connecting'}
                 >
                     <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && 'animate-spin')} />
-                </Button>
-
-                <Divider orientation="vertical" className="h-5" />
-
-                <Button variant="ghost" size="icon" title="New Tab (Ctrl+T)" onClick={() => addTab()}>
-                    <Plus size={16} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!canRunEditorAction || isRunning}
-                    title="Run Query (Ctrl+Enter)"
-                    onClick={handleRun}
-                >
-                    <Play size={16} color={!canRunEditorAction || isRunning ? 'currentColor' : 'var(--success-color)'} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!canRunEditorAction || isRunning}
-                    title="Explain"
-                    onClick={() => handleExplain(false)}
-                >
-                    <Search size={14} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!canRunEditorAction || isRunning}
-                    title="Explain Analyze"
-                    onClick={() => handleExplain(true)}
-                >
-                    <Search size={14} className="text-accent" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Compare Queries"
-                    onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_QUERY_COMPARE))}
-                >
-                    <Columns2 size={14} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!isRunning}
-                    title="Cancel Execution"
-                    onClick={handleCancel}
-                >
-                    <Square size={16} fill={isRunning ? 'currentColor' : 'none'} color={isRunning ? 'var(--error-color)' : 'currentColor'} />
-                </Button>
-
-                <Divider orientation="vertical" className="h-5" />
-
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!isConnected || txActive}
-                    title="Begin Transaction"
-                    onClick={handleBeginTransaction}
-                >
-                    <GitBranchPlus size={14} color={!isConnected || txActive ? 'currentColor' : 'var(--success-color)'} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!isConnected || !txActive}
-                    title="Commit Transaction"
-                    onClick={handleCommitTransaction}
-                >
-                    <Check size={14} color={!isConnected || !txActive ? 'currentColor' : 'var(--accent-color)'} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!isConnected || !txActive}
-                    title="Rollback Transaction"
-                    onClick={handleRollbackTransaction}
-                >
-                    <Undo2 size={14} color={!isConnected || !txActive ? 'currentColor' : 'var(--error-color)'} />
                 </Button>
             </div>
 

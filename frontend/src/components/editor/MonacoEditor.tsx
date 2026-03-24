@@ -376,7 +376,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                     }}
                 />
             </div>
-            <EditorToolbar isActive={isActive} />
+            <EditorToolbar isActive={isActive} tabId={tabId} readOnly={readOnly} />
         </div>
     );
 };

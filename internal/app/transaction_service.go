@@ -8,12 +8,14 @@ import (
 	"sync"
 
 	"zentro/internal/constant"
+	"zentro/internal/utils"
 )
 
 type TransactionService struct {
 	ctx       context.Context
 	logger    *slog.Logger
 	getDB     func() *sql.DB
+	getPrefs  func() utils.Preferences
 	getDriver func() string
 	emitter   EventEmitter
 
@@ -27,6 +29,7 @@ func NewTransactionService(
 	ctx context.Context,
 	logger *slog.Logger,
 	getDB func() *sql.DB,
+	getPrefs func() utils.Preferences,
 	getDriver func() string,
 	emitter EventEmitter,
 ) *TransactionService {
@@ -34,6 +37,7 @@ func NewTransactionService(
 		ctx:       ctx,
 		logger:    logger,
 		getDB:     getDB,
+		getPrefs:  getPrefs,
 		getDriver: getDriver,
 		emitter:   emitter,
 		status:    constant.TransactionStatusNone,
@@ -47,6 +51,10 @@ func (s *TransactionService) SetContext(ctx context.Context) {
 func (s *TransactionService) BeginTransaction() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.getPrefs != nil && s.getPrefs().ViewMode {
+		return fmt.Errorf("view mode is enabled: write statements are blocked")
+	}
 
 	if s.tx != nil {
 		return fmt.Errorf("transaction is already active")
@@ -75,6 +83,10 @@ func (s *TransactionService) BeginTransaction() error {
 func (s *TransactionService) CommitTransaction() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.getPrefs != nil && s.getPrefs().ViewMode {
+		return fmt.Errorf("view mode is enabled: write statements are blocked")
+	}
 
 	if s.tx == nil {
 		return fmt.Errorf("no active transaction to commit")

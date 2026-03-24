@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
@@ -58,6 +59,7 @@ func NewApp() *App {
 		context.Background(),
 		nil,
 		func() *sql.DB { return a.db },
+		func() utils.Preferences { return a.prefs },
 		func() string {
 			if a.profile != nil {
 				return a.profile.Driver
@@ -316,15 +318,27 @@ func (a *App) FetchTableColumns(schema, table string) ([]*models.ColumnDef, erro
 	return a.conn.FetchTableColumns(schema, table)
 }
 func (a *App) AlterTableColumn(schema, table string, old, updated models.ColumnDef) error {
+	if err := a.ensureWritable("alter table column"); err != nil {
+		return err
+	}
 	return a.conn.AlterTableColumn(schema, table, old, updated)
 }
 func (a *App) ReorderTableColumns(schema, table string, newOrder []string) error {
+	if err := a.ensureWritable("reorder table columns"); err != nil {
+		return err
+	}
 	return a.conn.ReorderTableColumns(schema, table, newOrder)
 }
 func (a *App) AddTableColumn(schema, table string, col models.ColumnDef) error {
+	if err := a.ensureWritable("add table column"); err != nil {
+		return err
+	}
 	return a.conn.AddTableColumn(schema, table, col)
 }
 func (a *App) DropTableColumn(schema, table, column string) error {
+	if err := a.ensureWritable("drop table column"); err != nil {
+		return err
+	}
 	return a.conn.DropTableColumn(schema, table, column)
 }
 func (a *App) FetchTableRelationships(schema, table string) ([]models.TableRelationship, error) {
@@ -341,12 +355,27 @@ func (a *App) FetchMoreRows(tabID string, offset int) { a.query.FetchMoreRows(ta
 func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
 	return a.query.FetchTotalRowCount(tabID)
 }
-func (a *App) CancelQuery(tabID string)                      { a.query.CancelQuery(tabID) }
-func (a *App) ExecuteUpdateSync(query string) (int64, error) { return a.query.ExecuteUpdateSync(query) }
-func (a *App) BeginTransaction() error                       { return a.tx.BeginTransaction() }
-func (a *App) CommitTransaction() error                      { return a.tx.CommitTransaction() }
-func (a *App) RollbackTransaction() error                    { return a.tx.RollbackTransaction() }
-func (a *App) GetTransactionStatus() (string, error)         { return a.tx.GetTransactionStatus() }
+func (a *App) CancelQuery(tabID string) { a.query.CancelQuery(tabID) }
+func (a *App) ExecuteUpdateSync(query string) (int64, error) {
+	if err := a.ensureWritable("execute update"); err != nil {
+		return 0, err
+	}
+	return a.query.ExecuteUpdateSync(query)
+}
+func (a *App) BeginTransaction() error {
+	if err := a.ensureWritable("begin transaction"); err != nil {
+		return err
+	}
+	return a.tx.BeginTransaction()
+}
+func (a *App) CommitTransaction() error {
+	if err := a.ensureWritable("commit transaction"); err != nil {
+		return err
+	}
+	return a.tx.CommitTransaction()
+}
+func (a *App) RollbackTransaction() error            { return a.tx.RollbackTransaction() }
+func (a *App) GetTransactionStatus() (string, error) { return a.tx.GetTransactionStatus() }
 
 // ── Scripts ────────────────────────────────────────────────────────────────
 
@@ -444,16 +473,25 @@ func (a *App) GetTableDDL(profileName, schema, tableName string) (string, error)
 
 func (a *App) DropObject(profileName, schema, objectName, objectType string) error {
 	_ = profileName
+	if err := a.ensureWritable("drop object"); err != nil {
+		return err
+	}
 	return DropObjectWithConnection(a.profile, a.db, schema, objectName, objectType)
 }
 
 func (a *App) CreateIndex(profileName, schema, tableName, indexName string, columns []string, unique bool) error {
 	_ = profileName
+	if err := a.ensureWritable("create index"); err != nil {
+		return err
+	}
 	return CreateIndexWithConnection(a.profile, a.db, schema, tableName, indexName, columns, unique)
 }
 
 func (a *App) DropIndex(profileName, schema, indexName string) error {
 	_ = profileName
+	if err := a.ensureWritable("drop index"); err != nil {
+		return err
+	}
 	return DropIndexWithConnection(a.profile, a.db, schema, indexName)
 }
 
@@ -464,7 +502,17 @@ func (a *App) GetIndexes(profileName, schema, tableName string) ([]IndexInfo, er
 
 func (a *App) CreateTable(profileName, schema, tableName string, columns []models.ColumnDef) error {
 	_ = profileName
+	if err := a.ensureWritable("create table"); err != nil {
+		return err
+	}
 	return CreateTableWithConnection(a.profile, a.db, schema, tableName, columns)
+}
+
+func (a *App) ensureWritable(op string) error {
+	if a.prefs.ViewMode {
+		return fmt.Errorf("view mode is enabled: %s is blocked", op)
+	}
+	return nil
 }
 
 func (a *App) findProjectConnectionByProfileName(profileName string) *models.ProjectConnection {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,100 @@ func TestBuildExplainQuery(t *testing.T) {
 				t.Fatalf("unexpected explain query: got %q want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestExecuteQuery_ViewModeBlocksMutatingBatch(t *testing.T) {
+	doneCh := make(chan map[string]any, 1)
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{DefaultLimit: 100, ChunkSize: 10, QueryTimeout: 5, ViewMode: true}
+		},
+		func() *sql.DB { return nil },
+		func() sqlExecutor { return nil },
+		func() string { return constant.DriverSQLite },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
+			if eventName != constant.EventQueryDone {
+				return
+			}
+			if data, ok := payload.(map[string]any); ok {
+				doneCh <- data
+			}
+		}},
+	)
+
+	svc.ExecuteQuery("tab-view-mode", "SELECT 1; UPDATE users SET name = 'alice';")
+
+	select {
+	case done := <-doneCh:
+		errMsg, _ := done["error"].(string)
+		if !strings.Contains(strings.ToLower(errMsg), "view mode is enabled") {
+			t.Fatalf("expected view mode error, got %q", errMsg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for done event")
+	}
+}
+
+func TestExecuteQuery_ViewModeAllowsReadOnlyBatch(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	doneCh := make(chan map[string]any, 1)
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{DefaultLimit: 100, ChunkSize: 10, QueryTimeout: 5, ViewMode: true}
+		},
+		func() *sql.DB { return nil },
+		func() sqlExecutor { return db },
+		func() string { return constant.DriverSQLite },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
+			if eventName != constant.EventQueryDone {
+				return
+			}
+			if data, ok := payload.(map[string]any); ok {
+				doneCh <- data
+			}
+		}},
+	)
+
+	svc.ExecuteQuery("tab-view-mode-readonly", "SELECT 1;")
+
+	select {
+	case done := <-doneCh:
+		if errMsg, ok := done["error"]; ok && errMsg != "" {
+			t.Fatalf("expected no error for read-only query, got %v", errMsg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for done event")
+	}
+}
+
+func TestExecuteUpdateSync_ViewModeBlocked(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{ViewMode: true}
+		},
+		func() *sql.DB { return db },
+		func() sqlExecutor { return db },
+		func() string { return constant.DriverSQLite },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{},
+	)
+
+	if _, err := svc.ExecuteUpdateSync("UPDATE users SET name = 'x'"); err == nil {
+		t.Fatalf("expected view mode block error, got nil")
 	}
 }
 

@@ -94,7 +94,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     isReadOnlyTab = false,
     generatedKind,
 }) => {
-    const { defaultLimit, theme, fontSize, save } = useSettingsStore();
+    const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
     const { activeProfile } = useConnectionStore();
     const checkAndFetchColumns = useSchemaStore((state) => state.checkAndFetchColumns);
     const addTab = useEditorStore((state) => state.addTab);
@@ -143,6 +143,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         [selectedRowKeys],
     );
     const isEditable = Boolean(
+        !viewMode &&
         !isReadOnlyTab &&
         result?.tableName &&
         result?.primaryKeys &&
@@ -412,6 +413,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [canManageDraftRows, displayRows, getPersistedRowValues, queueFocusCell, result, selectedRowKeys]);
 
     const requestDeleteSelectedRows = React.useCallback(() => {
+        if (viewMode) {
+            toast.error('View Mode is enabled. Write actions are blocked.');
+            return;
+        }
+
         if (selectedDraftIds.length > 0) {
             removeDraftRows(selectedDraftIds);
         }
@@ -426,7 +432,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             selectedPersistedRowIndices.forEach((rowIndex) => next.add(rowIndex));
             return next;
         });
-    }, [isEditable, removeDraftRows, selectedDraftIds, selectedPersistedRowIndices, toast]);
+    }, [isEditable, removeDraftRows, selectedDraftIds, selectedPersistedRowIndices, toast, viewMode]);
 
     const handleCopyScript = React.useCallback(() => {
         navigator.clipboard.writeText(generatePendingScript());
@@ -440,6 +446,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [addTab, generatePendingScript, result?.tableName, toast]);
 
     const handleDirectExecute = React.useCallback(async () => {
+        if (viewMode) {
+            toast.error('View Mode is enabled. Write actions are blocked.');
+            return;
+        }
+
         const script = generatePendingScript();
         if (!script) return;
 
@@ -464,9 +475,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         } finally {
             setIsSavingDraftRows(false);
         }
-    }, [appendInsertedRows, applyEdits, deletedRows, draftRows, editedCells, generatePendingScript, tabId, toast]);
+    }, [appendInsertedRows, applyEdits, deletedRows, draftRows, editedCells, generatePendingScript, tabId, toast, viewMode]);
 
     const handleSaveRequest = React.useCallback(async () => {
+        if (viewMode) {
+            toast.error('View Mode is enabled. Write actions are blocked.');
+            return;
+        }
+
         if (!hasPendingChanges) {
             return;
         }
@@ -477,7 +493,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         }
 
         await handleDirectExecute();
-    }, [handleDirectExecute, hasLegacyChanges, hasPendingChanges]);
+    }, [handleDirectExecute, hasLegacyChanges, hasPendingChanges, toast, viewMode]);
 
     const panelActions = React.useMemo(() => {
         const actions: ResultPanelAction[] = [];
@@ -515,14 +531,16 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 },
                 danger: true,
             });
-            actions.push({
-                id: 'save',
-                icon: <Save size={11} />,
-                label: 'Save',
-                title: 'Save',
-                onClick: () => { void handleSaveRequest(); },
-                loading: isSavingDraftRows,
-            });
+            if (!viewMode) {
+                actions.push({
+                    id: 'save',
+                    icon: <Save size={11} />,
+                    label: 'Save',
+                    title: 'Save',
+                    onClick: () => { void handleSaveRequest(); },
+                    loading: isSavingDraftRows,
+                });
+            }
         }
 
         // Handle F5 elsewhere
@@ -535,10 +553,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         handleDuplicateRows,
         handleSaveRequest,
         hasPendingChanges,
-        isReadOnlyTab,
         isSavingDraftRows,
         onRun,
         selectedPersistedRowIndices.length,
+        viewMode,
     ]);
 
     React.useEffect(() => {
@@ -549,13 +567,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         const handleExternalSave = (event: Event) => {
             const saveEvent = event as CustomEvent<string | undefined>;
             if (saveEvent.detail && saveEvent.detail !== tabId) return;
+            if (viewMode) return;
             if (!hasPendingChanges || isSavingDraftRows) return;
             void handleSaveRequest();
         };
 
         window.addEventListener(DOM_EVENT.SAVE_TAB_ACTION, handleExternalSave as EventListener);
         return () => window.removeEventListener(DOM_EVENT.SAVE_TAB_ACTION, handleExternalSave as EventListener);
-    }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId]);
+    }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId, viewMode]);
 
     const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const newLimit = parseInt(event.target.value, 10) || 1000;
@@ -648,12 +667,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         }
 
         if (event.key === 'Delete' || (event.key === 'Backspace' && (event.ctrlKey || event.metaKey))) {
+            if (viewMode) return;
             if (selectedCells.size === 0) return;
             event.preventDefault();
             requestDeleteSelectedRows();
         }
 
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+            if (viewMode) return;
             if (hasPendingChanges) {
                 event.preventDefault();
                 void handleSaveRequest();
@@ -895,6 +916,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     focusCellRequest={focusCellRequest}
                                     onFocusCellRequestHandled={() => setFocusCellRequest(null)}
                                     onRemoveDraftRows={removeDraftRows}
+                                    readOnlyMode={viewMode || isReadOnlyTab}
                                 />
                             )}
                         </div>

@@ -5,6 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
@@ -26,6 +27,7 @@ export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
     const { results } = useResultStore();
     const { isConnected } = useConnectionStore();
+    const viewMode = useSettingsStore((state) => state.viewMode);
     const { showResultPanel } = useLayoutStore();
 
     // Global active tab for the shared result panel
@@ -281,7 +283,7 @@ export const QueryTabs: React.FC = () => {
                                     baseQuery={currentResult?.lastExecutedQuery || globalActiveTab?.query}
                                     onAppendToQuery={handleAppendToQuery}
                                     onOpenInNewTab={handleOpenFilterInNewTab}
-                                    isReadOnlyTab={isReadOnlySubTab}
+                                    isReadOnlyTab={isReadOnlySubTab || viewMode}
                                     generatedKind={generatedKind as 'result' | 'explain'}
                                 />
                             </div>

@@ -38,6 +38,7 @@ interface ResultTableProps {
     focusCellRequest: FocusCellRequest | null;
     onFocusCellRequestHandled: () => void;
     onRemoveDraftRows: (draftIds: string[]) => void;
+    readOnlyMode?: boolean;
 }
 
 interface TableMeta {
@@ -96,6 +97,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     focusCellRequest,
     onFocusCellRequestHandled,
     onRemoveDraftRows,
+    readOnlyMode = false,
 }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
@@ -105,10 +107,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const rowOrder = useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
 
     const isEditable = useMemo(() => {
+        if (readOnlyMode) return false;
         if (!resultState?.tableName || !resultState?.primaryKeys?.length) return false;
         if (!columns.length) return false;
         return resultState.primaryKeys.every((primaryKey) => columns.includes(primaryKey));
-    }, [columns, resultState?.primaryKeys, resultState?.tableName]);
+    }, [columns, readOnlyMode, resultState?.primaryKeys, resultState?.tableName]);
 
     const canSortClientSide = isDone && !resultState?.hasMore;
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -343,7 +346,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                 <div
                     title={isEditable
                         ? `Editable (${resultState?.tableName})`
-                        : 'Read-only (No Primary Key or missing PK in SELECT)'}
+                        : readOnlyMode
+                            ? 'Read-only (View Mode)'
+                            : 'Read-only (No Primary Key or missing PK in SELECT)'}
                     className="flex items-center justify-center gap-1 cursor-help opacity-70"
                 >
                     <span className="font-mono text-[10px]">#</span>

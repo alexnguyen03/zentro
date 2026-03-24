@@ -4,6 +4,7 @@ import { Modal } from '../layout/Modal';
 import { Button } from '../ui';
 import { CreateTable } from '../../../wailsjs/go/app/App';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useToast } from '../layout/Toast';
 import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
 
@@ -39,6 +40,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
     ]);
     const [loading, setLoading] = useState(false);
     const { activeProfile } = useConnectionStore();
+    const viewMode = useSettingsStore((state) => state.viewMode);
     const { toast } = useToast();
 
     const handleAddColumn = () => {
@@ -56,6 +58,11 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
     };
 
     const handleSubmit = async () => {
+        if (viewMode) {
+            toast.error('View Mode is enabled. Write actions are blocked.');
+            return;
+        }
+
         if (!tableName.trim()) {
             toast.error('Table name is required');
             return;
@@ -109,7 +116,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                     <Button variant="ghost" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button variant="primary" onClick={handleSubmit} disabled={loading}>
+                    <Button variant="primary" onClick={handleSubmit} disabled={loading || viewMode}>
                         <Save size={14} className="mr-1.5" />
                         {loading ? 'Creating...' : 'Create'}
                     </Button>
@@ -124,6 +131,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         value={tableName}
                         onChange={(e) => setTableName(e.target.value)}
                         placeholder="Enter table name"
+                        disabled={viewMode}
                         className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-sm outline-none focus:border-accent"
                     />
                 </div>
@@ -131,7 +139,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-medium text-text-secondary">Columns</label>
-                        <Button variant="ghost" size="sm" onClick={handleAddColumn}>
+                        <Button variant="ghost" size="sm" onClick={handleAddColumn} disabled={viewMode}>
                             <Plus size={14} className="mr-1" />
                             Add Column
                         </Button>
@@ -145,11 +153,13 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                     value={col.Name}
                                     onChange={(e) => handleColumnChange(idx, 'Name', e.target.value)}
                                     placeholder="Column name"
+                                    disabled={viewMode}
                                     className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded outline-none focus:border-accent min-w-[100px]"
                                 />
                                 <select
                                     value={col.DataType}
                                     onChange={(e) => handleColumnChange(idx, 'DataType', e.target.value)}
+                                    disabled={viewMode}
                                     className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded outline-none focus:border-accent min-w-[120px]"
                                 >
                                     {DATA_TYPES.map(dt => (
@@ -161,6 +171,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                         type="checkbox"
                                         checked={col.IsNullable}
                                         onChange={(e) => handleColumnChange(idx, 'IsNullable', e.target.checked)}
+                                        disabled={viewMode}
                                         className="rounded"
                                     />
                                     Null
@@ -170,6 +181,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                         type="checkbox"
                                         checked={col.IsPrimaryKey}
                                         onChange={(e) => handleColumnChange(idx, 'IsPrimaryKey', e.target.checked)}
+                                        disabled={viewMode}
                                         className="rounded"
                                     />
                                     PK
@@ -177,6 +189,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                 {columns.length > 1 && (
                                     <button
                                         onClick={() => handleRemoveColumn(idx)}
+                                        disabled={viewMode}
                                         className="text-text-secondary hover:text-error p-1"
                                         title="Remove column"
                                     >

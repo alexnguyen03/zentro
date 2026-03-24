@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
@@ -32,6 +33,7 @@ interface SchemaNodeData {
 
 export const ConnectionTree: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
+    const viewMode = useSettingsStore((state) => state.viewMode);
     const [filter, setFilter] = useState('');
     const filterInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +82,7 @@ export const ConnectionTree: React.FC = () => {
                     dbName={activeProfile.db_name}
                     profileName={activeProfile.name!}
                     filter={filter.toLowerCase()}
+                    readOnlyMode={viewMode}
                 />
             </div>
         </div>
@@ -92,9 +95,10 @@ interface DatabaseNodeProps {
     dbName: string;
     profileName: string;
     filter: string;
+    readOnlyMode: boolean;
 }
 
-const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter }) => {
+const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter, readOnlyMode }) => {
     // Automatically expand the root DB node
     const [expanded, setExpanded] = useState(true);
 
@@ -165,7 +169,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
                     {schemas && schemas.length > 0 && (
                         <>
                             {(schemas as SchemaNodeData[]).map((schema: SchemaNodeData) => (
-                                <SchemaNode key={schema.Name} schema={schema} filter={filter} profileName={profileName} />
+                                <SchemaNode key={schema.Name} schema={schema} filter={filter} profileName={profileName} readOnlyMode={readOnlyMode} />
                             ))}
                         </>
                     )}
@@ -181,9 +185,10 @@ interface SchemaNodeProps {
     schema: SchemaNodeData;
     filter: string;
     profileName: string;
+    readOnlyMode: boolean;
 }
 
-const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName }) => {
+const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName, readOnlyMode }) => {
     // If filter is active, auto expand, otherwise default to closed (unless it's 'public' or something)
     const [expanded, setExpanded] = useState(schema.Name === 'public' || schema.Name === 'dbo');
     const [showCreateTable, setShowCreateTable] = useState(false);
@@ -217,9 +222,10 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName }) 
                 <Layers size={13} className="opacity-80 shrink-0" />
                 <span className="text-xs truncate flex-1">{schema.Name}</span>
                 <button
-                    onClick={(e) => { e.stopPropagation(); setShowCreateTable(true); }}
+                    onClick={(e) => { e.stopPropagation(); if (!readOnlyMode) setShowCreateTable(true); }}
                     className="opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary p-0.5 rounded shrink-0"
                     title="New Table"
+                    disabled={readOnlyMode}
                 >
                     <Plus size={12} />
                 </button>
@@ -228,7 +234,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName }) 
             {expanded && (
                 <div className="pl-4">
                     {categories.map(cat => cat.items.length > 0 && (
-                        <CategoryNode key={`${cat.label}-${schema.Name}`} {...cat} schemaName={schema.Name} profileName={profileName} />
+                        <CategoryNode key={`${cat.label}-${schema.Name}`} {...cat} schemaName={schema.Name} profileName={profileName} readOnlyMode={readOnlyMode} />
                     ))}
                 </div>
             )}
@@ -245,9 +251,10 @@ interface CategoryDef {
     itemIcon: React.ReactNode;
     schemaName?: string;
     profileName?: string;
+    readOnlyMode?: boolean;
 }
 
-const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, schemaName, profileName }) => {
+const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, schemaName, profileName, readOnlyMode = false }) => {
     const [expanded, setExpanded] = useState(true);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: string } | null>(null);
     const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: string } | null>(null);
@@ -272,6 +279,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
     };
 
     const handleDrop = () => {
+        if (readOnlyMode) return;
         if (contextMenu) {
             const objectType = label === 'Tables' ? 'TABLE' : label === 'Views' || label === 'Materialized Views' ? 'VIEW' : 'TABLE';
             setDropModal({ schema: schemaName!, item: contextMenu.item, type: objectType });
@@ -300,7 +308,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
         return () => document.removeEventListener('click', handleClick);
     }, []);
 
-    const canDrop = label === 'Tables' || label === 'Views' || label === 'Materialized Views';
+    const canDrop = !readOnlyMode && (label === 'Tables' || label === 'Views' || label === 'Materialized Views');
 
     return (
         <div>
@@ -333,7 +341,9 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                             className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                             tabIndex={0}
                             onDoubleClick={() => handleItemDoubleClick(item)}
-                            onContextMenu={(e) => handleContextMenu(e, item)}
+                            onContextMenu={(e) => {
+                                if (canDrop) handleContextMenu(e, item);
+                            }}
                             title={item}
                         >
                             <span className="w-[13px] shrink-0 inline-block" />

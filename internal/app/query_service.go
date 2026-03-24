@@ -133,12 +133,33 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 		return
 	}
 
+	prefs := s.getPrefs()
+	if prefs.ViewMode && dbpkg.BatchHasMutatingStatements(statements) {
+		err := fmt.Errorf("view mode is enabled: write statements are blocked")
+		s.emitter.Emit(s.ctx, constant.EventQueryStarted, map[string]any{
+			"tabID":          tabID,
+			"sourceTabID":    tabID,
+			"query":          query,
+			"statementText":  query,
+			"statementIndex": 0,
+			"statementCount": len(statements),
+		})
+		s.emitDoneWithMore(queryStatement{
+			SourceTabID:      tabID,
+			TabID:            tabID,
+			Text:             query,
+			Index:            0,
+			Count:            len(statements),
+			SkipEditableMeta: skipEditableMeta,
+		}, 0, 0, false, false, err)
+		return
+	}
+
 	s.sessionsMu.Lock()
 	if old, ok := s.sessions[tabID]; ok {
 		old.CancelFunc()
 		delete(s.sessions, tabID)
 	}
-	prefs := s.getPrefs()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.QueryTimeout)*time.Second)
 	session := &QuerySession{
 		TabID:      tabID,
@@ -491,6 +512,10 @@ func (s *QueryService) CancelQuery(tabID string) {
 }
 
 func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
+	if s.getPrefs().ViewMode {
+		return 0, fmt.Errorf("view mode is enabled: write statements are blocked")
+	}
+
 	executor := s.getExecutor()
 	if !isExecutorReady(executor) {
 		return 0, fmt.Errorf("no active connection")

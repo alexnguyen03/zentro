@@ -14,6 +14,7 @@ interface SettingsState {
     connectTimeout: number;
     queryTimeout: number;
     autoCheckUpdates: boolean;
+    viewMode: boolean;
 
     load: () => Promise<void>;
     save: (prefs: utils.Preferences) => Promise<void>;
@@ -29,6 +30,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     connectTimeout: 10,
     queryTimeout: 60,
     autoCheckUpdates: true,
+    viewMode: false,
 
     load: async () => {
         try {
@@ -41,6 +43,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 connectTimeout: prefs.connect_timeout || 10,
                 queryTimeout: prefs.query_timeout || 60,
                 autoCheckUpdates: prefs.auto_check_updates !== false,
+                viewMode: prefs.view_mode === true,
             });
             useShortcutStore.getState().loadFromPreferences(prefs.shortcuts);
             // Apply theme
@@ -52,21 +55,35 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
     save: async (prefs: utils.Preferences) => {
         try {
-            if (!prefs.shortcuts) {
-                prefs.shortcuts = useShortcutStore.getState().bindings;
-            }
-            await SetPreferences(prefs);
+            const current = await GetPreferences();
+            const state = useSettingsStore.getState();
+            const merged = new utils.Preferences({
+                theme: prefs.theme ?? current.theme ?? state.theme,
+                font_size: prefs.font_size ?? current.font_size ?? state.fontSize,
+                default_limit: prefs.default_limit ?? current.default_limit ?? state.defaultLimit,
+                chunk_size: prefs.chunk_size ?? current.chunk_size,
+                toast_placement: (prefs.toast_placement as ToastPlacement | undefined) ?? (current.toast_placement as ToastPlacement | undefined) ?? state.toastPlacement,
+                query_timeout: prefs.query_timeout ?? current.query_timeout ?? state.queryTimeout,
+                connect_timeout: prefs.connect_timeout ?? current.connect_timeout ?? state.connectTimeout,
+                schema_timeout: prefs.schema_timeout ?? current.schema_timeout,
+                auto_check_updates: prefs.auto_check_updates ?? current.auto_check_updates ?? state.autoCheckUpdates,
+                view_mode: prefs.view_mode ?? current.view_mode ?? state.viewMode,
+                shortcuts: prefs.shortcuts ?? current.shortcuts ?? useShortcutStore.getState().bindings,
+            });
+
+            await SetPreferences(merged);
             set({
-                theme: prefs.theme,
-                fontSize: prefs.font_size,
-                defaultLimit: prefs.default_limit,
-                toastPlacement: prefs.toast_placement as ToastPlacement,
-                connectTimeout: prefs.connect_timeout,
-                queryTimeout: prefs.query_timeout,
-                autoCheckUpdates: prefs.auto_check_updates,
+                theme: merged.theme,
+                fontSize: merged.font_size,
+                defaultLimit: merged.default_limit,
+                toastPlacement: merged.toast_placement as ToastPlacement,
+                connectTimeout: merged.connect_timeout,
+                queryTimeout: merged.query_timeout,
+                autoCheckUpdates: merged.auto_check_updates,
+                viewMode: merged.view_mode === true,
             });
             // Apply theme
-            document.documentElement.setAttribute('data-theme', prefs.theme);
+            document.documentElement.setAttribute('data-theme', merged.theme);
         } catch (err) {
             console.error('Failed to save preferences:', err);
         }
@@ -80,18 +97,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         if (saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(() => {
             const state = useSettingsStore.getState();
-            const prefs = new utils.Preferences({
-                theme: state.theme,
+            state.save(new utils.Preferences({
                 font_size: state.fontSize,
-                default_limit: state.defaultLimit,
-                toast_placement: state.toastPlacement,
-                connect_timeout: state.connectTimeout,
-                query_timeout: state.queryTimeout,
-                auto_check_updates: state.autoCheckUpdates
-                ,
-                shortcuts: useShortcutStore.getState().bindings
-            });
-            SetPreferences(prefs).catch(err => console.error('Failed to auto-save font size:', err));
+            })).catch(err => console.error('Failed to auto-save font size:', err));
         }, 1000);
     },
 
