@@ -5,3 +5,4 @@ export * from './Spinner';
 export * from './Divider';
 export * from './ModalBackdrop';
 export * from './ConfirmationModal';
+export * from './Tooltip';

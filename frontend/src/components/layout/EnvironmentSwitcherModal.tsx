@@ -1,6 +1,6 @@
 import React from 'react';
-import { ArrowRight, BadgeCheck, Plug, Plus } from 'lucide-react';
-import { ModalBackdrop, Button, Spinner } from '../ui';
+import { ArrowRight, Check, ChevronDown, ChevronRight, CircleAlert, List, Plus, X } from 'lucide-react';
+import { ModalBackdrop, Button, Spinner, Tooltip } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -18,7 +18,7 @@ interface EnvironmentSwitcherModalProps {
     onClose: () => void;
 }
 
-type Mode = 'switch' | 'new-connection';
+type Mode = 'choose' | 'add';
 
 export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> = ({ onClose }) => {
     const activeProject = useProjectStore((state) => state.activeProject);
@@ -28,10 +28,9 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const setActiveEnvironment = useEnvironmentStore((state) => state.setActiveEnvironment);
     const setConnections = useConnectionStore((state) => state.setConnections);
-    const { activeProfile } = useConnectionStore();
     const { toast } = useToast();
 
-    const [mode, setMode] = React.useState<Mode>('switch');
+    const [mode, setMode] = React.useState<Mode>('choose');
     const [selectedEnvironmentKey, setSelectedEnvironmentKey] = React.useState<EnvironmentKey>('loc');
     const [connections, setLocalConnections] = React.useState<ConnectionProfile[]>([]);
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
@@ -145,15 +144,26 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 setLocalConnections(next);
                 setConnections(next);
                 setSelectedProfileName(savedName || next[0]?.name || null);
-                setMode('switch');
+                setMode('choose');
             } catch (error) {
                 toast.error(`Failed to reload connections: ${error}`);
             } finally {
                 setLoadingConnections(false);
             }
         },
-        onClose: () => setMode('switch'),
+        onClose: () => setMode('choose'),
     });
+
+    React.useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            onClose();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
 
     const handleApply = async () => {
         if (!activeProject) return;
@@ -191,285 +201,256 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
     if (!activeProject) return null;
 
-    const currentEnvKey = (activeEnvironmentKey || activeProject.last_active_environment_key || activeProject.default_environment_key) as EnvironmentKey;
-    const currentMeta = getEnvironmentMeta(currentEnvKey);
-    const selectedMeta = getEnvironmentMeta(selectedEnvironmentKey);
-    const currentBindingLabel = activeProfile ? `${activeProfile.name}${activeProfile.db_name ? ` / ${activeProfile.db_name}` : ''}` : 'No active connection';
+    const applyDisabled = saving || mode === 'add';
 
     return (
         <ModalBackdrop onClose={onClose}>
             <div
-                className="h-[612px] w-[940px] max-w-[calc(100vw-36px)] overflow-hidden rounded-lg bg-bg-secondary text-text-primary"
+                className="flex h-[612px] w-[920px] max-w-[calc(100vw-28px)] flex-col overflow-hidden rounded-lg bg-bg-secondary text-text-primary"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="grid h-full md:grid-cols-[280px_1fr]">
-                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/35 px-5 py-5">
+                <div className="flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3">
+                    <div className="min-w-0">
                         <div className="text-[11px] font-semibold text-text-secondary">Project</div>
-                        <div className="mt-1.5 text-[35px] font-bold tracking-tight text-text-primary">{activeProject.name}</div>
-                        <p className="mt-1.5 text-[12px] leading-5 text-text-secondary">
-                            Switch environments quickly, or recover by rebinding a connection without leaving the current context.
-                        </p>
+                        <h3 className="m-0 mt-0.5 truncate text-[30px] font-bold tracking-tight text-text-primary">{activeProject.name}</h3>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-primary/30 hover:text-text-primary"
+                        title="Close"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
 
-                        <div className="mt-4 rounded-lg bg-bg-secondary px-3.5 py-3.5">
-                            <div className="text-[11px] font-semibold text-text-secondary">Current</div>
-                            <div className="mt-1.5 flex items-center gap-2">
-                                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', currentMeta.colorClass)}>
-                                    {currentEnvKey}
-                                </span>
-                                <span className="text-[12px] text-text-secondary">{currentBindingLabel}</span>
-                            </div>
-                        </div>
+                <div className="grid min-h-0 flex-1 md:grid-cols-[246px_1fr]">
+                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/30 px-4 py-4">
+                        <div className="my-auto">
+                            <div className="max-h-[620px] pr-1">
+                                <div className="space-y-5">
+                                    {ENVIRONMENT_KEYS.map((environmentKey) => {
+                                        const meta = getEnvironmentMeta(environmentKey);
+                                        const isSelected = selectedEnvironmentKey === environmentKey;
+                                        const hasBinding = Boolean(
+                                            activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
+                                        );
 
-                        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-                            <div className="space-y-1.5">
-                                {ENVIRONMENT_KEYS.map((environmentKey) => {
-                                    const meta = getEnvironmentMeta(environmentKey);
-                                    const isSelected = selectedEnvironmentKey === environmentKey;
-                                    const isCurrent = currentEnvKey === environmentKey;
-                                    const hasBinding = Boolean(
-                                        activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
-                                    );
-
-                                    return (
-                                        <button
-                                            key={environmentKey}
-                                            type="button"
-                                            onClick={() => setSelectedEnvironmentKey(environmentKey)}
-                                            className={cn(
-                                                'w-full rounded-lg px-3.5 py-2.5 text-left transition-colors',
-                                                isSelected
-                                                    ? 'border-accent/40 bg-bg-secondary'
-                                                    : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
-                                            )}
-                                        >
-                                            <div className="flex items-center justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2">
+                                        return (
+                                            <button
+                                                key={environmentKey}
+                                                type="button"
+                                                onClick={() => setSelectedEnvironmentKey(environmentKey)}
+                                                className={cn(
+                                                    'w-full cursor-pointer rounded-lg border p-4 text-left transition-colors',
+                                                    isSelected
+                                                        ? 'border-accent/40 bg-accent/8'
+                                                        : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="min-w-0 flex items-center gap-2">
                                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
                                                             {environmentKey}
                                                         </span>
                                                         <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
                                                     </div>
-                                                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-text-secondary">
-                                                        {isCurrent && <span>Current</span>}
-                                                        {hasBinding ? <span>Bound</span> : <span>Needs binding</span>}
-                                                    </div>
+                                                    {hasBinding ? (
+                                                        <Tooltip content="Bound">
+                                                            <span className="inline-flex items-center text-accent">
+                                                                <Check size={14} />
+                                                            </span>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Tooltip content="Need binding">
+                                                            <span className="inline-flex items-center text-text-secondary">
+                                                                <CircleAlert size={14} />
+                                                            </span>
+                                                        </Tooltip>
+                                                    )}
                                                 </div>
-                                                {isCurrent && <BadgeCheck size={16} className="shrink-0 text-accent" />}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
+                         </div>
                     </section>
 
-                    <section className="grid min-h-0 grid-rows-[auto_1fr]">
-                        <div className="flex items-start justify-between gap-4 border-b border-border/20 px-5 py-4">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', selectedMeta.colorClass)}>
-                                        {selectedEnvironmentKey}
-                                    </span>
-                                    <h3 className="m-0 text-[32px] font-bold tracking-tight text-text-primary">
-                                        {selectedMeta.label}
-                                    </h3>
-                                </div>
-                                <p className="m-0 mt-1.5 text-[12px] leading-5 text-text-secondary">
-                                    Keep the workspace, switch the environment, and only adjust the binding if this env is not ready.
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Button variant="primary" onClick={() => void handleApply()} disabled={saving} className="rounded-lg">
-                                    {saving ? 'Applying...' : <>Apply <ArrowRight size={14} /></>}
-                                </Button>
-                                <Button variant="ghost" onClick={onClose} className="rounded-lg">
-                                    Close
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="grid min-h-0 gap-4 px-5 py-4 lg:grid-cols-[0.92fr_1.08fr]">
-                            <div className="flex min-h-0 flex-col rounded-lg bg-bg-primary/20">
-                                <div className="flex items-center justify-between border-b border-border/15 px-4 py-3.5">
-                                    <div>
-                                        <div className="text-[12px] font-semibold text-text-primary">Saved connections</div>
-                                        <div className="mt-0.5 text-[11px] text-text-secondary">
-                                            Pick one for this environment or add a quick connection inline.
-                                        </div>
+                    <section className="grid min-h-0 grid-rows-[1fr_auto]">
+                        <div className="min-h-0 px-4 py-3">
+                            {mode === 'choose' ? (
+                                <div className="h-full min-h-0 rounded-lg bg-bg-primary/20">
+                                    <div className="border-b border-border/15 px-3 py-2.5 text-[12px] font-semibold text-text-primary">
+                                        Saved connections
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            form.resetForm();
-                                            setMode('new-connection');
-                                        }}
-                                        className="inline-flex items-center gap-1 rounded-full bg-bg-secondary px-3 py-1 text-[11px] font-semibold text-text-secondary transition-colors hover:text-text-primary"
-                                    >
-                                        <Plus size={12} />
-                                        New
-                                    </button>
-                                </div>
 
-                                {mode === 'switch' ? (
-                                    <div className="min-h-0 overflow-y-auto px-4 py-4">
+                                    <div className="min-h-0 h-[calc(100%-38px)] overflow-y-auto px-3 py-2.5">
                                         {loadingConnections ? (
-                                            <div className="flex h-28 items-center justify-center gap-2 text-[12px] text-text-secondary">
+                                            <div className="flex h-24 items-center justify-center gap-2 text-[12px] text-text-secondary">
                                                 <Spinner size={14} /> Loading connections...
                                             </div>
                                         ) : connections.length === 0 ? (
-                                            <div className="flex h-36 items-center justify-center rounded-lg border border-dashed border-border/35 bg-bg-primary/20 px-5 text-center text-[12px] leading-5 text-text-secondary">
-                                                No saved connections yet. Add one inline to recover this environment.
+                                            <div className="flex h-28 items-center justify-center rounded-lg bg-bg-primary/20 px-4 text-center text-[12px] text-text-secondary">
+                                                No saved connection
                                             </div>
                                         ) : (
-                                            <div className="space-y-2.5">
+                                            <div className="space-y-2">
                                                 {connections.map((profile) => {
                                                     const selected = profile.name === selectedProfileName;
+                                                    const expanded = selected;
+
                                                     return (
-                                                        <button
+                                                        <div
                                                             key={profile.name}
-                                                            type="button"
-                                                            onClick={() => setSelectedProfileName(profile.name || null)}
                                                             className={cn(
-                                                                'w-full rounded-lg px-3.5 py-3 text-left transition-colors',
+                                                                'rounded-lg border transition-colors',
                                                                 selected
-                                                                    ? 'border-accent/40 bg-accent/8'
-                                                                    : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
+                                                                    ? 'border-accent/45 bg-accent/8'
+                                                                    : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/35',
                                                             )}
                                                         >
-                                                            <div className="flex items-start justify-between gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedProfileName(profile.name || null)}
+                                                                className="flex w-full cursor-pointer items-start justify-between gap-3 px-3 py-2.5 text-left"
+                                                            >
                                                                 <div className="min-w-0">
-                                                                    <div className="truncate text-[14px] font-semibold text-text-primary">{profile.name}</div>
-                                                                    <div className="mt-1 text-[11px] text-text-secondary">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {expanded ? <ChevronDown size={13} className="shrink-0 text-text-secondary" /> : <ChevronRight size={13} className="shrink-0 text-text-secondary" />}
+                                                                        <span className="truncate text-[13px] font-semibold text-text-primary">{profile.name}</span>
+                                                                    </div>
+                                                                    <div className="mt-0.5 pl-[20px] text-[11px] text-text-secondary">
                                                                         {profile.driver}
                                                                         {profile.host ? ` / ${profile.host}:${profile.port}` : ''}
                                                                     </div>
                                                                 </div>
-                                                                {selected && (
-                                                                    <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                                                                        Selected
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </button>
+                                                            </button>
+
+                                                            {expanded && (
+                                                                <div className="border-t border-border/20 px-3 py-2.5">
+                                                                    <div className="pl-[20px]">
+                                                                        {loadingDatabases ? (
+                                                                            <div className="flex h-[58px] items-center gap-2 text-[12px] text-text-secondary">
+                                                                                <Spinner size={12} /> Loading databases...
+                                                                            </div>
+                                                                        ) : databases.length > 0 ? (
+                                                                            <div className="space-y-1">
+                                                                                {databases.map((databaseName) => {
+                                                                                    const active = selectedDatabase === databaseName;
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={databaseName}
+                                                                                            type="button"
+                                                                                            onClick={() => setSelectedDatabase(databaseName)}
+                                                                                            className={cn(
+                                                                                                'flex w-full cursor-pointer items-center justify-between rounded-md border px-2.5 py-1.5 text-left transition-colors',
+                                                                                                active
+                                                                                                    ? 'border-accent/45 bg-accent/10'
+                                                                                                    : 'border-border/25 bg-bg-primary/25 hover:bg-bg-primary/45',
+                                                                                            )}
+                                                                                        >
+                                                                                            <span className="truncate text-[12px] font-medium text-text-primary">{databaseName}</span>
+                                                                                            {active && (
+                                                                                                <Check size={12} className="text-accent" />
+                                                                                            )}
+                                                                                        </button>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="rounded-md bg-bg-primary/20 px-3 py-2.5 text-[12px] text-text-secondary">
+                                                                                {profile.db_name ? `Fallback: ${profile.db_name}` : 'No database loaded'}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
                                         )}
                                     </div>
-                                ) : (
-                                    <div className="grid min-h-0 flex-1 grid-cols-[168px_1fr] overflow-hidden">
-                                        <div className="border-r border-border/15">
-                                            <div className="px-4 pt-3.5 pb-2 text-[11px] font-semibold text-text-secondary">Provider</div>
-                                            <ProviderGrid
-                                                selected={form.selectedProvider}
-                                                locked={form.isEditing}
-                                                onSelect={form.handleDriverChange}
-                                            />
-                                        </div>
-                                        <div className="min-h-0 overflow-y-auto">
-                                            <div className="px-5 pt-4 text-[12px] font-semibold text-text-primary">Quick connection</div>
-                                            <div className="px-5 pb-4 text-[11px] text-text-secondary">
-                                                Minimal setup only, so recovery stays smooth and local to this modal.
-                                            </div>
-                                            <ConnectionForm
-                                                formData={form.formData}
-                                                connString={form.connString}
-                                                testing={form.testing}
-                                                saving={form.saving}
-                                                testResult={form.testResult}
-                                                errorMsg={form.errorMsg}
-                                                successMsg={form.successMsg}
-                                                isEditing={form.isEditing}
-                                                showUriField={true}
-                                                onChange={form.handleChange}
-                                                onConnStringChange={form.handleParseConnectionString}
-                                                onTest={form.handleTest}
-                                                onSave={form.handleSave}
-                                                onCancel={() => setMode('switch')}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex min-h-0 flex-col rounded-lg bg-bg-primary/20 px-5 py-4">
-                                <div className="flex items-center gap-2 text-[12px] font-semibold text-text-secondary">
-                                    <Plug size={13} />
-                                    Binding preview
                                 </div>
-
-                                <div className="mt-3 rounded-lg bg-bg-secondary px-4 py-3.5">
-                                    <div className="flex items-center gap-2">
-                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', selectedMeta.colorClass)}>
-                                            {selectedEnvironmentKey}
-                                        </span>
-                                        <span className="text-[15px] font-semibold text-text-primary">{selectedMeta.label}</span>
+                            ) : (
+                                <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_200px] overflow-hidden rounded-lg bg-bg-primary/20">
+                                    <div className="min-h-0 overflow-y-auto px-4 py-3">
+                                        <div className="mx-auto flex min-h-full w-full max-w-[620px] items-start justify-center">
+                                            <div className="w-full">
+                                                <ConnectionForm
+                                                    formData={form.formData}
+                                                    connString={form.connString}
+                                                    testing={form.testing}
+                                                    saving={form.saving}
+                                                    testResult={form.testResult}
+                                                    errorMsg={form.errorMsg}
+                                                    successMsg={form.successMsg}
+                                                    isEditing={form.isEditing}
+                                                    showUriField={true}
+                                                    onChange={form.handleChange}
+                                                    onConnStringChange={form.handleParseConnectionString}
+                                                    onTest={form.handleTest}
+                                                    onSave={form.handleSave}
+                                                    onCancel={() => setMode('choose')}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
+                                    <div className="border-l border-border/20 bg-bg-primary/20 px-3 py-3">
+                                        <div className="pb-2 text-[11px] font-semibold text-text-secondary">Provider</div>
+                                        <ProviderGrid
+                                            selected={form.selectedProvider}
+                                            locked={form.isEditing}
+                                            onSelect={form.handleDriverChange}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
-                                    {selectedProfile ? (
-                                        <div className="mt-3 space-y-3.5">
-                                            <div>
-                                                <div className="text-[11px] font-semibold text-text-secondary">Connection</div>
-                                                <div className="mt-1 text-[14px] font-semibold text-text-primary">{selectedProfile.name}</div>
-                                                <div className="mt-1 text-[11px] text-text-secondary">
-                                                    {selectedProfile.driver}
-                                                    {selectedProfile.host ? ` / ${selectedProfile.host}:${selectedProfile.port}` : ''}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="text-[11px] font-semibold text-text-secondary">Database</div>
-                                                </div>
-                                                {loadingDatabases ? (
-                                                    <div className="mt-2 flex h-[86px] items-center justify-center rounded-lg border border-dashed border-border/35 bg-bg-primary/20 text-[12px] text-text-secondary">
-                                                        <div className="flex items-center gap-2">
-                                                            <Spinner size={12} /> Loading databases...
-                                                        </div>
-                                                    </div>
-                                                ) : databases.length > 0 ? (
-                                                    <div className="mt-2 max-h-[220px] space-y-1.5 overflow-y-auto">
-                                                        {databases.map((databaseName) => {
-                                                            const active = selectedDatabase === databaseName;
-                                                            return (
-                                                                <button
-                                                                    key={databaseName}
-                                                                    type="button"
-                                                                    onClick={() => setSelectedDatabase(databaseName)}
-                                                                    className={cn(
-                                                                        'flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left transition-colors',
-                                                                        active
-                                                                            ? 'border-accent/35 bg-accent/8'
-                                                                            : 'border-border/25 bg-bg-primary/25 hover:bg-bg-primary/45',
-                                                                    )}
-                                                                >
-                                                                    <span className="truncate text-[12px] font-medium text-text-primary">{databaseName}</span>
-                                                                    {active && (
-                                                                        <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                                                                            Selected
-                                                                        </span>
-                                                                    )}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                ) : (
-                                                    <div className="mt-2 rounded-lg border border-dashed border-border/35 bg-bg-primary/20 px-4 py-4 text-[12px] text-text-secondary">
-                                                        {selectedProfile.db_name
-                                                            ? `Fallback database: ${selectedProfile.db_name}`
-                                                            : 'No databases loaded for this profile yet.'}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-3 rounded-lg border border-dashed border-border/35 bg-bg-primary/20 px-4 py-4 text-[12px] leading-5 text-text-secondary">
-                                            Choose a saved connection for this environment, or add a quick connection without leaving the switcher.
-                                        </div>
+                        <div className="flex items-center justify-between gap-2 border-t border-border/20 px-4 py-3">
+                            <div className="flex items-center gap-1 rounded-lg bg-bg-primary/25 p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setMode('choose')}
+                                    className={cn(
+                                        'cursor-pointer rounded-md p-1.5 transition-colors',
+                                        mode === 'choose' ? 'bg-bg-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary',
                                     )}
-                                </div>
+                                    title="Choose connection, DB"
+                                >
+                                    <List size={14} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        form.resetForm();
+                                        setMode('add');
+                                    }}
+                                    className={cn(
+                                        'cursor-pointer rounded-md p-1.5 transition-colors',
+                                        mode === 'add' ? 'bg-bg-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary',
+                                    )}
+                                    title="Add new connection"
+                                >
+                                    <Plus size={14} />
+                                </button>
                             </div>
+                            <Button
+                                variant="primary"
+                                onClick={() => void handleApply()}
+                                disabled={applyDisabled}
+                                className="rounded-lg"
+                            >
+                                {saving ? (
+                                    'Applying...'
+                                ) : (
+                                    <>
+                                        Apply <ArrowRight size={14} />
+                                    </>
+                                )}
+                            </Button>
                         </div>
                     </section>
                 </div>
