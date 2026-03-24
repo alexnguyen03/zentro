@@ -203,6 +203,7 @@ function App() {
     }, [activeProject, bootstrapEnvironment, clearEnvironment]);
 
     useEffect(() => {
+        const currentProjectId = activeProject?.id;
         const targetEnvironmentKey = activeEnvironmentKey || activeProject?.last_active_environment_key || activeProject?.default_environment_key;
         if (!activeProject || !targetEnvironmentKey) return;
 
@@ -233,6 +234,7 @@ function App() {
         connectAttemptRef.current = targetKey;
 
         const doConnect = async () => {
+            if (activeProject?.id !== currentProjectId) return;
             try {
                 await Connect(profileName);
                 if (targetDbName) {

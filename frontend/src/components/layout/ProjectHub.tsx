@@ -565,15 +565,17 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
             } catch {
                 // ignore
             }
-            resetRuntime();
 
             const project = await openProject(projectId);
             if (!project) {
+                resetRuntime();
                 return;
             }
 
+            resetRuntime();
             onClose?.();
         } catch (error) {
+            resetRuntime();
             toast.error(`Could not open project: ${error}`);
         } finally {
             setOpeningProjectId(null);
