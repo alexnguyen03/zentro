@@ -3,6 +3,7 @@ import {
     Settings,
     RefreshCw,
     Lock,
+    Eye,
     Minus,
     X,
     PanelLeft,
@@ -186,13 +187,23 @@ export const Toolbar: React.FC = () => {
                 <Button
                     variant="ghost"
                     size="icon"
-                    title={viewMode ? 'Disable View Mode' : 'Enable View Mode (Read-only)'}
-                    className={cn(viewMode && 'text-warning')}
+                    title={viewMode ? 'View Mode ON (Click to disable)' : 'Enable View Mode (Read-only)'}
+                    aria-pressed={viewMode}
+                    className={cn(
+                        'relative',
+                        viewMode &&
+                            'text-warning',
+                    )}
                     onClick={() => {
                         void handleToggleViewMode();
                     }}
                 >
-                    <Lock size={14} />
+                    {viewMode ? (
+                        <Eye size={14} className="drop-shadow-[0_0_4px_rgba(245,158,11,0.55)]" />
+                    ) : (
+                        <Lock size={14} />
+                    )}
+                    {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
                 </Button>
                 <Button
                     variant="ghost"
