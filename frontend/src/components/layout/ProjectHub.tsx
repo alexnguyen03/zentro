@@ -1,15 +1,27 @@
 import React from 'react';
 import {
-    ArrowLeft,
-    ArrowRight,
+    Briefcase,
+    Building2,
+    Cpu,
+    Factory,
     BadgeCheck,
+    Check,
     CheckCircle2,
     FolderPlus,
+    GraduationCap,
+    Heart,
+    Landmark,
     Layers3,
+    Leaf,
+    Pencil,
     Plus,
+    Scale,
+    ShoppingCart,
     Sparkles,
     Trash2,
+    X,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Disconnect } from '../../../wailsjs/go/app/App';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -37,10 +49,57 @@ interface ProjectHubProps {
 interface WizardDraft {
     name: string;
     description: string;
+    iconKey: ProjectIconKey;
     starterEnv: EnvironmentKey;
 }
 
 const STEP_ORDER: WizardStep[] = ['basics', 'environment', 'connection', 'review'];
+const PROJECT_ICON_TAG_PREFIX = 'icon:';
+
+type ProjectIconKey =
+    | 'general'
+    | 'business'
+    | 'education'
+    | 'healthcare'
+    | 'finance'
+    | 'law'
+    | 'retail'
+    | 'manufacturing'
+    | 'environment'
+    | 'technology'
+    | 'public';
+
+interface ProjectIconOption {
+    key: ProjectIconKey;
+    label: string;
+    icon: LucideIcon;
+}
+
+const PROJECT_ICON_OPTIONS: ProjectIconOption[] = [
+    { key: 'general', label: 'General', icon: Layers3 },
+    { key: 'business', label: 'Business', icon: Briefcase },
+    { key: 'education', label: 'Education', icon: GraduationCap },
+    { key: 'healthcare', label: 'Healthcare', icon: Heart },
+    { key: 'finance', label: 'Finance', icon: Landmark },
+    { key: 'law', label: 'Law & Policy', icon: Scale },
+    { key: 'retail', label: 'Retail', icon: ShoppingCart },
+    { key: 'manufacturing', label: 'Manufacturing', icon: Factory },
+    { key: 'environment', label: 'Environment', icon: Leaf },
+    { key: 'technology', label: 'Technology', icon: Cpu },
+    { key: 'public', label: 'Public Sector', icon: Building2 },
+];
+
+const PROJECT_ICON_MAP: Record<ProjectIconKey, ProjectIconOption> = PROJECT_ICON_OPTIONS.reduce(
+    (map, option) => {
+        map[option.key] = option;
+        return map;
+    },
+    {} as Record<ProjectIconKey, ProjectIconOption>,
+);
+
+function isProjectIconKey(value: string): value is ProjectIconKey {
+    return Object.prototype.hasOwnProperty.call(PROJECT_ICON_MAP, value);
+}
 
 function formatDateLabel(value?: string) {
     if (!value) return 'Recently updated';
@@ -58,6 +117,18 @@ function sortProjects(projects: Project[]) {
     return [...projects].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
 }
 
+function getProjectIconKey(project: Project | null | undefined): ProjectIconKey {
+    const iconTag = project?.tags?.find((tag) => tag.startsWith(PROJECT_ICON_TAG_PREFIX));
+    const raw = iconTag?.slice(PROJECT_ICON_TAG_PREFIX.length).trim();
+    if (!raw || !isProjectIconKey(raw)) return 'general';
+    return raw;
+}
+
+function buildTagsWithProjectIcon(tags: string[] | undefined, iconKey: ProjectIconKey): string[] {
+    const cleanTags = (tags || []).filter((tag) => tag && !tag.startsWith(PROJECT_ICON_TAG_PREFIX));
+    return [...cleanTags, `${PROJECT_ICON_TAG_PREFIX}${iconKey}`];
+}
+
 function WizardRail({
     currentStep,
     draft,
@@ -70,49 +141,42 @@ function WizardRail({
     selectedDatabase: string;
 }) {
     return (
-        <aside className="flex flex-col border-r border-border/20 bg-bg-primary/35 px-7 py-7">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/50 bg-bg-secondary px-3 py-1 text-[11px] font-semibold text-text-secondary">
+        <aside className="flex flex-col border-r border-border/20 bg-bg-primary/35 px-6 py-6">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-bg-secondary px-3 py-1 text-[11px] font-semibold text-text-secondary">
                 <Sparkles size={12} />
-                New Project Flow
+                Setup
             </div>
 
-            <div className="mt-6">
-                <h2 className="m-0 text-[30px] font-black leading-[1.02] tracking-[-0.04em] text-text-primary">
-                    Smooth setup.
-                    <br />
-                    Query fast.
-                </h2>
-                <p className="mt-3 max-w-[290px] text-[13px] leading-6 text-text-secondary">
-                    Create the project, choose a starter environment, bind a database, and land directly in a ready workspace.
-                </p>
+            <div className="mt-5">
+                <h2 className="m-0 text-[24px] font-black leading-[1.05] tracking-[-0.03em] text-text-primary">New project</h2>
             </div>
 
-            <div className="mt-8 space-y-3">
+            <div className="mt-5 space-y-2">
                 {STEP_ORDER.map((step, index) => {
                     const done = STEP_ORDER.indexOf(currentStep) > index;
                     const active = currentStep === step;
                     const labels: Record<WizardStep, { title: string; desc: string }> = {
-                        basics: { title: 'Project Basics', desc: draft.name || 'Name your project and set context.' },
+                        basics: { title: 'Basics', desc: draft.name || 'Name + icon' },
                         environment: { title: 'Starter Environment', desc: getEnvironmentMeta(draft.starterEnv).label },
                         connection: {
-                            title: 'Connect Database',
+                            title: 'Database',
                             desc: selectedProfileName ? `${selectedProfileName} / ${selectedDatabase || 'Pick a database'}` : 'Choose a connection',
                         },
-                        review: { title: 'Review & Enter', desc: 'Confirm the setup and open the workspace.' },
+                        review: { title: 'Review', desc: 'Create & enter' },
                     };
 
                     return (
                         <div
                             key={step}
                             className={cn(
-                                'rounded-3xl border px-4 py-4 transition-colors',
+                                'rounded-lg px-3 py-3 transition-colors',
                                 active ? 'border-accent/40 bg-bg-secondary' : 'border-border/25 bg-bg-primary/20',
                             )}
                         >
                             <div className="flex items-center gap-3">
                                 <div
                                     className={cn(
-                                        'flex h-8 w-8 items-center justify-center rounded-2xl border text-[12px] font-bold',
+                                        'flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-bold',
                                         done
                                             ? 'border-success/40 bg-success/10 text-success'
                                             : active
@@ -131,16 +195,6 @@ function WizardRail({
                     );
                 })}
             </div>
-
-            <div className="mt-auto rounded-3xl border border-border/30 bg-bg-secondary px-5 py-4">
-                <div className="text-[11px] font-semibold text-text-secondary">Outcome</div>
-                <div className="mt-2 text-[15px] font-semibold text-text-primary">
-                    Project {'->'} env {'->'} db {'->'} workspace
-                </div>
-                <p className="mt-2 text-[12px] leading-5 text-text-secondary">
-                    We only require one starter environment so the first query path stays fast.
-                </p>
-            </div>
         </aside>
     );
 }
@@ -158,6 +212,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
     const [draft, setDraft] = React.useState<WizardDraft>({
         name: '',
         description: '',
+        iconKey: 'general',
         starterEnv: 'loc',
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
@@ -201,6 +256,8 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
     }, [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase, step]);
 
     const stepIndex = STEP_ORDER.indexOf(step);
+    const DraftIcon = PROJECT_ICON_MAP[draft.iconKey].icon;
+    const draftIconLabel = PROJECT_ICON_MAP[draft.iconKey].label;
 
     const goNext = () => {
         if (!canGoNext) return;
@@ -228,7 +285,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
             const project = await createProject({
                 name: draft.name.trim(),
                 description: draft.description.trim(),
-                tags: [],
+                tags: buildTagsWithProjectIcon([], draft.iconKey),
             });
 
             if (!project) {
@@ -273,44 +330,38 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
             />
 
             <section className="grid min-h-0 grid-rows-[auto_1fr_auto] bg-bg-secondary">
-                <div className="flex items-center justify-between border-b border-border/20 px-8 py-6">
+                <div className="flex items-center justify-between border-b border-border/20 px-6 py-4">
                     <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
                             Step {stepIndex + 1} of {STEP_ORDER.length}
                         </div>
-                        <h1 className="m-0 mt-1 text-[24px] font-bold tracking-tight text-text-primary">
+                        <h1 className="m-0 mt-1 text-[20px] font-bold tracking-tight text-text-primary">
                             {step === 'basics' && 'Create the project shell'}
                             {step === 'environment' && 'Pick the starter environment'}
                             {step === 'connection' && 'Bind one database'}
                             {step === 'review' && 'Review and enter workspace'}
                         </h1>
-                        <p className="m-0 mt-2 text-[12px] leading-5 text-text-secondary">
-                            {step === 'basics' && 'Give the project enough identity so it stays recognizable in the workspace.'}
-                            {step === 'environment' && 'Choose the environment that should be ready first when the project opens.'}
-                            {step === 'connection' && 'Use an existing connection or add a quick one inline without leaving the flow.'}
-                            {step === 'review' && 'This starter setup is enough to enter the app and run your first query immediately.'}
-                        </p>
                     </div>
                     {overlay && onClose && (
-                        <Button variant="ghost" onClick={onClose} className="rounded-2xl">
+                        <Button variant="ghost" onClick={onClose} className="rounded-lg">
                             Close
                         </Button>
                     )}
                 </div>
 
-                <div className="min-h-0 overflow-y-auto px-8 py-7">
+                <div className="min-h-0 overflow-y-auto px-6 py-5">
                     {step === 'basics' && (
-                        <div className="mx-auto flex max-w-[720px] flex-col gap-6">
-                            <div className="rounded-[28px] border border-border/25 bg-bg-primary/25 p-6">
+                        <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+                            <div className="rounded-lg bg-bg-primary/25 p-5">
                                 <div className="text-[12px] font-semibold text-text-secondary">Project details</div>
-                                <div className="mt-5 grid gap-4">
+                                <div className="mt-4 grid gap-3">
                                     <div>
                                         <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project name</label>
                                         <Input
                                             value={draft.name}
                                             onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))}
                                             placeholder="Payments Platform"
-                                            className="h-11 rounded-2xl bg-bg-secondary"
+                                            className="h-11 rounded-lg bg-bg-secondary"
                                             autoFocus
                                         />
                                     </div>
@@ -320,26 +371,46 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                             value={draft.description}
                                             onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
                                             placeholder="Optional context for the team or future you"
-                                            className="h-11 rounded-2xl bg-bg-secondary"
+                                            className="h-11 rounded-lg bg-bg-secondary"
                                         />
+                                    </div>
+                                    <div>
+                                        <label className="mb-2 block text-[12px] font-semibold text-text-primary">Icon</label>
+                                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                            {PROJECT_ICON_OPTIONS.map((option) => {
+                                                const OptionIcon = option.icon;
+                                                const active = draft.iconKey === option.key;
+                                                return (
+                                                    <button
+                                                        key={option.key}
+                                                        type="button"
+                                                        onClick={() => setDraft((current) => ({ ...current, iconKey: option.key }))}
+                                                        className={cn(
+                                                            'cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] transition-colors',
+                                                            active ? 'bg-accent/10 text-text-primary' : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
+                                                        )}
+                                                    >
+                                                        <OptionIcon size={14} />
+                                                        <span>{option.label}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="rounded-[28px] border border-border/25 bg-bg-primary/20 px-6 py-5">
-                                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
-                                    Preview
-                                </div>
+                            <div className="rounded-lg bg-bg-primary/20 px-5 py-4">
                                 <div className="mt-3 flex items-center gap-3">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/30 bg-bg-secondary">
-                                        <FolderPlus size={18} className="text-text-primary" />
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-bg-secondary">
+                                        <DraftIcon size={18} className="text-text-primary" />
                                     </div>
                                     <div className="min-w-0">
                                         <div className="truncate text-[16px] font-semibold text-text-primary">
                                             {draft.name.trim() || 'Untitled Project'}
                                         </div>
                                         <div className="mt-1 truncate text-[12px] text-text-secondary">
-                                            {draft.description.trim() || 'Starter project ready for its first environment'}
+                                            {draft.description.trim() || draftIconLabel}
                                         </div>
                                     </div>
                                 </div>
@@ -358,10 +429,10 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                         type="button"
                                         onClick={() => setDraft((current) => ({ ...current, starterEnv: envKey }))}
                                         className={cn(
-                                            'rounded-[28px] border px-5 py-5 text-left transition-colors',
+                                            'cursor-pointer rounded-lg px-4 py-4 text-left transition-colors',
                                             active
                                                 ? 'border-accent/40 bg-accent/8'
-                                                : 'border-border/25 bg-bg-primary/20 hover:border-border/50 hover:bg-bg-primary/40',
+                                                : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
                                         )}
                                     >
                                         <div className="flex items-center justify-between gap-3">
@@ -380,13 +451,13 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
 
                     {step === 'connection' && (
                         <div className="mx-auto w-full max-w-[980px]">
-                            <div className="flex min-h-[520px] flex-col rounded-[30px] border border-border/25 bg-bg-primary/20">
+                            <div className="flex min-h-[520px] flex-col rounded-lg bg-bg-primary/20">
                                 <div className="flex items-center gap-2 border-b border-border/15 px-5 py-4">
                                     <button
                                         type="button"
                                         onClick={() => setConnectionMode('existing')}
                                         className={cn(
-                                            'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
+                                            'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
                                             connectionMode === 'existing'
                                                 ? 'bg-accent text-white'
                                                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
@@ -401,7 +472,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                             setConnectionMode('new');
                                         }}
                                         className={cn(
-                                            'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
+                                            'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
                                             connectionMode === 'new'
                                                 ? 'bg-accent text-white'
                                                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
@@ -458,20 +529,22 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                     )}
 
                     {step === 'review' && (
-                        <div className="mx-auto flex max-w-[760px] flex-col gap-5">
-                            <div className="rounded-[30px] border border-border/25 bg-bg-primary/20 px-6 py-6">
-                                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
-                                    Ready to create
-                                </div>
-                                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                                    <div className="rounded-[24px] border border-border/25 bg-bg-secondary px-4 py-4">
+                        <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+                            <div className="rounded-lg bg-bg-primary/20 px-5 py-5">
+                                <div className="grid gap-3 md:grid-cols-3">
+                                    <div className="rounded-lg bg-bg-secondary px-4 py-4">
                                         <div className="text-[11px] font-semibold text-text-secondary">Project</div>
-                                        <div className="mt-2 text-[16px] font-semibold text-text-primary">{draft.name.trim()}</div>
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-bg-primary/30">
+                                                <DraftIcon size={14} className="text-text-primary" />
+                                            </div>
+                                            <div className="text-[16px] font-semibold text-text-primary">{draft.name.trim()}</div>
+                                        </div>
                                         <div className="mt-1 text-[12px] text-text-secondary">
-                                            {draft.description.trim() || 'No description'}
+                                            {draft.description.trim() || draftIconLabel}
                                         </div>
                                     </div>
-                                    <div className="rounded-[24px] border border-border/25 bg-bg-secondary px-4 py-4">
+                                    <div className="rounded-lg bg-bg-secondary px-4 py-4">
                                         <div className="text-[11px] font-semibold text-text-secondary">Starter environment</div>
                                         <div className="mt-2 flex items-center gap-2">
                                             <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>
@@ -485,7 +558,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                             First workspace will open in this context.
                                         </div>
                                     </div>
-                                    <div className="rounded-[24px] border border-border/25 bg-bg-secondary px-4 py-4">
+                                    <div className="rounded-lg bg-bg-secondary px-4 py-4">
                                         <div className="text-[11px] font-semibold text-text-secondary">Connection</div>
                                         <div className="mt-2 text-[16px] font-semibold text-text-primary">
                                             {selectedProfileName || 'Missing connection'}
@@ -496,36 +569,21 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="rounded-[30px] border border-border/25 bg-bg-primary/18 px-6 py-5">
-                                <div className="text-[12px] font-semibold text-text-primary">What happens next</div>
-                                <div className="mt-3 grid gap-3 md:grid-cols-3">
-                                    <div className="rounded-2xl border border-border/20 bg-bg-secondary px-4 py-4 text-[12px] text-text-secondary">
-                                        Create the project and set the starter environment as active.
-                                    </div>
-                                    <div className="rounded-2xl border border-border/20 bg-bg-secondary px-4 py-4 text-[12px] text-text-secondary">
-                                        Bind the selected connection and database to that environment.
-                                    </div>
-                                    <div className="rounded-2xl border border-border/20 bg-bg-secondary px-4 py-4 text-[12px] text-text-secondary">
-                                        Connect runtime and land directly in the workspace.
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center justify-between border-t border-border/20 px-8 py-5">
+                <div className="flex items-center justify-between border-t border-border/20 px-6 py-4">
                     <div className="flex items-center gap-3">
                         {step !== 'basics' ? (
-                            <Button variant="solid" onClick={goBack} className="rounded-2xl">
-                                <ArrowLeft size={14} /> Back
+                            <Button variant="solid" onClick={goBack} className="rounded-lg">
+                                Back
                             </Button>
                         ) : (
                             <Button
                                 variant="ghost"
                                 onClick={onClose}
-                                className="rounded-2xl"
+                                className="rounded-lg"
                                 disabled={!onClose}
                             >
                                 Cancel
@@ -534,17 +592,17 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                     </div>
 
                     {step !== 'review' ? (
-                        <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-2xl px-5">
-                            Continue <ArrowRight size={14} />
+                        <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-lg px-5">
+                            Continue
                         </Button>
                     ) : (
                         <Button
                             variant="success"
                             onClick={() => void handleCreateAndEnter()}
                             disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
-                            className="rounded-2xl px-5"
+                            className="rounded-lg px-5"
                         >
-                            {submitting ? <><Spinner size={12} className="mr-2 text-white" /> Creating...</> : <>Create project and enter <ArrowRight size={14} /></>}
+                            {submitting ? <><Spinner size={12} className="mr-2 text-white" /> Creating...</> : <>Create & enter</>}
                         </Button>
                     )}
                 </div>
@@ -554,12 +612,23 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
 };
 
 export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose }) => {
-    const { projects, isLoading, error, openProject, deleteProject } = useProjectStore();
+    const { projects, activeProject, isLoading, error, openProject, deleteProject, saveProject } = useProjectStore();
     const resetRuntime = useConnectionStore((state) => state.resetRuntime);
     const { toast } = useToast();
     const [surface, setSurface] = React.useState<Surface>('entry');
     const [openingProjectId, setOpeningProjectId] = React.useState<string | null>(null);
     const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
+    const [savingProjectId, setSavingProjectId] = React.useState<string | null>(null);
+    const [editingProjectId, setEditingProjectId] = React.useState<string | null>(null);
+    const [editDraft, setEditDraft] = React.useState<{
+        name: string;
+        description: string;
+        iconKey: ProjectIconKey;
+    }>({
+        name: '',
+        description: '',
+        iconKey: 'general',
+    });
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
     const recentProject = sortedProjects[0] || null;
@@ -606,82 +675,59 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
         }
     };
 
+    const handleEditProject = (e: React.MouseEvent, project: Project) => {
+        e.stopPropagation();
+        setEditingProjectId(project.id);
+        setEditDraft({
+            name: project.name,
+            description: project.description || '',
+            iconKey: getProjectIconKey(project),
+        });
+    };
+
+    const handleSaveProjectDetails = async (project: Project) => {
+        const nextName = editDraft.name.trim();
+        if (!nextName) {
+            toast.error('Project name is required.');
+            return;
+        }
+
+        setSavingProjectId(project.id);
+        try {
+            const saved = await saveProject({
+                ...project,
+                name: nextName,
+                description: editDraft.description.trim(),
+                tags: buildTagsWithProjectIcon(project.tags, editDraft.iconKey),
+            });
+
+            if (!saved) {
+                toast.error('Could not update project.');
+                return;
+            }
+
+            setEditingProjectId(null);
+            toast.success('Project updated');
+        } catch (error) {
+            toast.error(`Could not update project: ${error}`);
+        } finally {
+            setSavingProjectId(null);
+        }
+    };
+
     const content = (
         <div className={cn(
             'overflow-hidden bg-bg-secondary text-text-primary',
             overlay
-                ? 'h-[720px] w-[1080px] max-w-[calc(100vw-48px)] rounded-[32px] border border-border/40'
+                ? 'h-[620px] w-[30%] max-w-[calc(100vw-24px)] rounded-lg'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (
-                <div className="grid h-full md:grid-cols-[0.86fr_1.14fr]">
-                    <section className="flex flex-col border-r border-border/20 bg-bg-primary/40 px-8 py-8">
-                        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/50 bg-bg-secondary px-3 py-1 text-[11px] font-semibold text-text-secondary">
-                            <Layers3 size={12} />
-                            Project Entry
-                        </div>
-
-                        <div className="mt-7">
-                            <h1 className="m-0 max-w-[310px] text-[36px] font-black leading-[1.02] tracking-[-0.05em] text-text-primary">
-                                Open work fast.
-                                <br />
-                                Setup only once.
-                            </h1>
-                            <p className="mt-3 max-w-[340px] text-[13px] leading-6 text-text-secondary">
-                                Existing projects resume immediately. New projects use a guided setup that binds one environment and one database before you land in the workspace.
-                            </p>
-                        </div>
-
-                        <div className="mt-8 grid gap-3">
-                            <div className="rounded-3xl border border-border/40 bg-bg-secondary px-5 py-4">
-                                <div className="text-[11px] font-semibold text-text-secondary">Fast path</div>
-                                <div className="mt-2 text-[14px] font-semibold text-text-primary">
-                                    Project {'->'} resume workspace
-                                </div>
-                            </div>
-                            <div className="rounded-3xl border border-border/40 bg-bg-secondary px-5 py-4">
-                                <div className="text-[11px] font-semibold text-text-secondary">New setup</div>
-                                <div className="mt-2 text-[14px] font-semibold text-text-primary">
-                                    Create {'->'} choose env {'->'} bind db {'->'} enter
-                                </div>
-                            </div>
-                        </div>
-
-                        {recentProject && (
-                            <button
-                                type="button"
-                                onClick={() => void handleOpenProject(recentProject.id)}
-                                disabled={openingProjectId !== null}
-                                className="mt-auto rounded-3xl border border-border/40 bg-bg-secondary px-5 py-5 text-left transition-colors hover:border-accent/40 hover:bg-bg-primary"
-                            >
-                                <div className="text-[11px] font-semibold text-text-secondary">Jump back in</div>
-                                <div className="mt-3 flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <div className="truncate text-[18px] font-bold tracking-tight text-text-primary">{recentProject.name}</div>
-                                        <div className="mt-1 flex items-center gap-2 text-[12px] text-text-secondary">
-                                            <span>Updated {formatDateLabel(recentProject.updated_at)}</span>
-                                            {isProjectUsable(recentProject) && (
-                                                <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
-                                                    Ready
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/40 bg-bg-primary text-text-primary">
-                                        {openingProjectId === recentProject.id ? <Spinner size={14} /> : <ArrowRight size={16} />}
-                                    </div>
-                                </div>
-                            </button>
-                        )}
-                    </section>
-
-                    <section className="grid min-h-0 grid-rows-[auto_1fr_auto] bg-bg-secondary">
-                        <div className="flex items-center justify-between border-b border-border/20 px-8 py-6">
+                <div className="h-full min-h-0">
+                    <section className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-bg-secondary">
+                        <div className="flex items-center justify-between border-b border-border/20 px-6 py-4">
                             <div>
-                                <h2 className="m-0 text-[22px] font-bold tracking-tight text-text-primary">Projects</h2>
-                                <p className="m-0 mt-1 text-[12px] text-text-secondary">
-                                    Pick an existing project to resume, or start a guided setup for a new one.
-                                </p>
+                                <h2 className="m-0 text-[20px] font-bold tracking-tight text-text-primary">Projects</h2>
                             </div>
                             {overlay && onClose && (
                                 <Button variant="ghost" size="sm" onClick={onClose}>
@@ -690,17 +736,14 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                             )}
                         </div>
 
-                        <div className="min-h-0 overflow-y-auto px-6 py-5">
+                        <div className="min-h-0 overflow-y-auto px-5 py-4">
                             {sortedProjects.length === 0 && !isLoading ? (
-                                <div className="flex h-full min-h-[260px] items-center justify-center rounded-3xl border border-dashed border-border/50 bg-bg-primary/30 px-6 text-center">
+                                <div className="flex h-full min-h-[220px] items-center justify-center rounded-lg border border-dashed border-border/50 bg-bg-primary/30 px-6 text-center">
                                     <div className="max-w-[340px]">
-                                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-border/40 bg-bg-secondary text-text-primary">
+                                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-bg-secondary text-text-primary">
                                             <Plus size={18} />
                                         </div>
-                                        <div className="mt-4 text-[16px] font-semibold text-text-primary">No projects yet</div>
-                                        <p className="mt-2 text-[12px] leading-5 text-text-secondary">
-                                            Start the first project with a guided setup. We will only ask for the minimum needed to enter the app ready to query.
-                                        </p>
+                                        <div className="mt-4 text-[15px] font-semibold text-text-primary">No projects yet</div>
                                     </div>
                                 </div>
                             ) : (
@@ -709,36 +752,148 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                                         const envKey = project.last_active_environment_key || project.default_environment_key || 'loc';
                                         const envMeta = getEnvironmentMeta(envKey);
                                         const ready = isProjectUsable(project);
+                                        const isCurrentProject = activeProject?.id === project.id;
                                         const isDeleting = deletingProjectId === project.id;
                                         const isOpening = openingProjectId === project.id;
+                                        const isSaving = savingProjectId === project.id;
+                                        const isEditing = editingProjectId === project.id;
+                                        const iconOption = PROJECT_ICON_MAP[getProjectIconKey(project)];
+                                        const ProjectIcon = iconOption.icon;
+
+                                        if (isEditing) {
+                                            return (
+                                                <div key={project.id} className="rounded-lg bg-bg-primary/50 px-5 py-5">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-bg-secondary text-text-primary">
+                                                                {React.createElement(PROJECT_ICON_MAP[editDraft.iconKey].icon, { size: 16 })}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[14px] font-semibold text-text-primary">Edit project details</div>
+                                                                <div className="text-[11px] text-text-secondary">Update name, description, and icon</div>
+                                                            </div>
+                                                        </div>
+                                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>
+                                                            {envKey}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-4 grid gap-3">
+                                                        <div>
+                                                            <label className="mb-1.5 block text-[12px] font-semibold text-text-primary">Project name</label>
+                                                            <Input
+                                                                value={editDraft.name}
+                                                                onChange={(e) => setEditDraft((current) => ({ ...current, name: e.target.value }))}
+                                                                className="h-10 rounded-lg bg-bg-secondary"
+                                                                placeholder="Project name"
+                                                                autoFocus
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="mb-1.5 block text-[12px] font-semibold text-text-primary">Description</label>
+                                                            <Input
+                                                                value={editDraft.description}
+                                                                onChange={(e) => setEditDraft((current) => ({ ...current, description: e.target.value }))}
+                                                                className="h-10 rounded-lg bg-bg-secondary"
+                                                                placeholder="Short context about this project"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-4">
+                                                        <div className="text-[12px] font-semibold text-text-primary">Project icon by domain</div>
+                                                        <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                                            {PROJECT_ICON_OPTIONS.map((option) => {
+                                                                const OptionIcon = option.icon;
+                                                                const active = editDraft.iconKey === option.key;
+                                                                return (
+                                                                    <button
+                                                                        key={option.key}
+                                                                        type="button"
+                                                                        onClick={() => setEditDraft((current) => ({ ...current, iconKey: option.key }))}
+                                                                        className={cn(
+                                                                            'cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] transition-colors',
+                                                                            active
+                                                                                ? 'border-accent/50 bg-accent/10 text-text-primary'
+                                                                                : 'border-border/30 bg-bg-secondary text-text-secondary hover:text-text-primary',
+                                                                        )}
+                                                                    >
+                                                                        <OptionIcon size={14} />
+                                                                        <span>{option.label}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-4 flex items-center justify-end gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setEditingProjectId(null)}
+                                                            disabled={isSaving}
+                                                            className="rounded-lg"
+                                                        >
+                                                            <X size={14} /> Cancel
+                                                        </Button>
+                                                        <Button
+                                                            variant="primary"
+                                                            size="sm"
+                                                            onClick={() => void handleSaveProjectDetails(project)}
+                                                            disabled={isSaving || !editDraft.name.trim()}
+                                                            className="rounded-lg"
+                                                        >
+                                                            {isSaving ? (
+                                                                <>
+                                                                    <Spinner size={12} className="mr-1 text-white" /> Saving...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Check size={14} /> Save changes
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
                                         return (
                                             <button
                                                 key={project.id}
                                                 type="button"
                                                 onClick={() => !isDeleting && void handleOpenProject(project.id)}
                                                 disabled={isOpening || isDeleting}
-                                                className="group w-full rounded-3xl border border-border/30 bg-bg-primary/35 px-5 py-4 text-left transition-colors hover:border-accent/40 hover:bg-bg-primary/60"
+                                                className={cn(
+                                                    'group relative w-full cursor-pointer rounded-lg bg-bg-primary/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-bg-primary/60',
+                                                    isCurrentProject && 'border border-accent/45',
+                                                )}
                                             >
+                                                <div className="absolute top-3 right-3">
+                                                    <div className="gap-1 flex">
+                                                        <span
+                                                            className={cn(
+                                                                'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                                                                ready
+                                                                    ? 'border-success/30 bg-success/10 text-success'
+                                                                    : 'border-amber-400/30 bg-amber-400/10 text-amber-300',
+                                                            )}
+                                                        >
+                                                            {ready ? 'Ready' : 'Needs setup'}
+                                                        </span>
+                                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>
+                                                            {envKey}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
                                                 <div className="flex items-start gap-4">
-                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/30 bg-bg-secondary text-text-primary">
-                                                        <Layers3 size={16} />
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg-secondary text-text-primary">
+                                                        <ProjectIcon size={16} />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-2">
                                                             <div className="truncate text-[15px] font-semibold text-text-primary">{project.name}</div>
-                                                            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>
-                                                                {envKey}
-                                                            </span>
-                                                            <span
-                                                                className={cn(
-                                                                    'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                                                                    ready
-                                                                        ? 'border-success/30 bg-success/10 text-success'
-                                                                        : 'border-amber-400/30 bg-amber-400/10 text-amber-300',
-                                                                )}
-                                                            >
-                                                                {ready ? 'Ready' : 'Needs setup'}
-                                                            </span>
                                                         </div>
                                                         {project.description && (
                                                             <p className="m-0 mt-1 line-clamp-1 text-[12px] text-text-secondary">{project.description}</p>
@@ -749,26 +904,33 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                                                             <span>{formatDateLabel(project.updated_at)}</span>
                                                         </div>
                                                     </div>
-                                                    <div className="shrink-0 flex items-center gap-2">
+                                                    <div className="absolute right-3 bottom-3 shrink-0 flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => handleEditProject(e, project)}
+                                                            disabled={isDeleting || isOpening}
+                                                            className="cursor-pointer rounded-lg p-1.5 text-text-secondary opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
+                                                            title="Edit project"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
                                                         <button
                                                             type="button"
                                                             onClick={(e) => void handleDeleteProject(e, project.id)}
                                                             disabled={isDeleting || isOpening}
-                                                            className="rounded-lg p-1.5 text-text-secondary opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
+                                                            className="cursor-pointer rounded-lg p-1.5 text-text-secondary opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
                                                             title="Delete project"
                                                         >
                                                             {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}
                                                         </button>
-                                                        <div className="text-text-secondary transition-transform group-hover:translate-x-0.5 group-hover:text-text-primary">
-                                                            {isOpening ? <Spinner size={14} /> : <ArrowRight size={16} />}
-                                                        </div>
+                                                        {isOpening && <Spinner size={14} className="text-text-secondary" />}
                                                     </div>
                                                 </div>
                                             </button>
                                         );
                                     })}
                                     {error && (
-                                        <div className="rounded-2xl border border-error/30 bg-error/10 px-4 py-3 text-[12px] text-error">
+                                        <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-[12px] text-error">
                                             {error}
                                         </div>
                                     )}
@@ -776,20 +938,31 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                             )}
                         </div>
 
-                        <div className="border-t border-border/20 bg-bg-primary/20 px-6 py-5">
-                            <div className="flex items-center justify-between gap-3 rounded-3xl border border-border/25 bg-bg-secondary px-5 py-4">
-                                <div>
-                                    <div className="flex items-center gap-2 text-[12px] font-semibold text-text-primary">
-                                        <FolderPlus size={13} />
-                                        Create a new project
-                                    </div>
-                                    <div className="mt-1 text-[11px] text-text-secondary">
-                                        Guided setup with one starter environment and one bound database.
-                                    </div>
+                        <div className="sticky bottom-0 z-10 border-t border-border/20 bg-bg-primary/95 px-5 py-2.5 backdrop-blur-[1px]">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                    <div className="text-[11px] font-semibold text-text-secondary">Recent project</div>
+                                    {recentProject ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleOpenProject(recentProject.id)}
+                                            disabled={openingProjectId !== null}
+                                            className="mt-1 inline-flex max-w-full cursor-pointer items-center gap-2 truncate text-[13px] font-semibold text-accent transition-colors hover:text-accent-hover hover:underline disabled:opacity-50"
+                                        >
+                                            <span className="truncate">{recentProject.name}</span>
+                                            {openingProjectId === recentProject.id && <Spinner size={12} className="text-accent" />}
+                                        </button>
+                                    ) : (
+                                        <div className="mt-1 text-[12px] text-text-secondary">No recent project</div>
+                                    )}
                                 </div>
-                                <Button variant="primary" onClick={() => setSurface('wizard')} className="rounded-2xl px-5">
-                                    Start setup
-                                </Button>
+
+                                <div className="shrink-0 flex items-center gap-2">
+                                    <span className="text-[12px] text-text-secondary">Or create new one</span>
+                                    <Button variant="primary" onClick={() => setSurface('wizard')} size="sm" className="rounded-lg px-4">
+                                        Create
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -807,7 +980,9 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
     if (overlay) {
         return (
             <ModalBackdrop onClose={onClose}>
-                <div onClick={(e) => e.stopPropagation()}>{content}</div>
+                <div className="flex h-full w-full items-center justify-center p-3" onClick={(e) => e.stopPropagation()}>
+                    {content}
+                </div>
             </ModalBackdrop>
         );
     }

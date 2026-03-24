@@ -4,7 +4,6 @@ import {
     Play,
     Square,
     Settings,
-    ChevronDown,
     RefreshCw,
     Lock,
     Minus,
@@ -19,6 +18,8 @@ import {
     Columns2,
     Layers3,
     SlidersHorizontal,
+    Server,
+    Database,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -64,6 +65,7 @@ export const Toolbar: React.FC = () => {
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
     const [environmentSwitcherOpen, setEnvironmentSwitcherOpen] = useState(false);
     const [quickEnvOpen, setQuickEnvOpen] = useState(false);
+    const [quickEnvHighlightedIndex, setQuickEnvHighlightedIndex] = useState(0);
     const quickEnvRef = useRef<HTMLDivElement | null>(null);
 
     const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
@@ -142,10 +144,8 @@ export const Toolbar: React.FC = () => {
         }
     };
 
-    let breadcrumbLabel = 'No Connection';
-    if (activeProfile) {
-        breadcrumbLabel = `${activeProfile.name} / ${activeProfile.db_name}`;
-    }
+    const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
+    const databaseLabel = activeProfile?.db_name || 'No database';
 
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
     const quickEnvOptions = useMemo(() => {
@@ -157,6 +157,46 @@ export const Toolbar: React.FC = () => {
         }
         return [] as EnvironmentKey[];
     }, [activeProject?.default_environment_key, environments]);
+
+    useEffect(() => {
+        if (!quickEnvOpen) return;
+        const activeKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
+        const activeIndex = activeKey ? quickEnvOptions.findIndex((envKey) => envKey === activeKey) : -1;
+        setQuickEnvHighlightedIndex(activeIndex >= 0 ? activeIndex : 0);
+    }, [activeEnvironmentKey, activeProject?.default_environment_key, quickEnvOpen, quickEnvOptions]);
+
+    useEffect(() => {
+        if (!quickEnvOpen) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (quickEnvOptions.length === 0) return;
+
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                setQuickEnvHighlightedIndex((current) => (current + 1) % quickEnvOptions.length);
+                return;
+            }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                setQuickEnvHighlightedIndex((current) => (current - 1 + quickEnvOptions.length) % quickEnvOptions.length);
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const targetEnv = quickEnvOptions[Math.max(0, quickEnvHighlightedIndex)];
+                if (targetEnv) {
+                    void handleQuickSwitchEnv(targetEnv);
+                }
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setQuickEnvOpen(false);
+            }
+        };
+
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [quickEnvHighlightedIndex, quickEnvOpen, quickEnvOptions]);
 
     const handleQuickSwitchEnv = async (envKey: EnvironmentKey) => {
         setQuickEnvOpen(false);
@@ -188,14 +228,6 @@ export const Toolbar: React.FC = () => {
                 </div>
                 <Button variant="ghost" size="icon" title="Toggle Safe Mode">
                     <Lock size={14} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Open Project Hub"
-                    onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_PROJECT_HUB))}
-                >
-                    <Layers3 size={14} />
                 </Button>
                 <Button
                     variant="ghost"
@@ -306,81 +338,95 @@ export const Toolbar: React.FC = () => {
                         <button
                             type="button"
                             className={cn(
-                                'flex min-w-0 flex-1 items-center gap-2 px-3 rounded-l-full cursor-pointer transition-all duration-200',
+                                'h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-bg-secondary/40 transition-colors text-[11px] leading-none',
+                                !activeProject && 'opacity-60',
+                            )}
+                            title="Open Project Hub"
+                            onClick={() => {
+                                setQuickEnvOpen(false);
+                                window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_PROJECT_HUB));
+                            }}
+                        >
+                            <Layers3
+                                size={14}
+                                className={cn(
+                                    'shrink-0 translate-y-[0.5px]',
+                                    connectionStatus === 'connected'
+                                        ? 'text-success'
+                                        : connectionStatus === 'error'
+                                            ? 'text-red-500 animate-pulse'
+                                            : 'text-text-secondary',
+                                )}
+                            />
+                            <span className="truncate max-w-[170px] text-text-primary font-semibold leading-none">
+                                {activeProject?.name || 'No Project'}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            className={cn(
+                                'relative h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
                                 !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border',
                             )}
                             onClick={() => setQuickEnvOpen((current) => !current)}
                             disabled={!activeProject}
+                            title="Switch environment"
                         >
-                            {activeProject && (
-                                <>
-                                    <span className="truncate shrink max-w-[150px] text-text-primary font-semibold">
-                                        {activeProject.name}
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            'shrink-0 px-1.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider leading-none',
-                                            envMeta.colorClass
-                                        )}
-                                    >
-                                        {activeEnvironmentKey || activeProject.default_environment_key}
-                                    </span>
-                                    <span className="text-text-secondary/40 shrink-0">/</span>
-                                </>
-                            )}
-                            <span
-                                className={cn(
-                                    'w-2 h-2 rounded-full shrink-0 transition-all duration-300',
-                                    connectionStatus === 'connected'
-                                        ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]'
-                                        : connectionStatus === 'error'
-                                            ? 'bg-red-500 shadow-[0_0_6px_rgba(255,95,87,0.5)] animate-pulse'
-                                            : 'bg-text-secondary'
-                                )}
-                                title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
-                            />
-                            <span className="flex-1 text-center truncate">
-                                {breadcrumbLabel}
-                            </span>
-                            <ChevronDown
-                                size={14}
-                                strokeWidth={quickEnvOpen ? 2.5 : 2}
-                                className={cn('opacity-50 transition-transform duration-200', quickEnvOpen && 'rotate-180 opacity-100 text-accent')}
-                            />
+                            <div className="min-w-0 flex-1 flex items-center justify-center overflow-hidden text-text-secondary text-[11px] leading-none">
+                                <div className="min-w-0 inline-flex items-center justify-center gap-1.5">
+                                    <span className="truncate max-w-[120px] text-center leading-none">{serverLabel}</span>
+                                    <Server size={13} className="shrink-0 translate-y-[0.5px]" />
+                                    <Database size={13} className="shrink-0 translate-y-[0.5px]" />
+                                    <span className="truncate max-w-[120px] text-center leading-none">{databaseLabel}</span>
+                                </div>
+                            </div>
                         </button>
-
                         <button
                             type="button"
-                            className="shrink-0 flex items-center justify-center px-2.5 rounded-r-full border-l border-border/30 hover:bg-bg-secondary/40 transition-colors"
-                            title="Edit environment bindings"
+                            className="relative h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-bg-secondary/40 transition-colors leading-none"
+                            title="Configure environment bindings"
                             onClick={() => {
                                 setQuickEnvOpen(false);
                                 setEnvironmentSwitcherOpen(true);
                             }}
                         >
-                            <SlidersHorizontal size={13} />
+                            {activeProject && (
+                                <span
+                                    className={cn(
+                                        'shrink-0 px-1.5 py-0.5 rounded-full border font-bold uppercase tracking-wider leading-none text-[10px]',
+                                        envMeta.colorClass
+                                    )}
+                                >
+                                    {activeEnvironmentKey || activeProject.default_environment_key}
+                                </span>
+                            )}
+                            <SlidersHorizontal size={12} className="translate-y-[0.5px]" />
                         </button>
 
                         {quickEnvOpen && activeProject && (
-                            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[1200] rounded-2xl border border-border/40 bg-bg-secondary shadow-xl p-2">
+                            <div className="absolute left-1/2 top-[calc(100%+6px)] z-[1200] w-2/3 min-w-[220px] -translate-x-1/2 rounded-lg border border-border/40 bg-bg-secondary shadow-xl p-2">
                                 <div className="space-y-1">
-                                    {quickEnvOptions.map((envKey) => {
+                                    {quickEnvOptions.map((envKey, index) => {
                                         const meta = getEnvironmentMeta(envKey);
                                         const isActive = envKey === (activeEnvironmentKey || activeProject.default_environment_key);
+                                        const isHighlighted = index === quickEnvHighlightedIndex;
                                         return (
                                             <button
                                                 key={envKey}
                                                 type="button"
                                                 className={cn(
-                                                    'w-full flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                    'w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition-colors',
                                                     isActive
                                                         ? 'bg-accent/10 border border-accent/35 text-text-primary'
-                                                        : 'hover:bg-bg-primary/50 text-text-secondary',
+                                                        : isHighlighted
+                                                            ? 'bg-bg-primary/60 text-text-primary'
+                                                            : 'hover:bg-bg-primary/50 text-text-secondary',
                                                 )}
                                                 onClick={() => void handleQuickSwitchEnv(envKey)}
+                                                onMouseEnter={() => setQuickEnvHighlightedIndex(index)}
                                             >
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider', meta.colorClass)}>
+                                                    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>
                                                         {envKey}
                                                     </span>
                                                     <span className="truncate font-semibold">{meta.label}</span>
