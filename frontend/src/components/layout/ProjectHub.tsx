@@ -9,11 +9,7 @@ import {
     Plus,
     Sparkles,
 } from 'lucide-react';
-import {
-    Disconnect,
-    LoadConnections,
-    LoadDatabasesForProfile,
-} from '../../../wailsjs/go/app/App';
+import { Disconnect, LoadConnections } from '../../../wailsjs/go/app/App';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -22,6 +18,7 @@ import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { Button, Input, ModalBackdrop, Spinner } from '../ui';
+import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
 import { cn } from '../../lib/cn';
 import type { EnvironmentKey, Project } from '../../types/project';
 import type { ConnectionProfile } from '../../types/connection';
@@ -63,12 +60,12 @@ function sortProjects(projects: Project[]) {
 function WizardRail({
     currentStep,
     draft,
-    selectedConnection,
+    selectedProfileName,
     selectedDatabase,
 }: {
     currentStep: WizardStep;
     draft: WizardDraft;
-    selectedConnection: ConnectionProfile | null;
+    selectedProfileName: string | null;
     selectedDatabase: string;
 }) {
     return (
@@ -98,7 +95,7 @@ function WizardRail({
                         environment: { title: 'Starter Environment', desc: getEnvironmentMeta(draft.starterEnv).label },
                         connection: {
                             title: 'Connect Database',
-                            desc: selectedConnection ? `${selectedConnection.name} / ${selectedDatabase || selectedConnection.db_name || 'Pick a database'}` : 'Choose or add a connection',
+                            desc: selectedProfileName ? `${selectedProfileName} / ${selectedDatabase || 'Pick a database'}` : 'Choose a connection',
                         },
                         review: { title: 'Review & Enter', desc: 'Confirm the setup and open the workspace.' },
                     };
@@ -147,47 +144,6 @@ function WizardRail({
     );
 }
 
-function ConnectionCard({
-    profile,
-    selected,
-    onSelect,
-}: {
-    profile: ConnectionProfile;
-    selected: boolean;
-    onSelect: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onSelect}
-            className={cn(
-                'w-full rounded-3xl border px-4 py-4 text-left transition-colors',
-                selected
-                    ? 'border-accent/40 bg-accent/8'
-                    : 'border-border/25 bg-bg-primary/20 hover:border-border/50 hover:bg-bg-primary/40',
-            )}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="truncate text-[14px] font-semibold text-text-primary">{profile.name}</div>
-                    <div className="mt-1 text-[11px] text-text-secondary">
-                        {profile.driver}
-                        {profile.host ? ` / ${profile.host}:${profile.port}` : ''}
-                    </div>
-                    <div className="mt-1 truncate text-[11px] text-text-secondary">
-                        Default DB: {profile.db_name || 'Not set'}
-                    </div>
-                </div>
-                {selected && (
-                    <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                        Selected
-                    </span>
-                )}
-            </div>
-        </button>
-    );
-}
-
 const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone: () => void }> = ({ overlay = false, onClose, onDone }) => {
     const createProject = useProjectStore((s) => s.createProject);
     const bindEnvironmentConnection = useProjectStore((s) => s.bindEnvironmentConnection);
@@ -204,114 +160,38 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
         starterEnv: 'loc',
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
-    const [connections, setLocalConnections] = React.useState<ConnectionProfile[]>([]);
-    const [connectionsLoading, setConnectionsLoading] = React.useState(false);
-    const [databasesByProfile, setDatabasesByProfile] = React.useState<Record<string, string[]>>({});
-    const [loadingDbByProfile, setLoadingDbByProfile] = React.useState<Record<string, boolean>>({});
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
     const [selectedDatabase, setSelectedDatabase] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
 
-    const selectedConnection = React.useMemo(
-        () => connections.find((conn) => conn.name === selectedProfileName) || null,
-        [connections, selectedProfileName],
-    );
+    const handleSelectFromTree = React.useCallback((profileName: string, database: string) => {
+        setSelectedProfileName(profileName);
+        setSelectedDatabase(database);
+    }, []);
 
-    const existingNames = connections.map((c) => c.name!).filter(Boolean);
+    const existingNames = React.useMemo(() => {
+        return [];
+    }, []);
     const form = useConnectionForm({
         existingNames,
         onSaved: async () => {
             const savedName = form.formData.name || '';
-            setConnectionsLoading(true);
-            try {
-                const loaded = await LoadConnections();
-                const next = loaded || [];
-                setLocalConnections(next);
-                if (savedName) {
-                    setSelectedProfileName(savedName);
-                    const savedProfile = next.find((item) => item.name === savedName);
-                    setSelectedDatabase(savedProfile?.db_name || '');
-                }
-                void loadDatabasesForProfiles(next);
-                setConnectionMode('existing');
-            } catch (error) {
-                toast.error(`Failed to reload connections: ${error}`);
-            } finally {
-                setConnectionsLoading(false);
+            if (savedName) {
+                setSelectedProfileName(savedName);
             }
+            setConnectionMode('existing');
         },
         onClose: () => {
             setConnectionMode('existing');
         },
     });
 
-    const loadDatabasesForProfiles = React.useCallback(async (profiles: ConnectionProfile[]) => {
-        const nextLoading: Record<string, boolean> = {};
-        for (const profile of profiles) {
-            if (profile.name) nextLoading[profile.name] = true;
-        }
-        setLoadingDbByProfile(nextLoading);
-
-        const entries = await Promise.all(
-            profiles.map(async (profile) => {
-                const name = profile.name || '';
-                if (!name) return [name, [] as string[]] as const;
-                try {
-                    const dbs = await LoadDatabasesForProfile(name);
-                    return [name, dbs || []] as const;
-                } catch {
-                    return [name, [] as string[]] as const;
-                }
-            }),
-        );
-
-        const dbMap: Record<string, string[]> = {};
-        const loadingMap: Record<string, boolean> = {};
-        for (const [name, dbs] of entries) {
-            if (!name) continue;
-            dbMap[name] = dbs;
-            loadingMap[name] = false;
-        }
-        setDatabasesByProfile(dbMap);
-        setLoadingDbByProfile(loadingMap);
-    }, []);
-
-    const loadConnections = React.useCallback(async () => {
-        setConnectionsLoading(true);
-        try {
-            const loaded = await LoadConnections();
-            const next = loaded || [];
-            setLocalConnections(next);
-            if (!selectedProfileName && next[0]?.name) {
-                setSelectedProfileName(next[0].name);
-                setSelectedDatabase(next[0].db_name || '');
-            }
-            void loadDatabasesForProfiles(next);
-        } catch (error) {
-            toast.error(`Failed to load connections: ${error}`);
-        } finally {
-            setConnectionsLoading(false);
-        }
-    }, [loadDatabasesForProfiles, selectedProfileName, toast]);
-
-    React.useEffect(() => {
-        void loadConnections();
-    }, [loadConnections]);
-
-    React.useEffect(() => {
-        if (!selectedConnection?.name) {
-            setSelectedDatabase('');
-            return;
-        }
-        setSelectedDatabase((current) => current || selectedConnection.db_name || '');
-    }, [selectedConnection?.db_name, selectedConnection?.name]);
-
     const canGoNext = React.useMemo(() => {
         if (step === 'basics') return Boolean(draft.name.trim());
         if (step === 'environment') return Boolean(draft.starterEnv);
-        if (step === 'connection') return Boolean(selectedConnection && selectedDatabase.trim());
+        if (step === 'connection') return Boolean(selectedProfileName && selectedDatabase.trim());
         return true;
-    }, [draft.name, draft.starterEnv, selectedConnection, selectedDatabase, step]);
+    }, [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase, step]);
 
     const stepIndex = STEP_ORDER.indexOf(step);
 
@@ -327,7 +207,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
     };
 
     const handleCreateAndEnter = async () => {
-        if (!selectedConnection) return;
+        if (!selectedProfileName) return;
 
         setSubmitting(true);
         try {
@@ -353,9 +233,9 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
 
             const dbName = selectedDatabase.trim();
             const boundProject = await bindEnvironmentConnection(draft.starterEnv, {
-                ...selectedConnection,
+                name: selectedProfileName,
                 db_name: dbName,
-            });
+            } as ConnectionProfile);
 
             if (!boundProject) {
                 toast.error('Could not bind starter environment.');
@@ -380,7 +260,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
             <WizardRail
                 currentStep={step}
                 draft={draft}
-                selectedConnection={selectedConnection}
+                selectedProfileName={selectedProfileName}
                 selectedDatabase={selectedDatabase}
             />
 
@@ -504,7 +384,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
                                         )}
                                     >
-                                        Use saved connection
+                                        Pick from saved
                                     </button>
                                     <button
                                         type="button"
@@ -519,89 +399,17 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
                                         )}
                                     >
-                                        Add quick connection
+                                        New connection
                                     </button>
                                 </div>
 
                                 {connectionMode === 'existing' ? (
-                                    <div className="min-h-0 overflow-y-auto px-5 py-5">
-                                        {connectionsLoading ? (
-                                            <div className="flex h-40 items-center justify-center gap-2 text-[12px] text-text-secondary">
-                                                <Spinner size={14} /> Loading connections...
-                                            </div>
-                                        ) : connections.length === 0 ? (
-                                            <div className="flex h-48 items-center justify-center rounded-[24px] border border-dashed border-border/40 bg-bg-primary/20 px-6 text-center text-[12px] leading-5 text-text-secondary">
-                                                No saved connections yet. Add one inline and keep the flow moving.
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {connections.map((profile) => {
-                                                    const profileName = profile.name || '';
-                                                    const dbs = databasesByProfile[profileName] || [];
-                                                    const loadingDbs = loadingDbByProfile[profileName];
-                                                    const isSelected = profileName === selectedProfileName;
-                                                    return (
-                                                        <div
-                                                            key={profileName}
-                                                            className={cn(
-                                                                'rounded-3xl border px-4 py-4 transition-colors',
-                                                                isSelected
-                                                                    ? 'border-accent/40 bg-accent/8'
-                                                                    : 'border-border/25 bg-bg-primary/20',
-                                                            )}
-                                                        >
-                                                            <ConnectionCard
-                                                                profile={profile}
-                                                                selected={isSelected}
-                                                                onSelect={() => {
-                                                                    setSelectedProfileName(profileName);
-                                                                    setSelectedDatabase(profile.db_name || '');
-                                                                }}
-                                                            />
-
-                                                            <div className="mt-3 border-t border-border/20 pt-3">
-                                                                <div className="mb-2 text-[11px] font-semibold text-text-secondary">
-                                                                    Databases in this connection
-                                                                </div>
-                                                                {loadingDbs ? (
-                                                                    <div className="flex items-center gap-2 text-[11px] text-text-secondary">
-                                                                        <Spinner size={12} /> Loading databases...
-                                                                    </div>
-                                                                ) : dbs.length === 0 ? (
-                                                                    <div className="text-[11px] text-text-secondary">
-                                                                        No databases found for this connection.
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex flex-wrap gap-2">
-                                                                        {dbs.map((dbName) => {
-                                                                            const active = isSelected && selectedDatabase === dbName;
-                                                                            return (
-                                                                                <button
-                                                                                    key={`${profileName}:${dbName}`}
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setSelectedProfileName(profileName);
-                                                                                        setSelectedDatabase(dbName);
-                                                                                    }}
-                                                                                    className={cn(
-                                                                                        'rounded-full border px-3 py-1 text-[11px] font-medium transition-colors',
-                                                                                        active
-                                                                                            ? 'border-accent/40 bg-accent/10 text-accent'
-                                                                                            : 'border-border/40 bg-bg-secondary text-text-secondary hover:text-text-primary',
-                                                                                    )}
-                                                                                >
-                                                                                    {dbName}
-                                                                                </button>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
+                                    <div className="flex-1 overflow-hidden px-5 py-5">
+                                        <DatabaseTreePicker
+                                            onSelect={handleSelectFromTree}
+                                            selectedProfile={selectedProfileName}
+                                            selectedDatabase={selectedDatabase}
+                                        />
                                     </div>
                                 ) : (
                                     <div className="grid min-h-0 flex-1 grid-cols-[168px_1fr] overflow-hidden">
@@ -616,7 +424,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                         <div className="min-h-0 overflow-y-auto">
                                             <div className="px-5 pt-5 text-[12px] font-semibold text-text-primary">Quick connection</div>
                                             <div className="px-5 pb-5 text-[11px] text-text-secondary">
-                                                Setup only. Runtime data loading still belongs to `App.tsx`.
+                                                Save a new connection and select its database.
                                             </div>
                                             <ConnectionForm
                                                 formData={form.formData}
@@ -672,10 +480,10 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                     <div className="rounded-[24px] border border-border/25 bg-bg-secondary px-4 py-4">
                                         <div className="text-[11px] font-semibold text-text-secondary">Connection</div>
                                         <div className="mt-2 text-[16px] font-semibold text-text-primary">
-                                            {selectedConnection?.name || 'Missing connection'}
+                                            {selectedProfileName || 'Missing connection'}
                                         </div>
                                         <div className="mt-1 text-[12px] text-text-secondary">
-                                            {selectedDatabase || selectedConnection?.db_name || 'Pick a database'}
+                                            {selectedDatabase || 'Pick a database'}
                                         </div>
                                     </div>
                                 </div>
@@ -725,7 +533,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                         <Button
                             variant="success"
                             onClick={() => void handleCreateAndEnter()}
-                            disabled={!selectedConnection || submitting}
+                            disabled={!selectedProfileName || !selectedDatabase || submitting}
                             className="rounded-2xl px-5"
                         >
                             {submitting ? <><Spinner size={12} className="mr-2 text-white" /> Creating...</> : <>Create project and enter <ArrowRight size={14} /></>}
