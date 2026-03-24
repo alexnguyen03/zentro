@@ -8,6 +8,7 @@ import {
     Layers3,
     Plus,
     Sparkles,
+    Trash2,
 } from 'lucide-react';
 import { Disconnect, LoadConnections } from '../../../wailsjs/go/app/App';
 import { useProjectStore } from '../../stores/projectStore';
@@ -546,11 +547,12 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
 };
 
 export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose }) => {
-    const { projects, isLoading, error, openProject } = useProjectStore();
+    const { projects, isLoading, error, openProject, deleteProject } = useProjectStore();
     const resetRuntime = useConnectionStore((state) => state.resetRuntime);
     const { toast } = useToast();
     const [surface, setSurface] = React.useState<Surface>('entry');
     const [openingProjectId, setOpeningProjectId] = React.useState<string | null>(null);
+    const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
     const recentProject = sortedProjects[0] || null;
@@ -575,6 +577,23 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
             toast.error(`Could not open project: ${error}`);
         } finally {
             setOpeningProjectId(null);
+        }
+    };
+
+    const handleDeleteProject = async (e: React.MouseEvent, projectId: string) => {
+        e.stopPropagation();
+        setDeletingProjectId(projectId);
+        try {
+            const success = await deleteProject(projectId);
+            if (success) {
+                toast.success('Project deleted');
+            } else {
+                toast.error('Failed to delete project');
+            }
+        } catch (error) {
+            toast.error(`Could not delete project: ${error}`);
+        } finally {
+            setDeletingProjectId(null);
         }
     };
 
@@ -681,12 +700,14 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                                         const envKey = project.last_active_environment_key || project.default_environment_key || 'loc';
                                         const envMeta = getEnvironmentMeta(envKey);
                                         const ready = isProjectUsable(project);
+                                        const isDeleting = deletingProjectId === project.id;
+                                        const isOpening = openingProjectId === project.id;
                                         return (
                                             <button
                                                 key={project.id}
                                                 type="button"
-                                                onClick={() => void handleOpenProject(project.id)}
-                                                disabled={openingProjectId !== null}
+                                                onClick={() => !isDeleting && void handleOpenProject(project.id)}
+                                                disabled={isOpening || isDeleting}
                                                 className="group w-full rounded-3xl border border-border/30 bg-bg-primary/35 px-5 py-4 text-left transition-colors hover:border-accent/40 hover:bg-bg-primary/60"
                                             >
                                                 <div className="flex items-start gap-4">
@@ -719,8 +740,19 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                                                             <span>{formatDateLabel(project.updated_at)}</span>
                                                         </div>
                                                     </div>
-                                                    <div className="shrink-0 text-text-secondary transition-transform group-hover:translate-x-0.5 group-hover:text-text-primary">
-                                                        {openingProjectId === project.id ? <Spinner size={14} /> : <ArrowRight size={16} />}
+                                                    <div className="shrink-0 flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => void handleDeleteProject(e, project.id)}
+                                                            disabled={isDeleting || isOpening}
+                                                            className="rounded-lg p-1.5 text-text-secondary opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
+                                                            title="Delete project"
+                                                        >
+                                                            {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}
+                                                        </button>
+                                                        <div className="text-text-secondary transition-transform group-hover:translate-x-0.5 group-hover:text-text-primary">
+                                                            {isOpening ? <Spinner size={14} /> : <ArrowRight size={16} />}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </button>

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEY } from '../lib/constants';
-import { createProject, getActiveProject, listProjects, openProject, saveProject as persistProject } from '../lib/projectApi';
+import { createProject, deleteProject, getActiveProject, listProjects, openProject, saveProject as persistProject } from '../lib/projectApi';
 import type { EnvironmentKey, Project, ProjectEnvironment } from '../types/project';
 import { getEnvironmentLabel } from '../lib/projects';
 import { withStoreLogger } from './logger';
@@ -19,6 +19,7 @@ interface ProjectState {
     openProject: (projectId: string) => Promise<Project | null>;
     createProject: (input: Pick<Project, 'name' | 'description' | 'tags'>) => Promise<Project | null>;
     saveProject: (project: Project) => Promise<Project | null>;
+    deleteProject: (projectId: string) => Promise<boolean>;
     setProjectEnvironment: (environmentKey: EnvironmentKey) => Promise<Project | null>;
     bindEnvironmentConnection: (environmentKey: EnvironmentKey, profile: ConnectionProfile) => Promise<Project | null>;
     setActiveProject: (project: Project | null) => void;
@@ -187,6 +188,24 @@ export const useProjectStore = create<ProjectState>()(
                     const message = error instanceof Error ? error.message : String(error);
                     set({ isLoading: false, error: message });
                     return null;
+                }
+            },
+
+            deleteProject: async (projectId: string) => {
+                set({ isLoading: true, error: null });
+                try {
+                    await deleteProject(projectId);
+                    set((state) => ({
+                        projects: state.projects.filter((p) => p.id !== projectId),
+                        activeProject: state.activeProject?.id === projectId ? null : state.activeProject,
+                        selectedProjectId: state.selectedProjectId === projectId ? null : state.selectedProjectId,
+                        isLoading: false,
+                    }));
+                    return true;
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    set({ isLoading: false, error: message });
+                    return false;
                 }
             },
 
