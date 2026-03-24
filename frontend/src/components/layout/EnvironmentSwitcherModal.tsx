@@ -61,7 +61,11 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 const next = loaded || [];
                 setLocalConnections(next);
                 setConnections(next);
-                setSelectedProfileName((current) => current || persistedProfileName || next[0]?.name || null);
+                const preferredProfile = persistedProfileName && next.some((profile) => profile.name === persistedProfileName)
+                    ? persistedProfileName
+                    : null;
+                setSelectedProfileName(preferredProfile || next[0]?.name || null);
+                setSelectedDatabase(persistedDatabaseName || '');
             })
             .catch((error) => {
                 if (!cancelled) {
@@ -77,7 +81,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         return () => {
             cancelled = true;
         };
-    }, [persistedProfileName, setConnections, toast]);
+    }, [persistedDatabaseName, persistedProfileName, setConnections, toast]);
 
     const selectedProfile = React.useMemo(
         () => connections.find((profile) => profile.name === selectedProfileName) || null,
@@ -93,13 +97,23 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
         let cancelled = false;
         setLoadingDatabases(true);
+        setDatabases([]);
+        setSelectedDatabase('');
         LoadDatabasesForProfile(selectedProfile.name)
             .then((loaded) => {
                 if (cancelled) return;
                 const next = loaded || [];
                 setDatabases(next);
-                if (selectedDatabase && next.includes(selectedDatabase)) return;
-                setSelectedDatabase(next[0] || persistedDatabaseName || selectedProfile.db_name || '');
+                const preferredDatabase = persistedDatabaseName || selectedProfile.db_name || '';
+                if (preferredDatabase && next.includes(preferredDatabase)) {
+                    setSelectedDatabase(preferredDatabase);
+                    return;
+                }
+                if (preferredDatabase && next.length === 0) {
+                    setSelectedDatabase(preferredDatabase);
+                    return;
+                }
+                setSelectedDatabase(next[0] || preferredDatabase);
             })
             .catch((error) => {
                 if (!cancelled) {
@@ -117,7 +131,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         return () => {
             cancelled = true;
         };
-    }, [selectedProfile?.name, persistedDatabaseName]);
+    }, [selectedProfile?.db_name, selectedProfile?.name, persistedDatabaseName]);
 
     const existingNames = connections.map((c) => c.name!).filter(Boolean);
     const form = useConnectionForm({
@@ -185,20 +199,20 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     return (
         <ModalBackdrop onClose={onClose}>
             <div
-                className="h-[640px] w-[980px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[32px] border border-border/40 bg-bg-secondary text-text-primary"
+                className="h-[612px] w-[940px] max-w-[calc(100vw-36px)] overflow-hidden rounded-[28px] border border-border/40 bg-bg-secondary text-text-primary"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="grid h-full md:grid-cols-[300px_1fr]">
-                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/35 px-6 py-6">
+                <div className="grid h-full md:grid-cols-[280px_1fr]">
+                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/35 px-5 py-5">
                         <div className="text-[11px] font-semibold text-text-secondary">Project</div>
-                        <div className="mt-2 text-[24px] font-bold tracking-tight text-text-primary">{activeProject.name}</div>
-                        <p className="mt-2 text-[12px] leading-5 text-text-secondary">
+                        <div className="mt-1.5 text-[35px] font-bold tracking-tight text-text-primary">{activeProject.name}</div>
+                        <p className="mt-1.5 text-[12px] leading-5 text-text-secondary">
                             Switch environments quickly, or recover by rebinding a connection without leaving the current context.
                         </p>
 
-                        <div className="mt-5 rounded-3xl border border-border/30 bg-bg-secondary px-4 py-4">
+                        <div className="mt-4 rounded-2xl border border-border/30 bg-bg-secondary px-3.5 py-3.5">
                             <div className="text-[11px] font-semibold text-text-secondary">Current</div>
-                            <div className="mt-2 flex items-center gap-2">
+                            <div className="mt-1.5 flex items-center gap-2">
                                 <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', currentMeta.colorClass)}>
                                     {currentEnvKey}
                                 </span>
@@ -206,8 +220,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             </div>
                         </div>
 
-                        <div className="mt-5 min-h-0 flex-1 overflow-y-auto">
-                            <div className="space-y-2">
+                        <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+                            <div className="space-y-1.5">
                                 {ENVIRONMENT_KEYS.map((environmentKey) => {
                                     const meta = getEnvironmentMeta(environmentKey);
                                     const isSelected = selectedEnvironmentKey === environmentKey;
@@ -222,7 +236,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                             type="button"
                                             onClick={() => setSelectedEnvironmentKey(environmentKey)}
                                             className={cn(
-                                                'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
+                                                'w-full rounded-xl border px-3.5 py-2.5 text-left transition-colors',
                                                 isSelected
                                                     ? 'border-accent/40 bg-bg-secondary'
                                                     : 'border-border/25 bg-bg-primary/20 hover:border-border/50 hover:bg-bg-primary/40',
@@ -234,9 +248,9 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
                                                             {environmentKey}
                                                         </span>
-                                                        <span className="text-[14px] font-semibold text-text-primary">{meta.label}</span>
+                                                        <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
                                                     </div>
-                                                    <div className="mt-1 flex items-center gap-2 text-[11px] text-text-secondary">
+                                                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-text-secondary">
                                                         {isCurrent && <span>Current</span>}
                                                         {hasBinding ? <span>Bound</span> : <span>Needs binding</span>}
                                                     </div>
@@ -251,17 +265,17 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                     </section>
 
                     <section className="grid min-h-0 grid-rows-[auto_1fr]">
-                        <div className="flex items-start justify-between gap-4 border-b border-border/20 px-6 py-6">
+                        <div className="flex items-start justify-between gap-4 border-b border-border/20 px-5 py-4">
                             <div>
                                 <div className="flex items-center gap-2">
                                     <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', selectedMeta.colorClass)}>
                                         {selectedEnvironmentKey}
                                     </span>
-                                    <h3 className="m-0 text-[22px] font-bold tracking-tight text-text-primary">
+                                    <h3 className="m-0 text-[32px] font-bold tracking-tight text-text-primary">
                                         {selectedMeta.label}
                                     </h3>
                                 </div>
-                                <p className="m-0 mt-2 text-[12px] leading-5 text-text-secondary">
+                                <p className="m-0 mt-1.5 text-[12px] leading-5 text-text-secondary">
                                     Keep the workspace, switch the environment, and only adjust the binding if this env is not ready.
                                 </p>
                             </div>
@@ -276,12 +290,12 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             </div>
                         </div>
 
-                        <div className="grid min-h-0 gap-5 px-6 py-5 lg:grid-cols-[0.92fr_1.08fr]">
-                            <div className="flex min-h-0 flex-col rounded-[28px] border border-border/25 bg-bg-primary/20">
-                                <div className="flex items-center justify-between border-b border-border/15 px-5 py-4">
+                        <div className="grid min-h-0 gap-4 px-5 py-4 lg:grid-cols-[0.92fr_1.08fr]">
+                            <div className="flex min-h-0 flex-col rounded-[24px] border border-border/25 bg-bg-primary/20">
+                                <div className="flex items-center justify-between border-b border-border/15 px-4 py-3.5">
                                     <div>
                                         <div className="text-[12px] font-semibold text-text-primary">Saved connections</div>
-                                        <div className="mt-1 text-[11px] text-text-secondary">
+                                        <div className="mt-0.5 text-[11px] text-text-secondary">
                                             Pick one for this environment or add a quick connection inline.
                                         </div>
                                     </div>
@@ -299,17 +313,17 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 </div>
 
                                 {mode === 'switch' ? (
-                                    <div className="min-h-0 overflow-y-auto px-5 py-5">
+                                    <div className="min-h-0 overflow-y-auto px-4 py-4">
                                         {loadingConnections ? (
-                                            <div className="flex h-36 items-center justify-center gap-2 text-[12px] text-text-secondary">
+                                            <div className="flex h-28 items-center justify-center gap-2 text-[12px] text-text-secondary">
                                                 <Spinner size={14} /> Loading connections...
                                             </div>
                                         ) : connections.length === 0 ? (
-                                            <div className="flex h-44 items-center justify-center rounded-[22px] border border-dashed border-border/35 bg-bg-primary/20 px-6 text-center text-[12px] leading-5 text-text-secondary">
+                                            <div className="flex h-36 items-center justify-center rounded-[18px] border border-dashed border-border/35 bg-bg-primary/20 px-5 text-center text-[12px] leading-5 text-text-secondary">
                                                 No saved connections yet. Add one inline to recover this environment.
                                             </div>
                                         ) : (
-                                            <div className="space-y-3">
+                                            <div className="space-y-2.5">
                                                 {connections.map((profile) => {
                                                     const selected = profile.name === selectedProfileName;
                                                     return (
@@ -318,7 +332,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                             type="button"
                                                             onClick={() => setSelectedProfileName(profile.name || null)}
                                                             className={cn(
-                                                                'w-full rounded-3xl border px-4 py-4 text-left transition-colors',
+                                                                'w-full rounded-2xl border px-3.5 py-3 text-left transition-colors',
                                                                 selected
                                                                     ? 'border-accent/40 bg-accent/8'
                                                                     : 'border-border/25 bg-bg-primary/20 hover:border-border/50 hover:bg-bg-primary/40',
@@ -347,7 +361,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 ) : (
                                     <div className="grid min-h-0 flex-1 grid-cols-[168px_1fr] overflow-hidden">
                                         <div className="border-r border-border/15">
-                                            <div className="px-4 pt-4 pb-2 text-[11px] font-semibold text-text-secondary">Provider</div>
+                                            <div className="px-4 pt-3.5 pb-2 text-[11px] font-semibold text-text-secondary">Provider</div>
                                             <ProviderGrid
                                                 selected={form.selectedProvider}
                                                 locked={form.isEditing}
@@ -355,8 +369,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                             />
                                         </div>
                                         <div className="min-h-0 overflow-y-auto">
-                                            <div className="px-5 pt-5 text-[12px] font-semibold text-text-primary">Quick connection</div>
-                                            <div className="px-5 pb-5 text-[11px] text-text-secondary">
+                                            <div className="px-5 pt-4 text-[12px] font-semibold text-text-primary">Quick connection</div>
+                                            <div className="px-5 pb-4 text-[11px] text-text-secondary">
                                                 Minimal setup only, so recovery stays smooth and local to this modal.
                                             </div>
                                             <ConnectionForm
@@ -380,13 +394,13 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 )}
                             </div>
 
-                            <div className="flex min-h-0 flex-col rounded-[28px] border border-border/25 bg-bg-primary/20 px-6 py-5">
+                            <div className="flex min-h-0 flex-col rounded-[24px] border border-border/25 bg-bg-primary/20 px-5 py-4">
                                 <div className="flex items-center gap-2 text-[12px] font-semibold text-text-secondary">
                                     <Plug size={13} />
                                     Binding preview
                                 </div>
 
-                                <div className="mt-4 rounded-[24px] border border-border/25 bg-bg-secondary px-5 py-4">
+                                <div className="mt-3 rounded-[20px] border border-border/25 bg-bg-secondary px-4 py-3.5">
                                     <div className="flex items-center gap-2">
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', selectedMeta.colorClass)}>
                                             {selectedEnvironmentKey}
@@ -395,7 +409,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                     </div>
 
                                     {selectedProfile ? (
-                                        <div className="mt-4 space-y-4">
+                                        <div className="mt-3 space-y-3.5">
                                             <div>
                                                 <div className="text-[11px] font-semibold text-text-secondary">Connection</div>
                                                 <div className="mt-1 text-[14px] font-semibold text-text-primary">{selectedProfile.name}</div>
@@ -407,14 +421,15 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                             <div>
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className="text-[11px] font-semibold text-text-secondary">Database</div>
-                                                    {loadingDatabases && (
-                                                        <div className="flex items-center gap-2 text-[11px] text-text-secondary">
-                                                            <Spinner size={12} /> Loading...
-                                                        </div>
-                                                    )}
                                                 </div>
-                                                {databases.length > 0 ? (
-                                                    <div className="mt-3 max-h-[260px] space-y-2 overflow-y-auto">
+                                                {loadingDatabases ? (
+                                                    <div className="mt-2 flex h-[86px] items-center justify-center rounded-xl border border-dashed border-border/35 bg-bg-primary/20 text-[12px] text-text-secondary">
+                                                        <div className="flex items-center gap-2">
+                                                            <Spinner size={12} /> Loading databases...
+                                                        </div>
+                                                    </div>
+                                                ) : databases.length > 0 ? (
+                                                    <div className="mt-2 max-h-[220px] space-y-1.5 overflow-y-auto">
                                                         {databases.map((databaseName) => {
                                                             const active = selectedDatabase === databaseName;
                                                             return (
@@ -423,7 +438,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                                     type="button"
                                                                     onClick={() => setSelectedDatabase(databaseName)}
                                                                     className={cn(
-                                                                        'flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-left transition-colors',
+                                                                        'flex w-full items-center justify-between rounded-xl border px-3 py-1.5 text-left transition-colors',
                                                                         active
                                                                             ? 'border-accent/35 bg-accent/8'
                                                                             : 'border-border/25 bg-bg-primary/25 hover:border-border/45 hover:bg-bg-primary/45',
@@ -440,7 +455,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                         })}
                                                     </div>
                                                 ) : (
-                                                    <div className="mt-3 rounded-2xl border border-dashed border-border/35 bg-bg-primary/20 px-4 py-5 text-[12px] text-text-secondary">
+                                                    <div className="mt-2 rounded-xl border border-dashed border-border/35 bg-bg-primary/20 px-4 py-4 text-[12px] text-text-secondary">
                                                         {selectedProfile.db_name
                                                             ? `Fallback database: ${selectedProfile.db_name}`
                                                             : 'No databases loaded for this profile yet.'}
@@ -449,7 +464,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="mt-4 rounded-2xl border border-dashed border-border/35 bg-bg-primary/20 px-4 py-5 text-[12px] leading-5 text-text-secondary">
+                                        <div className="mt-3 rounded-xl border border-dashed border-border/35 bg-bg-primary/20 px-4 py-4 text-[12px] leading-5 text-text-secondary">
                                             Choose a saved connection for this environment, or add a quick connection without leaving the switcher.
                                         </div>
                                     )}

@@ -16,6 +16,19 @@ import (
 	"zentro/internal/utils"
 )
 
+func isExecutorReady(executor sqlExecutor) bool {
+	switch exec := executor.(type) {
+	case nil:
+		return false
+	case *sql.DB:
+		return exec != nil
+	case *sql.Tx:
+		return exec != nil
+	default:
+		return true
+	}
+}
+
 type sqlExecutor interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
@@ -146,7 +159,7 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 		}()
 
 		executor := s.getExecutor()
-		if executor == nil {
+		if !isExecutorReady(executor) {
 			s.emitDoneWithMore(queryStatement{
 				SourceTabID:      tabID,
 				TabID:            tabID,
@@ -369,7 +382,7 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			s.sessionsMu.Unlock()
 		}()
 
-		if executor == nil {
+		if !isExecutorReady(executor) {
 			s.emitDone(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("no active connection"))
 			return
 		}
@@ -448,7 +461,7 @@ func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
 	}
 
 	executor := s.getExecutor()
-	if executor == nil {
+	if !isExecutorReady(executor) {
 		return 0, fmt.Errorf("no active connection")
 	}
 
@@ -479,7 +492,7 @@ func (s *QueryService) CancelQuery(tabID string) {
 
 func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	executor := s.getExecutor()
-	if executor == nil {
+	if !isExecutorReady(executor) {
 		return 0, fmt.Errorf("no active connection")
 	}
 

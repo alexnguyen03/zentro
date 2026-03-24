@@ -146,7 +146,11 @@ func (s *TransactionService) GetExecutor() sqlExecutor {
 	if s.tx != nil && s.status == constant.TransactionStatusActive {
 		return s.tx
 	}
-	return s.getDB()
+	db := s.getDB()
+	if db == nil {
+		return nil
+	}
+	return db
 }
 
 func (s *TransactionService) emitStatusLocked() {
