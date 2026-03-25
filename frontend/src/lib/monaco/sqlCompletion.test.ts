@@ -98,6 +98,40 @@ describe('sqlCompletion', () => {
         expect(String(items[0].label)).toBe('users');
     });
 
+    it('auto-fills table alias using initials in FROM clause', async () => {
+        const text = 'SELECT * FROM bl';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'bl',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'public', Tables: ['blocks'], Views: [] }],
+            },
+        );
+
+        const blocks = items.find((item) => String(item.label) === 'blocks');
+        expect(blocks?.insertText).toBe('blocks b');
+    });
+
+    it('auto-fills alias initials for snake_case table names', async () => {
+        const text = 'SELECT * FROM ord';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'ord',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'public', Tables: ['order_items'], Views: [] }],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'order_items');
+        expect(target?.insertText).toBe('order_items oi');
+    });
+
     it('prioritizes tables over keywords for matching prefixes', async () => {
         const text = 'SELECT * FROM a';
         const analysis = analyzeSqlText(text, text.length);
@@ -160,6 +194,33 @@ describe('sqlCompletion', () => {
         );
 
         expect(items.map((item) => String(item.label))).toContain('ILIKE');
+    });
+
+    it('quotes spaced table names by driver and appends alias initials', async () => {
+        const text = 'SELECT * FROM sal';
+        const analysis = analyzeSqlText(text, text.length);
+        const drivers: Array<{ driver: string; expected: string }> = [
+            { driver: 'postgres', expected: '"sales order" so' },
+            { driver: 'mysql', expected: '`sales order` so' },
+            { driver: 'sqlserver', expected: '[sales order] so' },
+            { driver: 'sqlite', expected: '"sales order" so' },
+        ];
+
+        for (const { driver, expected } of drivers) {
+            const items = await buildSqlCompletionItems(
+                analysis,
+                'sal',
+                createRange(text.length),
+                {
+                    ...env,
+                    driver,
+                    schemas: [{ Name: 'public', Tables: ['sales order'], Views: [] }],
+                },
+            );
+
+            const target = items.find((item) => String(item.label) === 'sales order');
+            expect(target?.insertText).toBe(expected);
+        }
     });
 
     it('uses strict db context key when resolving schemas', () => {

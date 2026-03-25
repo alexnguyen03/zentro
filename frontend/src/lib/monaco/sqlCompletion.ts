@@ -464,6 +464,45 @@ function normalizeDriverKey(driver: string): string {
     return key;
 }
 
+function shouldQuoteIdentifier(identifier: string): boolean {
+    return !/^[A-Za-z_][A-Za-z0-9_$]*$/.test(identifier);
+}
+
+function quoteIdentifierForDriver(identifier: string, driver: string): string {
+    const raw = stripIdentifierQuotes(identifier);
+    if (!shouldQuoteIdentifier(raw)) return raw;
+
+    const driverKey = normalizeDriverKey(driver);
+    if (driverKey === 'mysql') {
+        return `\`${raw.replace(/`/g, '``')}\``;
+    }
+    if (driverKey === 'sqlserver') {
+        return `[${raw.replace(/\]/g, ']]')}]`;
+    }
+    // Postgres/SQLite/default ANSI quoting
+    return `"${raw.replace(/"/g, '""')}"`;
+}
+
+function generateAliasFromObjectName(objectName: string): string {
+    const stripped = stripIdentifierQuotes(objectName).trim();
+    if (!stripped) return 't';
+
+    const normalized = stripped.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+    const words = normalized.match(/[A-Za-z0-9]+/g) || [];
+    if (words.length === 0) return 't';
+
+    const alias = words
+        .map((word) => word[0]?.toLowerCase() || '')
+        .join('')
+        .replace(/[^a-z0-9_]/g, '');
+
+    if (!alias) return 't';
+    if (/^[0-9]/.test(alias)) {
+        return `t${alias}`;
+    }
+    return alias;
+}
+
 export function getSchemasForActiveDatabase(
     trees: Record<string, SchemaNode[]>,
     profileName: string,
@@ -1142,7 +1181,7 @@ export async function buildSqlCompletionItems(
         (DRIVER_SQL_KEYWORDS[driverKey] || []).forEach((keyword) => addKeyword(keyword, keyword, 255));
     };
 
-    const buildTableItems = () => {
+    const buildTableItems = (options?: { withAlias?: boolean }) => {
         const catalog = buildCatalogIndex(env.schemas);
         const items: Array<{ item: languages.CompletionItem; priority: number }> = [];
 
@@ -1151,6 +1190,11 @@ export async function buildSqlCompletionItems(
                 ? `${entry.schemaName}.${entry.name}`
                 : entry.name;
             const detail = entry.kind === 'view' ? 'View' : 'Table';
+            const qualifiedName = entry.duplicateCount > 1
+                ? `${quoteIdentifierForDriver(entry.schemaName, env.driver)}.${quoteIdentifierForDriver(entry.name, env.driver)}`
+                : quoteIdentifierForDriver(entry.name, env.driver);
+            const alias = options?.withAlias ? generateAliasFromObjectName(entry.name) : '';
+            const insertText = alias ? `${qualifiedName} ${alias}` : qualifiedName;
             items.push({
                 priority: 100,
                 item: {
@@ -1159,7 +1203,7 @@ export async function buildSqlCompletionItems(
                         ? env.monaco.languages.CompletionItemKind.Class as CompletionKind
                         : env.monaco.languages.CompletionItemKind.Module as CompletionKind,
                     detail,
-                    insertText: label,
+                    insertText,
                     range,
                 },
             });
@@ -1227,7 +1271,8 @@ export async function buildSqlCompletionItems(
     }
 
     if (TABLE_LIKE_CLAUSES.has(baseClause)) {
-        buildTableItems().forEach((record) => addSuggestion(record.item.label as string, record.item, record.priority));
+        const withAlias = baseClause === 'from' || baseClause === 'join';
+        buildTableItems({ withAlias }).forEach((record) => addSuggestion(record.item.label as string, record.item, record.priority));
         addKeyword('AS', 'AS ', 130);
         if (baseClause === 'insert') {
             addKeyword('VALUES', 'VALUES ', 120);
