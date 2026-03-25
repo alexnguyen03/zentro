@@ -6,6 +6,7 @@ interface ProviderGridProps {
     selected: string;
     /** When true, only the active provider is clickable (edit mode) */
     locked?: boolean;
+    filterText?: string;
     className?: string;
     onSelect: (key: string) => void;
 }
@@ -44,16 +45,35 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
     </button>
 );
 
-export const ProviderGrid: React.FC<ProviderGridProps> = ({ selected, locked = false, className, onSelect }) => (
-    <div className={cn('grid h-full min-h-0 content-start gap-3 overflow-y-auto bg-bg-primary px-3 py-3 [grid-template-columns:repeat(auto-fill,minmax(96px,1fr))]', className)}>
-        {PROVIDERS.map(p => (
-            <ProviderButton
-                key={p.key}
-                provider={p}
-                active={p.key === selected}
-                disabled={locked && p.key !== selected}
-                onSelect={onSelect}
-            />
-        ))}
-    </div>
-);
+export const ProviderGrid: React.FC<ProviderGridProps> = ({
+    selected,
+    locked = false,
+    filterText = '',
+    className,
+    onSelect,
+}) => {
+    const query = filterText.trim().toLowerCase();
+    const visibleProviders = query
+        ? PROVIDERS.filter((provider) =>
+            provider.label.toLowerCase().includes(query) || provider.key.toLowerCase().includes(query))
+        : PROVIDERS;
+
+    return (
+        <div className={cn('grid h-full min-h-0 content-start gap-3 overflow-y-auto bg-bg-primary px-3 py-3 [grid-template-columns:repeat(auto-fill,minmax(96px,1fr))]', className)}>
+            {visibleProviders.map((provider) => (
+                <ProviderButton
+                    key={provider.key}
+                    provider={provider}
+                    active={provider.key === selected}
+                    disabled={locked && provider.key !== selected}
+                    onSelect={onSelect}
+                />
+            ))}
+            {visibleProviders.length === 0 && (
+                <div className="col-span-full rounded-lg border border-dashed border-border/35 px-3 py-5 text-center text-[12px] text-text-secondary">
+                    No providers found.
+                </div>
+            )}
+        </div>
+    );
+};

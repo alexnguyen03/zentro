@@ -4,5 +4,6 @@ export * from './Badge';
 export * from './Spinner';
 export * from './Divider';
 export * from './ModalBackdrop';
+export * from './ModalFrame';
 export * from './ConfirmationModal';
 export * from './Tooltip';

@@ -48,9 +48,17 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
     // Derive capabilities from provider registry — no hardcoded strings in JSX
     const provider = getProvider(formData.driver ?? DRIVER.POSTGRES);
     const { requiresHost, requiresAuth, extraFields = [] } = provider;
+    const providerLogo = formData.driver ? provider.icon : null;
 
     return (
-        <form onSubmit={onSave} className="flex-1 overflow-y-auto flex flex-col gap-2.5 px-4 py-3">
+        <form onSubmit={onSave} className="relative flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+            {providerLogo && (
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-4 right-4 h-72 w-72 bg-contain bg-center bg-no-repeat opacity-[0.15]"
+                    style={{ backgroundImage: `url(${providerLogo})` }}
+                />
+            )}
 
             {/* URI — new connections only */}
             {showUriField && (

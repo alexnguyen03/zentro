@@ -1,17 +1,20 @@
 import React from 'react';
-import { ArrowRight, Check, CircleAlert, List, Plus, X } from 'lucide-react';
-import { ModalBackdrop, Button, Tooltip } from '../ui';
+import { ArrowRight, Check, CircleAlert } from 'lucide-react';
+import { ModalBackdrop, ModalFrame, Button, Tooltip } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../lib/projects';
 import { cn } from '../../lib/cn';
+import { getProvider } from '../../lib/providers';
 import type { ConnectionProfile } from '../../types/connection';
 import type { EnvironmentKey } from '../../types/project';
 import { useToast } from './Toast';
 import { LoadConnections } from '../../../wailsjs/go/app/App';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
-import { ConnectionEditorPanel } from '../connection/ConnectionEditorPanel';
+import { ConnectionForm } from '../connection/ConnectionForm';
+import { ProviderGrid } from '../connection/ProviderGrid';
+import { ProviderPickerToolbar } from '../connection/ProviderPickerToolbar';
 import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
 
 interface EnvironmentSwitcherModalProps {
@@ -35,6 +38,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const [connections, setLocalConnections] = React.useState<ConnectionProfile[]>([]);
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
     const [selectedDatabase, setSelectedDatabase] = React.useState('');
+    const [providerFilter, setProviderFilter] = React.useState('');
+    const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
 
     React.useEffect(() => {
@@ -90,23 +95,28 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 setConnections(next);
                 setSelectedProfileName(savedName || next[0]?.name || null);
                 setMode('choose');
+                setIsSelectingProvider(false);
+                setProviderFilter('');
             } catch (error) {
                 toast.error(`Failed to reload connections: ${error}`);
             }
         },
-        onClose: () => setMode('choose'),
+        onClose: () => {
+            setMode('choose');
+            setIsSelectingProvider(false);
+            setProviderFilter('');
+        },
     });
+    const selectedProvider = React.useMemo(
+        () => (form.selectedProvider ? getProvider(form.selectedProvider) : null),
+        [form.selectedProvider],
+    );
 
-    React.useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            onClose();
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+    const handleProviderSelect = React.useCallback((key: string) => {
+        form.handleDriverChange(key);
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+    }, [form.handleDriverChange]);
 
     const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
         setSelectedProfileName(profile.name || null);
@@ -152,148 +162,156 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const applyDisabled = saving || mode === 'add';
 
     return (
-        <ModalBackdrop onClose={onClose}>
-            <div
-                className="flex h-[588px] w-[900px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-lg bg-bg-secondary text-text-primary"
-                onClick={(event) => event.stopPropagation()}
-            >
-                <div className="flex items-center justify-between gap-2 border-b border-border/20 px-3.5 py-2.5">
-                    <div className="min-w-0">
-                        <div className="text-[11px] font-semibold text-text-secondary">Project</div>
-                        <h3 className="m-0 mt-0.5 truncate text-[28px] font-bold tracking-tight text-text-primary">{activeProject.name}</h3>
-                    </div>
+        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
+            <ModalFrame
+                title={activeProject.name}
+                subtitle="Project"
+                onClose={onClose}
+                className="h-[588px] w-[900px] max-w-[calc(100vw-24px)] rounded-lg"
+                titleClassName="text-[20px]"
+                bodyClassName="min-h-0 overflow-hidden"
+                footerClassName="flex items-center justify-end px-3 py-2.5"
+                footer={(
                     <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onClose}
-                        className="h-8 w-8 rounded-xl text-text-secondary hover:bg-bg-primary/30 hover:text-text-primary"
+                        variant="primary"
+                        onClick={() => void handleApply()}
+                        disabled={applyDisabled}
+                        className="rounded-lg"
                     >
-                        <X size={16} />
+                        {saving ? (
+                            'Applying...'
+                        ) : (
+                            <>
+                                Apply <ArrowRight size={14} />
+                            </>
+                        )}
                     </Button>
-                </div>
+                )}
+            >
+                <div className="grid h-full min-h-0 md:grid-cols-[228px_1fr]">
+                    <section className="min-h-0 overflow-y-auto border-r border-border/20 bg-bg-primary/30 px-3 py-3">
+                        <div className="space-y-3">
+                            {ENVIRONMENT_KEYS.map((environmentKey) => {
+                                const meta = getEnvironmentMeta(environmentKey);
+                                const isSelected = selectedEnvironmentKey === environmentKey;
+                                const hasBinding = Boolean(
+                                    activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
+                                );
 
-                <div className="grid min-h-0 flex-1 md:grid-cols-[228px_1fr]">
-                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/30 px-3 py-3">
-                        <div className="my-auto">
-                            <div className="max-h-[620px] pr-1">
-                                <div className="space-y-3">
-                                    {ENVIRONMENT_KEYS.map((environmentKey) => {
-                                        const meta = getEnvironmentMeta(environmentKey);
-                                        const isSelected = selectedEnvironmentKey === environmentKey;
-                                        const hasBinding = Boolean(
-                                            activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
-                                        );
-
-                                        return (
-                                            <button
-                                                key={environmentKey}
-                                                type="button"
-                                                onClick={() => setSelectedEnvironmentKey(environmentKey)}
-                                                className={cn(
-                                                    'w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition-colors',
-                                                    isSelected
-                                                        ? 'border-accent/40 bg-accent/8'
-                                                        : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
-                                                )}
-                                            >
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div className="min-w-0 flex items-center gap-2">
-                                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
-                                                            {environmentKey}
-                                                        </span>
-                                                        <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
-                                                    </div>
-                                                    {hasBinding ? (
-                                                        <Tooltip content="Bound">
-                                                            <span className="inline-flex items-center text-accent">
-                                                                <Check size={14} />
-                                                            </span>
-                                                        </Tooltip>
-                                                    ) : (
-                                                        <Tooltip content="Need binding">
-                                                            <span className="inline-flex items-center text-text-secondary">
-                                                                <CircleAlert size={14} />
-                                                            </span>
-                                                        </Tooltip>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                         </div>
+                                return (
+                                    <button
+                                        key={environmentKey}
+                                        type="button"
+                                        onClick={() => setSelectedEnvironmentKey(environmentKey)}
+                                        className={cn(
+                                            'w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition-colors',
+                                            isSelected
+                                                ? 'border-accent/40 bg-accent/8'
+                                                : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="min-w-0 flex items-center gap-2">
+                                                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
+                                                    {environmentKey}
+                                                </span>
+                                                <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
+                                            </div>
+                                            {hasBinding ? (
+                                                <Tooltip content="Bound">
+                                                    <span className="inline-flex items-center text-accent">
+                                                        <Check size={14} />
+                                                    </span>
+                                                </Tooltip>
+                                            ) : (
+                                                <Tooltip content="Need binding">
+                                                    <span className="inline-flex items-center text-text-secondary">
+                                                        <CircleAlert size={14} />
+                                                    </span>
+                                                </Tooltip>
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </section>
 
-                    <section className="grid min-h-0 grid-rows-[1fr_auto]">
-                        <div className="min-h-0 px-3 py-2.5">
-                            {mode === 'choose' ? (
-                                <div className="h-full min-h-0 rounded-lg bg-bg-primary/20">
-                                    <div className="border-b border-border/15 px-2.5 py-2 text-[12px] font-semibold text-text-primary">
-                                        Saved connections
-                                    </div>
-                                    <div className="h-[calc(100%-34px)] min-h-0 px-2.5 py-2">
-                                        <DatabaseTreePicker
-                                            onSelect={handleSelectFromTree}
-                                            selectedProfile={selectedProfileName}
-                                            selectedDatabase={selectedDatabase}
+                    <section className="min-h-0 px-3 py-2.5">
+                        {mode === 'choose' ? (
+                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-lg bg-bg-primary/20">
+                                <div className="min-h-0 px-2.5 py-2">
+                                    <DatabaseTreePicker
+                                        onSelect={handleSelectFromTree}
+                                        selectedProfile={selectedProfileName}
+                                        selectedDatabase={selectedDatabase}
+                                        onAddNew={() => {
+                                            form.resetForm();
+                                            setMode('add');
+                                            setIsSelectingProvider(true);
+                                            setProviderFilter('');
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+                                <ProviderPickerToolbar
+                                    isSelectingProvider={isSelectingProvider}
+                                    providerFilter={providerFilter}
+                                    selectedProvider={selectedProvider}
+                                    onBack={() => {
+                                        setMode('choose');
+                                        setIsSelectingProvider(false);
+                                        setProviderFilter('');
+                                    }}
+                                    onShowProviderPicker={() => setIsSelectingProvider(true)}
+                                    onProviderFilterChange={setProviderFilter}
+                                    onClearProviderFilter={() => setProviderFilter('')}
+                                />
+
+                                {isSelectingProvider ? (
+                                    <div className="h-full min-h-0 rounded-lg bg-bg-primary/15 p-2">
+                                        <ProviderGrid
+                                            selected={form.selectedProvider}
+                                            locked={form.isEditing}
+                                            filterText={providerFilter}
+                                            onSelect={handleProviderSelect}
                                         />
                                     </div>
-                                </div>
-                            ) : (
-                                <ConnectionEditorPanel
-                                    form={form}
-                                    onCancel={() => setMode('choose')}
-                                />
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2 border-t border-border/20 px-3 py-2.5">
-                            <div className="flex items-center gap-1 rounded-lg bg-bg-primary/25 p-0.5">
-                                <button
-                                    type="button"
-                                    onClick={() => setMode('choose')}
-                                    className={cn(
-                                        'cursor-pointer rounded-md p-1 transition-colors',
-                                        mode === 'choose' ? 'bg-bg-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary',
-                                    )}
-                                    title="Choose connection, DB"
-                                >
-                                    <List size={14} />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        form.resetForm();
-                                        setMode('add');
-                                    }}
-                                    className={cn(
-                                        'cursor-pointer rounded-md p-1 transition-colors',
-                                        mode === 'add' ? 'bg-bg-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary',
-                                    )}
-                                    title="Add new connection"
-                                >
-                                    <Plus size={14} />
-                                </button>
-                            </div>
-                            <Button
-                                variant="primary"
-                                onClick={() => void handleApply()}
-                                disabled={applyDisabled}
-                                className="rounded-lg"
-                            >
-                                {saving ? (
-                                    'Applying...'
                                 ) : (
-                                    <>
-                                        Apply <ArrowRight size={14} />
-                                    </>
+                                    <div className="h-full overflow-y-auto">
+                                        <div className="mx-auto flex min-h-full w-full max-w-[620px] items-start justify-center">
+                                            <div className="w-full">
+                                                <ConnectionForm
+                                                    formData={form.formData}
+                                                    connString={form.connString}
+                                                    testing={form.testing}
+                                                    saving={form.saving}
+                                                    testResult={form.testResult}
+                                                    errorMsg={form.errorMsg}
+                                                    successMsg={form.successMsg}
+                                                    isEditing={form.isEditing}
+                                                    showUriField={true}
+                                                    onChange={form.handleChange}
+                                                    onConnStringChange={form.handleParseConnectionString}
+                                                    onTest={form.handleTest}
+                                                    onSave={form.handleSave}
+                                                    onCancel={() => {
+                                                        setMode('choose');
+                                                        setIsSelectingProvider(false);
+                                                        setProviderFilter('');
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
-                            </Button>
-                        </div>
+                            </div>
+                        )}
                     </section>
                 </div>
-            </div>
+            </ModalFrame>
         </ModalBackdrop>
     );
 };
