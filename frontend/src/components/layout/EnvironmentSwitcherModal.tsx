@@ -154,29 +154,29 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     return (
         <ModalBackdrop onClose={onClose}>
             <div
-                className="flex h-[612px] w-[920px] max-w-[calc(100vw-28px)] flex-col overflow-hidden rounded-lg bg-bg-secondary text-text-primary"
+                className="flex h-[588px] w-[900px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-lg bg-bg-secondary text-text-primary"
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3">
+                <div className="flex items-center justify-between gap-2 border-b border-border/20 px-3.5 py-2.5">
                     <div className="min-w-0">
                         <div className="text-[11px] font-semibold text-text-secondary">Project</div>
-                        <h3 className="m-0 mt-0.5 truncate text-[30px] font-bold tracking-tight text-text-primary">{activeProject.name}</h3>
+                        <h3 className="m-0 mt-0.5 truncate text-[28px] font-bold tracking-tight text-text-primary">{activeProject.name}</h3>
                     </div>
-                    <button
-                        type="button"
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={onClose}
-                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-primary/30 hover:text-text-primary"
-                        title="Close"
+                        className="h-8 w-8 rounded-xl text-text-secondary hover:bg-bg-primary/30 hover:text-text-primary"
                     >
-                        <X size={14} />
-                    </button>
+                        <X size={16} />
+                    </Button>
                 </div>
 
-                <div className="grid min-h-0 flex-1 md:grid-cols-[246px_1fr]">
-                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/30 px-4 py-4">
+                <div className="grid min-h-0 flex-1 md:grid-cols-[228px_1fr]">
+                    <section className="flex min-h-0 flex-col border-r border-border/20 bg-bg-primary/30 px-3 py-3">
                         <div className="my-auto">
                             <div className="max-h-[620px] pr-1">
-                                <div className="space-y-5">
+                                <div className="space-y-3">
                                     {ENVIRONMENT_KEYS.map((environmentKey) => {
                                         const meta = getEnvironmentMeta(environmentKey);
                                         const isSelected = selectedEnvironmentKey === environmentKey;
@@ -190,7 +190,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                 type="button"
                                                 onClick={() => setSelectedEnvironmentKey(environmentKey)}
                                                 className={cn(
-                                                    'w-full cursor-pointer rounded-lg border p-4 text-left transition-colors',
+                                                    'w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition-colors',
                                                     isSelected
                                                         ? 'border-accent/40 bg-accent/8'
                                                         : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
@@ -226,13 +226,13 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                     </section>
 
                     <section className="grid min-h-0 grid-rows-[1fr_auto]">
-                        <div className="min-h-0 px-4 py-3">
+                        <div className="min-h-0 px-3 py-2.5">
                             {mode === 'choose' ? (
                                 <div className="h-full min-h-0 rounded-lg bg-bg-primary/20">
-                                    <div className="border-b border-border/15 px-3 py-2.5 text-[12px] font-semibold text-text-primary">
+                                    <div className="border-b border-border/15 px-2.5 py-2 text-[12px] font-semibold text-text-primary">
                                         Saved connections
                                     </div>
-                                    <div className="h-[calc(100%-38px)] min-h-0 px-3 py-2.5">
+                                    <div className="h-[calc(100%-34px)] min-h-0 px-2.5 py-2">
                                         <DatabaseTreePicker
                                             onSelect={handleSelectFromTree}
                                             selectedProfile={selectedProfileName}
@@ -248,13 +248,13 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 border-t border-border/20 px-4 py-3">
-                            <div className="flex items-center gap-1 rounded-lg bg-bg-primary/25 p-1">
+                        <div className="flex items-center justify-between gap-2 border-t border-border/20 px-3 py-2.5">
+                            <div className="flex items-center gap-1 rounded-lg bg-bg-primary/25 p-0.5">
                                 <button
                                     type="button"
                                     onClick={() => setMode('choose')}
                                     className={cn(
-                                        'cursor-pointer rounded-md p-1.5 transition-colors',
+                                        'cursor-pointer rounded-md p-1 transition-colors',
                                         mode === 'choose' ? 'bg-bg-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary',
                                     )}
                                     title="Choose connection, DB"
@@ -268,7 +268,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                         setMode('add');
                                     }}
                                     className={cn(
-                                        'cursor-pointer rounded-md p-1.5 transition-colors',
+                                        'cursor-pointer rounded-md p-1 transition-colors',
                                         mode === 'add' ? 'bg-bg-secondary text-text-primary' : 'text-text-secondary hover:text-text-primary',
                                     )}
                                     title="Add new connection"

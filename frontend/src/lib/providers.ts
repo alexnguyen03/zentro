@@ -83,13 +83,13 @@ export const PROVIDERS: ProviderConfig[] = [
 export const getProvider = (key: string): ProviderConfig =>
     PROVIDERS.find(p => p.key === key) ?? PROVIDERS[0];
 
-export const makeDefaultForm = (driver = DRIVER.POSTGRES): Partial<ConnectionProfile> => {
-    const p = getProvider(driver);
+export const makeDefaultForm = (driver = ''): Partial<ConnectionProfile> => {
+    const p = driver ? getProvider(driver) : null;
     return {
         driver,
         host: 'localhost',
-        port: p.defaultPort ?? 5432,
-        ssl_mode: p.defaultSsl,
+        port: p?.defaultPort ?? 5432,
+        ssl_mode: p?.defaultSsl ?? 'disable',
         connect_timeout: 30,
         save_password: true,
         encrypt_password: true,
@@ -135,6 +135,7 @@ export const validateConnectionForm = (
     isEditing: boolean,
     existingNames: string[]
 ): string | null => {
+    if (!form.driver?.trim()) return 'Please select a provider';
     if (!form.name?.trim()) return 'Profile name is required';
     if (!isEditing && existingNames.includes(form.name.trim()))
         return `"${form.name.trim()}" already exists`;

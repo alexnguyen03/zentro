@@ -2,6 +2,7 @@ import React from 'react';
 import {
     Briefcase,
     Building2,
+    ChevronsUpDown,
     Cpu,
     Factory,
     BadgeCheck,
@@ -12,6 +13,7 @@ import {
     Landmark,
     Layers3,
     Leaf,
+    List,
     Pencil,
     Plus,
     Scale,
@@ -26,10 +28,12 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../lib/projects';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
-import { ConnectionEditorPanel } from '../connection/ConnectionEditorPanel';
+import { ConnectionForm } from '../connection/ConnectionForm';
+import { ProviderGrid } from '../connection/ProviderGrid';
 import { Button, Input, ModalBackdrop, Spinner } from '../ui';
 import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
 import { cn } from '../../lib/cn';
+import { getProvider } from '../../lib/providers';
 import type { EnvironmentKey, Project } from '../../types/project';
 import type { ConnectionProfile } from '../../types/connection';
 import { useToast } from './Toast';
@@ -146,6 +150,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
     const [selectedProfile, setSelectedProfile] = React.useState<ConnectionProfile | null>(null);
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
     const [selectedDatabase, setSelectedDatabase] = React.useState('');
+    const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [submitting, setSubmitting] = React.useState(false);
 
     const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
@@ -169,11 +174,29 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                 setSelectedDatabase(form.formData.db_name);
             }
             setConnectionMode('existing');
+            setIsSelectingProvider(false);
         },
         onClose: () => {
             setConnectionMode('existing');
+            setIsSelectingProvider(false);
         },
     });
+    const selectedProvider = React.useMemo(
+        () => (form.selectedProvider ? getProvider(form.selectedProvider) : null),
+        [form.selectedProvider],
+    );
+
+    const handleProviderSelect = React.useCallback((key: string) => {
+        form.handleDriverChange(key);
+        setIsSelectingProvider(false);
+    }, [form.handleDriverChange]);
+
+    const toggleProviderPicker = React.useCallback(() => {
+        setIsSelectingProvider((current) => {
+            if (!selectedProvider) return true;
+            return !current;
+        });
+    }, [selectedProvider]);
 
     const canGoNext = React.useMemo(() => {
         if (step === 'basics') return Boolean(draft.name.trim());
@@ -268,7 +291,7 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                 )}
             </div>
 
-            <div className="min-h-0 overflow-y-auto px-6 py-5">
+            <div className="min-h-0 overflow-y-auto px-6">
                 {step === 'basics' && (
                     <div className="mx-auto flex max-w-[760px] flex-col gap-4">
                         <div className="rounded-lg bg-bg-primary/25 p-5">
@@ -355,39 +378,73 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
 
                 {step === 'connection' && (
                     <div className="mx-auto w-full max-w-[980px]">
-                        <div className="flex min-h-[520px] flex-col rounded-lg bg-bg-primary/20">
-                            <div className="flex flex-wrap items-center gap-2 border-b border-border/15 px-5 py-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setConnectionMode('existing')}
-                                    className={cn(
-                                        'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
-                                        connectionMode === 'existing'
-                                            ? 'bg-accent text-white'
-                                            : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
-                                    )}
-                                >
-                                    Pick from saved
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        form.resetForm();
-                                        setConnectionMode('new');
-                                    }}
-                                    className={cn(
-                                        'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
-                                        connectionMode === 'new'
-                                            ? 'bg-accent text-white'
-                                            : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
-                                    )}
-                                >
-                                    New connection
-                                </button>
+                        <div className="flex flex-col rounded-lg bg-bg-primary/20">
+                            <div className="flex items-center justify-between gap-2 border-b border-border/15 px-4 py-2.5">
+                                <div className="flex items-center gap-1 rounded-lg bg-bg-primary/25 p-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setConnectionMode('existing');
+                                            setIsSelectingProvider(false);
+                                        }}
+                                        className={cn(
+                                            'cursor-pointer rounded-md p-1 transition-colors',
+                                            connectionMode === 'existing'
+                                                ? 'bg-bg-secondary text-text-primary'
+                                                : 'text-text-secondary hover:text-text-primary',
+                                        )}
+                                        title="Pick from saved"
+                                    >
+                                        <List size={14} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            form.resetForm();
+                                            setConnectionMode('new');
+                                            setIsSelectingProvider(true);
+                                        }}
+                                        className={cn(
+                                            'cursor-pointer rounded-md p-1 transition-colors',
+                                            connectionMode === 'new'
+                                                ? 'bg-bg-secondary text-text-primary'
+                                                : 'text-text-secondary hover:text-text-primary',
+                                        )}
+                                        title="New connection"
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
+
+                                {connectionMode === 'new' && (
+                                    <button
+                                        type="button"
+                                        onClick={toggleProviderPicker}
+                                        disabled={form.isEditing}
+                                        className={cn(
+                                            'flex h-8 items-center gap-2 rounded-lg border border-border/30 bg-bg-primary/50 px-2.5 text-[11px] text-text-secondary transition-colors',
+                                            form.isEditing
+                                                ? 'cursor-not-allowed opacity-50'
+                                                : 'cursor-pointer hover:border-border/50 hover:bg-bg-primary',
+                                        )}
+                                        title={selectedProvider?.label || 'Choose provider'}
+                                    >
+                                        {selectedProvider ? (
+                                            <img
+                                                src={selectedProvider.icon}
+                                                alt={selectedProvider.label}
+                                                className="h-4 w-4 object-contain"
+                                            />
+                                        ) : (
+                                            <span className="font-semibold uppercase tracking-[0.08em]">All</span>
+                                        )}
+                                        <ChevronsUpDown size={13} />
+                                    </button>
+                                )}
                             </div>
 
                             {connectionMode === 'existing' ? (
-                                <div className="flex-1 overflow-hidden px-5 py-5">
+                                <div className="flex-1 overflow-hidden px-4 py-3">
                                     <DatabaseTreePicker
                                         onSelect={handleSelectFromTree}
                                         selectedProfile={selectedProfileName}
@@ -396,11 +453,38 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
                                 </div>
                             ) : (
                                 <div className="min-h-0 flex-1">
-                                    <ConnectionEditorPanel
-                                        form={form}
-                                        onCancel={() => setConnectionMode('existing')}
-                                        className="h-full rounded-none bg-transparent"
-                                    />
+                                    {isSelectingProvider ? (
+                                        <div className="h-full min-h-0 rounded-lg bg-bg-primary/15 p-2">
+                                            <ProviderGrid
+                                                selected={form.selectedProvider}
+                                                locked={form.isEditing}
+                                                onSelect={handleProviderSelect}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="h-full overflow-y-auto">
+                                            <div className="mx-auto flex min-h-full w-full max-w-[620px] items-start justify-center">
+                                                <div className="w-full">
+                                                    <ConnectionForm
+                                                        formData={form.formData}
+                                                        connString={form.connString}
+                                                        testing={form.testing}
+                                                        saving={form.saving}
+                                                        testResult={form.testResult}
+                                                        errorMsg={form.errorMsg}
+                                                        successMsg={form.successMsg}
+                                                        isEditing={form.isEditing}
+                                                        showUriField={true}
+                                                        onChange={form.handleChange}
+                                                        onConnStringChange={form.handleParseConnectionString}
+                                                        onTest={form.handleTest}
+                                                        onSave={form.handleSave}
+                                                        onCancel={() => setConnectionMode('existing')}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -7,7 +7,6 @@ import {
     parseConnectionString,
     validateConnectionForm,
 } from '../lib/providers';
-import { DRIVER } from '../lib/constants';
 import type { ConnectionProfile } from '../types/connection';
 
 export type TestResult = 'idle' | 'ok' | 'error';
@@ -173,7 +172,7 @@ export function useConnectionForm({
         errorMsg,
         successMsg,
         isEditing,
-        selectedProvider: formData.driver ?? DRIVER.POSTGRES,
+        selectedProvider: formData.driver ?? '',
         handleDriverChange,
         handleChange,
         handleParseConnectionString,
