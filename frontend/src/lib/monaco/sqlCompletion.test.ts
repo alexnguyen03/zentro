@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     analyzeSqlText,
     buildSqlCompletionItems,
+    getSchemasForActiveDatabase,
     type SqlCompletionEnv,
 } from './sqlCompletion';
 
@@ -15,6 +16,7 @@ const monacoStub = {
             Function: 5,
             Text: 6,
             Operator: 7,
+            Snippet: 8,
         },
         CompletionItemInsertTextRule: {
             InsertAsSnippet: 1,
@@ -39,6 +41,10 @@ const env: SqlCompletionEnv = {
     }),
     templates: [],
 };
+
+function createRange(column: number) {
+    return { startLineNumber: 1, endLineNumber: 1, startColumn: column, endColumn: column };
+}
 
 describe('sqlCompletion', () => {
     it('detects the current statement and clause across multiple statements', () => {
@@ -116,5 +122,85 @@ describe('sqlCompletion', () => {
         );
 
         expect(String(items[0].label)).toBe('SELECT');
+    });
+
+    it('always includes keyword suggestions when active db schema is missing', async () => {
+        const text = 'sel';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'sel',
+            createRange(3),
+            {
+                ...env,
+                schemas: [],
+                templates: [
+                    { trigger: 'sel_all', name: 'Select all', content: 'SELECT * FROM $1;' },
+                ],
+            },
+        );
+
+        const labels = items.map((item) => String(item.label));
+        expect(labels).toContain('SELECT');
+        expect(labels).toContain('sel_all');
+    });
+
+    it('adds driver-specific keyword suggestions', async () => {
+        const text = 'ILI';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'ILI',
+            createRange(3),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [],
+            },
+        );
+
+        expect(items.map((item) => String(item.label))).toContain('ILIKE');
+    });
+
+    it('uses strict db context key when resolving schemas', () => {
+        const trees = {
+            'main:db1': [{ Name: 'public', Tables: ['users'], Views: [] }],
+            'main:db2': [{ Name: 'public', Tables: ['orders'], Views: [] }],
+        };
+
+        const schemas = getSchemasForActiveDatabase(trees, 'main', 'db1');
+        expect(schemas).toHaveLength(1);
+        expect(schemas[0].Tables).toEqual(['users']);
+    });
+
+    it('drops stale suggestions when request is aborted mid-flight', async () => {
+        let resolveFetch: ((value: Array<{ Name: string }>) => void) | undefined;
+        let aborted = false;
+        const fetchColumns = vi.fn(() => new Promise<Array<{ Name: string }>>((resolve) => {
+            resolveFetch = resolve;
+        }));
+
+        const text = 'SELECT * FROM users u WHERE u.';
+        const analysis = analyzeSqlText(text, text.length);
+        const promise = buildSqlCompletionItems(
+            analysis,
+            '',
+            createRange(text.length),
+            {
+                ...env,
+                fetchColumns: fetchColumns as any,
+            },
+            {
+                shouldAbort: () => aborted,
+            },
+        );
+
+        aborted = true;
+        if (resolveFetch) {
+            resolveFetch([{ Name: 'id' }]);
+        }
+
+        const items = await promise;
+        expect(items).toEqual([]);
     });
 });

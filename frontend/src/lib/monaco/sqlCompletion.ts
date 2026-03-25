@@ -76,6 +76,10 @@ export interface SqlCompletionEnv {
     templates: SqlTemplateLike[];
 }
 
+export interface SqlCompletionBuildOptions {
+    shouldAbort?: () => boolean;
+}
+
 interface SuggestionRecord {
     priority: number;
     item: languages.CompletionItem;
@@ -99,6 +103,13 @@ const SQL_FUNCTIONS = [
 const SQL_OPERATORS = [
     '=', '<>', '!=', '>', '<', '>=', '<=', 'LIKE', 'IN', 'BETWEEN', 'IS NULL', 'IS NOT NULL'
 ];
+
+const DRIVER_SQL_KEYWORDS: Record<string, string[]> = {
+    postgres: ['ILIKE', 'SIMILAR TO', 'SERIAL', 'BIGSERIAL', 'JSONB', 'UNNEST', 'LATERAL', 'ON CONFLICT'],
+    mysql: ['REPLACE INTO', 'SHOW', 'DESCRIBE', 'AUTO_INCREMENT', 'ON DUPLICATE KEY UPDATE', 'ENGINE', 'UNSIGNED'],
+    sqlserver: ['TOP', 'NVARCHAR', 'IDENTITY', 'MERGE', 'TRY_CONVERT', 'OUTPUT', 'WITH (NOLOCK)'],
+    sqlite: ['PRAGMA', 'AUTOINCREMENT', 'WITHOUT ROWID', 'GLOB', 'VACUUM', 'ATTACH DATABASE'],
+};
 
 const SELECT_LIKE_CLAUSES = new Set<SqlClause>(['select', 'where', 'having', 'groupBy', 'orderBy', 'on', 'set', 'createView']);
 const COLUMN_LIKE_CLAUSES = new Set<SqlClause>(['select', 'where', 'having', 'groupBy', 'orderBy', 'on', 'set', 'insertColumns', 'createView']);
@@ -445,6 +456,22 @@ function stripIdentifierQuotes(value: string): string {
         return trimmed.slice(1, -1);
     }
     return trimmed;
+}
+
+function normalizeDriverKey(driver: string): string {
+    const key = normalizeIdentifier(driver);
+    if (key === 'mssql') return 'sqlserver';
+    return key;
+}
+
+export function getSchemasForActiveDatabase(
+    trees: Record<string, SchemaNode[]>,
+    profileName: string,
+    dbName: string,
+): SchemaNode[] {
+    if (!profileName || !dbName) return [];
+    const key = `${profileName}:${dbName}`;
+    return trees[key] || [];
 }
 
 function extractCtes(statementText: string): Map<string, SqlSourceRef> {
@@ -901,11 +928,20 @@ async function resolveColumnsForSources(
     sources: SqlSourceRef[],
     analysis: SqlAnalysis,
     env: SqlCompletionEnv,
+    shouldAbort: () => boolean,
 ): Promise<Array<{ Name: string; DataType?: string; IsPrimaryKey?: boolean; detail?: string }>> {
+    if (shouldAbort()) {
+        return [];
+    }
+
     const unique = new Map<string, { Name: string; DataType?: string; IsPrimaryKey?: boolean; detail?: string }>();
     const targetSources = sources.slice(0, 8);
 
     for (const source of targetSources) {
+        if (shouldAbort()) {
+            return [];
+        }
+
         if (source.columns && source.columns.length > 0) {
             source.columns.forEach((column) => {
                 const key = normalizeIdentifier(column);
@@ -922,7 +958,13 @@ async function resolveColumnsForSources(
 
         const matches = findCatalogMatches(env.schemas, source.name, source.schemaName);
         for (const match of matches) {
+            if (shouldAbort()) {
+                return [];
+            }
             const columns = await env.fetchColumns(match.schemaName, match.name);
+            if (shouldAbort()) {
+                return [];
+            }
             columns.forEach((column) => {
                 const key = normalizeIdentifier(column.Name);
                 if (!unique.has(key)) {
@@ -990,8 +1032,10 @@ export async function buildSqlCompletionItems(
     currentWord: string,
     range: { startLineNumber: number; endLineNumber: number; startColumn: number; endColumn: number },
     env: SqlCompletionEnv,
+    options: SqlCompletionBuildOptions = {},
 ): Promise<languages.CompletionItem[]> {
-    if (analysis.isInCommentOrString) {
+    const shouldAbort = options.shouldAbort ?? (() => false);
+    if (analysis.isInCommentOrString || shouldAbort()) {
         return [];
     }
 
@@ -1092,6 +1136,12 @@ export async function buildSqlCompletionItems(
         });
     };
 
+    const addBaselineKeywords = () => {
+        SQL_KEYWORDS.forEach((keyword) => addKeyword(keyword, keyword, 260));
+        const driverKey = normalizeDriverKey(env.driver);
+        (DRIVER_SQL_KEYWORDS[driverKey] || []).forEach((keyword) => addKeyword(keyword, keyword, 255));
+    };
+
     const buildTableItems = () => {
         const catalog = buildCatalogIndex(env.schemas);
         const items: Array<{ item: languages.CompletionItem; priority: number }> = [];
@@ -1119,7 +1169,10 @@ export async function buildSqlCompletionItems(
     };
 
     const buildColumnItems = async (sources: SqlSourceRef[]) => {
-        const resolvedColumns = await resolveColumnsForSources(sources, analysis, env);
+        const resolvedColumns = await resolveColumnsForSources(sources, analysis, env, shouldAbort);
+        if (shouldAbort()) {
+            return [];
+        }
         return resolvedColumns.map((column) => ({
             label: column.Name,
             kind: env.monaco.languages.CompletionItemKind.Field as CompletionKind,
@@ -1132,20 +1185,39 @@ export async function buildSqlCompletionItems(
     const clause = normalizeInsertClause(analysis);
     const baseClause = clause === 'insertColumns' ? 'select' : clause;
 
+    addBaselineKeywords();
+    if (shouldAbort()) {
+        return [];
+    }
+
+    if (env.schemas.length === 0) {
+        addTemplates();
+        return shouldAbort() ? [] : finalizeSuggestions(suggestionMap);
+    }
+
     if (analysis.afterDot) {
         const dotSources = resolveSourcesFromIdentifier(analysis.dotIdentifier, analysis.sources, analysis.ctes, env.schemas);
         const columns = await buildColumnItems(dotSources.length > 0 ? dotSources : analysis.sources);
+        if (shouldAbort()) {
+            return [];
+        }
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
         return finalizeSuggestions(suggestionMap);
     }
 
     if (COLUMN_LIKE_CLAUSES.has(baseClause)) {
         const columns = await buildColumnItems(analysis.sources);
+        if (shouldAbort()) {
+            return [];
+        }
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
     }
 
     if (SELECT_LIKE_CLAUSES.has(baseClause) || baseClause === 'with' || baseClause === 'unknown') {
         const columns = analysis.sources.length > 0 ? await buildColumnItems(analysis.sources) : [];
+        if (shouldAbort()) {
+            return [];
+        }
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
         addTemplates();
         buildSelectLikeSuggestions(addKeyword, addFunction, addText, addOperator);
@@ -1168,6 +1240,9 @@ export async function buildSqlCompletionItems(
 
     if (baseClause === 'where' || baseClause === 'having' || baseClause === 'on' || baseClause === 'set') {
         const columns = await buildColumnItems(analysis.sources);
+        if (shouldAbort()) {
+            return [];
+        }
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
         SQL_OPERATORS.forEach((op) => addOperator(op, `${op} `, 50));
         buildSelectLikeSuggestions(addKeyword, addFunction, addText, addOperator);
@@ -1175,6 +1250,9 @@ export async function buildSqlCompletionItems(
 
     if (baseClause === 'groupBy' || baseClause === 'orderBy') {
         const columns = await buildColumnItems(analysis.sources);
+        if (shouldAbort()) {
+            return [];
+        }
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
         SQL_FUNCTIONS.forEach((fn) => addFunction(fn, `${fn}($1)`, 100));
         addKeyword('ASC', 'ASC ', 20);
@@ -1210,11 +1288,12 @@ export async function buildSqlCompletionItems(
         addTemplates();
     }
 
-    return finalizeSuggestions(suggestionMap);
+    return shouldAbort() ? [] : finalizeSuggestions(suggestionMap);
 }
 
 export function registerContextAwareSQLCompletion(monaco: any) {
     const disposables = (window as any)[DISPOSABLES_KEY] as any[];
+    let latestRequestId = 0;
 
     while (disposables.length > 0) {
         const d = disposables.pop();
@@ -1229,13 +1308,19 @@ export function registerContextAwareSQLCompletion(monaco: any) {
 
     const provider = {
         triggerCharacters: ['.', ' ', ',', '('],
-        provideCompletionItems: async (model: any, position: any) => {
+        provideCompletionItems: async (model: any, position: any, _context: any, token: { isCancellationRequested?: boolean }) => {
+            const requestId = ++latestRequestId;
+            const shouldAbort = () => Boolean(token?.isCancellationRequested) || requestId !== latestRequestId;
+            if (shouldAbort()) {
+                return { suggestions: [] };
+            }
+
             const fullText = model.getValue();
             const cursorOffset = typeof model.getOffsetAt === 'function'
                 ? model.getOffsetAt(position)
                 : getOffsetAtPosition(fullText, position);
             const analysis = analyzeSqlText(fullText, cursorOffset);
-            if (analysis.isInCommentOrString) {
+            if (analysis.isInCommentOrString || shouldAbort()) {
                 return { suggestions: [] };
             }
 
@@ -1250,13 +1335,12 @@ export function registerContextAwareSQLCompletion(monaco: any) {
             const profile = useConnectionStore.getState().activeProfile;
             const profileKey = profile?.name ?? '';
             const dbName = profile?.db_name ?? '';
-            const schemas = profileKey
-                ? Object.entries(useSchemaStore.getState().trees)
-                    .filter(([key]) => key.startsWith(`${profileKey}:`))
-                    .flatMap(([, nodes]) => nodes as SchemaNode[])
-                : [];
+            const schemas = getSchemasForActiveDatabase(useSchemaStore.getState().trees, profileKey, dbName);
 
             const fetchColumns = async (schemaName: string, tableName: string) => {
+                if (shouldAbort()) {
+                    return [];
+                }
                 return useSchemaStore.getState().checkAndFetchColumns(profileKey, dbName, schemaName, tableName);
             };
 
@@ -1272,8 +1356,14 @@ export function registerContextAwareSQLCompletion(monaco: any) {
                     fetchColumns,
                     templates,
                 },
+                {
+                    shouldAbort,
+                },
             );
 
+            if (shouldAbort()) {
+                return { suggestions: [] };
+            }
             return { suggestions };
         },
     };
