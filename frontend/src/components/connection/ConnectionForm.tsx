@@ -84,8 +84,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {/* Host + Port */}
-            <div className="flex gap-2">
-                <div className="flex-1" style={{ flex: 3 }}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 sm:basis-3/4">
                     <label className={lbl}>Host {requiresHost && <span className="text-error">*</span>}</label>
                     <input
                         name="host"
@@ -96,7 +96,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         className={cn(fi, !requiresHost && 'opacity-40')}
                     />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="sm:basis-1/4">
                     <label className={lbl}>Port {requiresHost && <span className="text-error">*</span>}</label>
                     <input
                         type="number"
@@ -113,7 +113,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {/* Username + Password */}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1">
                     <label className={lbl}>Username {requiresAuth && <span className="text-error">*</span>}</label>
                     <input
@@ -141,8 +141,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {/* Database + SSL */}
-            <div className="flex gap-2">
-                <div className="flex-1" style={{ flex: 2 }}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 sm:basis-2/3">
                     <label className={lbl}>Database <span className="text-error">*</span></label>
                     <input
                         name="db_name"
@@ -153,7 +153,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     />
                 </div>
                 {requiresHost && (
-                    <div style={{ flex: 1 }}>
+                    <div className="sm:basis-1/3">
                         <label className={lbl}>SSL</label>
                         <select name="ssl_mode" value={formData.ssl_mode || 'disable'} onChange={onChange} className={fi}>
                             <option value="disable">Disable</option>
@@ -230,7 +230,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             )}
 
             {/* Actions */}
-            <div className="flex gap-1.5 mt-auto pt-2.5">
+            <div className="mt-auto flex gap-1.5 pt-2.5">
                 <Button
                     type="button"
                     variant="solid"
@@ -249,7 +249,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                             : 'Test'}
                 </Button>
                 <div className="flex-1" />
-                <Button type="submit" variant="success" className="w-6/12" disabled={saving}>
+                <Button type="submit" variant="success" className="w-6/12 min-w-[120px] sm:min-w-0" disabled={saving}>
                     {saving ? <><Spinner size={11} className="text-white mr-1" /> Saving…</> : 'Save'}
                 </Button>
             </div>

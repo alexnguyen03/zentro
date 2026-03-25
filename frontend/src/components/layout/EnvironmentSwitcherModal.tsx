@@ -1,6 +1,6 @@
 import React from 'react';
-import { ArrowRight, Check, ChevronDown, ChevronRight, CircleAlert, List, Plus, X } from 'lucide-react';
-import { ModalBackdrop, Button, Spinner, Tooltip } from '../ui';
+import { ArrowRight, Check, CircleAlert, List, Plus, X } from 'lucide-react';
+import { ModalBackdrop, Button, Tooltip } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -9,10 +9,10 @@ import { cn } from '../../lib/cn';
 import type { ConnectionProfile } from '../../types/connection';
 import type { EnvironmentKey } from '../../types/project';
 import { useToast } from './Toast';
-import { LoadConnections, LoadDatabasesForProfile } from '../../../wailsjs/go/app/App';
+import { LoadConnections } from '../../../wailsjs/go/app/App';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
-import { ProviderGrid } from '../connection/ProviderGrid';
-import { ConnectionForm } from '../connection/ConnectionForm';
+import { ConnectionEditorPanel } from '../connection/ConnectionEditorPanel';
+import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
 
 interface EnvironmentSwitcherModalProps {
     onClose: () => void;
@@ -34,10 +34,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const [selectedEnvironmentKey, setSelectedEnvironmentKey] = React.useState<EnvironmentKey>('loc');
     const [connections, setLocalConnections] = React.useState<ConnectionProfile[]>([]);
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
-    const [databases, setDatabases] = React.useState<string[]>([]);
     const [selectedDatabase, setSelectedDatabase] = React.useState('');
-    const [loadingConnections, setLoadingConnections] = React.useState(false);
-    const [loadingDatabases, setLoadingDatabases] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
 
     React.useEffect(() => {
@@ -53,7 +50,6 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
     React.useEffect(() => {
         let cancelled = false;
-        setLoadingConnections(true);
         LoadConnections()
             .then((loaded) => {
                 if (cancelled) return;
@@ -70,11 +66,6 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 if (!cancelled) {
                     toast.error(`Failed to load connections: ${error}`);
                 }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setLoadingConnections(false);
-                }
             });
 
         return () => {
@@ -87,57 +78,11 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         [connections, selectedProfileName],
     );
 
-    React.useEffect(() => {
-        if (!selectedProfile?.name) {
-            setDatabases([]);
-            setSelectedDatabase('');
-            return;
-        }
-
-        let cancelled = false;
-        setLoadingDatabases(true);
-        setDatabases([]);
-        setSelectedDatabase('');
-        LoadDatabasesForProfile(selectedProfile.name)
-            .then((loaded) => {
-                if (cancelled) return;
-                const next = loaded || [];
-                setDatabases(next);
-                const preferredDatabase = persistedDatabaseName || selectedProfile.db_name || '';
-                if (preferredDatabase && next.includes(preferredDatabase)) {
-                    setSelectedDatabase(preferredDatabase);
-                    return;
-                }
-                if (preferredDatabase && next.length === 0) {
-                    setSelectedDatabase(preferredDatabase);
-                    return;
-                }
-                setSelectedDatabase(next[0] || preferredDatabase);
-            })
-            .catch((error) => {
-                if (!cancelled) {
-                    setDatabases([]);
-                    setSelectedDatabase(persistedDatabaseName || selectedProfile.db_name || '');
-                    toast.error(`Failed to load databases: ${error}`);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setLoadingDatabases(false);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [selectedProfile?.db_name, selectedProfile?.name, persistedDatabaseName]);
-
     const existingNames = connections.map((c) => c.name!).filter(Boolean);
     const form = useConnectionForm({
         existingNames,
         onSaved: async () => {
             const savedName = form.formData.name || '';
-            setLoadingConnections(true);
             try {
                 const loaded = await LoadConnections();
                 const next = loaded || [];
@@ -147,8 +92,6 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 setMode('choose');
             } catch (error) {
                 toast.error(`Failed to reload connections: ${error}`);
-            } finally {
-                setLoadingConnections(false);
             }
         },
         onClose: () => setMode('choose'),
@@ -164,6 +107,11 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
+
+    const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
+        setSelectedProfileName(profile.name || null);
+        setSelectedDatabase(database);
+    }, []);
 
     const handleApply = async () => {
         if (!activeProject) return;
@@ -284,128 +232,19 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                     <div className="border-b border-border/15 px-3 py-2.5 text-[12px] font-semibold text-text-primary">
                                         Saved connections
                                     </div>
-
-                                    <div className="min-h-0 h-[calc(100%-38px)] overflow-y-auto px-3 py-2.5">
-                                        {loadingConnections ? (
-                                            <div className="flex h-24 items-center justify-center gap-2 text-[12px] text-text-secondary">
-                                                <Spinner size={14} /> Loading connections...
-                                            </div>
-                                        ) : connections.length === 0 ? (
-                                            <div className="flex h-28 items-center justify-center rounded-lg bg-bg-primary/20 px-4 text-center text-[12px] text-text-secondary">
-                                                No saved connection
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                {connections.map((profile) => {
-                                                    const selected = profile.name === selectedProfileName;
-                                                    const expanded = selected;
-
-                                                    return (
-                                                        <div
-                                                            key={profile.name}
-                                                            className={cn(
-                                                                'rounded-lg border transition-colors',
-                                                                selected
-                                                                    ? 'border-accent/45 bg-accent/8'
-                                                                    : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/35',
-                                                            )}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSelectedProfileName(profile.name || null)}
-                                                                className="flex w-full cursor-pointer items-start justify-between gap-3 px-3 py-2.5 text-left"
-                                                            >
-                                                                <div className="min-w-0">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        {expanded ? <ChevronDown size={13} className="shrink-0 text-text-secondary" /> : <ChevronRight size={13} className="shrink-0 text-text-secondary" />}
-                                                                        <span className="truncate text-[13px] font-semibold text-text-primary">{profile.name}</span>
-                                                                    </div>
-                                                                    <div className="mt-0.5 pl-[20px] text-[11px] text-text-secondary">
-                                                                        {profile.driver}
-                                                                        {profile.host ? ` / ${profile.host}:${profile.port}` : ''}
-                                                                    </div>
-                                                                </div>
-                                                            </button>
-
-                                                            {expanded && (
-                                                                <div className="border-t border-border/20 px-3 py-2.5">
-                                                                    <div className="pl-[20px]">
-                                                                        {loadingDatabases ? (
-                                                                            <div className="flex h-[58px] items-center gap-2 text-[12px] text-text-secondary">
-                                                                                <Spinner size={12} /> Loading databases...
-                                                                            </div>
-                                                                        ) : databases.length > 0 ? (
-                                                                            <div className="space-y-1">
-                                                                                {databases.map((databaseName) => {
-                                                                                    const active = selectedDatabase === databaseName;
-                                                                                    return (
-                                                                                        <button
-                                                                                            key={databaseName}
-                                                                                            type="button"
-                                                                                            onClick={() => setSelectedDatabase(databaseName)}
-                                                                                            className={cn(
-                                                                                                'flex w-full cursor-pointer items-center justify-between rounded-md border px-2.5 py-1.5 text-left transition-colors',
-                                                                                                active
-                                                                                                    ? 'border-accent/45 bg-accent/10'
-                                                                                                    : 'border-border/25 bg-bg-primary/25 hover:bg-bg-primary/45',
-                                                                                            )}
-                                                                                        >
-                                                                                            <span className="truncate text-[12px] font-medium text-text-primary">{databaseName}</span>
-                                                                                            {active && (
-                                                                                                <Check size={12} className="text-accent" />
-                                                                                            )}
-                                                                                        </button>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="rounded-md bg-bg-primary/20 px-3 py-2.5 text-[12px] text-text-secondary">
-                                                                                {profile.db_name ? `Fallback: ${profile.db_name}` : 'No database loaded'}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_200px] overflow-hidden rounded-lg bg-bg-primary/20">
-                                    <div className="min-h-0 overflow-y-auto px-4 py-3">
-                                        <div className="mx-auto flex min-h-full w-full max-w-[620px] items-start justify-center">
-                                            <div className="w-full">
-                                                <ConnectionForm
-                                                    formData={form.formData}
-                                                    connString={form.connString}
-                                                    testing={form.testing}
-                                                    saving={form.saving}
-                                                    testResult={form.testResult}
-                                                    errorMsg={form.errorMsg}
-                                                    successMsg={form.successMsg}
-                                                    isEditing={form.isEditing}
-                                                    showUriField={true}
-                                                    onChange={form.handleChange}
-                                                    onConnStringChange={form.handleParseConnectionString}
-                                                    onTest={form.handleTest}
-                                                    onSave={form.handleSave}
-                                                    onCancel={() => setMode('choose')}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="border-l border-border/20 bg-bg-primary/20 px-3 py-3">
-                                        <div className="pb-2 text-[11px] font-semibold text-text-secondary">Provider</div>
-                                        <ProviderGrid
-                                            selected={form.selectedProvider}
-                                            locked={form.isEditing}
-                                            onSelect={form.handleDriverChange}
+                                    <div className="h-[calc(100%-38px)] min-h-0 px-3 py-2.5">
+                                        <DatabaseTreePicker
+                                            onSelect={handleSelectFromTree}
+                                            selectedProfile={selectedProfileName}
+                                            selectedDatabase={selectedDatabase}
                                         />
                                     </div>
                                 </div>
+                            ) : (
+                                <ConnectionEditorPanel
+                                    form={form}
+                                    onCancel={() => setMode('choose')}
+                                />
                             )}
                         </div>
 
@@ -458,6 +297,3 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         </ModalBackdrop>
     );
 };
-
-
-

@@ -23,7 +23,7 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
         disabled={disabled}
         onClick={() => !disabled && onSelect(provider.key)}
         className={cn(
-            'relative aspect-square flex flex-col items-center justify-center rounded-xl cursor-pointer border transition-all duration-200 select-none p-3',
+            'relative flex h-11 items-center justify-center rounded-lg border p-1.5 transition-all duration-200 select-none',
             active
                 ? 'border-success/60 shadow-[0_2px_8px_rgba(0,0,0,0.05)]'
                 : disabled
@@ -35,7 +35,7 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
         <img
             src={provider.icon}
             alt={provider.label}
-            className="w-full h-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-110"
+            className="h-6 w-6 max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-110"
         />
         {active && (
             <span className="absolute -top-1 -right-1 w-3 h-3 border-2 border-bg-secondary rounded-full bg-success shadow-[0_0_4px_rgba(34,197,94,0.6)]" />
@@ -44,7 +44,7 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
 );
 
 export const ProviderGrid: React.FC<ProviderGridProps> = ({ selected, locked = false, onSelect }) => (
-    <div className="flex-1 overflow-y-auto py-3 bg-bg-primary px-3 grid grid-cols-2 gap-3 content-center">
+    <div className="h-full min-h-0 overflow-y-auto bg-bg-primary px-2 py-2 grid grid-cols-4 gap-2 content-start">
         {PROVIDERS.map(p => (
             <ProviderButton
                 key={p.key}

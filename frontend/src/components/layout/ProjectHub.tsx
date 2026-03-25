@@ -6,7 +6,6 @@ import {
     Factory,
     BadgeCheck,
     Check,
-    CheckCircle2,
     FolderPlus,
     GraduationCap,
     Heart,
@@ -17,7 +16,6 @@ import {
     Plus,
     Scale,
     ShoppingCart,
-    Sparkles,
     Trash2,
     X,
 } from 'lucide-react';
@@ -28,8 +26,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../lib/projects';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
-import { ProviderGrid } from '../connection/ProviderGrid';
-import { ConnectionForm } from '../connection/ConnectionForm';
+import { ConnectionEditorPanel } from '../connection/ConnectionEditorPanel';
 import { Button, Input, ModalBackdrop, Spinner } from '../ui';
 import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
 import { cn } from '../../lib/cn';
@@ -127,76 +124,6 @@ function getProjectIconKey(project: Project | null | undefined): ProjectIconKey 
 function buildTagsWithProjectIcon(tags: string[] | undefined, iconKey: ProjectIconKey): string[] {
     const cleanTags = (tags || []).filter((tag) => tag && !tag.startsWith(PROJECT_ICON_TAG_PREFIX));
     return [...cleanTags, `${PROJECT_ICON_TAG_PREFIX}${iconKey}`];
-}
-
-function WizardRail({
-    currentStep,
-    draft,
-    selectedProfileName,
-    selectedDatabase,
-}: {
-    currentStep: WizardStep;
-    draft: WizardDraft;
-    selectedProfileName: string | null;
-    selectedDatabase: string;
-}) {
-    return (
-        <aside className="flex flex-col border-r border-border/20 bg-bg-primary/35 px-6 py-6">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-bg-secondary px-3 py-1 text-[11px] font-semibold text-text-secondary">
-                <Sparkles size={12} />
-                Setup
-            </div>
-
-            <div className="mt-5">
-                <h2 className="m-0 text-[24px] font-black leading-[1.05] tracking-[-0.03em] text-text-primary">New project</h2>
-            </div>
-
-            <div className="mt-5 space-y-2">
-                {STEP_ORDER.map((step, index) => {
-                    const done = STEP_ORDER.indexOf(currentStep) > index;
-                    const active = currentStep === step;
-                    const labels: Record<WizardStep, { title: string; desc: string }> = {
-                        basics: { title: 'Basics', desc: draft.name || 'Name + icon' },
-                        environment: { title: 'Starter Environment', desc: getEnvironmentMeta(draft.starterEnv).label },
-                        connection: {
-                            title: 'Database',
-                            desc: selectedProfileName ? `${selectedProfileName} / ${selectedDatabase || 'Pick a database'}` : 'Choose a connection',
-                        },
-                        review: { title: 'Review', desc: 'Create & enter' },
-                    };
-
-                    return (
-                        <div
-                            key={step}
-                            className={cn(
-                                'rounded-lg px-3 py-3 transition-colors',
-                                active ? 'border-accent/40 bg-bg-secondary' : 'border-border/25 bg-bg-primary/20',
-                            )}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className={cn(
-                                        'flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-bold',
-                                        done
-                                            ? 'border-success/40 bg-success/10 text-success'
-                                            : active
-                                                ? 'border-accent/40 bg-accent/10 text-accent'
-                                                : 'border-border/30 bg-bg-secondary text-text-secondary',
-                                    )}
-                                >
-                                    {done ? <CheckCircle2 size={14} /> : index + 1}
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-[13px] font-semibold text-text-primary">{labels[step].title}</div>
-                                    <div className="mt-0.5 truncate text-[11px] text-text-secondary">{labels[step].desc}</div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </aside>
-    );
 }
 
 const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone: () => void }> = ({ overlay = false, onClose, onDone }) => {
@@ -321,293 +248,246 @@ const ProjectWizard: React.FC<{ overlay?: boolean; onClose?: () => void; onDone:
     };
 
     return (
-        <div className="grid h-full md:grid-cols-[340px_1fr]">
-            <WizardRail
-                currentStep={step}
-                draft={draft}
-                selectedProfileName={selectedProfileName}
-                selectedDatabase={selectedDatabase}
-            />
-
-            <section className="grid min-h-0 grid-rows-[auto_1fr_auto] bg-bg-secondary">
-                <div className="flex items-center justify-between border-b border-border/20 px-6 py-4">
-                    <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
-                            Step {stepIndex + 1} of {STEP_ORDER.length}
-                        </div>
-                        <h1 className="m-0 mt-1 text-[20px] font-bold tracking-tight text-text-primary">
-                            {step === 'basics' && 'Create the project shell'}
-                            {step === 'environment' && 'Pick the starter environment'}
-                            {step === 'connection' && 'Bind one database'}
-                            {step === 'review' && 'Review and enter workspace'}
-                        </h1>
+        <section className="grid h-full min-h-0 grid-rows-[auto_1fr_auto] bg-bg-secondary">
+            <div className="flex items-center justify-between border-b border-border/20 px-6 py-4">
+                <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-secondary">
+                        {stepIndex + 1} of {STEP_ORDER.length}
                     </div>
-                    {overlay && onClose && (
-                        <Button variant="ghost" onClick={onClose} className="rounded-lg">
-                            Close
-                        </Button>
-                    )}
+                    <h1 className="m-0 mt-1 text-[20px] font-bold tracking-tight text-text-primary">
+                        {step === 'basics' && 'Create the project shell'}
+                        {step === 'environment' && 'Pick the starter environment'}
+                        {step === 'connection' && 'Bind one database'}
+                        {step === 'review' && 'Review and enter workspace'}
+                    </h1>
                 </div>
+                {overlay && onClose && (
+                    <Button variant="ghost" onClick={onClose} className="rounded-lg">
+                        Close
+                    </Button>
+                )}
+            </div>
 
-                <div className="min-h-0 overflow-y-auto px-6 py-5">
-                    {step === 'basics' && (
-                        <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-                            <div className="rounded-lg bg-bg-primary/25 p-5">
-                                <div className="text-[12px] font-semibold text-text-secondary">Project details</div>
-                                <div className="mt-4 grid gap-3">
-                                    <div>
-                                        <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project name</label>
-                                        <Input
-                                            value={draft.name}
-                                            onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))}
-                                            placeholder="Payments Platform"
-                                            className="h-11 rounded-lg bg-bg-secondary"
-                                            autoFocus
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-[12px] font-semibold text-text-primary">Description</label>
-                                        <Input
-                                            value={draft.description}
-                                            onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
-                                            placeholder="Optional context for the team or future you"
-                                            className="h-11 rounded-lg bg-bg-secondary"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-[12px] font-semibold text-text-primary">Icon</label>
-                                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                            {PROJECT_ICON_OPTIONS.map((option) => {
-                                                const OptionIcon = option.icon;
-                                                const active = draft.iconKey === option.key;
-                                                return (
-                                                    <button
-                                                        key={option.key}
-                                                        type="button"
-                                                        onClick={() => setDraft((current) => ({ ...current, iconKey: option.key }))}
-                                                        className={cn(
-                                                            'cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] transition-colors',
-                                                            active ? 'bg-accent/10 text-text-primary' : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
-                                                        )}
-                                                    >
-                                                        <OptionIcon size={14} />
-                                                        <span>{option.label}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+            <div className="min-h-0 overflow-y-auto px-6 py-5">
+                {step === 'basics' && (
+                    <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+                        <div className="rounded-lg bg-bg-primary/25 p-5">
+                            <div className="text-[12px] font-semibold text-text-secondary">Project details</div>
+                            <div className="mt-4 grid gap-3">
+                                <div>
+                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project name</label>
+                                    <Input
+                                        value={draft.name}
+                                        onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))}
+                                        placeholder="Payments Platform"
+                                        className="h-11 rounded-lg bg-bg-secondary"
+                                        autoFocus
+                                    />
                                 </div>
-                            </div>
-
-                            <div className="rounded-lg bg-bg-primary/20 px-5 py-4">
-                                <div className="mt-3 flex items-center gap-3">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-bg-secondary">
-                                        <DraftIcon size={18} className="text-text-primary" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="truncate text-[16px] font-semibold text-text-primary">
-                                            {draft.name.trim() || 'Untitled Project'}
-                                        </div>
-                                        <div className="mt-1 truncate text-[12px] text-text-secondary">
-                                            {draft.description.trim() || draftIconLabel}
-                                        </div>
+                                <div>
+                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Description</label>
+                                    <Input
+                                        value={draft.description}
+                                        onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
+                                        placeholder="Optional context for the team or future you"
+                                        className="h-11 rounded-lg bg-bg-secondary"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Icon</label>
+                                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                                        {PROJECT_ICON_OPTIONS.map((option) => {
+                                            const OptionIcon = option.icon;
+                                            const active = draft.iconKey === option.key;
+                                            return (
+                                                <button
+                                                    key={option.key}
+                                                    type="button"
+                                                    onClick={() => setDraft((current) => ({ ...current, iconKey: option.key }))}
+                                                    className={cn(
+                                                        'cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] transition-colors',
+                                                        active ? 'bg-accent/10 text-text-primary' : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
+                                                    )}
+                                                >
+                                                    <OptionIcon size={14} />
+                                                    <span>{option.label}</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    )}
-
-                    {step === 'environment' && (
-                        <div className="mx-auto grid max-w-[860px] gap-4 md:grid-cols-2">
-                            {ENVIRONMENT_KEYS.map((envKey) => {
-                                const meta = getEnvironmentMeta(envKey);
-                                const active = draft.starterEnv === envKey;
-                                return (
-                                    <button
-                                        key={envKey}
-                                        type="button"
-                                        onClick={() => setDraft((current) => ({ ...current, starterEnv: envKey }))}
-                                        className={cn(
-                                            'cursor-pointer rounded-lg px-4 py-4 text-left transition-colors',
-                                            active
-                                                ? 'border-accent/40 bg-accent/8'
-                                                : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
-                                                {envKey}
-                                            </span>
-                                            {active && <BadgeCheck size={16} className="text-accent" />}
-                                        </div>
-                                        <div className="mt-4 text-[16px] font-semibold text-text-primary">{meta.label}</div>
-                                        <p className="mt-2 text-[12px] leading-5 text-text-secondary">{meta.description}</p>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {step === 'connection' && (
-                        <div className="mx-auto w-full max-w-[980px]">
-                            <div className="flex min-h-[520px] flex-col rounded-lg bg-bg-primary/20">
-                                <div className="flex items-center gap-2 border-b border-border/15 px-5 py-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setConnectionMode('existing')}
-                                        className={cn(
-                                            'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
-                                            connectionMode === 'existing'
-                                                ? 'bg-accent text-white'
-                                                : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
-                                        )}
-                                    >
-                                        Pick from saved
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            form.resetForm();
-                                            setConnectionMode('new');
-                                        }}
-                                        className={cn(
-                                            'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
-                                            connectionMode === 'new'
-                                                ? 'bg-accent text-white'
-                                                : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
-                                        )}
-                                    >
-                                        New connection
-                                    </button>
-                                </div>
-
-                                {connectionMode === 'existing' ? (
-                                    <div className="flex-1 overflow-hidden px-5 py-5">
-                                        <DatabaseTreePicker
-                                            onSelect={handleSelectFromTree}
-                                            selectedProfile={selectedProfileName}
-                                            selectedDatabase={selectedDatabase}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="grid min-h-0 flex-1 grid-cols-[168px_1fr] overflow-hidden">
-                                        <div className="border-r border-border/15">
-                                            <div className="px-4 pt-4 pb-2 text-[11px] font-semibold text-text-secondary">Provider</div>
-                                            <ProviderGrid
-                                                selected={form.selectedProvider}
-                                                locked={form.isEditing}
-                                                onSelect={form.handleDriverChange}
-                                            />
-                                        </div>
-                                        <div className="min-h-0 overflow-y-auto">
-                                            <div className="px-5 pt-5 text-[12px] font-semibold text-text-primary">Quick connection</div>
-                                            <div className="px-5 pb-5 text-[11px] text-text-secondary">
-                                                Save a new connection and select its database.
-                                            </div>
-                                            <ConnectionForm
-                                                formData={form.formData}
-                                                connString={form.connString}
-                                                testing={form.testing}
-                                                saving={form.saving}
-                                                testResult={form.testResult}
-                                                errorMsg={form.errorMsg}
-                                                successMsg={form.successMsg}
-                                                isEditing={form.isEditing}
-                                                showUriField={true}
-                                                onChange={form.handleChange}
-                                                onConnStringChange={form.handleParseConnectionString}
-                                                onTest={form.handleTest}
-                                                onSave={form.handleSave}
-                                                onCancel={() => setConnectionMode('existing')}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 'review' && (
-                        <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-                            <div className="rounded-lg bg-bg-primary/20 px-5 py-5">
-                                <div className="grid gap-3 md:grid-cols-3">
-                                    <div className="rounded-lg bg-bg-secondary px-4 py-4">
-                                        <div className="text-[11px] font-semibold text-text-secondary">Project</div>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-bg-primary/30">
-                                                <DraftIcon size={14} className="text-text-primary" />
-                                            </div>
-                                            <div className="text-[16px] font-semibold text-text-primary">{draft.name.trim()}</div>
-                                        </div>
-                                        <div className="mt-1 text-[12px] text-text-secondary">
-                                            {draft.description.trim() || draftIconLabel}
-                                        </div>
-                                    </div>
-                                    <div className="rounded-lg bg-bg-secondary px-4 py-4">
-                                        <div className="text-[11px] font-semibold text-text-secondary">Starter environment</div>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>
-                                                {draft.starterEnv}
-                                            </span>
-                                            <span className="text-[16px] font-semibold text-text-primary">
-                                                {getEnvironmentMeta(draft.starterEnv).label}
-                                            </span>
-                                        </div>
-                                        <div className="mt-1 text-[12px] text-text-secondary">
-                                            First workspace will open in this context.
-                                        </div>
-                                    </div>
-                                    <div className="rounded-lg bg-bg-secondary px-4 py-4">
-                                        <div className="text-[11px] font-semibold text-text-secondary">Connection</div>
-                                        <div className="mt-2 text-[16px] font-semibold text-text-primary">
-                                            {selectedProfileName || 'Missing connection'}
-                                        </div>
-                                        <div className="mt-1 text-[12px] text-text-secondary">
-                                            {selectedDatabase || 'Pick a database'}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-between border-t border-border/20 px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        {step !== 'basics' ? (
-                            <Button variant="solid" onClick={goBack} className="rounded-lg">
-                                Back
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="ghost"
-                                onClick={onClose}
-                                className="rounded-lg"
-                                disabled={!onClose}
-                            >
-                                Cancel
-                            </Button>
-                        )}
                     </div>
+                )}
 
-                    {step !== 'review' ? (
-                        <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-lg px-5">
-                            Continue
+                {step === 'environment' && (
+                    <div className="mx-auto grid max-w-[860px] gap-4 md:grid-cols-2">
+                        {ENVIRONMENT_KEYS.map((envKey) => {
+                            const meta = getEnvironmentMeta(envKey);
+                            const active = draft.starterEnv === envKey;
+                            return (
+                                <button
+                                    key={envKey}
+                                    type="button"
+                                    onClick={() => setDraft((current) => ({ ...current, starterEnv: envKey }))}
+                                    className={cn(
+                                        'cursor-pointer rounded-lg px-4 py-4 text-left transition-colors',
+                                        envKey === 'pro' && 'md:col-span-2',
+                                        active
+                                            ? 'border-accent/40 bg-accent/8'
+                                            : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
+                                            {envKey}
+                                        </span>
+                                        {active && <BadgeCheck size={16} className="text-accent" />}
+                                    </div>
+                                    <div className="mt-4 text-[16px] font-semibold text-text-primary">{meta.label}</div>
+                                    <p className="mt-2 text-[12px] leading-5 text-text-secondary">{meta.description}</p>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {step === 'connection' && (
+                    <div className="mx-auto w-full max-w-[980px]">
+                        <div className="flex min-h-[520px] flex-col rounded-lg bg-bg-primary/20">
+                            <div className="flex flex-wrap items-center gap-2 border-b border-border/15 px-5 py-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setConnectionMode('existing')}
+                                    className={cn(
+                                        'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
+                                        connectionMode === 'existing'
+                                            ? 'bg-accent text-white'
+                                            : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
+                                    )}
+                                >
+                                    Pick from saved
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        form.resetForm();
+                                        setConnectionMode('new');
+                                    }}
+                                    className={cn(
+                                        'cursor-pointer rounded-full px-3 py-1 text-[11px] font-semibold transition-colors',
+                                        connectionMode === 'new'
+                                            ? 'bg-accent text-white'
+                                            : 'bg-bg-secondary text-text-secondary hover:text-text-primary',
+                                    )}
+                                >
+                                    New connection
+                                </button>
+                            </div>
+
+                            {connectionMode === 'existing' ? (
+                                <div className="flex-1 overflow-hidden px-5 py-5">
+                                    <DatabaseTreePicker
+                                        onSelect={handleSelectFromTree}
+                                        selectedProfile={selectedProfileName}
+                                        selectedDatabase={selectedDatabase}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="min-h-0 flex-1">
+                                    <ConnectionEditorPanel
+                                        form={form}
+                                        onCancel={() => setConnectionMode('existing')}
+                                        className="h-full rounded-none bg-transparent"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {step === 'review' && (
+                    <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+                        <div className="rounded-lg bg-bg-primary/20 p-5">
+                            <div className="space-y-3">
+                                <div className="rounded-lg bg-bg-secondary px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Project</div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-primary/30">
+                                            <DraftIcon size={14} className="text-text-primary" />
+                                        </div>
+                                        <div className="text-[16px] font-semibold text-text-primary">{draft.name.trim()}</div>
+                                    </div>
+                                    <div className="mt-1 text-[12px] text-text-secondary">
+                                        {draft.description.trim() || draftIconLabel}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg bg-bg-secondary px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Starter environment</div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>
+                                            {draft.starterEnv}
+                                        </span>
+                                        <span className="text-[16px] font-semibold text-text-primary">
+                                            {getEnvironmentMeta(draft.starterEnv).label}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 text-[12px] text-text-secondary">
+                                        First workspace will open in this context.
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg bg-bg-secondary px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Connection</div>
+                                    <div className="mt-2 text-[16px] font-semibold text-text-primary">
+                                        {selectedProfileName || 'Missing connection'}
+                                    </div>
+                                    <div className="mt-1 text-[12px] text-text-secondary">
+                                        {selectedDatabase || 'Pick a database'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border/20 px-6 py-4">
+                <div className="flex items-center gap-3">
+                    {step !== 'basics' ? (
+                        <Button variant="solid" onClick={goBack} className="rounded-lg">
+                            Back
                         </Button>
                     ) : (
                         <Button
-                            variant="success"
-                            onClick={() => void handleCreateAndEnter()}
-                            disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
-                            className="rounded-lg px-5"
+                            variant="ghost"
+                            onClick={onClose}
+                            className="rounded-lg"
+                            disabled={!onClose}
                         >
-                            {submitting ? <><Spinner size={12} className="mr-2 text-white" /> Creating...</> : <>Create & enter</>}
+                            Cancel
                         </Button>
                     )}
                 </div>
-            </section>
-        </div>
+
+                {step !== 'review' ? (
+                    <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-lg px-5">
+                        Continue
+                    </Button>
+                ) : (
+                    <Button
+                        variant="success"
+                        onClick={() => void handleCreateAndEnter()}
+                        disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
+                        className="rounded-lg px-5"
+                    >
+                        {submitting ? <><Spinner size={12} className="mr-2 text-white" /> Creating...</> : <>Create & enter</>}
+                    </Button>
+                )}
+            </div>
+        </section>
     );
 };
 
@@ -719,7 +599,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
         <div className={cn(
             'overflow-hidden bg-bg-secondary text-text-primary',
             overlay
-                ? 'h-[620px] w-[30%] max-w-[calc(100vw-24px)] rounded-lg'
+                ? 'h-[620px] w-[40%] max-w-[calc(100vw-24px)] rounded-lg'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (
