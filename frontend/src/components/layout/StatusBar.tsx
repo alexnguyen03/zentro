@@ -5,6 +5,7 @@ import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { getEnvironmentLabel } from '../../lib/projects';
 import { DRIVER, CONNECTION_STATUS } from '../../lib/constants';
 
@@ -23,6 +24,7 @@ export const StatusBar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const viewMode = useSettingsStore((state) => state.viewMode);
 
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.CONNECTED && activeProfile) {
@@ -96,11 +98,11 @@ export const StatusBar: React.FC = () => {
         <div
             className={cn(
                 'relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300',
-                barColor,
-                status === 'connecting' && 'animate-pulse brightness-110'
+                viewMode ? 'bg-linear-to-r from-amber-500/70 to-red-500/70' : barColor,
+                status === 'connecting' && ''
             )}
         >
-            <div className="flex items-center gap-3 font-medium text-[11px] text-white/90 min-w-0">
+            <div className="flex items-center gap-3 font-medium text-[11px] text-white min-w-0">
                 <span className="tracking-wide uppercase text-[10px] opacity-90 shrink-0">{projectLabel}</span>
                 <span className="opacity-40 shrink-0">|</span>
                 <span className="tracking-wide uppercase text-[10px] opacity-90 truncate">{connectionLabel}</span>

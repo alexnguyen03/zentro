@@ -172,7 +172,11 @@ export const Toolbar: React.FC = () => {
     };
 
     return (
-        <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
+        <div
+            className={cn(
+                'h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border'
+            )}
+        >
             <div className="flex items-center gap-1.5 flex-shrink-0">
                 <div
                     className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative"
