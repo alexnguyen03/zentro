@@ -7,6 +7,7 @@ import {
     BrowserOpenURL,
 } from '../../../../wailsjs/runtime/runtime';
 import { getCommandById, type CommandId } from '../../../lib/shortcutRegistry';
+import { listByCapability } from '../../../features/plugin/registry';
 
 const REPO_URL = 'https://github.com/alexnguyen03/zentro';
 
@@ -80,6 +81,39 @@ function applyMenuContributions(baseSections: AppMenuSection[]): AppMenuSection[
             title: contribution.sectionTitle || contribution.sectionId,
             items: [contribution.item],
         });
+    }
+
+    return sections;
+}
+
+function applyPluginMenuContributions(baseSections: AppMenuSection[]): AppMenuSection[] {
+    const pluginContributions = listByCapability('ui.menu');
+    if (pluginContributions.length === 0) return baseSections;
+
+    const sections = baseSections.map((section) => ({
+        ...section,
+        items: [...section.items],
+    }));
+
+    for (const contribution of pluginContributions) {
+        for (const menuItem of contribution.menus ?? []) {
+            const section = sections.find((s) => s.id === menuItem.sectionId);
+            if (section) {
+                const existingIndex = section.items.findIndex((item) => item.id === menuItem.item.id);
+                if (existingIndex >= 0) {
+                    section.items[existingIndex] = menuItem.item;
+                } else {
+                    section.items.push(menuItem.item);
+                }
+                continue;
+            }
+
+            sections.push({
+                id: menuItem.sectionId,
+                title: menuItem.sectionTitle || menuItem.sectionId,
+                items: [menuItem.item],
+            });
+        }
     }
 
     return sections;
@@ -247,5 +281,5 @@ export function buildAppMenuSections({
         },
     ];
 
-    return applyMenuContributions(baseSections);
+    return applyPluginMenuContributions(applyMenuContributions(baseSections));
 }

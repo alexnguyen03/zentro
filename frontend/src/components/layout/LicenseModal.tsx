@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ModalBackdrop, ModalFrame } from '../ui';
+import { getLicenseState } from '../../features/license/service';
+import { FeatureGate } from '../../features/license/featureGate';
+import type { LicenseState } from '../../features/license/types';
 
 interface LicenseModalProps {
     onClose: () => void;
@@ -9,6 +12,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
     const [licenseText, setLicenseText] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [licenseState, setLicenseState] = useState<LicenseState | null>(null);
 
     useEffect(() => {
         let mounted = true;
@@ -17,6 +21,11 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
             setIsLoading(true);
             setError(null);
             try {
+                const licenseStateResult = await getLicenseState();
+                if (licenseStateResult.ok) {
+                    setLicenseState(licenseStateResult.data);
+                }
+
                 const response = await fetch('/LICENSE.txt', { cache: 'no-cache' });
                 if (!response.ok) {
                     throw new Error(`Could not load license file (${response.status})`);
@@ -52,6 +61,14 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                 bodyClassName="min-h-0 overflow-y-auto px-5 py-4"
             >
                 <div className="text-left">
+                    {licenseState && (
+                        <div className="mb-3 rounded-lg border border-border/30 bg-bg-primary/30 p-3 text-[11px] text-text-secondary">
+                            <div>Status: <span className="font-semibold text-text-primary">{licenseState.status}</span></div>
+                            <div>
+                                Plugin Commands: {new FeatureGate(licenseState).canUse('plugin.ui.commands') ? 'Enabled' : 'Disabled'}
+                            </div>
+                        </div>
+                    )}
                     {isLoading && (
                         <div className="text-[12px] text-text-secondary">Loading license...</div>
                     )}

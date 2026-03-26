@@ -9,6 +9,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"zentro/internal/constant"
+	"zentro/internal/extensions/license"
+	pluginext "zentro/internal/extensions/plugin"
 	"zentro/internal/models"
 	"zentro/internal/utils"
 )
@@ -44,6 +46,9 @@ type App struct {
 	formatter *QueryFormatterService
 	compare   *QueryCompareService
 	update    *UpdateService
+
+	pluginRegistry *pluginext.InMemoryRegistry
+	licenseService *license.LicenseService
 }
 
 func NewApp() *App {
@@ -100,6 +105,8 @@ func NewApp() *App {
 	a.compare = NewQueryCompareService()
 	a.update = NewUpdateService("alexnguyen03/zentro")
 	a.projects = NewProjectService(nil)
+	a.pluginRegistry = pluginext.NewInMemoryRegistry()
+	a.licenseService = license.NewLicenseService(nil)
 
 	return a
 }

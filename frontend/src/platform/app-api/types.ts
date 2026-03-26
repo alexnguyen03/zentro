@@ -1,6 +1,8 @@
 import type { app, models, utils } from '../../../wailsjs/go/models';
 import type { ConnectionProfile } from '../../types/connection';
 import { CONNECTION_STATUS } from '../../lib/constants';
+import type { LicenseState } from '../../features/license/types';
+import type { PluginContribution } from '../../features/plugin/contracts';
 
 export type RuntimeConnectionStatus = typeof CONNECTION_STATUS[keyof typeof CONNECTION_STATUS];
 
@@ -85,6 +87,14 @@ export interface AppApiGateway {
     DeleteProject(projectId: string): Promise<void>;
     OpenProject(projectId: string): Promise<models.Project>;
     GetActiveProject(): Promise<models.Project>;
+
+    // Extensions / license architecture
+    ActivateLicense?(key: string, deviceInfo: string): Promise<LicenseState>;
+    RefreshLicense?(sessionToken: string): Promise<LicenseState>;
+    DeactivateLicense?(reason: string): Promise<void>;
+    GetLicenseState?(): Promise<LicenseState>;
+    RegisterPluginContribution?(contribution: PluginContribution): Promise<void>;
+    ListPluginByCapability?(capability: string): Promise<PluginContribution[]>;
 }
 
 export interface ServiceError {
