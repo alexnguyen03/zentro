@@ -1,10 +1,7 @@
 import React from 'react';
 import {
     AlertCircle,
-    Bookmark,
     CheckCircle,
-    ChevronDown,
-    ChevronUp,
     Copy,
     Download,
     FilePlus,
@@ -13,7 +10,6 @@ import {
     Plus,
     RefreshCw,
     RotateCcw,
-    Search,
     Save,
     Sparkles,
     X,
@@ -100,9 +96,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [tableNameForExport, setTableNameForExport] = React.useState('');
     const [quickFilter, setQuickFilter] = React.useState(() => persistedContext?.resultQuickFilter || '');
     const [visibleRows, setVisibleRows] = React.useState(0);
-    const [bookmarkedRows, setBookmarkedRows] = React.useState<number[]>([]);
     const [activeSearchHit, setActiveSearchHit] = React.useState(0);
-    const [jumpRowInput, setJumpRowInput] = React.useState('');
     const containerRef = React.useRef<HTMLDivElement>(null);
     const quickFilterRef = React.useRef<HTMLInputElement>(null);
     const jumpRowRef = React.useRef<HTMLInputElement>(null);
@@ -315,7 +309,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [quickFilter, result]);
     const canUseResultSearch = featureGate.canUse('query.result.search');
     const canUseResultJump = featureGate.canUse('query.result.jump');
-    const canUseResultBookmark = featureGate.canUse('query.result.bookmark');
     const canUseResultExport = featureGate.canUse('query.result.export');
 
     const jumpToPersistedRow = React.useCallback((rowIndex: number) => {
@@ -340,12 +333,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setActiveSearchHit(next);
         jumpToPersistedRow(searchHits[next]);
     }, [activeSearchHit, jumpToPersistedRow, searchHits]);
-
-    const handleJumpToRow = React.useCallback(() => {
-        const row = Number(jumpRowInput);
-        if (!Number.isFinite(row) || row < 1) return;
-        jumpToPersistedRow(row - 1);
-    }, [jumpRowInput, jumpToPersistedRow]);
 
     React.useEffect(() => {
         setActiveSearchHit(0);
@@ -580,91 +567,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 <X size={11} />
                             </button>
                         </div>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-[11px] border-t border-border bg-bg-secondary/30 shrink-0">
-                <div className="flex items-center gap-2 min-w-0">
-                    <Search size={12} className="text-text-secondary" />
-                    <input
-                        ref={quickFilterRef}
-                        value={quickFilter}
-                        onChange={(e) => setQuickFilter(e.target.value)}
-                        disabled={!canUseResultSearch}
-                        onKeyDown={(e) => {
-                            if (!canUseResultSearch) return;
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                if (e.shiftKey) jumpToPrevHit();
-                                else jumpToNextHit();
-                            }
-                        }}
-                        placeholder="Find in loaded result..."
-                        className="w-[220px] bg-bg-primary border border-border rounded px-2 py-1 text-[11px] outline-none focus:border-success"
-                    />
-                    <button className="p-1 border border-border rounded hover:bg-bg-tertiary" onClick={jumpToPrevHit} title="Previous match (Shift+F3)">
-                        disabled={!canUseResultSearch}
-                        <ChevronUp size={11} />
-                    </button>
-                    <button className="p-1 border border-border rounded hover:bg-bg-tertiary" onClick={jumpToNextHit} title="Next match (F3)">
-                        disabled={!canUseResultSearch}
-                        <ChevronDown size={11} />
-                    </button>
-                    <span className="text-text-muted">
-                        {searchHits.length > 0 ? `${Math.min(activeSearchHit + 1, searchHits.length)}/${searchHits.length}` : '0/0'}
-                    </span>
-                    <span className="text-text-muted">loaded: {visibleRows.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <input
-                        ref={jumpRowRef}
-                        value={jumpRowInput}
-                        onChange={(e) => setJumpRowInput(e.target.value)}
-                        disabled={!canUseResultJump}
-                        onKeyDown={(e) => {
-                            if (!canUseResultJump) return;
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleJumpToRow();
-                            }
-                        }}
-                        placeholder="Jump row #"
-                        className="w-[100px] bg-bg-primary border border-border rounded px-2 py-1 text-[11px] outline-none focus:border-success"
-                    />
-                    <button className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary disabled:opacity-60" onClick={handleJumpToRow} disabled={!canUseResultJump} title="Jump to row (Ctrl+G)">
-                        Jump
-                    </button>
-                    <button
-                        className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary inline-flex items-center gap-1"
-                        disabled={!canUseResultBookmark}
-                        onClick={() => {
-                            const rowIndex = selectedPersistedRowIndices[0];
-                            if (rowIndex === undefined) return;
-                            setBookmarkedRows((prev) => Array.from(new Set([...prev, rowIndex])).sort((a, b) => a - b));
-                        }}
-                        title="Bookmark selected row"
-                    >
-                        <Bookmark size={11} />
-                        Bookmark Row
-                    </button>
-                    {bookmarkedRows.length > 0 && (
-                        <select
-                            className="bg-bg-primary border border-border rounded px-2 py-1 text-[11px]"
-                            onChange={(e) => {
-                                const value = Number(e.target.value);
-                                if (!Number.isFinite(value)) return;
-                                jumpToPersistedRow(value);
-                            }}
-                            value=""
-                        >
-                            <option value="" disabled>Bookmarks</option>
-                            {bookmarkedRows.map((row) => (
-                                <option key={row} value={row}>
-                                    Row {row + 1}
-                                </option>
-                            ))}
-                        </select>
                     )}
                 </div>
             </div>
