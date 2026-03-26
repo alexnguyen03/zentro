@@ -17,6 +17,7 @@ interface ModalFrameProps {
     footerClassName?: string;
     titleClassName?: string;
     subtitleClassName?: string;
+    style?: React.CSSProperties;
 }
 
 export const ModalFrame: React.FC<ModalFrameProps> = ({
@@ -33,9 +34,10 @@ export const ModalFrame: React.FC<ModalFrameProps> = ({
     footerClassName,
     titleClassName,
     subtitleClassName,
+    style,
 }) => {
     return (
-        <section className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-bg-secondary text-text-primary', className)}>
+        <section style={style} className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-bg-secondary text-text-primary', className)}>
             <header className={cn('flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3', headerClassName)}>
                 <div className="min-w-0">
                     {subtitle && (

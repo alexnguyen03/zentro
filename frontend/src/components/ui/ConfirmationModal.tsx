@@ -33,7 +33,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             onClose={onClose}
             title={title}
             width={440}
-            className="z-9999"
+            layer="confirm"
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose} className="px-4">

@@ -97,7 +97,7 @@ export const StatusBar: React.FC = () => {
     return (
         <div
             className={cn(
-                'relative z-50 overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300',
+                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300',
                 viewMode ? 'bg-linear-to-r from-amber-500/70 to-red-500/70' : barColor,
                 status === 'connecting' && ''
             )}

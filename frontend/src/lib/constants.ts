@@ -3,10 +3,11 @@
  */
 
 export const STORAGE_KEY = {
-    EDITOR_SESSION: 'zentro:editor-session-v3',
-    CONNECTION_STORE: 'zentro:connection-store',
-    PROJECT_STORE: 'zentro:project-store',
-    DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version',
+    EDITOR_SESSION: 'zentro:editor-session-v4',
+    CONNECTION_STORE: 'zentro:connection-store-v2',
+    PROJECT_STORE: 'zentro:project-store-v2',
+    LAYOUT_STORE: 'zentro:layout-store-v2',
+    DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version-v2',
 } as const;
 
 export const DOM_EVENT = {

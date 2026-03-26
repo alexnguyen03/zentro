@@ -213,7 +213,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
 
             <div className="flex-1 w-full min-w-[700px] overflow-auto">
                 {indexes.length > 0 && (
-                    <div className="sticky top-0 z-10 grid grid-cols-[auto_1fr_auto_40px] items-center gap-4 bg-bg-secondary px-4 py-2 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border/50">
+                    <div className="sticky top-0 z-sticky grid grid-cols-[auto_1fr_auto_40px] items-center gap-4 bg-bg-secondary px-4 py-2 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border/50">
                         <div className="w-8 text-center">#</div>
                         <div>Name</div>
                         <div className="w-[300px]">Columns</div>

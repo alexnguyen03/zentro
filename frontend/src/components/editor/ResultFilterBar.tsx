@@ -102,7 +102,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
 
                     {/* Tooltip Popup */}
                     {showTooltip && baseQuery && (
-                        <div className="absolute top-full left-0 mt-2 z-50 w-[480px] bg-bg-primary border border-border rounded-md shadow-lg flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                        <div className="absolute top-full left-0 z-panel-overlay mt-2 flex w-[480px] flex-col overflow-hidden rounded-md border border-border bg-bg-primary shadow-lg animate-in fade-in zoom-in-95 duration-100">
                             <div className="px-3 py-2 bg-bg-tertiary flex items-center justify-between border-b border-border">
                                 <span className="text-xs font-semibold text-text-primary">Current Query (Filtered)</span>
                                 <div className="flex items-center gap-0.5">

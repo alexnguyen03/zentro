@@ -13,6 +13,7 @@ interface ModalBackdropProps {
     closeOnBackdropClick?: boolean;
     closeOnEscape?: boolean;
     lockScroll?: boolean;
+    layer?: 'overlay' | 'modal' | 'confirm';
 }
 
 /**
@@ -34,7 +35,15 @@ export const ModalBackdrop: React.FC<ModalBackdropProps> = ({
     closeOnBackdropClick = true,
     closeOnEscape = true,
     lockScroll = true,
+    layer = 'modal',
 }) => {
+    const layerClass = {
+        overlay: 'z-overlay',
+        modal: 'z-modal',
+        confirm: 'z-modal-confirm',
+    }[layer];
+    const backdropClass = layer === 'confirm' ? 'bg-overlay-strong' : 'bg-overlay';
+
     React.useEffect(() => {
         if (!closeOnEscape || !onClose) return;
 
@@ -71,7 +80,9 @@ export const ModalBackdrop: React.FC<ModalBackdropProps> = ({
     return ReactDOM.createPortal(
         <div
             className={cn(
-                'fixed inset-0 bg-black/40 z-9999 flex items-center justify-center animate-in fade-in duration-150',
+                'fixed inset-0 flex items-center justify-center animate-in fade-in duration-150',
+                backdropClass,
+                layerClass,
                 className
             )}
             onClick={handleBackdropClick}

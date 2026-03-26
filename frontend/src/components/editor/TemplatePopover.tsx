@@ -130,14 +130,13 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
         position: 'fixed',
         bottom: '40px', 
         right: '10px',
-        zIndex: 1000,
     };
 
     return (
         <div 
             ref={containerRef}
             style={style}
-            className="w-[600px] h-[400px] bg-bg-secondary border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-2 duration-200"
+            className="z-popover flex h-[400px] w-[600px] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl animate-in slide-in-from-bottom-2 duration-200"
         >
             {/* Header */}
             <div className="px-4 py-3 border-b border-border bg-bg-tertiary/30 flex items-center justify-between">

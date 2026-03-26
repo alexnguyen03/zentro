@@ -77,7 +77,7 @@
 .result-table-tanstack thead {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: var(--layer-table-sticky);
 }
 
 .rt-th {
@@ -226,7 +226,7 @@
     width: 50%;
     background-color: var(--success-color);
     opacity: 0.2;
-    z-index: 999;
+    z-index: var(--layer-split-preview);
     pointer-events: none;
     animation: fadeIn 0.15s ease-out;
 }
@@ -477,7 +477,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    z-index: var(--layer-topmost);
 }
 
 .blob-modal-content {

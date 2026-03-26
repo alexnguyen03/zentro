@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
 import { X, Save, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Button, Spinner } from '../ui';
+import { Button, ModalBackdrop, Spinner } from '../ui';
 import { useTemplateStore } from '../../stores/templateStore';
 import { models } from '../../../wailsjs/go/models';
 
@@ -39,10 +38,14 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({ template, onClos
         }
     };
 
-    return ReactDOM.createPortal(
-        <div className="fixed inset-0 bg-black/50 z-10000 flex items-center justify-center animate-in fade-in duration-200">
+    return (
+        <ModalBackdrop
+            onClose={onClose}
+            layer="modal"
+            contentClassName="flex w-full items-center justify-center p-3"
+        >
             <div 
-                className="bg-bg-secondary border border-border rounded-xl w-[500px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+                className="bg-bg-secondary border border-border/30 rounded-xl w-[500px] max-w-[90vw] shadow-elevation-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -123,7 +126,6 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({ template, onClos
                     </div>
                 </form>
             </div>
-        </div>,
-        document.body
+        </ModalBackdrop>
     );
 };

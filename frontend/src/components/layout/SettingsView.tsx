@@ -4,6 +4,13 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { utils } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
+import { useToast } from './Toast';
+import {
+    applyProfilePackage,
+    buildCurrentProfilePackage,
+    downloadProfilePackage,
+    parseProfilePackage,
+} from '../../lib/profilePackage';
 
 interface SettingsViewProps {
     tabId: string;
@@ -11,7 +18,9 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const { theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout, save } = useSettingsStore();
+    const autoCheckUpdates = useSettingsStore((state) => state.autoCheckUpdates);
     const { addTab } = useEditorStore();
+    const { toast } = useToast();
 
     const [formTheme, setFormTheme] = useState(theme);
     const [formFontSize, setFormFontSize] = useState(fontSize);
@@ -19,8 +28,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [formConnectTimeout, setFormConnectTimeout] = useState(connectTimeout);
     const [formQueryTimeout, setFormQueryTimeout] = useState(queryTimeout);
     const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
+    const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const profileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -87,10 +98,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         return title.toLowerCase().includes(query) || labels.some(l => l.toLowerCase().includes(query));
     };
 
+    const handleExportProfile = () => {
+        try {
+            const profile = buildCurrentProfilePackage(profileName);
+            downloadProfilePackage(profile);
+            toast.success(`Exported profile: ${profile.metadata.name}`);
+        } catch (error) {
+            toast.error(`Export failed: ${error}`);
+        }
+    };
+
+    const handleImportProfile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const raw = await file.text();
+            const profile = parseProfilePackage(raw);
+            await applyProfilePackage(profile);
+            setProfileName(profile.metadata.name || 'Zentro Profile');
+            toast.success(`Applied profile: ${profile.metadata.name}`);
+        } catch (error) {
+            toast.error(`Import failed: ${error}`);
+        } finally {
+            event.target.value = '';
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
             {/* Minimal Flat Header */}
-            <div className="flex items-center justify-between px-10 h-16 border-b border-border/10 bg-bg-primary z-10">
+            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
                 {/* Logo/Title Section */}
                 <div className="flex items-center gap-3 text-text-primary">
                     <div className="p-2 rounded-xl bg-accent/5 text-accent">
@@ -284,6 +322,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                 </div>
                             )}
 
+                            {/* Profiles */}
+                            {matchesSearch("Profiles", ["Import Profile", "Export Profile", "Theme", "Layout", "Shortcuts"]) && (
+                                <div className={sectionClass}>
+                                    <div className={sectionInfoClass}>
+                                        <div className="flex items-center gap-2.5 text-accent mb-1">
+                                            <Keyboard size={18} strokeWidth={2.5} />
+                                            <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Profiles</h2>
+                                        </div>
+                                        <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                                            Export and import your theme, layout and shortcut configuration.
+                                        </p>
+                                    </div>
+                                    <div className={sectionContentClass}>
+                                        <div className="flex flex-col gap-2">
+                                            <label className={labelClass}>Profile Name</label>
+                                            <input
+                                                className={inputClass}
+                                                value={profileName}
+                                                onChange={(e) => setProfileName(e.target.value)}
+                                                placeholder="Zentro Profile"
+                                            />
+                                            <span className={hintClass}>Used as file name and profile metadata.</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={handleExportProfile}
+                                                className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+                                            >
+                                                Export Profile
+                                            </button>
+                                            <button
+                                                onClick={() => profileInputRef.current?.click()}
+                                                className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+                                            >
+                                                Import Profile
+                                            </button>
+                                            <input
+                                                ref={profileInputRef}
+                                                type="file"
+                                                accept=".json,.zentro-profile.json"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    void handleImportProfile(e);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Updates */}
                             {matchesSearch("Updates", ["Auto-Check For Updates"]) && (
                                 <div className={sectionClass}>
@@ -306,7 +395,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                                 <input 
                                                     type="checkbox" 
                                                     className="sr-only peer" 
-                                                    checked={useSettingsStore.getState().autoCheckUpdates}
+                                                    checked={autoCheckUpdates}
                                                     onChange={(e) => {
                                                         const { theme, fontSize, defaultLimit, connectTimeout, queryTimeout, save } = useSettingsStore.getState();
                                                         save(new utils.Preferences({

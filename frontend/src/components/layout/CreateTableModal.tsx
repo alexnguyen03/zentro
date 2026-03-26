@@ -110,7 +110,6 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                 </div>
             }
             width={700}
-            className="z-modal"
             footer={
                 <>
                     <Button variant="ghost" onClick={onClose}>

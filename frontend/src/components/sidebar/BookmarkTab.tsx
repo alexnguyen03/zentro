@@ -5,6 +5,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { bookmarkKeyFromTabName, useBookmarkStore } from '../../stores/bookmarkStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
+import { emitCommand } from '../../lib/commandBus';
 import { cn } from '../../lib/cn';
 
 type BookmarkItem = {
@@ -87,7 +88,7 @@ export const BookmarkTab: React.FC = () => {
         const targetLine = Math.max(1, line);
         [0, 50, 120, 250].forEach((delay) => {
             window.setTimeout(() => {
-                window.dispatchEvent(new CustomEvent(DOM_EVENT.JUMP_TO_LINE_ACTION, { detail: { tabId, line: targetLine } }));
+                emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId, line: targetLine });
             }, delay);
         });
     }, []);
@@ -265,9 +266,7 @@ export const BookmarkTab: React.FC = () => {
                                     key={item.id || item.line}
                                     className="flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
                                     onClick={() => {
-                                        window.dispatchEvent(
-                                            new CustomEvent(DOM_EVENT.JUMP_TO_LINE_ACTION, { detail: { tabId: activeTabId, line: item.line } })
-                                        );
+                                        emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: activeTabId, line: item.line });
                                     }}
                                 >
                                     <span className="w-[13px] shrink-0 inline-block" />

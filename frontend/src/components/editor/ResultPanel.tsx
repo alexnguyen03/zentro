@@ -38,6 +38,7 @@ import { ResultTable, type FocusCellRequest } from './ResultTable';
 import { ResultFilterBar } from './ResultFilterBar';
 import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 
 export interface ResultPanelAction {
     id: string;
@@ -564,16 +565,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [onActionsChange, panelActions]);
 
     React.useEffect(() => {
-        const handleExternalSave = (event: Event) => {
-            const saveEvent = event as CustomEvent<string | undefined>;
-            if (saveEvent.detail && saveEvent.detail !== tabId) return;
+        const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {
+            if (detail && detail !== tabId) return;
             if (viewMode) return;
             if (!hasPendingChanges || isSavingDraftRows) return;
             void handleSaveRequest();
-        };
-
-        window.addEventListener(DOM_EVENT.SAVE_TAB_ACTION, handleExternalSave as EventListener);
-        return () => window.removeEventListener(DOM_EVENT.SAVE_TAB_ACTION, handleExternalSave as EventListener);
+        });
+        return off;
     }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId, viewMode]);
 
     const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -845,7 +843,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <div className="flex flex-col flex-1 overflow-hidden min-h-0 relative">
                         {isLoading && (
                             <div
-                                className="absolute top-0 left-0 right-0 z-10"
+                                className="absolute top-0 left-0 right-0 z-sticky"
                                 style={{ height: 2, background: 'var(--success-color)', opacity: 0.7 }}
                             >
                                 <div
@@ -974,7 +972,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             <span>Export</span>
                         </button>
                         {showExportMenu && (
-                            <div className="absolute right-0 top-full mt-1 bg-bg-primary border border-border rounded-md shadow-lg py-1 z-50 min-w-[160px]">
+                            <div className="absolute right-0 top-full z-panel-overlay mt-1 min-w-[160px] rounded-md border border-border bg-bg-primary py-1 shadow-lg">
                                 <button
                                     className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2"
                                     onClick={handleExport}

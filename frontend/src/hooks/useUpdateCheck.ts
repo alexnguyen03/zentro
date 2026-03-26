@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckForUpdates, GetCurrentVersion } from '../../wailsjs/go/app/App';
-import { app } from '../../wailsjs/go/models';
+import { CheckForUpdates } from '../../wailsjs/go/app/App';
 import { useSettingsStore } from '../stores/settingsStore';
 import { STORAGE_KEY } from '../lib/constants';
 

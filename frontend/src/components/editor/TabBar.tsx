@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, X, BookMarked, SplitSquareHorizontal, Table2 } from 'lucide-react';
 import { Tab } from '../../stores/editorStore';
 import { DOM_EVENT } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
@@ -58,7 +59,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        zIndex: isDragging ? 100 : undefined,
+        zIndex: isDragging ? 'var(--layer-drag)' : undefined,
     };
 
     return (
@@ -181,16 +182,14 @@ export const TabBar: React.FC<TabBarProps> = ({
 
     // Listen to F2 rename custom hook
     useEffect(() => {
-        const handler = (e: Event) => {
-            const tabId = (e as CustomEvent<string>).detail;
+        const off = onCommand(DOM_EVENT.RENAME_TAB, (tabId) => {
             const tab = tabs.find(t => t.id === tabId);
             if (tab) {
                 setRenamingId(tab.id);
                 setRenameValue(tab.name);
             }
-        };
-        window.addEventListener(DOM_EVENT.RENAME_TAB, handler as EventListener);
-        return () => window.removeEventListener(DOM_EVENT.RENAME_TAB, handler as EventListener);
+        });
+        return off;
     }, [tabs]);
 
     // Close context menu on outside click
@@ -267,7 +266,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {contextMenu && (
                 <div
-                    className="fixed bg-bg-secondary border border-border shadow-[0_2px_8px_rgba(0,0,0,0.3)] py-1 rounded-md z-1000 min-w-[150px]"
+                    className="fixed z-popover min-w-[150px] rounded-md border border-border bg-bg-secondary py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >

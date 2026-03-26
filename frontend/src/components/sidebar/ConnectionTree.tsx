@@ -353,7 +353,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                     ))}
                     {contextMenu && (
                         <div
-                            className="fixed bg-bg-secondary border border-border rounded-md shadow-lg py-1 z-[1000] min-w-[160px]"
+                            className="fixed z-popover min-w-[160px] rounded-md border border-border bg-bg-secondary py-1 shadow-lg"
                             style={{ left: contextMenu.x, top: contextMenu.y }}
                             onClick={(e) => e.stopPropagation()}
                         >

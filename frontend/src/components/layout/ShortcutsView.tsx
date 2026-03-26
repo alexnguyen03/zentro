@@ -72,7 +72,7 @@ export const ShortcutsView: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            <div className="flex items-center justify-between px-10 h-16 border-b border-border/10 bg-bg-primary z-10">
+            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
                 <div className="flex items-center gap-3 text-text-primary">
                     <div className="p-2 rounded-xl bg-accent/5 text-accent">
                         <Keyboard size={18} />

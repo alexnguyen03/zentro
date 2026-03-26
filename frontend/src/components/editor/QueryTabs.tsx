@@ -10,6 +10,7 @@ import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../../wailsjs/go/app/App';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 import {
     DndContext,
     DragEndEvent,
@@ -88,16 +89,15 @@ export const QueryTabs: React.FC = () => {
 
     // Global event listener for command palette's 'close-active-tab'
     useEffect(() => {
-        const handler = () => {
+        const off = onCommand(DOM_EVENT.CLOSE_ACTIVE_TAB, () => {
             if (activeGroupId) {
                 const activeGroup = groups.find(g => g.id === activeGroupId);
                 if (activeGroup && activeGroup.activeTabId) {
                     removeTab(activeGroup.activeTabId, activeGroupId);
                 }
             }
-        };
-        window.addEventListener(DOM_EVENT.CLOSE_ACTIVE_TAB, handler);
-        return () => window.removeEventListener(DOM_EVENT.CLOSE_ACTIVE_TAB, handler);
+        });
+        return off;
     }, [activeGroupId, groups, removeTab]);
 
     // Handle automatically closing groups when they are empty

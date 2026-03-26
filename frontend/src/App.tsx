@@ -35,6 +35,7 @@ import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/short
 import { useShortcutStore } from './stores/shortcutStore';
 import { DOM_EVENT } from './lib/constants';
 import { appLogger } from './lib/logger';
+import { emitCommand, onCommand } from './lib/commandBus';
 
 function clearGeneratedResults(sourceTabID: string) {
     const resultState = useResultStore.getState();
@@ -307,15 +308,13 @@ function App() {
     const [showCompareModal, setShowCompareModal] = useState(false);
     const [showProjectHub, setShowProjectHub] = useState(false);
     useEffect(() => {
-        const open = () => setShowCompareModal(true);
-        window.addEventListener(DOM_EVENT.OPEN_QUERY_COMPARE, open);
-        return () => window.removeEventListener(DOM_EVENT.OPEN_QUERY_COMPARE, open);
+        const off = onCommand(DOM_EVENT.OPEN_QUERY_COMPARE, () => setShowCompareModal(true));
+        return off;
     }, []);
 
     useEffect(() => {
-        const open = () => setShowProjectHub(true);
-        window.addEventListener(DOM_EVENT.OPEN_PROJECT_HUB, open);
-        return () => window.removeEventListener(DOM_EVENT.OPEN_PROJECT_HUB, open);
+        const off = onCommand(DOM_EVENT.OPEN_PROJECT_HUB, () => setShowProjectHub(true));
+        return off;
     }, []);
 
     if (!activeProject) {
@@ -347,7 +346,7 @@ function App() {
                                 <div className="flex items-center justify-between px-4 py-1.5 bg-bg-tertiary border-b border-border text-[11px] text-text-secondary shrink-0">
                                     <span>No active connection — switch environment to connect.</span>
                                     <button
-                                        onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER))}
+                                        onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
                                         className="text-accent font-semibold hover:underline"
                                     >
                                         Switch env

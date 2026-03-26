@@ -5,6 +5,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { DOM_EVENT, TAB_TYPE } from './constants';
+import { emitCommand } from './commandBus';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
 
@@ -51,7 +52,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     label: 'Close Current Tab',
     category: 'Editor',
     defaultBinding: 'Ctrl+W',
-    action: () => { window.dispatchEvent(new CustomEvent(DOM_EVENT.CLOSE_ACTIVE_TAB)); },
+    action: () => { emitCommand(DOM_EVENT.CLOSE_ACTIVE_TAB); },
   },
   {
     id: 'editor.runQuery',
@@ -63,7 +64,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
       if (activeTab) {
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
+        emitCommand(DOM_EVENT.RUN_QUERY_ACTION, { tabId: activeTab.id });
       }
     },
   },
@@ -77,7 +78,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
       if (activeTab) {
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_EXPLAIN_ACTION, { detail: { tabId: activeTab.id, analyze: false } }));
+        emitCommand(DOM_EVENT.RUN_EXPLAIN_ACTION, { tabId: activeTab.id, analyze: false });
       }
     },
   },
@@ -91,7 +92,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
       if (activeTab) {
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_EXPLAIN_ACTION, { detail: { tabId: activeTab.id, analyze: true } }));
+        emitCommand(DOM_EVENT.RUN_EXPLAIN_ACTION, { tabId: activeTab.id, analyze: true });
       }
     },
   },
@@ -105,7 +106,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
       if (activeTab) {
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.FORMAT_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
+        emitCommand(DOM_EVENT.FORMAT_QUERY_ACTION, { tabId: activeTab.id });
       }
     },
   },
@@ -119,7 +120,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
       if (activeTab) {
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, { detail: { tabId: activeTab.id } }));
+        emitCommand(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, { tabId: activeTab.id });
       }
     },
   },
@@ -134,7 +135,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
         const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
         const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
         if (activeTab) {
-          window.dispatchEvent(new CustomEvent(DOM_EVENT.NEXT_BOOKMARK_ACTION, { detail: { tabId: activeTab.id } }));
+          emitCommand(DOM_EVENT.NEXT_BOOKMARK_ACTION, { tabId: activeTab.id });
         }
         return;
       }
@@ -142,7 +143,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       if (activeGroup?.activeTabId) {
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RENAME_TAB, { detail: activeGroup.activeTabId }));
+        emitCommand(DOM_EVENT.RENAME_TAB, activeGroup.activeTabId);
       }
     },
   },
@@ -151,7 +152,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     label: 'Compare Queries',
     category: 'Editor',
     defaultBinding: 'Ctrl+Shift+D',
-    action: () => { window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_QUERY_COMPARE)); },
+    action: () => { emitCommand(DOM_EVENT.OPEN_QUERY_COMPARE); },
   },
   {
     id: 'view.openSettings',
@@ -207,7 +208,7 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     label: 'Switch Environment / Connection',
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+C',
-    action: () => { window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)); },
+    action: () => { emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER); },
   },
   {
     id: 'connection.beginTx',

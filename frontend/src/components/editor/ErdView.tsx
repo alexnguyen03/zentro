@@ -147,7 +147,7 @@ const ErdEdge = ({
                         pointerEvents: 'all',
                         color: 'var(--text-secondary)',
                         border: '1px solid var(--border-color)',
-                        zIndex: 10,
+                        zIndex: 'var(--layer-sticky)',
                     }}
                     className="nodrag nopan"
                 >

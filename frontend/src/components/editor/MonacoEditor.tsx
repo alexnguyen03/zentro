@@ -7,6 +7,7 @@ import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
 import { EditorToolbar } from './EditorToolbar';
 import { DOM_EVENT } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 import { FormatSQL } from '../../../wailsjs/go/app/App';
 
 interface MonacoEditorProps {
@@ -121,24 +122,22 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     // Listen to global run action from Toolbar
     useEffect(() => {
-        const handleGlobalRun = (e: any) => {
-            if (e.detail?.tabId === tabId && isActiveRef.current) {
+        const off = onCommand(DOM_EVENT.RUN_QUERY_ACTION, (detail) => {
+            if (detail?.tabId === tabId && isActiveRef.current) {
                 runQuery();
             }
-        };
-        window.addEventListener(DOM_EVENT.RUN_QUERY_ACTION, handleGlobalRun as EventListener);
-        return () => window.removeEventListener(DOM_EVENT.RUN_QUERY_ACTION, handleGlobalRun as EventListener);
+        });
+        return off;
     }, [tabId, runQuery]);
 
     useEffect(() => {
-        const handleGlobalExplain = (e: any) => {
-            if (e.detail?.tabId !== tabId || !isActiveRef.current || !onExplainRef.current) return;
+        const off = onCommand(DOM_EVENT.RUN_EXPLAIN_ACTION, (detail) => {
+            if (detail?.tabId !== tabId || !isActiveRef.current || !onExplainRef.current) return;
             const query = extractRunnableQuery();
             if (!query) return;
-            onExplainRef.current(query, Boolean(e.detail?.analyze));
-        };
-        window.addEventListener(DOM_EVENT.RUN_EXPLAIN_ACTION, handleGlobalExplain as EventListener);
-        return () => window.removeEventListener(DOM_EVENT.RUN_EXPLAIN_ACTION, handleGlobalExplain as EventListener);
+            onExplainRef.current(query, Boolean(detail?.analyze));
+        });
+        return off;
     }, [extractRunnableQuery, tabId]);
 
     const activeProfile = useConnectionStore(s => s.activeProfile);
@@ -272,8 +271,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     }, [applyBookmarkDecorations, tabId, updateFontSize]);
 
     useEffect(() => {
-        const handleFormat = async (e: any) => {
-            if (e.detail?.tabId && e.detail?.tabId !== tabId) return;
+        const handleFormat = async (detail?: { tabId?: string }) => {
+            if (detail?.tabId && detail?.tabId !== tabId) return;
             if (!isActiveRef.current || !editorRef.current) return;
             const query = extractRunnableQuery() || editorRef.current.getModel()?.getValue() || '';
             if (!query.trim()) return;
@@ -292,16 +291,16 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             }
         };
 
-        const handleToggleBookmark = async (e: any) => {
-            if (e.detail?.tabId && e.detail?.tabId !== tabId) return;
+        const handleToggleBookmark = async (detail?: { tabId?: string }) => {
+            if (detail?.tabId && detail?.tabId !== tabId) return;
             if (!isActiveRef.current || !editorRef.current || !activeProfile?.name) return;
             const line = editorRef.current.getPosition()?.lineNumber;
             if (!line) return;
             await toggleLine(activeProfile.name, tabId, line);
         };
 
-        const handleNextBookmark = (e: any) => {
-            if (e.detail?.tabId && e.detail?.tabId !== tabId) return;
+        const handleNextBookmark = (detail?: { tabId?: string }) => {
+            if (detail?.tabId && detail?.tabId !== tabId) return;
             if (!isActiveRef.current || !editorRef.current) return;
             const currentLine = editorRef.current.getPosition()?.lineNumber || 0;
             const target = nextLine(tabId, currentLine);
@@ -311,24 +310,29 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             editorRef.current.focus();
         };
 
-        const handleJumpLine = (e: any) => {
-            if (e.detail?.tabId !== tabId) return;
-            const line = Number(e.detail?.line || 0);
+        const handleJumpLine = (detail: { tabId: string; line: number }) => {
+            if (detail?.tabId !== tabId) return;
+            const line = Number(detail?.line || 0);
             if (!line || !editorRef.current) return;
             editorRef.current.revealLineInCenter(line);
             editorRef.current.setPosition({ lineNumber: line, column: 1 });
             editorRef.current.focus();
         };
 
-        window.addEventListener(DOM_EVENT.FORMAT_QUERY_ACTION, handleFormat as EventListener);
-        window.addEventListener(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, handleToggleBookmark as EventListener);
-        window.addEventListener(DOM_EVENT.NEXT_BOOKMARK_ACTION, handleNextBookmark as EventListener);
-        window.addEventListener(DOM_EVENT.JUMP_TO_LINE_ACTION, handleJumpLine as EventListener);
+        const offFormat = onCommand(DOM_EVENT.FORMAT_QUERY_ACTION, (detail) => {
+            void handleFormat(detail);
+        });
+        const offToggle = onCommand(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, (detail) => {
+            void handleToggleBookmark(detail);
+        });
+        const offNext = onCommand(DOM_EVENT.NEXT_BOOKMARK_ACTION, handleNextBookmark);
+        const offJump = onCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, handleJumpLine);
+
         return () => {
-            window.removeEventListener(DOM_EVENT.FORMAT_QUERY_ACTION, handleFormat as EventListener);
-            window.removeEventListener(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, handleToggleBookmark as EventListener);
-            window.removeEventListener(DOM_EVENT.NEXT_BOOKMARK_ACTION, handleNextBookmark as EventListener);
-            window.removeEventListener(DOM_EVENT.JUMP_TO_LINE_ACTION, handleJumpLine as EventListener);
+            offFormat();
+            offToggle();
+            offNext();
+            offJump();
         };
     }, [activeProfile?.driver, activeProfile?.name, extractRunnableQuery, nextLine, onChange, tabId, toggleLine]);
 

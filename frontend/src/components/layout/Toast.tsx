@@ -78,7 +78,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
     return (
         <ToastContext.Provider value={{ toast }}>
             {children}
-            <div className={cn("fixed z-[9999] flex flex-col gap-2.5 pointer-events-none", placementClass)}>
+            <div className={cn("fixed z-toast flex flex-col gap-2.5 pointer-events-none", placementClass)}>
                 {toasts.map((t) => {
                     const style = variantStyles[t.variant];
                     return (

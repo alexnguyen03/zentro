@@ -21,6 +21,7 @@ import { cn } from '../../lib/cn';
 import { TemplatePopover } from './TemplatePopover';
 import { models } from '../../../wailsjs/go/models';
 import { DOM_EVENT } from '../../lib/constants';
+import { emitCommand } from '../../lib/commandBus';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery } from '../../../wailsjs/go/app/App';
 import { useToast } from '../layout/Toast';
 
@@ -56,12 +57,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
 
     const handleRun = () => {
         if (!tabId || !canRunEditorAction) return;
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId } }));
+        emitCommand(DOM_EVENT.RUN_QUERY_ACTION, { tabId });
     };
 
     const handleExplain = (analyze: boolean) => {
         if (!tabId || !canRunEditorAction) return;
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_EXPLAIN_ACTION, { detail: { tabId, analyze } }));
+        emitCommand(DOM_EVENT.RUN_EXPLAIN_ACTION, { tabId, analyze });
     };
 
     const handleCancel = async () => {
@@ -137,7 +138,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     variant="ghost"
                     size="icon"
                     title="Compare Queries"
-                    onClick={() => window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_QUERY_COMPARE))}
+                    onClick={() => emitCommand(DOM_EVENT.OPEN_QUERY_COMPARE)}
                     disabled={!isActive}
                 >
                     <Columns2 size={14} />
@@ -195,7 +196,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     title="Format Query (Ctrl+Shift+F)"
                     onClick={() => {
                         if (!isActive) return;
-                        window.dispatchEvent(new CustomEvent(DOM_EVENT.FORMAT_QUERY_ACTION));
+                        emitCommand(DOM_EVENT.FORMAT_QUERY_ACTION);
                     }}
                 >
                     <AlignJustify size={14} />

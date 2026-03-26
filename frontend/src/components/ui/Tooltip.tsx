@@ -24,7 +24,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, side = 'top
             <span
                 role="tooltip"
                 className={cn(
-                    'pointer-events-none absolute z-[1600] whitespace-nowrap rounded-md bg-bg-primary px-2 py-1 text-[11px] font-medium text-text-primary shadow-lg opacity-0 transition-opacity duration-150',
+                    'pointer-events-none absolute z-tooltip whitespace-nowrap rounded-md bg-bg-primary px-2 py-1 text-[11px] font-medium text-text-primary shadow-elevation-md opacity-0 transition-opacity duration-150',
                     'group-hover:opacity-100 group-focus-within:opacity-100',
                     sideClasses[side],
                 )}
@@ -34,4 +34,3 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, side = 'top
         </span>
     );
 };
-

@@ -102,8 +102,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             <div className={cn('flex-1 relative flex flex-col overflow-hidden', isActiveGroup && 'active-group-body')}>
                 {isDraggingTab && (
                     <>
-                        <div ref={setLeftNodeRef} className="absolute top-0 bottom-0 left-0 w-1/4 z-[1000]" />
-                        <div ref={setRightNodeRef} className="absolute top-0 bottom-0 right-0 w-1/4 z-[1000]" />
+                        <div ref={setLeftNodeRef} className="absolute top-0 bottom-0 left-0 z-popover w-1/4" />
+                        <div ref={setRightNodeRef} className="absolute top-0 bottom-0 right-0 z-popover w-1/4" />
                     </>
                 )}
                 {isLeftOver && <div className="split-snap-preview left" />}

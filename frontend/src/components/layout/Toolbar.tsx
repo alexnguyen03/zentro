@@ -28,9 +28,6 @@ import {
     WindowMinimise,
     WindowToggleMaximise,
     Quit,
-    WindowReload,
-    WindowReloadApp,
-    BrowserOpenURL,
 } from '../../../wailsjs/runtime/runtime';
 
 import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
@@ -47,24 +44,8 @@ import { useToast } from './Toast';
 import type { EnvironmentKey } from '../../types/project';
 import { utils } from '../../../wailsjs/go/models';
 import type { CommandId } from '../../lib/shortcutRegistry';
-
-const REPO_URL = 'https://github.com/alexnguyen03/zentro';
-
-interface AppMenuItem {
-    id: string;
-    label: string;
-    shortcut?: string;
-    disabled?: boolean;
-    danger?: boolean;
-    hasBadge?: boolean;
-    action: () => void | Promise<void>;
-}
-
-interface AppMenuSection {
-    id: string;
-    title: string;
-    items: AppMenuItem[];
-}
+import { emitCommand, onCommand } from '../../lib/commandBus';
+import { AppMenuItem, AppMenuSection, buildAppMenuSections } from './toolbar/appMenuSections';
 
 export const Toolbar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
@@ -112,12 +93,11 @@ export const Toolbar: React.FC = () => {
     const isQueryTab = activeTab?.type === 'query';
 
     useEffect(() => {
-        const handler = () => {
+        const off = onCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, () => {
             setQuickEnvOpen(false);
             setEnvironmentSwitcherOpen(true);
-        };
-        window.addEventListener(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, handler);
-        return () => window.removeEventListener(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, handler);
+        });
+        return off;
     }, []);
 
     useEffect(() => {
@@ -239,160 +219,35 @@ export const Toolbar: React.FC = () => {
         toast.success('You are already on the latest version.');
     }, [check, toast]);
 
-    const appMenuSections = useMemo<AppMenuSection[]>(() => {
-        return [
-            {
-                id: 'file',
-                title: 'File',
-                items: [
-                    {
-                        id: 'file.reload',
-                        label: 'Reload Frontend',
-                        shortcut: getShortcut('app.reload'),
-                        action: () => WindowReloadApp(),
-                    },
-                    {
-                        id: 'file.restart',
-                        label: 'Restart App',
-                        action: () => WindowReload(),
-                    },
-                    {
-                        id: 'file.quit',
-                        label: 'Quit',
-                        danger: true,
-                        action: () => Quit(),
-                    },
-                ],
-            },
-            {
-                id: 'edit',
-                title: 'Edit',
-                items: [
-                    {
-                        id: 'edit.newTab',
-                        label: 'New Query Tab',
-                        shortcut: getShortcut('editor.newTab'),
-                        action: () => addTab(),
-                    },
-                    {
-                        id: 'edit.closeTab',
-                        label: 'Close Current Tab',
-                        shortcut: getShortcut('editor.closeTab'),
-                        action: () => window.dispatchEvent(new CustomEvent(DOM_EVENT.CLOSE_ACTIVE_TAB)),
-                    },
-                    {
-                        id: 'edit.commandPalette',
-                        label: 'Command Palette',
-                        shortcut: getShortcut('view.commandPalette'),
-                        action: () => setShowCommandPalette(true),
-                    },
-                    {
-                        id: 'edit.formatQuery',
-                        label: 'Format Query',
-                        shortcut: getShortcut('editor.formatQuery'),
-                        action: () => window.dispatchEvent(new CustomEvent(DOM_EVENT.FORMAT_QUERY_ACTION)),
-                    },
-                ],
-            },
-            {
-                id: 'view',
-                title: 'View',
-                items: [
-                    {
-                        id: 'view.settings',
-                        label: 'Settings',
-                        shortcut: getShortcut('view.openSettings'),
-                        action: () => addTab({ type: 'settings', name: 'Settings' }),
-                    },
-                    {
-                        id: 'view.shortcuts',
-                        label: 'Keyboard Shortcuts',
-                        shortcut: getShortcut('view.openShortcuts'),
-                        action: () => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' }),
-                    },
-                    {
-                        id: 'view.sidebar',
-                        label: 'Toggle Sidebar',
-                        shortcut: getShortcut('layout.toggleSidebar'),
-                        action: () => toggleSidebar(),
-                    },
-                    {
-                        id: 'view.resultPanel',
-                        label: 'Toggle Result Panel',
-                        shortcut: getShortcut('layout.toggleResultPanel'),
-                        disabled: !isQueryTab,
-                        action: () => toggleResultPanel(),
-                    },
-                    {
-                        id: 'view.rightSidebar',
-                        label: 'Toggle Right Sidebar',
-                        shortcut: getShortcut('layout.toggleRightSidebar'),
-                        action: () => toggleRightSidebar(),
-                    },
-                ],
-            },
-            {
-                id: 'window',
-                title: 'Window',
-                items: [
-                    {
-                        id: 'window.minimize',
-                        label: 'Minimize',
-                        action: () => WindowMinimise(),
-                    },
-                    {
-                        id: 'window.maximize',
-                        label: 'Maximize / Restore',
-                        action: () => WindowToggleMaximise(),
-                    },
-                ],
-            },
-            {
-                id: 'help',
-                title: 'Help',
-                items: [
-                    {
-                        id: 'help.about',
-                        label: 'About Zentro',
-                        action: () => setAboutOpen(true),
-                    },
-                    {
-                        id: 'help.checkUpdates',
-                        label: isChecking ? 'Checking for updates...' : 'Check for Updates',
-                        disabled: isChecking,
-                        hasBadge: hasUpdate,
-                        action: () => handleManualCheckForUpdates(),
-                    },
-                    {
-                        id: 'help.license',
-                        label: 'License',
-                        action: () => setLicenseOpen(true),
-                    },
-                    {
-                        id: 'help.releaseNotes',
-                        label: 'Release Notes',
-                        action: () => BrowserOpenURL(`${REPO_URL}/releases`),
-                    },
-                    {
-                        id: 'help.reportIssue',
-                        label: 'Report Issue',
-                        action: () => BrowserOpenURL(`${REPO_URL}/issues`),
-                    },
-                ],
-            },
-        ];
-    }, [
-        addTab,
-        getShortcut,
-        handleManualCheckForUpdates,
-        hasUpdate,
-        isChecking,
-        isQueryTab,
-        setShowCommandPalette,
-        toggleResultPanel,
-        toggleRightSidebar,
-        toggleSidebar,
-    ]);
+    const appMenuSections = useMemo<AppMenuSection[]>(
+        () =>
+            buildAppMenuSections({
+                getShortcut,
+                addTab,
+                setShowCommandPalette,
+                toggleSidebar,
+                toggleResultPanel,
+                toggleRightSidebar,
+                isQueryTab,
+                isChecking,
+                hasUpdate,
+                onCheckForUpdates: handleManualCheckForUpdates,
+                onOpenAbout: () => setAboutOpen(true),
+                onOpenLicense: () => setLicenseOpen(true),
+            }),
+        [
+            getShortcut,
+            addTab,
+            setShowCommandPalette,
+            toggleSidebar,
+            toggleResultPanel,
+            toggleRightSidebar,
+            isQueryTab,
+            isChecking,
+            hasUpdate,
+            handleManualCheckForUpdates,
+        ],
+    );
 
     const clearSubmenuHideTimer = useCallback(() => {
         if (submenuHideTimerRef.current !== null) {
@@ -567,7 +422,7 @@ export const Toolbar: React.FC = () => {
 
                     {appMenuOpen && (
                         <>
-                            <div className="absolute left-0 top-[calc(100%+6px)] z-[1400]">
+                            <div className="absolute left-0 top-[calc(100%+6px)] z-toolbar">
                                 <div
                                     ref={appMenuParentPanelRef}
                                     className="w-[190px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
@@ -607,7 +462,7 @@ export const Toolbar: React.FC = () => {
 
                                 {appMenuActiveSection && (
                                     <div
-                                        className="absolute left-[194px] z-[1400] w-[320px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
+                                        className="absolute left-[194px] z-toolbar w-[320px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
                                         style={{ top: appSubmenuTop }}
                                         onMouseEnter={() => clearSubmenuHideTimer()}
                                         onMouseLeave={() => scheduleSubmenuHide()}
@@ -710,7 +565,7 @@ export const Toolbar: React.FC = () => {
                             title="Open Project Hub"
                             onClick={() => {
                                 setQuickEnvOpen(false);
-                                window.dispatchEvent(new CustomEvent(DOM_EVENT.OPEN_PROJECT_HUB));
+                                emitCommand(DOM_EVENT.OPEN_PROJECT_HUB);
                             }}
                         >
                             <Layers3
@@ -770,7 +625,7 @@ export const Toolbar: React.FC = () => {
                         </button>
 
                         {quickEnvOpen && activeProject && (
-                            <div className="absolute left-1/2 top-[calc(100%+6px)] z-[1200] w-2/3 min-w-[220px] -translate-x-1/2 rounded-lg border border-border/40 bg-bg-secondary shadow-xl p-2">
+                            <div className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-lg border border-border/40 bg-bg-secondary shadow-xl p-2">
                                 <div className="space-y-1">
                                     {quickEnvOptions.map((envKey, index) => {
                                         const meta = getEnvironmentMeta(envKey);

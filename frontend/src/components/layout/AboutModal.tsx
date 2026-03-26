@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, ExternalLink, Github, FileText } from 'lucide-react';
-import { ModalBackdrop, Button } from '../ui';
+import { ExternalLink, Github, FileText } from 'lucide-react';
+import { ModalBackdrop, ModalFrame } from '../ui';
 import { ChangelogModal } from './ChangelogModal';
 import zentroLogo from '../../assets/images/main-logo.png';
 import pkg from '../../../package.json';
@@ -17,25 +17,16 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
     }
 
     return (
-        <ModalBackdrop onClose={onClose}>
-            <div
-                className="bg-bg-secondary border border-border/10 rounded-[32px] w-[420px] flex flex-col overflow-hidden text-text-primary animate-in zoom-in-95 duration-300"
-                onClick={e => e.stopPropagation()}
+        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
+            <ModalFrame
+                title="About Zentro"
+                onClose={onClose}
+                className="w-[420px] max-w-[calc(100vw-24px)] rounded-[32px] border border-border/10 shadow-elevation-lg"
+                headerClassName="shrink-0 border-b-0 px-6 pt-5 pb-0"
+                titleClassName="m-0 text-[15px] font-semibold tracking-wide text-text-secondary"
+                bodyClassName="overflow-y-auto px-10 pb-10 pt-2"
             >
-                {/* Header with Close Button */}
-                <div className="flex items-center justify-end p-4 pb-0">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="w-8 h-8 rounded-xl hover:bg-bg-tertiary/60 text-text-muted hover:text-text-primary transition-all" 
-                        onClick={onClose}
-                    >
-                        <X size={16} />
-                    </Button>
-                </div>
-
-                {/* Content Area */}
-                <div className="flex flex-col items-center px-10 pb-10 pt-2">
+                <div className="flex flex-col items-center">
                     {/* Integrated Logo Section */}
                     <div className="w-24 h-24 mb-6 bg-bg-tertiary/40 rounded-[24px] flex items-center justify-center p-4 border border-border/5">
                         <img src={zentroLogo} alt="Zentro Logo" className="w-full h-full object-contain" />
@@ -83,7 +74,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
                         </button>
                     </div>
                 </div>
-            </div>
+            </ModalFrame>
         </ModalBackdrop>
     );
 };
