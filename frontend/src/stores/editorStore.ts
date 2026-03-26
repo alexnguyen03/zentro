@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { STORAGE_KEY, TabType, TAB_TYPE } from '../lib/constants';
+import { STORAGE_KEY, TabType, TAB_TYPE, GENERATED_KIND } from '../lib/constants';
 import { withStoreLogger } from './logger';
 
 export interface Tab {
@@ -12,7 +12,7 @@ export interface Tab {
     content?: string;
     readOnly?: boolean;
     sourceTabId?: string;
-    generatedKind?: 'result' | 'explain';
+    generatedKind?: typeof GENERATED_KIND[keyof typeof GENERATED_KIND];
 }
 
 export interface TabGroup {

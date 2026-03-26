@@ -1,13 +1,14 @@
 import { create } from 'zustand';
+import { CONNECTION_STATUS, TRANSACTION_STATUS } from '../lib/constants';
 
 interface StatusState {
     connectionLabel: string;
-    status: 'disconnected' | 'connecting' | 'connected' | 'error';
+    status: typeof CONNECTION_STATUS[keyof typeof CONNECTION_STATUS];
     rowCount: number;
     duration: number;
     message: string | null;
     currentDriver: string;
-    transactionStatus: 'none' | 'active' | 'error';
+    transactionStatus: typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
     transactionError: string | null;
 
     setConnectionLabel: (label: string) => void;
@@ -20,12 +21,12 @@ interface StatusState {
 
 export const useStatusStore = create<StatusState>((set) => ({
     connectionLabel: 'No Connection',
-    status: 'disconnected',
+    status: CONNECTION_STATUS.DISCONNECTED,
     rowCount: 0,
     duration: 0,
     message: null,
     currentDriver: '',
-    transactionStatus: 'none',
+    transactionStatus: TRANSACTION_STATUS.NONE,
     transactionError: null,
 
     setConnectionLabel: (label) => set({ connectionLabel: label }),

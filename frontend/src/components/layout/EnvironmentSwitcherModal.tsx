@@ -5,6 +5,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../lib/projects';
+import { ENVIRONMENT_KEY } from '../../lib/constants';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import type { ConnectionProfile } from '../../types/connection';
@@ -34,7 +35,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const { toast } = useToast();
 
     const [mode, setMode] = React.useState<Mode>('choose');
-    const [selectedEnvironmentKey, setSelectedEnvironmentKey] = React.useState<EnvironmentKey>('loc');
+    const [selectedEnvironmentKey, setSelectedEnvironmentKey] = React.useState<EnvironmentKey>(ENVIRONMENT_KEY.LOCAL);
     const [connections, setLocalConnections] = React.useState<ConnectionProfile[]>([]);
     const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
     const [selectedDatabase, setSelectedDatabase] = React.useState('');
@@ -44,7 +45,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
     React.useEffect(() => {
         if (!activeProject) return;
-        setSelectedEnvironmentKey((activeEnvironmentKey || activeProject.last_active_environment_key || activeProject.default_environment_key || 'loc') as EnvironmentKey);
+        setSelectedEnvironmentKey((activeEnvironmentKey || activeProject.last_active_environment_key || activeProject.default_environment_key || ENVIRONMENT_KEY.LOCAL) as EnvironmentKey);
     }, [activeEnvironmentKey, activeProject?.default_environment_key, activeProject?.last_active_environment_key]);
 
     const selectedProjectConnection = activeProject?.connections?.find(

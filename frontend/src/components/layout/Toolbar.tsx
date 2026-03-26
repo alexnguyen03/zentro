@@ -31,7 +31,7 @@ import { cn } from '../../lib/cn';
 import { getEnvironmentMeta } from '../../lib/projects';
 import { Button } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
-import { DOM_EVENT } from '../../lib/constants';
+import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
 import { useToast } from './Toast';
 import type { EnvironmentKey } from '../../types/project';
 import { utils } from '../../../wailsjs/go/models';
@@ -172,8 +172,8 @@ export const Toolbar: React.FC = () => {
                     {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
                 </Button>
 
-                <Button variant="ghost" size="icon" title="Reload Connection" onClick={() => activeProfile && Reconnect().catch(() => {})} disabled={!activeProfile || connectionStatus === 'connecting'}>
-                    <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && 'animate-spin')} />
+                <Button variant="ghost" size="icon" title="Reload Connection" onClick={() => activeProfile && Reconnect().catch(() => {})} disabled={!activeProfile || connectionStatus === CONNECTION_STATUS.CONNECTING}>
+                    <RefreshCw size={14} className={cn(connectionStatus === CONNECTION_STATUS.CONNECTING && 'animate-spin')} />
                 </Button>
             </div>
 
@@ -201,7 +201,7 @@ export const Toolbar: React.FC = () => {
                                 size={14}
                                 className={cn(
                                     'shrink-0 translate-y-[0.5px]',
-                                    connectionStatus === 'connected' ? 'text-success' : connectionStatus === 'error' ? 'text-red-500 animate-pulse' : 'text-text-secondary',
+                                    connectionStatus === CONNECTION_STATUS.CONNECTED ? 'text-success' : connectionStatus === CONNECTION_STATUS.ERROR ? 'text-red-500 animate-pulse' : 'text-text-secondary',
                                 )}
                             />
                             <span className="truncate max-w-[170px] text-text-primary font-semibold leading-none">{activeProject?.name || 'No Project'}</span>

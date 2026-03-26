@@ -1,13 +1,5 @@
-export type EnvironmentKey = 'loc' | 'tes' | 'dev' | 'sta' | 'pro';
-
-export type WorkspaceType = 'scratch' | 'analysis' | 'inspection';
-
-export type AssetType =
-    | 'saved_query'
-    | 'saved_workspace'
-    | 'template'
-    | 'favorite_object'
-    | 'result_snapshot';
+import type { EnvironmentKey, AssetType, WorkspaceType } from '../lib/constants';
+export type { EnvironmentKey, AssetType, WorkspaceType };
 
 export interface ProjectEnvironment {
     id: string;

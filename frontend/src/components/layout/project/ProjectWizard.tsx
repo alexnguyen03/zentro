@@ -11,6 +11,7 @@ import { ProviderPickerToolbar } from '../../connection/ProviderPickerToolbar';
 import { ProviderGrid } from '../../connection/ProviderGrid';
 import { Button, Input, ModalFrame, Spinner } from '../../ui';
 import { DatabaseTreePicker } from '../../ui/DatabaseTreePicker';
+import { ENVIRONMENT_KEY } from '../../../lib/constants';
 import { cn } from '../../../lib/cn';
 import { getProvider } from '../../../lib/providers';
 import type { EnvironmentKey } from '../../../types/project';
@@ -55,7 +56,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         name: '',
         description: '',
         iconKey: 'general',
-        starterEnv: 'loc',
+        starterEnv: ENVIRONMENT_KEY.LOCAL,
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
     const [selectedProfile, setSelectedProfile] = React.useState<ConnectionProfile | null>(null);
@@ -237,7 +238,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                 <button
                                     key={envKey} type="button"
                                     onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
-                                    className={cn('cursor-pointer rounded-lg px-4 py-4 text-left transition-colors', envKey === 'pro' && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40')}
+                                    className={cn('cursor-pointer rounded-lg px-4 py-4 text-left transition-colors', envKey === ENVIRONMENT_KEY.PRODUCTION && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40')}
                                 >
                                     <div className="flex items-center justify-between gap-3">
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>{envKey}</span>

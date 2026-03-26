@@ -62,12 +62,13 @@ import {
 } from '../../../wailsjs/go/app/App';
 import type { AppApiGateway, ConnectionRuntimeState } from './types';
 import type { ConnectionProfile } from '../../types/connection';
+import { CONNECTION_STATUS } from '../../lib/constants';
 
 function normalizeRuntimeConnectionStatus(status: unknown): ConnectionRuntimeState['status'] {
-    if (status === 'connected' || status === 'connecting' || status === 'disconnected' || status === 'error') {
-        return status;
+    if (status === CONNECTION_STATUS.CONNECTED || status === CONNECTION_STATUS.CONNECTING || status === CONNECTION_STATUS.DISCONNECTED || status === CONNECTION_STATUS.ERROR) {
+        return status as ConnectionRuntimeState['status'];
     }
-    return 'disconnected';
+    return CONNECTION_STATUS.DISCONNECTED;
 }
 
 function toConnectionProfile(raw: unknown): ConnectionProfile | null {
@@ -97,7 +98,7 @@ function toConnectionProfile(raw: unknown): ConnectionProfile | null {
 
 function toConnectionRuntimeState(raw: unknown): ConnectionRuntimeState {
     if (!raw || typeof raw !== 'object') {
-        return { status: 'disconnected', profile: null };
+        return { status: CONNECTION_STATUS.DISCONNECTED, profile: null };
     }
     const source = raw as Record<string, unknown>;
 

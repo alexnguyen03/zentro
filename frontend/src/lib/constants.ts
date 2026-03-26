@@ -50,3 +50,51 @@ export const DRIVER = {
     SQLITE: 'sqlite',
 } as const;
 export type DriverType = typeof DRIVER[keyof typeof DRIVER];
+
+// ── Environment ───────────────────────────────────────────────────────────────
+
+export const ENVIRONMENT_KEY = {
+    LOCAL: 'loc',
+    TESTING: 'tes',
+    DEVELOPMENT: 'dev',
+    STAGING: 'sta',
+    PRODUCTION: 'pro',
+} as const;
+export type EnvironmentKey = typeof ENVIRONMENT_KEY[keyof typeof ENVIRONMENT_KEY];
+
+// ── Transaction ───────────────────────────────────────────────────────────────
+
+export const TRANSACTION_STATUS = {
+    NONE: 'none',
+    ACTIVE: 'active',
+    ERROR: 'error',
+} as const;
+export type TransactionStatus = typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
+
+// ── Result/Tab generated kind ─────────────────────────────────────────────────
+
+export const GENERATED_KIND = {
+    RESULT: 'result',
+    EXPLAIN: 'explain',
+} as const;
+export type GeneratedKind = typeof GENERATED_KIND[keyof typeof GENERATED_KIND];
+
+// ── Project asset types ───────────────────────────────────────────────────────
+
+export const ASSET_TYPE = {
+    SAVED_QUERY: 'saved_query',
+    SAVED_WORKSPACE: 'saved_workspace',
+    TEMPLATE: 'template',
+    FAVORITE_OBJECT: 'favorite_object',
+    RESULT_SNAPSHOT: 'result_snapshot',
+} as const;
+export type AssetType = typeof ASSET_TYPE[keyof typeof ASSET_TYPE];
+
+// ── Workspace types ───────────────────────────────────────────────────────────
+
+export const WORKSPACE_TYPE = {
+    SCRATCH: 'scratch',
+    ANALYSIS: 'analysis',
+    INSPECTION: 'inspection',
+} as const;
+export type WorkspaceType = typeof WORKSPACE_TYPE[keyof typeof WORKSPACE_TYPE];

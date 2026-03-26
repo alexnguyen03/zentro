@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { withStoreLogger } from './logger';
 import type { EnvironmentKey, Project, ProjectEnvironment } from '../types/project';
 import { getEnvironmentLabel } from '../lib/projects';
+import { ENVIRONMENT_KEY } from '../lib/constants';
 
 interface EnvironmentState {
     environments: ProjectEnvironment[];
@@ -13,14 +14,14 @@ interface EnvironmentState {
 }
 
 function buildFallbackEnvironment(project: Project): ProjectEnvironment {
-    const key = project.default_environment_key || 'loc';
+    const key = project.default_environment_key || ENVIRONMENT_KEY.LOCAL;
     return {
         id: `${project.id}:${key}`,
         project_id: project.id,
         key,
         label: getEnvironmentLabel(key),
-        is_protected: key === 'sta' || key === 'pro',
-        is_read_only: key === 'pro',
+        is_protected: key === ENVIRONMENT_KEY.STAGING || key === ENVIRONMENT_KEY.PRODUCTION,
+        is_read_only: key === ENVIRONMENT_KEY.PRODUCTION,
         connection_id: project.connections?.find((connection) => connection.environment_key === key)?.id,
     };
 }
@@ -40,7 +41,7 @@ export const useEnvironmentStore = create<EnvironmentState>()(
                 ? project.environments
                 : [buildFallbackEnvironment(project)];
 
-            const requestedKey = project.last_active_environment_key || project.default_environment_key || environments[0]?.key || 'loc';
+            const requestedKey = project.last_active_environment_key || project.default_environment_key || environments[0]?.key || ENVIRONMENT_KEY.LOCAL;
             const activeEnvironmentKey = environments.some((environment) => environment.key === requestedKey)
                 ? requestedKey
                 : environments[0]?.key || null;

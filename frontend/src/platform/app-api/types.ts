@@ -1,7 +1,8 @@
 import type { app, models, utils } from '../../../wailsjs/go/models';
 import type { ConnectionProfile } from '../../types/connection';
+import { CONNECTION_STATUS } from '../../lib/constants';
 
-export type RuntimeConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
+export type RuntimeConnectionStatus = typeof CONNECTION_STATUS[keyof typeof CONNECTION_STATUS];
 
 export interface ConnectionRuntimeState {
     status: RuntimeConnectionStatus;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { STORAGE_KEY } from '../lib/constants';
+import { STORAGE_KEY, ENVIRONMENT_KEY } from '../lib/constants';
 import { createProject, deleteProject, getActiveProject, listProjects, openProject, saveProject as persistProject } from '../services/projectService';
 import type { EnvironmentKey, Project, ProjectEnvironment } from '../types/project';
 import { getEnvironmentLabel } from '../lib/projects';
@@ -101,7 +101,7 @@ export const useProjectStore = create<ProjectState>()(
                     const selectedProjectId = get().selectedProjectId;
                     const hydratedActive = active ? {
                         ...active,
-                        last_active_environment_key: active.last_active_environment_key || active.default_environment_key || 'loc',
+                        last_active_environment_key: active.last_active_environment_key || active.default_environment_key || ENVIRONMENT_KEY.LOCAL,
                     } : null;
 
                     set({
@@ -123,7 +123,7 @@ export const useProjectStore = create<ProjectState>()(
                     const projects = get().projects.length > 0 ? get().projects : await listProjects();
                     const hydratedProject = project ? {
                         ...project,
-                        last_active_environment_key: project.last_active_environment_key || project.default_environment_key || 'loc',
+                        last_active_environment_key: project.last_active_environment_key || project.default_environment_key || ENVIRONMENT_KEY.LOCAL,
                     } : null;
                     set({
                         activeProject: hydratedProject,
@@ -150,8 +150,8 @@ export const useProjectStore = create<ProjectState>()(
                         tags: input.tags || [],
                         created_at: '',
                         updated_at: '',
-                        default_environment_key: 'loc',
-                        last_active_environment_key: 'loc',
+                        default_environment_key: ENVIRONMENT_KEY.LOCAL,
+                        last_active_environment_key: ENVIRONMENT_KEY.LOCAL,
                         last_workspace_id: '',
                         environments: [],
                         connections: [],

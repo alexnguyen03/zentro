@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CONNECTION_STATUS } from '../../lib/constants';
 
 const { getConnectionStatusMock } = vi.hoisted(() => ({
     getConnectionStatusMock: vi.fn(),
@@ -21,7 +22,7 @@ describe('wailsGateway', () => {
 
     it('normalizes raw connection status payload', async () => {
         getConnectionStatusMock.mockResolvedValue({
-            status: 'connected',
+            status: CONNECTION_STATUS.CONNECTED,
             profile: {
                 name: 'local-dev',
                 driver: 'postgres',
@@ -41,7 +42,7 @@ describe('wailsGateway', () => {
 
         const status = await wailsGateway.GetConnectionStatus();
 
-        expect(status.status).toBe('connected');
+        expect(status.status).toBe(CONNECTION_STATUS.CONNECTED);
         expect(status.profile?.name).toBe('local-dev');
         expect(status.profile?.driver).toBe('postgres');
     });
@@ -51,7 +52,7 @@ describe('wailsGateway', () => {
 
         const status = await wailsGateway.GetConnectionStatus();
 
-        expect(status.status).toBe('disconnected');
+        expect(status.status).toBe(CONNECTION_STATUS.DISCONNECTED);
         expect(status.profile).toBeNull();
     });
 });

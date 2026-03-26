@@ -33,18 +33,16 @@ import { ProjectHub } from './components/layout/ProjectHub';
 import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { eventToKeyToken, getCommandRegistry, normalizeBinding } from './lib/shortcutRegistry';
 import { useShortcutStore } from './stores/shortcutStore';
-import { DOM_EVENT } from './lib/constants';
+import { DOM_EVENT, CONNECTION_STATUS, TRANSACTION_STATUS } from './lib/constants';
 import { appLogger } from './lib/logger';
 import { emitCommand, onCommand } from './lib/commandBus';
 import { ConnectProjectEnvironment, ForceQuit } from './services/projectService';
 import { GetTransactionStatus } from './services/queryService';
 import type { ConnectionProfile } from './types/connection';
 
-type TransactionStatus = 'none' | 'active' | 'error';
-
-function normalizeTransactionStatus(value: string): TransactionStatus {
-    if (value === 'active' || value === 'error') return value;
-    return 'none';
+function normalizeTransactionStatus(value: string): typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS] {
+    if (value === TRANSACTION_STATUS.ACTIVE || value === TRANSACTION_STATUS.ERROR) return value as any;
+    return TRANSACTION_STATUS.NONE;
 }
 
 function toConnectionProfile(profile: ConnectionChangedPayload['profile']): ConnectionProfile {
@@ -118,30 +116,30 @@ function App() {
         const subs = [
             onConnectionChanged((data: ConnectionChangedPayload) => {
                 appLogger.info('connection changed', data);
-                if (data.status === 'connected' && data.profile) {
+                if (data.status === CONNECTION_STATUS.CONNECTED && data.profile) {
                     setIsConnected(true);
-                    setConnectionStatus('connected');
+                    setConnectionStatus(CONNECTION_STATUS.CONNECTED);
                     setActiveProfile(toConnectionProfile(data.profile));
                     setDatabases(data.databases ?? []);
                     GetTransactionStatus()
                         .then((status) => setTransactionStatus(normalizeTransactionStatus(status)))
-                        .catch(() => setTransactionStatus('none'));
-                } else if (data.status === 'connecting' && data.profile) {
-                    setConnectionStatus('connecting');
+                        .catch(() => setTransactionStatus(TRANSACTION_STATUS.NONE));
+                } else if (data.status === CONNECTION_STATUS.CONNECTING && data.profile) {
+                    setConnectionStatus(CONNECTION_STATUS.CONNECTING);
                     setActiveProfile(toConnectionProfile(data.profile));
-                } else if (data.status === 'disconnected') {
+                } else if (data.status === CONNECTION_STATUS.DISCONNECTED) {
                     setIsConnected(false);
-                    setConnectionStatus('disconnected');
+                    setConnectionStatus(CONNECTION_STATUS.DISCONNECTED);
                     setActiveProfile(null);
                     setDatabases([]);
-                    setTransactionStatus('none');
-                } else if (data.status === 'error') {
+                    setTransactionStatus(TRANSACTION_STATUS.NONE);
+                } else if (data.status === CONNECTION_STATUS.ERROR) {
                     if (data.profile) {
                         setActiveProfile(toConnectionProfile(data.profile));
                     }
-                    setConnectionStatus('error');
+                    setConnectionStatus(CONNECTION_STATUS.ERROR);
                     setIsConnected(false);
-                    setTransactionStatus('error', 'connection error');
+                    setTransactionStatus(TRANSACTION_STATUS.ERROR, 'connection error');
                     toast.error('Connection failed or lost. Please check your settings.');
                 } else {
                     toast.error('Connection failed');
@@ -188,8 +186,8 @@ function App() {
                 useStatusStore.getState().setQueryStats(Number(rowCount), payload.duration);
             }),
             onTransactionStatus((payload) => {
-                setTransactionStatus(payload.status, payload.error || null);
-                if (payload.status === 'error' && payload.error) {
+                setTransactionStatus(payload.status as any, payload.error || null);
+                if (payload.status === TRANSACTION_STATUS.ERROR && payload.error) {
                     toast.error(`Transaction failed: ${payload.error}`);
                 }
             }),
@@ -234,13 +232,13 @@ function App() {
         if (
             isSameProfile &&
             isSameDatabase &&
-            connectionStatus === 'connected'
+            connectionStatus === CONNECTION_STATUS.CONNECTED
         ) {
             connectAttemptRef.current = targetKey;
             return;
         }
 
-        if (connectionStatus === 'connecting' && connectAttemptRef.current === targetKey) {
+        if (connectionStatus === CONNECTION_STATUS.CONNECTING && connectAttemptRef.current === targetKey) {
             return;
         }
 

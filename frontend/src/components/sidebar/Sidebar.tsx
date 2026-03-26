@@ -11,7 +11,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { getEnvironmentLabel } from '../../lib/projects';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { emitCommand } from '../../lib/commandBus';
-import { DOM_EVENT } from '../../lib/constants';
+import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
 import { getErrorMessage } from '../../lib/errors';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
@@ -48,10 +48,10 @@ export const Sidebar: React.FC = () => {
             if (isInitial) {
                 const store = useConnectionStore.getState();
                 const status = await GetConnectionStatus();
-                if (status && status.status === 'connected' && status.profile) {
+                if (status && status.status === CONNECTION_STATUS.CONNECTED && status.profile) {
                     store.setActiveProfile(status.profile);
                     store.setIsConnected(true);
-                    store.setConnectionStatus('connected');
+                    store.setConnectionStatus(CONNECTION_STATUS.CONNECTED);
                     return;
                 }
                 store.resetRuntime();

@@ -7,7 +7,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { getEnvironmentLabel } from '../../lib/projects';
-import { DRIVER, CONNECTION_STATUS } from '../../lib/constants';
+import { DRIVER, CONNECTION_STATUS, TRANSACTION_STATUS } from '../../lib/constants';
 
 export const StatusBar: React.FC = () => {
     const {
@@ -78,16 +78,17 @@ export const StatusBar: React.FC = () => {
     }, [message, setMessage]);
 
     const barColor = {
-        connected: 'bg-success',
-        connecting: 'bg-accent-600',
-        error: 'bg-red-500',
-        disconnected: 'bg-yellow-500',
-    }[status] ?? 'bg-bg-tertiary';
+        [CONNECTION_STATUS.CONNECTED]: 'bg-success',
+        [CONNECTION_STATUS.CONNECTING]: 'bg-accent-600',
+        [CONNECTION_STATUS.ERROR]: 'bg-red-500',
+        [CONNECTION_STATUS.FAILED]: 'bg-red-500',
+        [CONNECTION_STATUS.DISCONNECTED]: 'bg-yellow-500',
+    }[status as string] ?? 'bg-bg-tertiary';
 
     const txLabel = {
-        none: 'TX: none',
-        active: 'TX: active',
-        error: 'TX: error',
+        [TRANSACTION_STATUS.NONE]: 'TX: none',
+        [TRANSACTION_STATUS.ACTIVE]: 'TX: active',
+        [TRANSACTION_STATUS.ERROR]: 'TX: error',
     }[transactionStatus];
 
     const projectLabel = activeProject
@@ -99,7 +100,7 @@ export const StatusBar: React.FC = () => {
             className={cn(
                 'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300',
                 viewMode ? 'bg-linear-to-r from-amber-500/70 to-red-500/70' : barColor,
-                status === 'connecting' && ''
+                status === CONNECTION_STATUS.CONNECTING && ''
             )}
         >
             <div className="flex items-center gap-3 font-medium text-[11px] text-white min-w-0">

@@ -4,7 +4,7 @@
  * to avoid string typos and untyped callbacks.
  */
 import { EventsOn } from '../../wailsjs/runtime/runtime';
-import { ConnectionStatus } from './constants';
+import { ConnectionStatus, TRANSACTION_STATUS } from './constants';
 import type { ConnectionProfile } from '../types/connection';
 
 // ── Event name constants ──────────────────────────────────────────────────
@@ -94,7 +94,7 @@ export interface QueryDonePayload {
 }
 
 export interface TransactionStatusPayload {
-    status: 'none' | 'active' | 'error';
+    status: typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
     error?: string;
     driver?: string;
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Toolbar } from './Toolbar';
+import { CONNECTION_STATUS, ENVIRONMENT_KEY, TAB_TYPE, TRANSACTION_STATUS } from '../../lib/constants';
 
 const mocks = vi.hoisted(() => ({
     reconnect: vi.fn(),
@@ -14,22 +15,22 @@ const mocks = vi.hoisted(() => ({
 
 const connectionState = {
     activeProfile: null as any,
-    connectionStatus: 'disconnected',
+    connectionStatus: CONNECTION_STATUS.DISCONNECTED,
 };
 
 const projectState = {
-    activeProject: { name: 'Demo Project', default_environment_key: 'loc' } as any,
+    activeProject: { name: 'Demo Project', default_environment_key: ENVIRONMENT_KEY.LOCAL } as any,
     setProjectEnvironment: vi.fn(async () => true),
 };
 
 const environmentState = {
-    activeEnvironmentKey: 'loc',
+    activeEnvironmentKey: ENVIRONMENT_KEY.LOCAL,
     environments: [] as any[],
     setActiveEnvironment: vi.fn(),
 };
 
 const editorState = {
-    groups: [{ id: 'group-1', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', type: 'query' }] }] as any[],
+    groups: [{ id: 'group-1', activeTabId: 'tab-1', tabs: [{ id: 'tab-1', type: TAB_TYPE.QUERY }] }] as any[],
     activeGroupId: 'group-1',
     addTab: vi.fn(),
 };
@@ -45,7 +46,7 @@ const layoutState = {
 };
 
 const statusState = {
-    transactionStatus: 'none',
+    transactionStatus: TRANSACTION_STATUS.NONE,
 };
 
 const settingsState = {

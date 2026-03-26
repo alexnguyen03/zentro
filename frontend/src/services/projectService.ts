@@ -10,10 +10,12 @@ import type {
 } from '../types/project';
 import { ENVIRONMENT_KEYS } from '../lib/projects';
 
+import { ENVIRONMENT_KEY } from '../lib/constants';
+
 export const ForceQuit = () => wailsGateway.ForceQuit();
 export const ConnectProjectEnvironment = (environmentKey: string) => wailsGateway.ConnectProjectEnvironment(environmentKey);
 
-function toEnvironmentKey(value: unknown, fallback: EnvironmentKey = 'loc'): EnvironmentKey {
+function toEnvironmentKey(value: unknown, fallback: EnvironmentKey = ENVIRONMENT_KEY.LOCAL): EnvironmentKey {
     if (typeof value === 'string' && ENVIRONMENT_KEYS.includes(value as EnvironmentKey)) {
         return value as EnvironmentKey;
     }

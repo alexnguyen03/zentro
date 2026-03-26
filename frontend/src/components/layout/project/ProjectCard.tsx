@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '../../../lib/cn';
 import { getEnvironmentMeta } from '../../../lib/projects';
+import { ENVIRONMENT_KEY } from '../../../lib/constants';
 import { Button, Input, Spinner } from '../../ui';
 import type { Project } from '../../../types/project';
 import {
@@ -34,7 +35,7 @@ interface ProjectCardEditProps {
 export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
     project, editDraft, setEditDraft, isSaving, onCancel, onSave,
 }) => {
-    const envKey = project.last_active_environment_key || project.default_environment_key || 'loc';
+    const envKey = project.last_active_environment_key || project.default_environment_key || ENVIRONMENT_KEY.LOCAL;
     const envMeta = getEnvironmentMeta(envKey);
 
     return (
@@ -107,7 +108,7 @@ interface ProjectCardProps {
 export const ProjectCard: React.FC<ProjectCardProps> = ({
     project, activeProjectId, isOpening, isDeleting, onClick, onEdit, onDelete,
 }) => {
-    const envKey = project.last_active_environment_key || project.default_environment_key || 'loc';
+    const envKey = project.last_active_environment_key || project.default_environment_key || ENVIRONMENT_KEY.LOCAL;
     const envMeta = getEnvironmentMeta(envKey);
     const ready = isProjectUsable(project);
     const isCurrentProject = activeProjectId === project.id;

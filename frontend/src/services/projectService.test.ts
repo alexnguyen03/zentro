@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { models } from '../../wailsjs/go/models';
 import type { Project } from '../types/project';
+import { ENVIRONMENT_KEY } from '../lib/constants';
 
 const gatewayMock = vi.hoisted(() => ({
     ListProjects: vi.fn(),
@@ -34,7 +35,7 @@ function makeRawProject(overrides: Partial<Record<string, unknown>> = {}): model
         tags: [],
         created_at: '2026-01-01T00:00:00Z',
         updated_at: '2026-01-01T00:00:00Z',
-        default_environment_key: 'dev',
+        default_environment_key: ENVIRONMENT_KEY.DEVELOPMENT,
         last_workspace_id: '',
         environments: [],
         connections: [],
@@ -53,8 +54,8 @@ function makeProjectInput(): Project {
         tags: [],
         created_at: '',
         updated_at: '',
-        default_environment_key: 'loc',
-        last_active_environment_key: 'loc',
+        default_environment_key: ENVIRONMENT_KEY.LOCAL,
+        last_active_environment_key: ENVIRONMENT_KEY.LOCAL,
         environments: [],
         connections: [],
         workspaces: [],
@@ -70,7 +71,7 @@ describe('projectService', () => {
     it('normalizes project keys when listing projects', async () => {
         gatewayMock.ListProjects.mockResolvedValue([
             makeRawProject({
-                default_environment_key: 'dev',
+                default_environment_key: ENVIRONMENT_KEY.DEVELOPMENT,
                 last_active_environment_key: 'invalid-env',
                 environments: [{ id: 'e1', project_id: 'p1', key: 'invalid-env' }],
             }),
@@ -79,9 +80,9 @@ describe('projectService', () => {
         const projects = await listProjects();
 
         expect(projects).toHaveLength(1);
-        expect(projects[0].default_environment_key).toBe('dev');
-        expect(projects[0].last_active_environment_key).toBe('dev');
-        expect(projects[0].environments?.[0]?.key).toBe('loc');
+        expect(projects[0].default_environment_key).toBe(ENVIRONMENT_KEY.DEVELOPMENT);
+        expect(projects[0].last_active_environment_key).toBe(ENVIRONMENT_KEY.DEVELOPMENT);
+        expect(projects[0].environments?.[0]?.key).toBe(ENVIRONMENT_KEY.LOCAL);
     });
 
     it('returns null when opening or getting active project fails', async () => {
@@ -94,14 +95,14 @@ describe('projectService', () => {
 
     it('creates project through gateway and returns normalized result', async () => {
         gatewayMock.CreateProject.mockResolvedValue(
-            makeRawProject({ id: 'p2', default_environment_key: 'tes', last_active_environment_key: 'tes' }),
+            makeRawProject({ id: 'p2', default_environment_key: ENVIRONMENT_KEY.TESTING, last_active_environment_key: ENVIRONMENT_KEY.TESTING }),
         );
 
         const result = await createProject(makeProjectInput());
 
         expect(gatewayMock.CreateProject).toHaveBeenCalledTimes(1);
         expect(result.id).toBe('p2');
-        expect(result.default_environment_key).toBe('tes');
-        expect(result.last_active_environment_key).toBe('tes');
+        expect(result.default_environment_key).toBe(ENVIRONMENT_KEY.TESTING);
+        expect(result.last_active_environment_key).toBe(ENVIRONMENT_KEY.TESTING);
     });
 });
