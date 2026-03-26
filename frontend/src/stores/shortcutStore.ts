@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { GetPreferences, SetPreferences } from '../services/settingsService';
-import { defaultShortcutMap, normalizeBinding, type CommandId } from '../lib/shortcutRegistry';
+import { getDefaultShortcutMap, normalizeBinding, type CommandId } from '../lib/shortcutRegistry';
 
 interface ShortcutState {
   bindings: Record<CommandId, string>;
@@ -16,6 +16,7 @@ interface ShortcutState {
 }
 
 function sanitizeBindings(shortcuts?: Record<string, string>): Record<CommandId, string> {
+  const defaultShortcutMap = getDefaultShortcutMap();
   const merged = { ...defaultShortcutMap };
   if (shortcuts) {
     (Object.keys(defaultShortcutMap) as CommandId[]).forEach((id) => {
@@ -35,7 +36,7 @@ async function persistBindings(bindings: Record<CommandId, string>) {
 }
 
 export const useShortcutStore = create<ShortcutState>((set, get) => ({
-  bindings: { ...defaultShortcutMap },
+  bindings: { ...getDefaultShortcutMap() },
   chordStart: null,
   chordUntil: 0,
 
@@ -66,17 +67,19 @@ export const useShortcutStore = create<ShortcutState>((set, get) => ({
   },
 
   restoreBinding: async (id) => {
+    const defaultShortcutMap = getDefaultShortcutMap();
     const next = { ...get().bindings, [id]: defaultShortcutMap[id] };
     set({ bindings: next });
     await persistBindings(next);
   },
 
   resetDefaults: async () => {
+    const defaultShortcutMap = getDefaultShortcutMap();
     set({ bindings: { ...defaultShortcutMap } });
     await persistBindings({ ...defaultShortcutMap });
   },
 
-  getBinding: (id) => get().bindings[id] ?? defaultShortcutMap[id],
+  getBinding: (id) => get().bindings[id] ?? getDefaultShortcutMap()[id],
 
   setChord: (token) => {
     if (!token) {

@@ -9,7 +9,7 @@ import { emitCommand } from './commandBus';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
 
-export type CommandId =
+export type BuiltInCommandId =
   | 'editor.newTab'
   | 'editor.closeTab'
   | 'editor.runQuery'
@@ -31,15 +31,21 @@ export type CommandId =
   | 'connection.rollbackTx'
   | 'app.reload';
 
-export interface ShortcutRegistryEntry {
+export type CommandId = BuiltInCommandId | `ext.${string}`;
+
+export interface CommandRegistryEntry {
   id: CommandId;
   label: string;
   category: CommandCategory;
   defaultBinding: string;
   action: () => void | Promise<void>;
+  isEnabled?: () => boolean;
 }
 
-export const shortcutRegistry: ShortcutRegistryEntry[] = [
+export type ShortcutRegistryEntry = CommandRegistryEntry;
+
+function getBaseCommandRegistry(): CommandRegistryEntry[] {
+  return [
   {
     id: 'editor.newTab',
     label: 'New Query Tab',
@@ -194,13 +200,20 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     label: 'Toggle Result Panel',
     category: 'Layout',
     defaultBinding: 'Ctrl+J',
+    isEnabled: () => {
+      const state = useEditorStore.getState();
+      const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
+      const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
+      return activeTab?.type === TAB_TYPE.QUERY;
+    },
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
       const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
-      if (activeTab?.type === TAB_TYPE.QUERY) {
-        useLayoutStore.getState().toggleResultPanel();
+      if (activeTab?.type !== TAB_TYPE.QUERY) {
+        return;
       }
+      useLayoutStore.getState().toggleResultPanel();
     },
   },
   {
@@ -250,12 +263,47 @@ export const shortcutRegistry: ShortcutRegistryEntry[] = [
     defaultBinding: 'Ctrl+Shift+R',
     action: () => { WindowReloadApp(); },
   },
-];
+  ];
+}
 
-export const defaultShortcutMap: Record<CommandId, string> = shortcutRegistry.reduce((acc, item) => {
-  acc[item.id] = item.defaultBinding;
-  return acc;
-}, {} as Record<CommandId, string>);
+function getContributionStore(): Map<CommandId, CommandRegistryEntry> {
+  const storeHost = globalThis as typeof globalThis & {
+    __zentroCommandContributions__?: Map<CommandId, CommandRegistryEntry>;
+  };
+
+  if (!storeHost.__zentroCommandContributions__) {
+    storeHost.__zentroCommandContributions__ = new Map<CommandId, CommandRegistryEntry>();
+  }
+
+  return storeHost.__zentroCommandContributions__;
+}
+
+export function registerCommandContribution(entry: CommandRegistryEntry): () => void {
+  const contributions = getContributionStore();
+  contributions.set(entry.id, entry);
+  return () => {
+    contributions.delete(entry.id);
+  };
+}
+
+export function getCommandRegistry(): CommandRegistryEntry[] {
+  return [...getBaseCommandRegistry(), ...getContributionStore().values()];
+}
+
+export function getCommandById(id: CommandId): CommandRegistryEntry | undefined {
+  const contributions = getContributionStore();
+  if (contributions.has(id)) {
+    return contributions.get(id);
+  }
+  return getBaseCommandRegistry().find((entry) => entry.id === id);
+}
+
+export function getDefaultShortcutMap(): Record<CommandId, string> {
+  return getCommandRegistry().reduce((acc, item) => {
+    acc[item.id] = item.defaultBinding;
+    return acc;
+  }, {} as Record<CommandId, string>);
+}
 
 function normalizeKeyToken(key: string): string {
   const k = key.toLowerCase();
@@ -289,4 +337,3 @@ export function eventToKeyToken(e: KeyboardEvent): string {
   }
   return parts.sort().join('+');
 }
-

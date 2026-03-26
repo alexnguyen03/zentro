@@ -6,7 +6,7 @@ import {
     Server, Loader, Search, Trash2, FileCode2, Plus
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { useSchemaStore } from '../../stores/schemaStore';
+import { type SchemaNode, useSchemaStore } from '../../stores/schemaStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { FetchDatabaseSchema } from '../../services/schemaService';
 import { onSchemaLoaded } from '../../lib/events';
@@ -16,20 +16,6 @@ import { CreateTableModal } from '../layout/CreateTableModal';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { DropObject } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
-
-// Extended schema node type matching the Go model
-interface SchemaNodeData {
-    Name: string;
-    Tables: string[];
-    ForeignTables: string[];
-    Views: string[];
-    MaterializedViews: string[];
-    Indexes: string[];
-    Functions: string[];
-    Sequences: string[];
-    DataTypes: string[];
-    AggregateFunctions: string[];
-}
 
 export const ConnectionTree: React.FC = () => {
     const { isConnected, activeProfile } = useConnectionStore();
@@ -111,7 +97,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
     useEffect(() => {
         const unsub = onSchemaLoaded((data) => {
             if (data.profileName === profileName && data.dbName === dbName) {
-                setTree(profileName, dbName, data.schemas as any);
+                setTree(profileName, dbName, data.schemas);
             }
         });
         return () => unsub();
@@ -168,7 +154,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
                     )}
                     {schemas && schemas.length > 0 && (
                         <>
-                            {(schemas as SchemaNodeData[]).map((schema: SchemaNodeData) => (
+                            {schemas.map((schema) => (
                                 <SchemaNode key={schema.Name} schema={schema} filter={filter} profileName={profileName} readOnlyMode={readOnlyMode} />
                             ))}
                         </>
@@ -182,7 +168,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
 // ── SchemaNode ─────────────────────────────────────────────────────────────────
 
 interface SchemaNodeProps {
-    schema: SchemaNodeData;
+    schema: SchemaNode;
     filter: string;
     profileName: string;
     readOnlyMode: boolean;
@@ -376,11 +362,11 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function buildCategories(s: SchemaNodeData, filter: string, profileName: string): CategoryDef[] {
+function buildCategories(s: SchemaNode, filter: string, profileName: string): CategoryDef[] {
     const iconSize = 12;
     const iconClass = "opacity-75 shrink-0";
 
-    const filterFn = (items: string[]) => {
+    const filterFn = (items?: string[]) => {
         if (!filter) return items || [];
         return (items || []).filter(item => item.toLowerCase().includes(filter));
     };

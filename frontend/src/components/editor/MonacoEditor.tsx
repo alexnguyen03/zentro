@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
+import type { editor as MonacoEditor } from 'monaco-editor';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -36,7 +37,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         lineDecorationsWidth: 16,
     } as const;
 
-    const editorRef = useRef<any>(null);
+    const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+    const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
     const onRunRef = useRef(onRun);
     onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
     const onExplainRef = useRef(onExplain);
@@ -152,7 +154,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     const applyBookmarkDecorations = useCallback(() => {
         const editor = editorRef.current;
-        const monaco = (window as any).monaco;
+        const monaco = monacoRef.current;
         if (!editor || !monaco) return;
 
         const nextDecorations = bookmarks.map((bookmark) => ({
@@ -185,6 +187,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     const handleMount: OnMount = useCallback((editor, monacoInstance) => {
         editorRef.current = editor;
+        monacoRef.current = monacoInstance;
 
         // Register SQL completion provider
         registerContextAwareSQLCompletion(monacoInstance);
@@ -237,7 +240,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             }
         );
 
-        editor.onMouseDown((e: any) => {
+        editor.onMouseDown((e) => {
             const isRightClick = Boolean(e?.event?.rightButton) || e?.event?.browserEvent?.button === 2;
             if (!isRightClick) return;
             if (readOnlyRef.current) return;

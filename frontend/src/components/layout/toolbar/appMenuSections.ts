@@ -6,7 +6,7 @@ import {
     WindowReloadApp,
     BrowserOpenURL,
 } from '../../../../wailsjs/runtime/runtime';
-import { shortcutRegistry, type CommandId } from '../../../lib/shortcutRegistry';
+import { getCommandById, type CommandId } from '../../../lib/shortcutRegistry';
 
 const REPO_URL = 'https://github.com/alexnguyen03/zentro';
 
@@ -26,6 +26,12 @@ export interface AppMenuSection {
     items: AppMenuItem[];
 }
 
+export interface MenuContribution {
+    sectionId: string;
+    sectionTitle?: string;
+    item: AppMenuItem;
+}
+
 interface BuildAppMenuSectionsParams {
     getShortcut: (commandId: CommandId) => string;
     isQueryTab: boolean;
@@ -37,7 +43,46 @@ interface BuildAppMenuSectionsParams {
 }
 
 function getCommand(commandId: CommandId) {
-    return shortcutRegistry.find((entry) => entry.id === commandId);
+    return getCommandById(commandId);
+}
+
+const menuContributions = new Map<string, MenuContribution>();
+
+export function registerMenuContribution(contribution: MenuContribution): () => void {
+    menuContributions.set(contribution.item.id, contribution);
+    return () => {
+        menuContributions.delete(contribution.item.id);
+    };
+}
+
+function applyMenuContributions(baseSections: AppMenuSection[]): AppMenuSection[] {
+    if (menuContributions.size === 0) return baseSections;
+
+    const sections = baseSections.map((section) => ({
+        ...section,
+        items: [...section.items],
+    }));
+
+    for (const contribution of menuContributions.values()) {
+        const section = sections.find((s) => s.id === contribution.sectionId);
+        if (section) {
+            const existingIndex = section.items.findIndex((item) => item.id === contribution.item.id);
+            if (existingIndex >= 0) {
+                section.items[existingIndex] = contribution.item;
+            } else {
+                section.items.push(contribution.item);
+            }
+            continue;
+        }
+
+        sections.push({
+            id: contribution.sectionId,
+            title: contribution.sectionTitle || contribution.sectionId,
+            items: [contribution.item],
+        });
+    }
+
+    return sections;
 }
 
 export function buildAppMenuSections({
@@ -60,7 +105,7 @@ export function buildAppMenuSections({
     const toggleResultPanelCommand = getCommand('layout.toggleResultPanel');
     const toggleRightSidebarCommand = getCommand('layout.toggleRightSidebar');
 
-    return [
+    const baseSections: AppMenuSection[] = [
         {
             id: 'file',
             title: 'File',
@@ -201,4 +246,6 @@ export function buildAppMenuSections({
             ],
         },
     ];
+
+    return applyMenuContributions(baseSections);
 }

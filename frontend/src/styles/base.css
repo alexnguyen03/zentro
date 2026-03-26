@@ -7,8 +7,8 @@ body {
     margin: 0;
     padding: 0;
     font-family: var(--font-family-sans);
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
+    background-color: var(--surface-app);
+    color: var(--content-primary);
     overflow: hidden;
     height: 100vh;
 }
@@ -33,10 +33,10 @@ input:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
+    background: var(--surface-elevated);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    background: var(--content-secondary);
 }

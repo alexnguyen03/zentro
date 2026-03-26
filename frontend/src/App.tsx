@@ -31,13 +31,25 @@ import { CommandPalette } from './components/layout/CommandPalette';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
 import { ProjectHub } from './components/layout/ProjectHub';
 import { ConfirmationModal } from './components/ui/ConfirmationModal';
-import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/shortcutRegistry';
+import { eventToKeyToken, getCommandRegistry, normalizeBinding } from './lib/shortcutRegistry';
 import { useShortcutStore } from './stores/shortcutStore';
 import { DOM_EVENT } from './lib/constants';
 import { appLogger } from './lib/logger';
 import { emitCommand, onCommand } from './lib/commandBus';
 import { ConnectProjectEnvironment, ForceQuit } from './services/projectService';
 import { GetTransactionStatus } from './services/queryService';
+import type { ConnectionProfile } from './types/connection';
+
+type TransactionStatus = 'none' | 'active' | 'error';
+
+function normalizeTransactionStatus(value: string): TransactionStatus {
+    if (value === 'active' || value === 'error') return value;
+    return 'none';
+}
+
+function toConnectionProfile(profile: ConnectionChangedPayload['profile']): ConnectionProfile {
+    return profile as ConnectionProfile;
+}
 
 function clearGeneratedResults(sourceTabID: string) {
     const resultState = useResultStore.getState();
@@ -109,14 +121,14 @@ function App() {
                 if (data.status === 'connected' && data.profile) {
                     setIsConnected(true);
                     setConnectionStatus('connected');
-                    setActiveProfile(data.profile as any);
+                    setActiveProfile(toConnectionProfile(data.profile));
                     setDatabases(data.databases ?? []);
                     GetTransactionStatus()
-                        .then((status) => setTransactionStatus((status as any) || 'none'))
+                        .then((status) => setTransactionStatus(normalizeTransactionStatus(status)))
                         .catch(() => setTransactionStatus('none'));
                 } else if (data.status === 'connecting' && data.profile) {
                     setConnectionStatus('connecting');
-                    setActiveProfile(data.profile as any);
+                    setActiveProfile(toConnectionProfile(data.profile));
                 } else if (data.status === 'disconnected') {
                     setIsConnected(false);
                     setConnectionStatus('disconnected');
@@ -125,7 +137,7 @@ function App() {
                     setTransactionStatus('none');
                 } else if (data.status === 'error') {
                     if (data.profile) {
-                        setActiveProfile(data.profile as any);
+                        setActiveProfile(toConnectionProfile(data.profile));
                     }
                     setConnectionStatus('error');
                     setIsConnected(false);
@@ -247,6 +259,8 @@ function App() {
     }, [activeEnvironmentKey, activeProfile?.db_name, activeProfile?.name, activeProject, connectionStatus]);
 
     useEffect(() => {
+        const commands = getCommandRegistry();
+
         const isTypingTarget = (target: EventTarget | null) => {
             const el = target as HTMLElement | null;
             if (!el) return false;
@@ -254,7 +268,7 @@ function App() {
             return Boolean(el.closest('input, textarea, [contenteditable="true"]'));
         };
 
-        const execute = (entry: (typeof shortcutRegistry)[number]) => {
+        const execute = (entry: (typeof commands)[number]) => {
             Promise.resolve(entry.action()).catch((err) => {
                 appLogger.error(`shortcut ${entry.id} failed`, err);
                 toast.error(`Shortcut failed: ${entry.label}`);
@@ -272,7 +286,7 @@ function App() {
                 return;
             }
 
-            for (const entry of shortcutRegistry) {
+            for (const entry of commands) {
                 const binding = normalizeBinding(bindings[entry.id] || entry.defaultBinding);
                 const parts = binding.split(' ');
                 if (parts.length === 2) {

@@ -114,7 +114,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     title="Run Query (Ctrl+Enter)"
                     onClick={handleRun}
                 >
-                    <Play size={16} color={!canRunEditorAction || isRunning ? 'currentColor' : 'var(--success-color)'} />
+                    <Play size={16} color={!canRunEditorAction || isRunning ? 'currentColor' : 'var(--status-success)'} />
                 </Button>
                 <Button
                     variant="ghost"
@@ -153,7 +153,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     <Square
                         size={16}
                         fill={isRunning && isActive ? 'currentColor' : 'none'}
-                        color={isRunning && isActive ? 'var(--error-color)' : 'currentColor'}
+                        color={isRunning && isActive ? 'var(--status-error)' : 'currentColor'}
                     />
                 </Button>
 
@@ -166,7 +166,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     title="Begin Transaction"
                     onClick={handleBeginTransaction}
                 >
-                    <GitBranchPlus size={14} color={!isConnected || txActive || !isActive || viewMode ? 'currentColor' : 'var(--success-color)'} />
+                    <GitBranchPlus size={14} color={!isConnected || txActive || !isActive || viewMode ? 'currentColor' : 'var(--status-success)'} />
                 </Button>
                 <Button
                     variant="ghost"
@@ -175,7 +175,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     title="Commit Transaction"
                     onClick={handleCommitTransaction}
                 >
-                    <Check size={14} color={!isConnected || !txActive || !isActive || viewMode ? 'currentColor' : 'var(--accent-color)'} />
+                    <Check size={14} color={!isConnected || !txActive || !isActive || viewMode ? 'currentColor' : 'var(--interactive-primary)'} />
                 </Button>
                 <Button
                     variant="ghost"
@@ -184,7 +184,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     title="Rollback Transaction"
                     onClick={handleRollbackTransaction}
                 >
-                    <Undo2 size={14} color={!isConnected || !txActive || !isActive || viewMode ? 'currentColor' : 'var(--error-color)'} />
+                    <Undo2 size={14} color={!isConnected || !txActive || !isActive || viewMode ? 'currentColor' : 'var(--status-error)'} />
                 </Button>
             </div>
 

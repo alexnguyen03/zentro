@@ -572,7 +572,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                 style={{
                                     textAlign: 'center',
                                     padding: '8px',
-                                    background: 'var(--bg-primary)',
+                                    background: 'var(--surface-app)',
                                 }}
                             >
                                 <div
@@ -581,13 +581,13 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                         display: 'inline-block',
                                         width: 12,
                                         height: 12,
-                                        border: '1.5px solid var(--border-color)',
-                                        borderTopColor: 'var(--accent-color)',
+                                        border: '1.5px solid var(--border-default)',
+                                        borderTopColor: 'var(--interactive-primary)',
                                         borderRadius: '50%',
                                         animation: 'spin 0.8s linear infinite',
                                     }}
                                 />
-                                <span style={{ marginLeft: 8, color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 500 }}>
+                                <span style={{ marginLeft: 8, color: 'var(--content-secondary)', fontSize: '11px', fontWeight: 500 }}>
                                     Loading more rows...
                                 </span>
                             </td>

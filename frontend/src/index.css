@@ -127,7 +127,7 @@
 }
 
 .zentro-bookmark-glyph {
-  background: var(--success-color);
+  background: var(--status-success);
   border-radius: 999px;
   width: var(--zentro-bookmark-dot-size) !important;
   height: var(--zentro-bookmark-dot-size) !important;
@@ -136,7 +136,7 @@
 }
 
 .zentro-bookmark-line {
-  background: color-mix(in srgb, var(--success-color) 14%, transparent);
+  background: color-mix(in srgb, var(--status-success) 14%, transparent);
   border-radius: 4px;
 }
 
@@ -148,10 +148,10 @@
 
 .zentro-sql-editor .monaco-editor .view-overlays .current-line {
   border: none !important;
-  background: color-mix(in srgb, var(--accent-color) 12%, transparent) !important;
+  background: color-mix(in srgb, var(--interactive-primary) 12%, transparent) !important;
 }
 
 .zentro-sql-editor .monaco-editor .margin .current-line-margin {
   border: none !important;
-  background: color-mix(in srgb, var(--accent-color) 12%, transparent) !important;
+  background: color-mix(in srgb, var(--interactive-primary) 12%, transparent) !important;
 }

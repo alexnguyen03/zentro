@@ -36,7 +36,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
         size="icon"
         danger={action.danger}
         onClick={() => {
-            const res = (action.onClick as any)();
+            const res = action.onClick();
             if (res instanceof Promise) res.catch(() => {});
         }}
         disabled={action.disabled || action.loading}
@@ -49,6 +49,11 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
 function parseTableName(t: string) {
     const parts = t.split('.');
     return parts.length > 1 ? { schema: parts[0], table: parts.slice(1).join('.') } : { schema: '', table: t };
+}
+
+function toErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
 }
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
@@ -97,7 +102,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             }));
             setRows(rs);
             setRowErrors({});
-        } catch (e: any) { setFetchError(e.toString()); }
+        } catch (error: unknown) { setFetchError(toErrorMessage(error)); }
         finally { setLoading(false); setReloading(false); }
     }, [schema, table]);
 
@@ -199,7 +204,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 if (r.deleted) await DropTableColumn(schema, table, r.original.Name);
                 else if (r.isNew) await AddTableColumn(schema, table, r.current);
                 else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) await AlterTableColumn(schema, table, r.original, r.current);
-            } catch (e: any) { errs[i] = e.toString(); }
+            } catch (error: unknown) { errs[i] = toErrorMessage(error); }
         }
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);
@@ -253,7 +258,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         }
         if (!sortDir || sortCol === 'idx') return rs.map(r => r.id);
         return [...rs].sort((a, b) => {
-            let av: any = a.current[sortCol as keyof models.ColumnDef], bv: any = b.current[sortCol as keyof models.ColumnDef];
+            let av = a.current[sortCol as keyof models.ColumnDef] as string | boolean | number;
+            let bv = b.current[sortCol as keyof models.ColumnDef] as string | boolean | number;
             if (typeof av === 'boolean') av = av ? 1 : 0;
             if (typeof bv === 'boolean') bv = bv ? 1 : 0;
             const res = av < bv ? -1 : av > bv ? 1 : 0;

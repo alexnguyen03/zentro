@@ -1,5 +1,5 @@
 import { utils } from '../../wailsjs/go/models';
-import { defaultShortcutMap, type CommandId } from './shortcutRegistry';
+import { getDefaultShortcutMap, type CommandId } from './shortcutRegistry';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useShortcutStore } from '../stores/shortcutStore';
@@ -10,6 +10,7 @@ import type {
 } from '../types/profile';
 
 function sanitizeShortcuts(shortcuts: Record<string, string> | undefined): Record<CommandId, string> {
+    const defaultShortcutMap = getDefaultShortcutMap();
     const next = { ...defaultShortcutMap };
     if (!shortcuts) return next;
 

@@ -5,7 +5,14 @@ import { models } from '../../wailsjs/go/models';
 export interface SchemaNode {
     Name: string;
     Tables: string[];
+    ForeignTables?: string[];
     Views: string[];
+    MaterializedViews?: string[];
+    Indexes?: string[];
+    Functions?: string[];
+    Sequences?: string[];
+    DataTypes?: string[];
+    AggregateFunctions?: string[];
 }
 
 export interface CachedColumnEntry {

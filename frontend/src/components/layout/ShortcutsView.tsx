@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Search, RotateCcw, Edit3, PanelsTopLeft, Plug, Eye, AppWindow } from 'lucide-react';
-import { shortcutRegistry, type CommandId, type CommandCategory } from '../../lib/shortcutRegistry';
+import { getCommandRegistry, type CommandId, type CommandCategory } from '../../lib/shortcutRegistry';
 import { useShortcutStore } from '../../stores/shortcutStore';
 import { AlertModal, PromptModal } from '../ui';
 
@@ -17,6 +17,7 @@ export const ShortcutsView: React.FC = () => {
     const setBinding = useShortcutStore((s) => s.setBinding);
     const restoreBinding = useShortcutStore((s) => s.restoreBinding);
     const resetDefaults = useShortcutStore((s) => s.resetDefaults);
+    const commandRegistry = getCommandRegistry();
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,8 +35,8 @@ export const ShortcutsView: React.FC = () => {
 
     const filtered = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        if (!q) return shortcutRegistry;
-        return shortcutRegistry.filter((item) => {
+        if (!q) return commandRegistry;
+        return commandRegistry.filter((item) => {
             const currentBinding = bindings[item.id] || item.defaultBinding;
             return (
                 item.label.toLowerCase().includes(q) ||
@@ -44,10 +45,10 @@ export const ShortcutsView: React.FC = () => {
                 item.defaultBinding.toLowerCase().includes(q)
             );
         });
-    }, [bindings, searchQuery]);
+    }, [bindings, commandRegistry, searchQuery]);
 
     const grouped = useMemo(() => {
-        const map = new Map<CommandCategory, typeof shortcutRegistry>();
+        const map = new Map<CommandCategory, typeof commandRegistry>();
         CATEGORY_ORDER.forEach((cat) => {
             const items = filtered.filter((item) => item.category === cat);
             if (items.length) {
@@ -58,7 +59,7 @@ export const ShortcutsView: React.FC = () => {
     }, [filtered]);
 
     const openRebindPrompt = (id: CommandId) => {
-        const current = bindings[id] || shortcutRegistry.find((x) => x.id === id)?.defaultBinding || '';
+        const current = bindings[id] || commandRegistry.find((x) => x.id === id)?.defaultBinding || '';
         setEditing(id);
         setRebindTarget({ id, current });
     };
@@ -73,7 +74,7 @@ export const ShortcutsView: React.FC = () => {
         }
         const result = await setBinding(rebindTarget.id, next);
         if (!result.ok) {
-            const conflictLabel = shortcutRegistry.find((x) => x.id === result.conflictWith)?.label || result.conflictWith;
+            const conflictLabel = commandRegistry.find((x) => x.id === result.conflictWith)?.label || result.conflictWith;
             setConflictMessage(`Shortcut conflict with "${conflictLabel}".`);
         }
         setEditing(null);

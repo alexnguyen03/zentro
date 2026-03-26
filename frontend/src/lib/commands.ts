@@ -1,4 +1,4 @@
-import { shortcutRegistry, type CommandCategory, type CommandId } from './shortcutRegistry';
+import { getCommandRegistry, type CommandCategory, type CommandId } from './shortcutRegistry';
 import { useShortcutStore } from '../stores/shortcutStore';
 
 export { type CommandCategory };
@@ -13,7 +13,7 @@ export interface CommandItem {
 
 export function buildCommands(): CommandItem[] {
     const bindings = useShortcutStore.getState().bindings;
-    return shortcutRegistry.map((item) => ({
+    return getCommandRegistry().map((item) => ({
         id: item.id,
         label: item.label,
         category: item.category,

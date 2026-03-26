@@ -17,7 +17,7 @@ export interface TabAction {
     icon: React.ReactNode;
     label?: string;
     title?: string;
-    onClick: () => void;
+    onClick: () => void | Promise<void>;
     disabled?: boolean;
     loading?: boolean;
     danger?: boolean;

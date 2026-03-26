@@ -844,7 +844,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         {isLoading && (
                             <div
                                 className="absolute top-0 left-0 right-0 z-sticky"
-                                style={{ height: 2, background: 'var(--success-color)', opacity: 0.7 }}
+                                style={{ height: 2, background: 'var(--status-success)', opacity: 0.7 }}
                             >
                                 <div
                                     style={{

@@ -4,76 +4,111 @@ import {
     Background,
     useNodesState,
     useEdgesState,
-    Node,
-    Edge,
-    NodeTypes,
-    EdgeTypes,
+    type Node,
+    type Edge,
+    type NodeTypes,
+    type EdgeTypes,
     Handle,
     Position,
     BaseEdge,
     EdgeLabelRenderer,
     getSmoothStepPath,
-    EdgeProps,
+    type EdgeProps,
     useStore,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { FetchTableRelationships, FetchTableColumns } from '../../services/schemaService';
 import { Loader } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { models } from '../../../wailsjs/go/models';
 
 interface ErdEdgeData extends Record<string, unknown> {
     label?: string;
 }
 
-function getIntersection(n1: any, n2: any) {
-    if (!n1 || !n2 || !n1.measured?.width || !n2.measured?.width) {
+interface ErdColumn {
+    name: string;
+    type: string;
+    isPk: boolean;
+    isFk: boolean;
+}
+
+interface TableNodeData extends Record<string, unknown> {
+    label: string;
+    columns: ErdColumn[];
+}
+
+interface MeasuredNodeLike {
+    measured?: { width?: number; height?: number };
+    internals?: { positionAbsolute?: { x: number; y: number } };
+    positionAbsolute?: { x: number; y: number };
+    position?: { x: number; y: number };
+}
+
+interface NodeLookupState {
+    nodeLookup?: Map<string, MeasuredNodeLike>;
+    nodeInternals?: Map<string, MeasuredNodeLike>;
+}
+
+interface ConstraintGroup extends models.TableRelationship {
+    columns: string[];
+    targets: string[];
+}
+
+function toErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+}
+
+function getNodeCenter(node: MeasuredNodeLike) {
+    const width = node.measured?.width ?? 0;
+    const height = node.measured?.height ?? 0;
+    const x = node.internals?.positionAbsolute?.x ?? node.positionAbsolute?.x ?? node.position?.x ?? 0;
+    const y = node.internals?.positionAbsolute?.y ?? node.positionAbsolute?.y ?? node.position?.y ?? 0;
+    return { x: x + width / 2, y: y + height / 2, width, height };
+}
+
+function getIntersection(n1: MeasuredNodeLike | undefined, n2: MeasuredNodeLike | undefined) {
+    if (!n1 || !n2 || !n1.measured?.width || !n1.measured?.height || !n2.measured?.width || !n2.measured?.height) {
         return { x: 0, y: 0 };
     }
-    const w = n1.measured.width / 2;
-    const h = n1.measured.height / 2;
-    const x1 = (n1.internals?.positionAbsolute?.x ?? n1.positionAbsolute?.x ?? n1.position?.x) + w;
-    const y1 = (n1.internals?.positionAbsolute?.y ?? n1.positionAbsolute?.y ?? n1.position?.y) + h;
 
-    const x2 = (n2.internals?.positionAbsolute?.x ?? n2.positionAbsolute?.x ?? n2.position?.x) + n2.measured.width / 2;
-    const y2 = (n2.internals?.positionAbsolute?.y ?? n2.positionAbsolute?.y ?? n2.position?.y) + n2.measured.height / 2;
+    const p1 = getNodeCenter(n1);
+    const p2 = getNodeCenter(n2);
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
 
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-
-    if (dx === 0 && dy === 0) return { x: x1, y: y1 };
+    if (dx === 0 && dy === 0) return { x: p1.x, y: p1.y };
 
     const padding = 12;
-    const wp = w + padding;
-    const hp = h + padding;
+    const wp = p1.width / 2 + padding;
+    const hp = p1.height / 2 + padding;
 
-    let x = 0, y = 0;
     if (Math.abs(dx) * hp > Math.abs(dy) * wp) {
-        x = x1 + (dx > 0 ? wp : -wp);
-        y = y1 + dy * Math.abs(wp / dx);
-    } else {
-        y = y1 + (dy > 0 ? hp : -hp);
-        x = x1 + dx * Math.abs(hp / dy);
+        return {
+            x: p1.x + (dx > 0 ? wp : -wp),
+            y: p1.y + dy * Math.abs(wp / dx),
+        };
     }
-    return { x, y };
+
+    return {
+        y: p1.y + (dy > 0 ? hp : -hp),
+        x: p1.x + dx * Math.abs(hp / dy),
+    };
 }
 
-function getPosition(n: any, point: { x: number, y: number }) {
-    if (!n || !n.measured?.width) return Position.Left;
-    const w = n.measured.width / 2;
-    const h = n.measured.height / 2;
-    const cx = (n.internals?.positionAbsolute?.x ?? n.positionAbsolute?.x ?? n.position?.x) + w;
-    const cy = (n.internals?.positionAbsolute?.y ?? n.positionAbsolute?.y ?? n.position?.y) + h;
-    const dx = point.x - cx;
-    const dy = point.y - cy;
+function getPosition(node: MeasuredNodeLike | undefined, point: { x: number; y: number }) {
+    if (!node || !node.measured?.width || !node.measured?.height) return Position.Left;
+    const center = getNodeCenter(node);
+    const dx = point.x - center.x;
+    const dy = point.y - center.y;
     if (Math.abs(dx) > Math.abs(dy)) {
         return dx > 0 ? Position.Right : Position.Left;
-    } else {
-        return dy > 0 ? Position.Bottom : Position.Top;
     }
+    return dy > 0 ? Position.Bottom : Position.Top;
 }
 
-const ErdEdge = ({
-    id,
+const ErdEdge: React.FC<EdgeProps> = ({
     sourceX,
     sourceY,
     targetX,
@@ -84,11 +119,16 @@ const ErdEdge = ({
     target,
     style = {},
     data,
-}: EdgeProps) => {
+}) => {
     const edgeData = data as ErdEdgeData;
-
-    const sourceNode = useStore((s: any) => s.nodeLookup?.get(source) || s.nodeInternals?.get(source));
-    const targetNode = useStore((s: any) => s.nodeLookup?.get(target) || s.nodeInternals?.get(target));
+    const sourceNode = useStore((store) => {
+        const nodeStore = store as NodeLookupState;
+        return nodeStore.nodeLookup?.get(source) ?? nodeStore.nodeInternals?.get(source);
+    });
+    const targetNode = useStore((store) => {
+        const nodeStore = store as NodeLookupState;
+        return nodeStore.nodeLookup?.get(target) ?? nodeStore.nodeInternals?.get(target);
+    });
 
     let p1 = { x: sourceX, y: sourceY };
     let p2 = { x: targetX, y: targetY };
@@ -97,13 +137,13 @@ const ErdEdge = ({
 
     if (sourceNode && targetNode) {
         if (source === target) {
-            const w = sourceNode.measured?.width || 200;
-            const h = sourceNode.measured?.height || 100;
+            const width = sourceNode.measured?.width ?? 200;
+            const height = sourceNode.measured?.height ?? 100;
             const px = sourceNode.internals?.positionAbsolute?.x ?? sourceNode.positionAbsolute?.x ?? sourceNode.position?.x ?? 0;
             const py = sourceNode.internals?.positionAbsolute?.y ?? sourceNode.positionAbsolute?.y ?? sourceNode.position?.y ?? 0;
-            p1 = { x: px + w, y: py + 40 };
+            p1 = { x: px + width, y: py + 40 };
             sPos = Position.Right;
-            p2 = { x: px + 40, y: py + h };
+            p2 = { x: px + 40, y: py + height };
             tPos = Position.Bottom;
         } else {
             const intersection1 = getIntersection(sourceNode, targetNode);
@@ -131,7 +171,7 @@ const ErdEdge = ({
         <>
             <BaseEdge
                 path={edgePath}
-                style={{ ...style, strokeWidth: 1.5, stroke: 'var(--text-secondary)' }}
+                style={{ ...style, strokeWidth: 1.5, stroke: 'var(--content-secondary)' }}
                 markerStart="url(#zentro-many)"
                 markerEnd="url(#zentro-one)"
             />
@@ -141,12 +181,12 @@ const ErdEdge = ({
                         position: 'absolute',
                         transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
                         fontSize: 10,
-                        backgroundColor: 'var(--bg-secondary)',
+                        backgroundColor: 'var(--surface-panel)',
                         padding: '2px 6px',
                         borderRadius: 4,
                         pointerEvents: 'all',
-                        color: 'var(--text-secondary)',
-                        border: '1px solid var(--border-color)',
+                        color: 'var(--content-secondary)',
+                        border: '1px solid var(--border-default)',
                         zIndex: 'var(--layer-sticky)',
                     }}
                     className="nodrag nopan"
@@ -158,11 +198,11 @@ const ErdEdge = ({
     );
 };
 
-const TableNode = ({ data }: any) => {
+const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
     return (
         <div style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
+            background: 'var(--surface-panel)',
+            border: '1px solid var(--border-default)',
             borderRadius: 6,
             minWidth: 200,
             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
@@ -171,40 +211,40 @@ const TableNode = ({ data }: any) => {
             <Handle type="target" position={Position.Left} style={{ visibility: 'hidden' }} />
 
             <div style={{
-                background: 'var(--bg-tertiary)',
+                background: 'var(--surface-elevated)',
                 padding: '8px 12px',
-                borderBottom: '1px solid var(--border-color)',
+                borderBottom: '1px solid var(--border-default)',
                 fontWeight: 600,
                 fontSize: 13,
-                color: 'var(--text-primary)'
+                color: 'var(--content-primary)'
             }}>
                 {data.label}
             </div>
 
             <div style={{ padding: '4px 0' }}>
-                {data.columns?.map((c: any, i: number) => (
-                    <div key={i} style={{
+                {data.columns?.map((column, index) => (
+                    <div key={`${column.name}-${index}`} style={{
                         padding: '4px 12px',
                         fontSize: 12,
                         display: 'flex',
                         justifyContent: 'space-between',
-                        color: 'var(--text-secondary)'
+                        color: 'var(--content-secondary)'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <span style={{
-                                color: c.isPk ? 'var(--accent-color)' : (c.isFk ? '#3b82f6' : 'inherit'),
-                                fontWeight: (c.isPk || c.isFk) ? 600 : 'normal'
+                                color: column.isPk ? 'var(--interactive-primary)' : (column.isFk ? '#3b82f6' : 'inherit'),
+                                fontWeight: (column.isPk || column.isFk) ? 600 : 'normal'
                             }}>
-                                {c.name}
+                                {column.name}
                             </span>
-                            {c.isPk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: 'var(--accent-color)', color: 'white' }}>PK</span>}
-                            {c.isFk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: '#3b82f6', color: 'white' }}>FK</span>}
+                            {column.isPk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: 'var(--interactive-primary)', color: 'white' }}>PK</span>}
+                            {column.isFk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: '#3b82f6', color: 'white' }}>FK</span>}
                         </div>
-                        <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 16 }}>{c.type}</span>
+                        <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 16 }}>{column.type}</span>
                     </div>
                 ))}
                 {(!data.columns || data.columns.length === 0) && (
-                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--content-secondary)', fontStyle: 'italic' }}>
                         No columns found
                     </div>
                 )}
@@ -254,82 +294,84 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                 setError('');
             }
 
-            // 1. Initial discovery: relationships of the main table
             const initialRels = await FetchTableRelationships(schema, table);
             if (!isMounted.current) return;
 
-            const relatedTables = new Set<string>();
-            relatedTables.add(table);
-            if (initialRels) {
-                initialRels.forEach((r: any) => {
-                    relatedTables.add(r.SourceTable);
-                    relatedTables.add(r.TargetTable);
-                });
-            }
+            const relatedTables = new Set<string>([table]);
+            (initialRels || []).forEach((relation) => {
+                relatedTables.add(relation.SourceTable);
+                relatedTables.add(relation.TargetTable);
+            });
 
-            // 2. Fetch ALL relationships for ALL discovered tables to find cross-links between neighbors
-            const allRelsMap = new Map<string, any>();
-            if (initialRels) {
-                initialRels.forEach(r => allRelsMap.set(r.ConstraintName, r));
-            }
+            const allRelsMap = new Map<string, models.TableRelationship>();
+            (initialRels || []).forEach((relation) => allRelsMap.set(relation.ConstraintName, relation));
 
-            // Also fetch neighboring relationships
-            for (const t of Array.from(relatedTables)) {
-                if (t === table || !isMounted.current) continue;
+            for (const currentTable of Array.from(relatedTables)) {
+                if (currentTable === table || !isMounted.current) continue;
 
-                let s = schema;
-                const r: any = initialRels?.find((rel: any) => rel.SourceTable === t || rel.TargetTable === t);
-                if (r) s = r.SourceTable === t ? r.SourceSchema : r.TargetSchema;
+                let relationSchema = schema;
+                const relationOfTable = initialRels?.find((relation) =>
+                    relation.SourceTable === currentTable || relation.TargetTable === currentTable
+                );
+                if (relationOfTable) {
+                    relationSchema = relationOfTable.SourceTable === currentTable
+                        ? relationOfTable.SourceSchema
+                        : relationOfTable.TargetSchema;
+                }
 
                 try {
-                    const neighborRels = await FetchTableRelationships(s, t);
+                    const neighborRels = await FetchTableRelationships(relationSchema, currentTable);
                     if (!isMounted.current) return;
-                    neighborRels?.forEach((nr: any) => {
-                        if (relatedTables.has(nr.SourceTable) && relatedTables.has(nr.TargetTable)) {
-                            allRelsMap.set(nr.ConstraintName, nr);
+                    (neighborRels || []).forEach((neighborRelation) => {
+                        if (relatedTables.has(neighborRelation.SourceTable) && relatedTables.has(neighborRelation.TargetTable)) {
+                            allRelsMap.set(neighborRelation.ConstraintName, neighborRelation);
                         }
                     });
-                } catch (e) {
-                    console.warn(`Failed to fetch rels for ${t}`, e);
+                } catch (error) {
+                    console.warn(`Failed to fetch rels for ${currentTable}`, error);
                 }
             }
 
             const finalRels = Array.from(allRelsMap.values());
-            console.log('ERD Discovery - Tables:', Array.from(relatedTables), 'Relationships:', finalRels);
-
             if (onCountChange && isMounted.current) {
                 onCountChange(finalRels.length);
             }
 
-            // 3. Fetch columns for all visible tables
-            const columnsMap = new Map<string, any[]>();
-            for (const t of Array.from(relatedTables)) {
+            const columnsMap = new Map<string, ErdColumn[]>();
+            for (const currentTable of Array.from(relatedTables)) {
                 if (!isMounted.current) return;
-                let s = schema;
-                if (t !== table) {
-                    const r: any = finalRels.find((rel: any) => rel.SourceTable === t || rel.TargetTable === t);
-                    if (r) s = r.SourceTable === t ? r.SourceSchema : r.TargetSchema;
-                }
-                try {
-                    const cols = await FetchTableColumns(s, t);
-                    if (isMounted.current) {
-                        // Mark FKs based on finalRels
-                        const tableFks = new Set(
-                            finalRels
-                                .filter(r => r.SourceTable === t)
-                                .map(r => r.SourceColumn)
-                        );
 
-                        columnsMap.set(t, (cols || []).map((c: any) => ({
-                            name: c.Name,
-                            type: c.DataType,
-                            isPk: c.IsPrimaryKey,
-                            isFk: tableFks.has(c.Name)
-                        })));
+                let relationSchema = schema;
+                if (currentTable !== table) {
+                    const relationOfTable = finalRels.find((relation) =>
+                        relation.SourceTable === currentTable || relation.TargetTable === currentTable
+                    );
+                    if (relationOfTable) {
+                        relationSchema = relationOfTable.SourceTable === currentTable
+                            ? relationOfTable.SourceSchema
+                            : relationOfTable.TargetSchema;
                     }
-                } catch (e) {
-                    console.error(`Failed to fetch columns for ${t} in schema ${s}`, e);
-                    columnsMap.set(t, []);
+                }
+
+                try {
+                    const cols = await FetchTableColumns(relationSchema, currentTable);
+                    if (!isMounted.current) return;
+
+                    const tableFks = new Set(
+                        finalRels
+                            .filter((relation) => relation.SourceTable === currentTable)
+                            .map((relation) => relation.SourceColumn)
+                    );
+
+                    columnsMap.set(currentTable, (cols || []).map((column) => ({
+                        name: column.Name,
+                        type: column.DataType,
+                        isPk: column.IsPrimaryKey,
+                        isFk: tableFks.has(column.Name),
+                    })));
+                } catch (error) {
+                    console.error(`Failed to fetch columns for ${currentTable} in schema ${relationSchema}`, error);
+                    columnsMap.set(currentTable, []);
                 }
             }
 
@@ -349,24 +391,24 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
             let childY = 50;
             const addedNodeIds = new Set<string>([table]);
 
-            const constraintGroups = new Map<string, any>();
-            finalRels.forEach((r: any) => {
-                if (!constraintGroups.has(r.ConstraintName)) {
-                    constraintGroups.set(r.ConstraintName, {
-                        ...r,
-                        columns: [r.SourceColumn],
-                        targets: [r.TargetColumn]
+            const constraintGroups = new Map<string, ConstraintGroup>();
+            finalRels.forEach((relation) => {
+                const existing = constraintGroups.get(relation.ConstraintName);
+                if (!existing) {
+                    constraintGroups.set(relation.ConstraintName, {
+                        ...relation,
+                        columns: [relation.SourceColumn],
+                        targets: [relation.TargetColumn],
                     });
-                } else {
-                    const group = constraintGroups.get(r.ConstraintName);
-                    group.columns.push(r.SourceColumn);
-                    group.targets.push(r.TargetColumn);
+                    return;
                 }
+                existing.columns.push(relation.SourceColumn);
+                existing.targets.push(relation.TargetColumn);
             });
 
-            Array.from(constraintGroups.values()).forEach((r: any) => {
-                const sourceTableId = r.SourceTable;
-                const targetTableId = r.TargetTable;
+            Array.from(constraintGroups.values()).forEach((relation) => {
+                const sourceTableId = relation.SourceTable;
+                const targetTableId = relation.TargetTable;
 
                 if (!addedNodeIds.has(sourceTableId)) {
                     newNodes.push({
@@ -378,6 +420,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                     addedNodeIds.add(sourceTableId);
                     parentY += 250;
                 }
+
                 if (!addedNodeIds.has(targetTableId)) {
                     newNodes.push({
                         id: targetTableId,
@@ -390,48 +433,48 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                 }
 
                 newEdges.push({
-                    id: r.ConstraintName,
+                    id: relation.ConstraintName,
                     type: 'erdEdge',
                     source: sourceTableId,
                     target: targetTableId,
                     data: {
-                        label: `${r.columns.join(', ')} → ${r.targets.join(', ')}`,
+                        label: `${relation.columns.join(', ')} -> ${relation.targets.join(', ')}`,
                     },
-                    style: { stroke: 'var(--text-secondary)' },
+                    style: { stroke: 'var(--content-secondary)' },
                 });
             });
 
             setNodes(newNodes);
             setEdges(newEdges);
             setLoading(false);
-        } catch (e: any) {
+        } catch (error: unknown) {
             if (isMounted.current) {
-                setError(e.toString());
+                setError(toErrorMessage(error));
                 setLoading(false);
             }
         } finally {
             isFetching.current = false;
         }
-    }, [schema, table, setNodes, setEdges]); // Removed onCountChange from deps
+    }, [schema, table, setNodes, setEdges, onCountChange]);
 
     useEffect(() => {
-        loadErd();
+        void loadErd();
     }, [loadErd]);
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center gap-2 p-5 h-full" style={{ background: 'var(--bg-main)' }}>
+            <div className="flex items-center justify-center gap-2 p-5 h-full" style={{ background: 'var(--surface-app)' }}>
                 <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Loading ERD...
             </div>
         );
     }
 
     if (error) {
-        return <div className="p-5 h-full" style={{ color: 'var(--error-color)', background: 'var(--bg-main)' }}>{error}</div>;
+        return <div className="p-5 h-full" style={{ color: 'var(--status-error)', background: 'var(--surface-app)' }}>{error}</div>;
     }
 
     return (
-        <div className="flex-1 w-full h-full min-h-0 relative" style={{ background: 'var(--bg-main)' }}>
+        <div className="flex-1 w-full h-full min-h-0 relative" style={{ background: 'var(--surface-app)' }}>
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -459,7 +502,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                         >
                             <path
                                 d="M 15,-8 L 1,0 L 15,8 M 15,0 L 1,0"
-                                stroke="var(--text-secondary)"
+                                stroke="var(--content-secondary)"
                                 strokeWidth="1.5"
                                 fill="none"
                             />
@@ -475,16 +518,15 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                         >
                             <path
                                 d="M 0,0 L 12,0 M 6,-8 L 6,8"
-                                stroke="var(--text-secondary)"
+                                stroke="var(--content-secondary)"
                                 strokeWidth="1.5"
                                 fill="none"
                             />
                         </marker>
                     </defs>
                 </svg>
-                <Background color="var(--border-color)" gap={20} size={1} />
+                <Background color="var(--border-default)" gap={20} size={1} />
             </ReactFlow>
         </div>
     );
 };
-
