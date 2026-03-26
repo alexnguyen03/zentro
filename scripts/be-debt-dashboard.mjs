@@ -64,6 +64,20 @@ function countMatches(content, regex) {
   return [...content.matchAll(regex)].length;
 }
 
+function countPhysicalLines(filePath) {
+  const bytes = readFileSync(filePath);
+  if (bytes.length === 0) {
+    return 0;
+  }
+  let lines = 1;
+  for (const byte of bytes) {
+    if (byte === 0x0a) {
+      lines += 1;
+    }
+  }
+  return lines;
+}
+
 const files = ROOTS.flatMap(walkFiles);
 let appDynamicMapAny = 0;
 let appDynamicInterface = 0;
@@ -73,7 +87,7 @@ let largeGoFilesOver500Lines = 0;
 
 for (const file of files) {
   const content = readFileSync(file, 'utf8');
-  const lines = content.split('\n').length;
+  const lines = countPhysicalLines(file);
   const inApp = file.includes(`${path.sep}internal${path.sep}app${path.sep}`);
   const prodFile = !isTestFile(file);
 

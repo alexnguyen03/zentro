@@ -198,8 +198,6 @@ func (a *App) OpenProject(projectID string) (*models.Project, error) {
 
 func (a *App) GetActiveProject() *models.Project { return a.project }
 
-// ── Connection ─────────────────────────────────────────────────────────────
-
 func (a *App) LoadConnections() ([]*models.ConnectionProfile, error) {
 	if a.project != nil {
 		return a.projectConnectionProfiles(), nil
@@ -216,6 +214,7 @@ func (a *App) LoadDatabasesForProfile(name string) ([]string, error) {
 	}
 	return []string{}, nil
 }
+
 func (a *App) SaveConnection(p models.ConnectionProfile) error {
 	if a.project == nil {
 		a.upsertDraftConnection(&p)
@@ -278,7 +277,9 @@ func (a *App) DeleteConnection(name string) error {
 	_, err := a.saveActiveProject()
 	return err
 }
+
 func (a *App) TestConnection(p models.ConnectionProfile) error { return a.conn.TestConnection(p) }
+
 func (a *App) Connect(name string) error {
 	if pc := a.findProjectConnectionByProfileName(name); pc != nil {
 		return a.conn.ConnectWithProfile(projectConnectionToProfile(pc))
@@ -305,205 +306,89 @@ func (a *App) ConnectProjectEnvironment(envKey string) error {
 	}
 	return sql.ErrNoRows
 }
+
 func (a *App) Reconnect() error                   { return a.conn.Reconnect() }
 func (a *App) SwitchDatabase(dbName string) error { return a.conn.SwitchDatabase(dbName) }
 func (a *App) Disconnect()                        { a.conn.Disconnect() }
+
 func (a *App) GetConnectionStatus() (ConnectionRuntimeState, error) {
 	return a.conn.GetConnectionStatus()
 }
+
 func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 	return a.conn.FetchDatabaseSchema(profileName, dbName)
 }
+
 func (a *App) FetchTableColumns(schema, table string) ([]*models.ColumnDef, error) {
 	return a.conn.FetchTableColumns(schema, table)
 }
+
 func (a *App) AlterTableColumn(schema, table string, old, updated models.ColumnDef) error {
 	if err := a.ensureWritable("alter table column"); err != nil {
 		return err
 	}
 	return a.conn.AlterTableColumn(schema, table, old, updated)
 }
+
 func (a *App) ReorderTableColumns(schema, table string, newOrder []string) error {
 	if err := a.ensureWritable("reorder table columns"); err != nil {
 		return err
 	}
 	return a.conn.ReorderTableColumns(schema, table, newOrder)
 }
+
 func (a *App) AddTableColumn(schema, table string, col models.ColumnDef) error {
 	if err := a.ensureWritable("add table column"); err != nil {
 		return err
 	}
 	return a.conn.AddTableColumn(schema, table, col)
 }
+
 func (a *App) DropTableColumn(schema, table, column string) error {
 	if err := a.ensureWritable("drop table column"); err != nil {
 		return err
 	}
 	return a.conn.DropTableColumn(schema, table, column)
 }
+
 func (a *App) FetchTableRelationships(schema, table string) ([]models.TableRelationship, error) {
 	return a.conn.FetchTableRelationships(schema, table)
 }
 
-// ── Query ──────────────────────────────────────────────────────────────────
-
 func (a *App) ExecuteQuery(tabID, query string) { a.query.ExecuteQuery(tabID, query) }
+
 func (a *App) ExplainQuery(tabID, query string, analyze bool) error {
 	return a.query.ExplainQuery(tabID, query, analyze)
 }
+
 func (a *App) FetchMoreRows(tabID string, offset int) { a.query.FetchMoreRows(tabID, offset) }
+
 func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
 	return a.query.FetchTotalRowCount(tabID)
 }
+
 func (a *App) CancelQuery(tabID string) { a.query.CancelQuery(tabID) }
+
 func (a *App) ExecuteUpdateSync(query string) (int64, error) {
 	if err := a.ensureWritable("execute update"); err != nil {
 		return 0, err
 	}
 	return a.query.ExecuteUpdateSync(query)
 }
+
 func (a *App) BeginTransaction() error {
 	if err := a.ensureWritable("begin transaction"); err != nil {
 		return err
 	}
 	return a.tx.BeginTransaction()
 }
+
 func (a *App) CommitTransaction() error {
 	if err := a.ensureWritable("commit transaction"); err != nil {
 		return err
 	}
 	return a.tx.CommitTransaction()
 }
+
 func (a *App) RollbackTransaction() error            { return a.tx.RollbackTransaction() }
 func (a *App) GetTransactionStatus() (string, error) { return a.tx.GetTransactionStatus() }
-
-// ── Scripts ────────────────────────────────────────────────────────────────
-
-func (a *App) GetScripts(connectionName string) ([]models.SavedScript, error) {
-	return a.scripts.GetScripts(connectionName)
-}
-func (a *App) GetScriptContent(connectionName, scriptID string) (string, error) {
-	return a.scripts.GetScriptContent(connectionName, scriptID)
-}
-func (a *App) SaveScript(script models.SavedScript, content string) error {
-	return a.scripts.SaveScript(script, content)
-}
-func (a *App) DeleteScript(connectionName, scriptID string) error {
-	return a.scripts.DeleteScript(connectionName, scriptID)
-}
-
-// ── History ────────────────────────────────────────────────────────────────
-
-func (a *App) GetHistory() []models.HistoryEntry { return a.history.GetHistory() }
-func (a *App) ClearHistory() error               { return a.history.ClearHistory() }
-
-// ── Templates ──────────────────────────────────────────────────────────────
-
-func (a *App) LoadTemplates() ([]models.Template, error) { return a.templates.LoadTemplates() }
-func (a *App) SaveTemplate(t models.Template) error      { return a.templates.SaveTemplate(t) }
-func (a *App) DeleteTemplate(id string) error            { return a.templates.DeleteTemplate(id) }
-
-// ── Formatter ──────────────────────────────────────────────────────────────
-
-func (a *App) FormatSQL(query string, dialect string) (string, error) {
-	return a.formatter.FormatSQL(query, dialect)
-}
-
-// ── Bookmarks ──────────────────────────────────────────────────────────────
-
-func (a *App) GetBookmarks(connectionID, tabID string) ([]models.Bookmark, error) {
-	return a.bookmarks.GetBookmarks(connectionID, tabID)
-}
-
-func (a *App) SaveBookmark(connectionID, tabID string, bookmark models.Bookmark) error {
-	return a.bookmarks.SaveBookmark(connectionID, tabID, bookmark)
-}
-
-func (a *App) DeleteBookmark(connectionID, tabID string, line int) error {
-	return a.bookmarks.DeleteBookmark(connectionID, tabID, line)
-}
-
-// ── Compare ────────────────────────────────────────────────────────────────
-
-func (a *App) CompareQueries(query1, query2 string) (string, error) {
-	return a.compare.CompareQueries(query1, query2)
-}
-
-// ── Preferences ────────────────────────────────────────────────────────────
-
-func (a *App) GetPreferences() utils.Preferences { return a.prefs }
-func (a *App) SetPreferences(p utils.Preferences) error {
-	a.prefs = p
-	return utils.SavePreferences(p)
-}
-
-// ── Export ─────────────────────────────────────────────────────────────────
-
-func (a *App) ExportCSV(columns []string, rows [][]string) (string, error) {
-	return exportCSV(a.ctx, columns, rows)
-}
-
-func (a *App) ExportJSON(columns []string, rows [][]string) (string, error) {
-	return exportJSON(a.ctx, columns, rows)
-}
-
-func (a *App) ExportSQLInsert(columns []string, rows [][]string, tableName string) (string, error) {
-	return exportSQLInsert(a.ctx, columns, rows, tableName)
-}
-
-// ── Updates ────────────────────────────────────────────────────────────────
-
-// Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0-beta'"
-var Version = "v0.2.0-beta"
-
-func (a *App) GetCurrentVersion() string {
-	return Version
-}
-
-func (a *App) CheckForUpdates() (*UpdateInfo, error) {
-	return a.update.CheckForUpdates(a.GetCurrentVersion())
-}
-
-// ── Schema ─────────────────────────────────────────────────────────────────
-
-func (a *App) GetTableDDL(profileName, schema, tableName string) (string, error) {
-	_ = profileName
-	return GetTableDDLWithConnection(a.profile, a.db, schema, tableName)
-}
-
-func (a *App) DropObject(profileName, schema, objectName, objectType string) error {
-	_ = profileName
-	if err := a.ensureWritable("drop object"); err != nil {
-		return err
-	}
-	return DropObjectWithConnection(a.profile, a.db, schema, objectName, objectType)
-}
-
-func (a *App) CreateIndex(profileName, schema, tableName, indexName string, columns []string, unique bool) error {
-	_ = profileName
-	if err := a.ensureWritable("create index"); err != nil {
-		return err
-	}
-	return CreateIndexWithConnection(a.profile, a.db, schema, tableName, indexName, columns, unique)
-}
-
-func (a *App) DropIndex(profileName, schema, indexName string) error {
-	_ = profileName
-	if err := a.ensureWritable("drop index"); err != nil {
-		return err
-	}
-	return DropIndexWithConnection(a.profile, a.db, schema, indexName)
-}
-
-func (a *App) GetIndexes(profileName, schema, tableName string) ([]IndexInfo, error) {
-	_ = profileName
-	return GetIndexesWithConnection(a.profile, a.db, schema, tableName)
-}
-
-func (a *App) CreateTable(profileName, schema, tableName string, columns []models.ColumnDef) error {
-	_ = profileName
-	if err := a.ensureWritable("create table"); err != nil {
-		return err
-	}
-	return CreateTableWithConnection(a.profile, a.db, schema, tableName, columns)
-}
