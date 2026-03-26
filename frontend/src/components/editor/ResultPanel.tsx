@@ -1,7 +1,10 @@
 import React from 'react';
 import {
     AlertCircle,
+    Bookmark,
     CheckCircle,
+    ChevronDown,
+    ChevronUp,
     Copy,
     Download,
     FilePlus,
@@ -10,7 +13,9 @@ import {
     Plus,
     RefreshCw,
     RotateCcw,
+    Search,
     Save,
+    X,
 } from 'lucide-react';
 import { ExecuteUpdateSync } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
@@ -78,7 +83,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [showExportMenu, setShowExportMenu] = React.useState(false);
     const [showTableNameInput, setShowTableNameInput] = React.useState(false);
     const [tableNameForExport, setTableNameForExport] = React.useState('');
+    const [quickFilter, setQuickFilter] = React.useState('');
+    const [visibleRows, setVisibleRows] = React.useState(0);
+    const [bookmarkedRows, setBookmarkedRows] = React.useState<number[]>([]);
+    const [activeSearchHit, setActiveSearchHit] = React.useState(0);
+    const [jumpRowInput, setJumpRowInput] = React.useState('');
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const quickFilterRef = React.useRef<HTMLInputElement>(null);
+    const jumpRowRef = React.useRef<HTMLInputElement>(null);
 
     // ── Domain hooks ──────────────────────────────────────────────────────────
     const editing = useResultEditing({ tabId, result });
@@ -224,9 +236,54 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     React.useEffect(() => { onActionsChange?.(panelActions); }, [onActionsChange, panelActions]);
 
     // ── Export ────────────────────────────────────────────────────────────────
-    const { handleExportCSV, handleExportJSON, handleExportSQLConfirm } = useResultExport({
+    const { handleExportCSV, handleExportJSON, handleExportSQLConfirm, exportJob, cancelExport } = useResultExport({
         result, tableNameForExport, setTableNameForExport, setShowExportMenu, setShowTableNameInput,
     });
+
+    const searchHits = React.useMemo(() => {
+        if (!result || !quickFilter.trim()) return [];
+        const query = quickFilter.trim().toLowerCase();
+        const hits: number[] = [];
+        result.rows.forEach((row, index) => {
+            if (row.some((cell) => (cell || '').toLowerCase().includes(query))) {
+                hits.push(index);
+            }
+        });
+        return hits;
+    }, [quickFilter, result]);
+
+    const jumpToPersistedRow = React.useCallback((rowIndex: number) => {
+        if (!result || rowIndex < 0 || rowIndex >= result.rows.length) return;
+        setFocusCellRequest({
+            rowKey: `p:${rowIndex}`,
+            colIdx: 0,
+            nonce: Date.now(),
+        });
+    }, [result, setFocusCellRequest]);
+
+    const jumpToNextHit = React.useCallback(() => {
+        if (searchHits.length === 0) return;
+        const next = (activeSearchHit + 1) % searchHits.length;
+        setActiveSearchHit(next);
+        jumpToPersistedRow(searchHits[next]);
+    }, [activeSearchHit, jumpToPersistedRow, searchHits]);
+
+    const jumpToPrevHit = React.useCallback(() => {
+        if (searchHits.length === 0) return;
+        const next = (activeSearchHit - 1 + searchHits.length) % searchHits.length;
+        setActiveSearchHit(next);
+        jumpToPersistedRow(searchHits[next]);
+    }, [activeSearchHit, jumpToPersistedRow, searchHits]);
+
+    const handleJumpToRow = React.useCallback(() => {
+        const row = Number(jumpRowInput);
+        if (!Number.isFinite(row) || row < 1) return;
+        jumpToPersistedRow(row - 1);
+    }, [jumpRowInput, jumpToPersistedRow]);
+
+    React.useEffect(() => {
+        setActiveSearchHit(0);
+    }, [quickFilter, result?.lastExecutedQuery]);
 
     // ── Keyboard ──────────────────────────────────────────────────────────────
     const { handleKeyDown } = useResultKeyboard({
@@ -235,6 +292,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         displayRows, displayRowsByKey, rowOrder, editedCells, deletedRows, draftRows, isSavingDraftRows,
         onRun, onSaveRequest: handleSaveRequest, onDeleteSelected: requestDeleteSelectedRows,
         onSetShowRightSidebar: setShowRightSidebar,
+        onFocusSearch: () => quickFilterRef.current?.focus(),
+        onFocusJump: () => jumpRowRef.current?.focus(),
+        onSearchNext: jumpToNextHit,
+        onSearchPrev: jumpToPrevHit,
         setEditedCells, setDraftRows,
     });
 
@@ -356,6 +417,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     columns={result.columns}
                                     rows={result.rows}
                                     isDone={result.isDone}
+                                    quickFilter={quickFilter}
+                                    onViewStatsChange={({ visibleRows: nextVisible }) => setVisibleRows(nextVisible)}
                                     editedCells={editedCells}
                                     setEditedCells={setEditedCells}
                                     selectedCells={selectedCells}
@@ -380,7 +443,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
-                        Showing <strong>{(result.rows.length + draftRows.length).toLocaleString()}</strong> of&nbsp;
+                        Showing <strong>{(quickFilter.trim() ? visibleRows : (result.rows.length + draftRows.length)).toLocaleString()}</strong> of&nbsp;
                         <select
                             className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
                             value={defaultLimit}
@@ -438,6 +501,93 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             </div>
                         )}
                     </div>
+                    {exportJob?.status === 'running' && (
+                        <div className="flex items-center gap-2 text-[11px] border border-border rounded px-2 py-0.5">
+                            <Loader size={11} className="animate-spin" />
+                            <span>Exporting...</span>
+                            <button onClick={cancelExport} title="Cancel export" className="hover:text-text-primary">
+                                <X size={11} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 px-3 py-1.5 text-[11px] border-t border-border bg-bg-secondary/30 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Search size={12} className="text-text-secondary" />
+                    <input
+                        ref={quickFilterRef}
+                        value={quickFilter}
+                        onChange={(e) => setQuickFilter(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (e.shiftKey) jumpToPrevHit();
+                                else jumpToNextHit();
+                            }
+                        }}
+                        placeholder="Find in loaded result..."
+                        className="w-[220px] bg-bg-primary border border-border rounded px-2 py-1 text-[11px] outline-none focus:border-success"
+                    />
+                    <button className="p-1 border border-border rounded hover:bg-bg-tertiary" onClick={jumpToPrevHit} title="Previous match (Shift+F3)">
+                        <ChevronUp size={11} />
+                    </button>
+                    <button className="p-1 border border-border rounded hover:bg-bg-tertiary" onClick={jumpToNextHit} title="Next match (F3)">
+                        <ChevronDown size={11} />
+                    </button>
+                    <span className="text-text-muted">
+                        {searchHits.length > 0 ? `${Math.min(activeSearchHit + 1, searchHits.length)}/${searchHits.length}` : '0/0'}
+                    </span>
+                    <span className="text-text-muted">loaded: {visibleRows.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        ref={jumpRowRef}
+                        value={jumpRowInput}
+                        onChange={(e) => setJumpRowInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleJumpToRow();
+                            }
+                        }}
+                        placeholder="Jump row #"
+                        className="w-[100px] bg-bg-primary border border-border rounded px-2 py-1 text-[11px] outline-none focus:border-success"
+                    />
+                    <button className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary" onClick={handleJumpToRow} title="Jump to row (Ctrl+G)">
+                        Jump
+                    </button>
+                    <button
+                        className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary inline-flex items-center gap-1"
+                        onClick={() => {
+                            const rowIndex = selectedPersistedRowIndices[0];
+                            if (rowIndex === undefined) return;
+                            setBookmarkedRows((prev) => Array.from(new Set([...prev, rowIndex])).sort((a, b) => a - b));
+                        }}
+                        title="Bookmark selected row"
+                    >
+                        <Bookmark size={11} />
+                        Bookmark Row
+                    </button>
+                    {bookmarkedRows.length > 0 && (
+                        <select
+                            className="bg-bg-primary border border-border rounded px-2 py-1 text-[11px]"
+                            onChange={(e) => {
+                                const value = Number(e.target.value);
+                                if (!Number.isFinite(value)) return;
+                                jumpToPersistedRow(value);
+                            }}
+                            value=""
+                        >
+                            <option value="" disabled>Bookmarks</option>
+                            {bookmarkedRows.map((row) => (
+                                <option key={row} value={row}>
+                                    Row {row + 1}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </div>
             </div>
 

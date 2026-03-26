@@ -30,6 +30,10 @@ interface UseResultKeyboardOptions {
     onSaveRequest: () => Promise<void> | void;
     onDeleteSelected: () => void;
     onSetShowRightSidebar: (show: boolean) => void;
+    onFocusSearch?: () => void;
+    onFocusJump?: () => void;
+    onSearchNext?: () => void;
+    onSearchPrev?: () => void;
     setEditedCells: React.Dispatch<React.SetStateAction<Map<string, string>>>;
     setDraftRows: React.Dispatch<React.SetStateAction<DraftRow[]>>;
 }
@@ -59,6 +63,10 @@ export function useResultKeyboard({
     onSaveRequest,
     onDeleteSelected,
     onSetShowRightSidebar,
+    onFocusSearch,
+    onFocusJump,
+    onSearchNext,
+    onSearchPrev,
     setEditedCells,
     setDraftRows,
 }: UseResultKeyboardOptions) {
@@ -108,6 +116,25 @@ export function useResultKeyboard({
                 if (viewMode || !hasPendingChanges || isSavingDraftRows) return;
                 event.preventDefault();
                 void onSaveRequest();
+                return;
+            }
+
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+                event.preventDefault();
+                onFocusSearch?.();
+                return;
+            }
+
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'g') {
+                event.preventDefault();
+                onFocusJump?.();
+                return;
+            }
+
+            if (event.key === 'F3') {
+                event.preventDefault();
+                if (event.shiftKey) onSearchPrev?.();
+                else onSearchNext?.();
                 return;
             }
 
@@ -201,6 +228,7 @@ export function useResultKeyboard({
             deletedRows, displayRows, displayRowsByKey, draftRows, editedCells,
             hasPendingChanges, isEditable, isSavingDraftRows, isReadOnlyTab,
             onDeleteSelected, onRun, onSaveRequest, onSetShowRightSidebar,
+            onFocusJump, onFocusSearch, onSearchNext, onSearchPrev,
             result, rowOrder, selectedCells, selectedRowKeys,
             setDraftRows, setEditedCells, setSelectedCells, toast, viewMode,
         ],

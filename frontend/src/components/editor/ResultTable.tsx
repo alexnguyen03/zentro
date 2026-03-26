@@ -40,6 +40,8 @@ interface ResultTableProps {
     onFocusCellRequestHandled: () => void;
     onRemoveDraftRows: (draftIds: string[]) => void;
     readOnlyMode?: boolean;
+    quickFilter?: string;
+    onViewStatsChange?: (stats: { visibleRows: number; totalRows: number }) => void;
 }
 
 interface TableMeta {
@@ -99,6 +101,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     onFocusCellRequestHandled,
     onRemoveDraftRows,
     readOnlyMode = false,
+    quickFilter = '',
+    onViewStatsChange,
 }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
@@ -120,6 +124,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const [sorting, setSorting] = useState<SortingState>([]);
     const [deferredSortedRows, setDeferredSortedRows] = useState<DisplayRow[]>(displayRows);
     const [isDeferredSorting, setIsDeferredSorting] = useState(false);
+    const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[]>(displayRows);
+    const [isDeferredFiltering, setIsDeferredFiltering] = useState(false);
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
@@ -145,8 +151,56 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     }, [isDone, rows]);
 
     useEffect(() => {
+        const query = quickFilter.trim().toLowerCase();
+        if (!query) {
+            setDeferredFilteredRows(displayRows);
+            setIsDeferredFiltering(false);
+            return;
+        }
+
+        const useIncrementalFilter = viewportState.strategy !== 'client_full' || displayRows.length >= 15000;
+        if (!useIncrementalFilter) {
+            setDeferredFilteredRows(
+                displayRows.filter((row) => row.values.some((cell) => (cell || '').toLowerCase().includes(query))),
+            );
+            setIsDeferredFiltering(false);
+            return;
+        }
+
+        let cancelled = false;
+        setIsDeferredFiltering(true);
+        const next: DisplayRow[] = [];
+
+        const pump = (startIndex: number) => {
+            if (cancelled) return;
+            const chunkEnd = Math.min(startIndex + 1500, displayRows.length);
+            for (let i = startIndex; i < chunkEnd; i += 1) {
+                const row = displayRows[i];
+                if (row.values.some((cell) => (cell || '').toLowerCase().includes(query))) {
+                    next.push(row);
+                }
+            }
+
+            if (chunkEnd < displayRows.length) {
+                window.setTimeout(() => pump(chunkEnd), 0);
+                return;
+            }
+
+            if (!cancelled) {
+                setDeferredFilteredRows(next);
+                setIsDeferredFiltering(false);
+            }
+        };
+
+        pump(0);
+        return () => {
+            cancelled = true;
+        };
+    }, [displayRows, quickFilter, viewportState.strategy]);
+
+    useEffect(() => {
         if (!shouldUseDeferredSort || sorting.length === 0) {
-            setDeferredSortedRows(displayRows);
+            setDeferredSortedRows(deferredFilteredRows);
             setIsDeferredSorting(false);
             return;
         }
@@ -155,7 +209,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         const id = window.setTimeout(() => {
             const [sortRule] = sorting;
             if (!sortRule) {
-                setDeferredSortedRows(displayRows);
+                setDeferredSortedRows(deferredFilteredRows);
                 setIsDeferredSorting(false);
                 return;
             }
@@ -163,12 +217,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             const direction = sortRule.desc ? -1 : 1;
             const columnIndex = columns.findIndex((col) => col === String(sortRule.id));
             if (columnIndex < 0) {
-                setDeferredSortedRows(displayRows);
+                setDeferredSortedRows(deferredFilteredRows);
                 setIsDeferredSorting(false);
                 return;
             }
 
-            const next = [...displayRows].sort((a, b) => {
+            const next = [...deferredFilteredRows].sort((a, b) => {
                 const left = (a.values[columnIndex] || '').toLowerCase();
                 const right = (b.values[columnIndex] || '').toLowerCase();
                 if (left < right) return -1 * direction;
@@ -180,7 +234,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         }, 0);
 
         return () => window.clearTimeout(id);
-    }, [columns, displayRows, shouldUseDeferredSort, sorting]);
+    }, [columns, deferredFilteredRows, shouldUseDeferredSort, sorting]);
 
     useEffect(() => {
         const handleMouseUp = () => setDragStart(null);
@@ -491,7 +545,15 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         return [rowNumCol, ...dataCols];
     }, [columns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
 
-    const tableData = shouldUseDeferredSort ? deferredSortedRows : displayRows;
+    const filteredRows = quickFilter.trim() ? deferredFilteredRows : displayRows;
+    const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;
+
+    useEffect(() => {
+        onViewStatsChange?.({
+            visibleRows: tableData.length,
+            totalRows: displayRows.length,
+        });
+    }, [displayRows.length, onViewStatsChange, tableData.length]);
     const table = useReactTable<DisplayRow>({
         data: tableData,
         columns: colDefs,
@@ -559,9 +621,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({
 
     return (
         <div ref={parentRef} className="result-virtual-scroll">
-            {isDeferredSorting && (
+            {(isDeferredSorting || isDeferredFiltering) && (
                 <div className="px-3 py-1 text-[11px] text-text-secondary border-b border-border bg-bg-secondary/50">
-                    Applying incremental sort for large result set...
+                    {isDeferredFiltering
+                        ? 'Applying incremental filter for loaded rows...'
+                        : 'Applying incremental sort for large result set...'}
                 </div>
             )}
             <table className="result-table-tanstack">
