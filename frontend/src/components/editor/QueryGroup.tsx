@@ -8,7 +8,7 @@ import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
 import { SettingsView } from '../layout/SettingsView';
 import { ShortcutsView } from '../layout/ShortcutsView';
-import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../services/queryService';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 
@@ -146,3 +146,4 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         </div>
     );
 };
+

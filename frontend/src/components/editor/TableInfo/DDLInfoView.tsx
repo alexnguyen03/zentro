@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Loader, Copy, Check, FileCode2 } from 'lucide-react';
-import { GetTableDDL } from '../../../../wailsjs/go/app/App';
+import { GetTableDDL } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useToast } from '../../layout/Toast';
 import { highlightSQL } from '../../../lib/sqlHighlight';
@@ -91,3 +91,4 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
         </div>
     );
 };
+

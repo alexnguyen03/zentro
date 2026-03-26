@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Save, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Button, ModalBackdrop, Spinner } from '../ui';
+import { Button, ConfirmationModal, ModalBackdrop, Spinner } from '../ui';
 import { useTemplateStore } from '../../stores/templateStore';
 import { models } from '../../../wailsjs/go/models';
 
@@ -20,6 +20,7 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({ template, onClos
     const [formData, setFormData] = useState<Template>(
         template || { id: '', name: '', trigger: '', content: '' }
     );
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const isEditing = !!template?.id;
 
@@ -32,100 +33,113 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({ template, onClos
 
     const handleDelete = async () => {
         if (!template?.id) return;
-        if (confirm('Are you sure you want to delete this template?')) {
-            await deleteTemplate(template.id);
-            onClose();
-        }
+        setShowDeleteConfirm(true);
     };
 
     return (
-        <ModalBackdrop
-            onClose={onClose}
-            layer="modal"
-            contentClassName="flex w-full items-center justify-center p-3"
-        >
-            <div 
-                className="bg-bg-secondary border border-border/30 rounded-xl w-[500px] max-w-[90vw] shadow-elevation-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
-                onClick={e => e.stopPropagation()}
+        <>
+            <ModalBackdrop
+                onClose={onClose}
+                layer="modal"
+                contentClassName="flex w-full items-center justify-center p-3"
             >
-                {/* Header */}
-                <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-bg-tertiary/30">
-                    <h2 className="text-[15px] font-bold text-text-primary">
-                        {isEditing ? 'Edit Template' : 'Create New Template'}
-                    </h2>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="w-8 h-8 rounded-full">
-                        <X size={16} className="text-text-muted" />
-                    </Button>
+                <div 
+                    className="bg-bg-secondary border border-border/30 rounded-xl w-[500px] max-w-[90vw] shadow-elevation-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-bg-tertiary/30">
+                        <h2 className="text-[15px] font-bold text-text-primary">
+                            {isEditing ? 'Edit Template' : 'Create New Template'}
+                        </h2>
+                        <Button variant="ghost" size="icon" onClick={onClose} className="w-8 h-8 rounded-full">
+                            <X size={16} className="text-text-muted" />
+                        </Button>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-1">
+                                <label className={lbl}>Name</label>
+                                <input
+                                    autoFocus
+                                    required
+                                    className={fi}
+                                    placeholder="e.g. Select All"
+                                    value={formData.name}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className={lbl}>Trigger (Abbreviation)</label>
+                                <input
+                                    required
+                                    className={cn(fi, "font-mono")}
+                                    placeholder="e.g. slall"
+                                    value={formData.trigger}
+                                    onChange={e => setFormData({ ...formData, trigger: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className={lbl}>SQL Content</label>
+                            <textarea
+                                required
+                                rows={8}
+                                className={cn(fi, "font-mono text-[12px] resize-none leading-relaxed")}
+                                placeholder="SELECT * FROM ..."
+                                value={formData.content}
+                                onChange={e => setFormData({ ...formData, content: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="flex items-center justify-between mt-2 pt-4 border-t border-border">
+                            {isEditing ? (
+                                <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    className="text-error hover:bg-error/10" 
+                                    onClick={handleDelete}
+                                    disabled={isLoading}
+                                >
+                                    <Trash2 size={14} className="mr-2" />
+                                    Delete
+                                </Button>
+                            ) : <div />}
+
+                            <div className="flex gap-2">
+                                <Button type="button" variant="ghost" onClick={onClose}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" variant="success" className="px-6" disabled={isLoading}>
+                                    {isLoading ? (
+                                        <><Spinner size={14} className="mr-2" /> Saving...</>
+                                    ) : (
+                                        <><Save size={14} className="mr-2" /> Save Template</>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
+            </ModalBackdrop>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-1">
-                            <label className={lbl}>Name</label>
-                            <input
-                                autoFocus
-                                required
-                                className={fi}
-                                placeholder="e.g. Select All"
-                                value={formData.name}
-                                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                            />
-                        </div>
-                        <div className="col-span-1">
-                            <label className={lbl}>Trigger (Abbreviation)</label>
-                            <input
-                                required
-                                className={cn(fi, "font-mono")}
-                                placeholder="e.g. slall"
-                                value={formData.trigger}
-                                onChange={e => setFormData({ ...formData, trigger: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className={lbl}>SQL Content</label>
-                        <textarea
-                            required
-                            rows={8}
-                            className={cn(fi, "font-mono text-[12px] resize-none leading-relaxed")}
-                            placeholder="SELECT * FROM ..."
-                            value={formData.content}
-                            onChange={e => setFormData({ ...formData, content: e.target.value })}
-                        />
-                    </div>
-
-                    {/* Footer Actions */}
-                    <div className="flex items-center justify-between mt-2 pt-4 border-t border-border">
-                        {isEditing ? (
-                            <Button 
-                                type="button" 
-                                variant="ghost" 
-                                className="text-error hover:bg-error/10" 
-                                onClick={handleDelete}
-                                disabled={isLoading}
-                            >
-                                <Trash2 size={14} className="mr-2" />
-                                Delete
-                            </Button>
-                        ) : <div />}
-
-                        <div className="flex gap-2">
-                            <Button type="button" variant="ghost" onClick={onClose}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" variant="success" className="px-6" disabled={isLoading}>
-                                {isLoading ? (
-                                    <><Spinner size={14} className="mr-2" /> Saving...</>
-                                ) : (
-                                    <><Save size={14} className="mr-2" /> Save Template</>
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </ModalBackdrop>
+            <ConfirmationModal
+                isOpen={showDeleteConfirm}
+                onClose={() => setShowDeleteConfirm(false)}
+                onConfirm={() => {
+                    if (!template?.id) return;
+                    void deleteTemplate(template.id).then(onClose);
+                }}
+                title="Delete Template"
+                message="Delete this template permanently?"
+                description="This action cannot be undone."
+                confirmLabel="Delete"
+                variant="danger"
+            />
+        </>
     );
 };

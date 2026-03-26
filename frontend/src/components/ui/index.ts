@@ -6,4 +6,6 @@ export * from './Divider';
 export * from './ModalBackdrop';
 export * from './ModalFrame';
 export * from './ConfirmationModal';
+export * from './AlertModal';
+export * from './PromptModal';
 export * from './Tooltip';

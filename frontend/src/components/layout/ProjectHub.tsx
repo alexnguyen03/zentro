@@ -20,7 +20,7 @@ import {
     X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Disconnect } from '../../../wailsjs/go/app/App';
+import { Disconnect } from '../../services/connectionService';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -900,3 +900,4 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
 
     return content;
 };
+

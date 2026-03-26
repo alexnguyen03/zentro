@@ -33,13 +33,14 @@ describe('profilePackage', () => {
     it('builds profile package from current stores', () => {
         const profile = buildCurrentProfilePackage('Team SQL');
         expect(profile.schema).toBe('zentro.profile');
-        expect(profile.version).toBe(1);
+        expect(profile.version).toBe(2);
         expect(profile.metadata.name).toBe('Team SQL');
         expect(profile.settings.theme).toBe('dark');
         expect(profile.layout.show_sidebar).toBe(true);
+        expect(profile.customization.token_preset_id).toBe('dark');
     });
 
-    it('parses and validates profile package', () => {
+    it('parses and migrates profile package v1 to v2', () => {
         const raw = JSON.stringify({
             schema: 'zentro.profile',
             version: 1,
@@ -66,7 +67,9 @@ describe('profilePackage', () => {
 
         const parsed = parseProfilePackage(raw);
         expect(parsed.metadata.name).toBe('Demo');
+        expect(parsed.version).toBe(2);
         expect(parsed.shortcuts['editor.newTab']).toBe('Ctrl+T');
+        expect(parsed.command_overrides.metadata.source).toBe('migrated-v1');
     });
 
     it('throws on invalid schema', () => {

@@ -6,10 +6,7 @@ import {
     WindowReloadApp,
     BrowserOpenURL,
 } from '../../../../wailsjs/runtime/runtime';
-import { DOM_EVENT, TAB_TYPE } from '../../../lib/constants';
-import { emitCommand } from '../../../lib/commandBus';
-import type { CommandId } from '../../../lib/shortcutRegistry';
-import type { Tab } from '../../../stores/editorStore';
+import { shortcutRegistry, type CommandId } from '../../../lib/shortcutRegistry';
 
 const REPO_URL = 'https://github.com/alexnguyen03/zentro';
 
@@ -31,11 +28,6 @@ export interface AppMenuSection {
 
 interface BuildAppMenuSectionsParams {
     getShortcut: (commandId: CommandId) => string;
-    addTab: (tabInit?: Partial<Tab>, targetGroupId?: string) => string;
-    setShowCommandPalette: (show: boolean) => void;
-    toggleSidebar: () => void;
-    toggleResultPanel: () => void;
-    toggleRightSidebar: () => void;
     isQueryTab: boolean;
     isChecking: boolean;
     hasUpdate: boolean;
@@ -44,13 +36,12 @@ interface BuildAppMenuSectionsParams {
     onOpenLicense: () => void;
 }
 
+function getCommand(commandId: CommandId) {
+    return shortcutRegistry.find((entry) => entry.id === commandId);
+}
+
 export function buildAppMenuSections({
     getShortcut,
-    addTab,
-    setShowCommandPalette,
-    toggleSidebar,
-    toggleResultPanel,
-    toggleRightSidebar,
     isQueryTab,
     isChecking,
     hasUpdate,
@@ -58,6 +49,17 @@ export function buildAppMenuSections({
     onOpenAbout,
     onOpenLicense,
 }: BuildAppMenuSectionsParams): AppMenuSection[] {
+    const reloadCommand = getCommand('app.reload');
+    const newTabCommand = getCommand('editor.newTab');
+    const closeTabCommand = getCommand('editor.closeTab');
+    const commandPaletteCommand = getCommand('view.commandPalette');
+    const formatQueryCommand = getCommand('editor.formatQuery');
+    const openSettingsCommand = getCommand('view.openSettings');
+    const openShortcutsCommand = getCommand('view.openShortcuts');
+    const toggleSidebarCommand = getCommand('layout.toggleSidebar');
+    const toggleResultPanelCommand = getCommand('layout.toggleResultPanel');
+    const toggleRightSidebarCommand = getCommand('layout.toggleRightSidebar');
+
     return [
         {
             id: 'file',
@@ -65,9 +67,9 @@ export function buildAppMenuSections({
             items: [
                 {
                     id: 'file.reload',
-                    label: 'Reload Frontend',
+                    label: reloadCommand?.label || 'Reload Frontend',
                     shortcut: getShortcut('app.reload'),
-                    action: () => WindowReloadApp(),
+                    action: () => reloadCommand?.action() || WindowReloadApp(),
                 },
                 {
                     id: 'file.restart',
@@ -88,27 +90,27 @@ export function buildAppMenuSections({
             items: [
                 {
                     id: 'edit.newTab',
-                    label: 'New Query Tab',
+                    label: newTabCommand?.label || 'New Query Tab',
                     shortcut: getShortcut('editor.newTab'),
-                    action: () => addTab(),
+                    action: () => newTabCommand?.action(),
                 },
                 {
                     id: 'edit.closeTab',
-                    label: 'Close Current Tab',
+                    label: closeTabCommand?.label || 'Close Current Tab',
                     shortcut: getShortcut('editor.closeTab'),
-                    action: () => emitCommand(DOM_EVENT.CLOSE_ACTIVE_TAB),
+                    action: () => closeTabCommand?.action(),
                 },
                 {
                     id: 'edit.commandPalette',
-                    label: 'Command Palette',
+                    label: commandPaletteCommand?.label || 'Command Palette',
                     shortcut: getShortcut('view.commandPalette'),
-                    action: () => setShowCommandPalette(true),
+                    action: () => commandPaletteCommand?.action(),
                 },
                 {
                     id: 'edit.formatQuery',
-                    label: 'Format Query',
+                    label: formatQueryCommand?.label || 'Format Query',
                     shortcut: getShortcut('editor.formatQuery'),
-                    action: () => emitCommand(DOM_EVENT.FORMAT_QUERY_ACTION),
+                    action: () => formatQueryCommand?.action(),
                 },
             ],
         },
@@ -118,34 +120,34 @@ export function buildAppMenuSections({
             items: [
                 {
                     id: 'view.settings',
-                    label: 'Settings',
+                    label: openSettingsCommand?.label || 'Settings',
                     shortcut: getShortcut('view.openSettings'),
-                    action: () => addTab({ type: TAB_TYPE.SETTINGS, name: 'Settings' }),
+                    action: () => openSettingsCommand?.action(),
                 },
                 {
                     id: 'view.shortcuts',
-                    label: 'Keyboard Shortcuts',
+                    label: openShortcutsCommand?.label || 'Keyboard Shortcuts',
                     shortcut: getShortcut('view.openShortcuts'),
-                    action: () => addTab({ type: TAB_TYPE.SHORTCUTS, name: 'Keyboard Shortcuts' }),
+                    action: () => openShortcutsCommand?.action(),
                 },
                 {
                     id: 'view.sidebar',
-                    label: 'Toggle Sidebar',
+                    label: toggleSidebarCommand?.label || 'Toggle Sidebar',
                     shortcut: getShortcut('layout.toggleSidebar'),
-                    action: () => toggleSidebar(),
+                    action: () => toggleSidebarCommand?.action(),
                 },
                 {
                     id: 'view.resultPanel',
-                    label: 'Toggle Result Panel',
+                    label: toggleResultPanelCommand?.label || 'Toggle Result Panel',
                     shortcut: getShortcut('layout.toggleResultPanel'),
                     disabled: !isQueryTab,
-                    action: () => toggleResultPanel(),
+                    action: () => toggleResultPanelCommand?.action(),
                 },
                 {
                     id: 'view.rightSidebar',
-                    label: 'Toggle Right Sidebar',
+                    label: toggleRightSidebarCommand?.label || 'Toggle Right Sidebar',
                     shortcut: getShortcut('layout.toggleRightSidebar'),
-                    action: () => toggleRightSidebar(),
+                    action: () => toggleRightSidebarCommand?.action(),
                 },
             ],
         },

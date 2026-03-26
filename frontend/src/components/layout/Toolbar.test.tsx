@@ -76,9 +76,13 @@ const updateCheckState = {
     check: vi.fn(async () => null),
 };
 
-vi.mock('../../../wailsjs/go/app/App', () => ({
-    Reconnect: mocks.reconnect,
-}));
+vi.mock('../../../wailsjs/go/app/App', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../../wailsjs/go/app/App')>();
+    return {
+        ...actual,
+        Reconnect: mocks.reconnect,
+    };
+});
 
 vi.mock('../../../wailsjs/runtime/runtime', () => ({
     WindowMinimise: vi.fn(),

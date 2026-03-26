@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Loader, Trash2, Hash, Plus } from 'lucide-react';
-import { GetIndexes, DropIndex, CreateIndex } from '../../../../wailsjs/go/app/App';
+import { GetIndexes, DropIndex, CreateIndex } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
@@ -258,3 +258,4 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
         </div>
     );
 };
+

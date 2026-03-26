@@ -8,7 +8,7 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
-import { ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery } from '../../services/queryService';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
 import {
@@ -303,3 +303,4 @@ export const QueryTabs: React.FC = () => {
         </DndContext>
     );
 };
+

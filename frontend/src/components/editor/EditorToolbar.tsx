@@ -22,7 +22,7 @@ import { TemplatePopover } from './TemplatePopover';
 import { models } from '../../../wailsjs/go/models';
 import { DOM_EVENT } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
-import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery } from '../../../wailsjs/go/app/App';
+import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery } from '../../services/queryService';
 import { useToast } from '../layout/Toast';
 
 type Template = models.Template;
@@ -225,3 +225,4 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
         </div>
     );
 };
+

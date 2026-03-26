@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DeleteBookmark, GetBookmarks, SaveBookmark } from '../../wailsjs/go/app/App';
+import { DeleteBookmark, GetBookmarks, SaveBookmark } from '../services/bookmarkService';
 import { models } from '../../wailsjs/go/models';
 import { useEditorStore } from './editorStore';
 import { TAB_TYPE } from '../lib/constants';
@@ -103,3 +103,4 @@ export function bookmarkLabelFromKey(key: string): string {
   }
   return key;
 }
+

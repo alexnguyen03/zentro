@@ -17,7 +17,7 @@ import {
     useStore,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { FetchTableRelationships, FetchTableColumns } from '../../../wailsjs/go/app/App';
+import { FetchTableRelationships, FetchTableColumns } from '../../services/schemaService';
 import { Loader } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 
@@ -487,3 +487,4 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
         </div>
     );
 };
+

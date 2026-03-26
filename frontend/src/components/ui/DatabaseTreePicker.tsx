@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Server, Database, Plus, X } from 'lucide-react';
-import { LoadConnections, LoadDatabasesForProfile } from '../../../wailsjs/go/app/App';
+import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { Spinner } from './Spinner';
 import type { ConnectionProfile } from '../../types/connection';
@@ -283,3 +283,4 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
         </div>
     );
 };
+

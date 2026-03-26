@@ -4,9 +4,13 @@ const { fetchTableColumnsMock } = vi.hoisted(() => ({
     fetchTableColumnsMock: vi.fn(),
 }));
 
-vi.mock('../../wailsjs/go/app/App', () => ({
-    FetchTableColumns: fetchTableColumnsMock,
-}));
+vi.mock('../../wailsjs/go/app/App', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../wailsjs/go/app/App')>();
+    return {
+        ...actual,
+        FetchTableColumns: fetchTableColumnsMock,
+    };
+});
 
 import { COLUMN_CACHE_TTL_MS, useSchemaStore } from './schemaStore';
 import { models } from '../../wailsjs/go/models';

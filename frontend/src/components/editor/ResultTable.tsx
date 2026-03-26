@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowDown, ArrowUp, Lock, Unlock } from 'lucide-react';
-import { FetchMoreRows } from '../../../wailsjs/go/app/App';
+import { FetchMoreRows } from '../../services/queryService';
 import { models } from '../../../wailsjs/go/models';
 import { DraftRow, DisplayRow, buildDisplayRows } from '../../lib/dataEditing';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
@@ -598,3 +598,4 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         </div>
     );
 };
+

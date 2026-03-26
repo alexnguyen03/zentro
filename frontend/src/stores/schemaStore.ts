@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FetchTableColumns } from '../../wailsjs/go/app/App';
+import { FetchTableColumns } from '../services/schemaService';
 import { models } from '../../wailsjs/go/models';
 
 export interface SchemaNode {
@@ -129,3 +129,4 @@ export const useSchemaStore = create<SchemaTreeState>((set, get) => ({
         return request;
     }
 }));
+

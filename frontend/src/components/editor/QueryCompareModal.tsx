@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Editor, { DiffEditor } from '@monaco-editor/react';
-import { CompareQueries } from '../../../wailsjs/go/app/App';
+import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
 import { ModalBackdrop, Button } from '../ui';
 
@@ -110,3 +110,4 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
     </ModalBackdrop>
   );
 };
+

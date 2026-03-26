@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GetPreferences, SetPreferences } from '../../wailsjs/go/app/App';
+import { GetPreferences, SetPreferences } from '../services/settingsService';
 import { utils } from '../../wailsjs/go/models';
 import { ToastPlacement } from '../components/layout/Toast';
 import { useShortcutStore } from './shortcutStore';
@@ -108,3 +108,4 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         setFontSize(fontSize + delta);
     },
 }));
+

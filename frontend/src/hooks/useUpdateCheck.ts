@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckForUpdates } from '../../wailsjs/go/app/App';
+import { CheckForUpdates } from '../services/settingsService';
 import { useSettingsStore } from '../stores/settingsStore';
 import { STORAGE_KEY } from '../lib/constants';
 
@@ -58,3 +58,4 @@ export const useUpdateCheck = () => {
         dismiss
     };
 };
+

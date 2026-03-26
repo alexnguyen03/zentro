@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Save, Table2 } from 'lucide-react';
 import { Modal } from '../layout/Modal';
 import { Button } from '../ui';
-import { CreateTable } from '../../../wailsjs/go/app/App';
+import { CreateTable } from '../../services/schemaService';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useToast } from '../layout/Toast';
-import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
+import { FetchDatabaseSchema } from '../../services/schemaService';
 
 interface Column {
     Name: string;
@@ -203,3 +203,4 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
         </Modal>
     );
 };
+

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Clock, Trash2, Search, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
-import { GetHistory, ClearHistory } from '../../../wailsjs/go/app/App';
+import { GetHistory, ClearHistory } from '../../services/historyService';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { cn } from '../../lib/cn';
@@ -139,3 +139,4 @@ export const HistoryPanel: React.FC = () => {
         </div>
     );
 };
+

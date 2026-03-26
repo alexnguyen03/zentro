@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Search, RotateCcw, Edit3, PanelsTopLeft, Plug, Eye, AppWindow } from 'lucide-react';
 import { shortcutRegistry, type CommandId, type CommandCategory } from '../../lib/shortcutRegistry';
 import { useShortcutStore } from '../../stores/shortcutStore';
+import { AlertModal, PromptModal } from '../ui';
 
 const CATEGORY_ORDER: CommandCategory[] = ['Editor', 'Layout', 'Connection', 'View', 'App'];
 
 export const ShortcutsView: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [editing, setEditing] = useState<CommandId | null>(null);
+    const [rebindTarget, setRebindTarget] = useState<{ id: CommandId; current: string } | null>(null);
+    const [conflictMessage, setConflictMessage] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     const bindings = useShortcutStore((s) => s.bindings);
@@ -54,16 +57,27 @@ export const ShortcutsView: React.FC = () => {
         return map;
     }, [filtered]);
 
-    const handleRebind = async (id: CommandId) => {
+    const openRebindPrompt = (id: CommandId) => {
         const current = bindings[id] || shortcutRegistry.find((x) => x.id === id)?.defaultBinding || '';
-        const next = window.prompt('Enter shortcut (example: Ctrl+Shift+F or Ctrl+K Ctrl+B)', current);
-        if (!next || !next.trim()) return;
-        const result = await setBinding(id, next.trim());
+        setEditing(id);
+        setRebindTarget({ id, current });
+    };
+
+    const handleRebindConfirm = async (nextBinding: string) => {
+        if (!rebindTarget) return;
+        const next = nextBinding.trim();
+        if (!next) {
+            setEditing(null);
+            setRebindTarget(null);
+            return;
+        }
+        const result = await setBinding(rebindTarget.id, next);
         if (!result.ok) {
             const conflictLabel = shortcutRegistry.find((x) => x.id === result.conflictWith)?.label || result.conflictWith;
-            alert(`Shortcut conflict with "${conflictLabel}".`);
+            setConflictMessage(`Shortcut conflict with "${conflictLabel}".`);
         }
         setEditing(null);
+        setRebindTarget(null);
     };
 
     const sectionClass = 'grid grid-cols-1 lg:grid-cols-12 gap-8 py-10 first:pt-4 border-b border-border/10 last:border-0 hover:bg-bg-secondary/20 transition-all px-8 -mx-8 rounded-3xl';
@@ -152,8 +166,7 @@ export const ShortcutsView: React.FC = () => {
                                                 <button
                                                     className="px-2.5 py-1.5 text-[11px] border border-border rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold"
                                                     onClick={() => {
-                                                        setEditing(item.id);
-                                                        handleRebind(item.id).catch((err) => console.error('rebind failed', err));
+                                                        openRebindPrompt(item.id);
                                                     }}
                                                 >
                                                     {editing === item.id ? 'Editing...' : 'Rebind'}
@@ -182,6 +195,28 @@ export const ShortcutsView: React.FC = () => {
                     )}
                 </div>
             </main>
+
+            <PromptModal
+                isOpen={Boolean(rebindTarget)}
+                title="Rebind Shortcut"
+                message="Enter shortcut (example: Ctrl+Shift+F or Ctrl+K Ctrl+B)"
+                defaultValue={rebindTarget?.current || ''}
+                confirmLabel="Apply"
+                onCancel={() => {
+                    setEditing(null);
+                    setRebindTarget(null);
+                }}
+                onConfirm={(value) => {
+                    handleRebindConfirm(value).catch((err) => console.error('rebind failed', err));
+                }}
+            />
+
+            <AlertModal
+                isOpen={Boolean(conflictMessage)}
+                title="Shortcut Conflict"
+                message={conflictMessage}
+                onClose={() => setConflictMessage('')}
+            />
         </div>
     );
 };

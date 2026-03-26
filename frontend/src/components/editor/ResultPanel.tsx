@@ -12,7 +12,7 @@ import {
     RotateCcw,
     Save,
 } from 'lucide-react';
-import { ExportCSV, ExecuteUpdateSync, ExportJSON, ExportSQLInsert, FetchTotalRowCount } from '../../../wailsjs/go/app/App';
+import { ExportCSV, ExecuteUpdateSync, ExportJSON, ExportSQLInsert, FetchTotalRowCount } from '../../services/queryService';
 import { models, utils } from '../../../wailsjs/go/models';
 import {
     DraftRow,
@@ -1077,3 +1077,4 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         </div>
     );
 };
+

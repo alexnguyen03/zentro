@@ -24,6 +24,17 @@ export interface ProfileLayout {
     show_right_sidebar: boolean;
 }
 
+export interface ProfileCustomization {
+    font_family?: string;
+    token_preset_id?: string;
+    layout_preset_id?: string;
+}
+
+export interface ProfileCommandOverridesMetadata {
+    source?: string;
+    generated_at?: string;
+}
+
 export interface ZentroProfilePackageV1 {
     schema: 'zentro.profile';
     version: 1;
@@ -32,3 +43,18 @@ export interface ZentroProfilePackageV1 {
     layout: ProfileLayout;
     shortcuts: Record<CommandId, string>;
 }
+
+export interface ZentroProfilePackageV2 {
+    schema: 'zentro.profile';
+    version: 2;
+    metadata: ProfileMetadata;
+    settings: ProfileSettings;
+    layout: ProfileLayout;
+    shortcuts: Record<CommandId, string>;
+    customization: ProfileCustomization;
+    command_overrides: {
+        metadata: ProfileCommandOverridesMetadata;
+    };
+}
+
+export type ZentroProfilePackage = ZentroProfilePackageV1 | ZentroProfilePackageV2;

@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "check:wails-models": "node -e \"require('fs').accessSync('./wailsjs/go/models.ts')\""
+    "check:wails-models": "node -e \"require('fs').accessSync('./wailsjs/go/models.ts')\"",
+    "check:guardrails": "node ../scripts/check-fe-guardrails.mjs",
+    "check:debt": "node ../scripts/fe-debt-dashboard.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -1,4 +1,4 @@
-import { BeginTransaction, CommitTransaction, RollbackTransaction } from '../../wailsjs/go/app/App';
+import { BeginTransaction, CommitTransaction, RollbackTransaction } from '../services/queryService';
 import { WindowReloadApp } from '../../wailsjs/runtime/runtime';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useEditorStore } from '../stores/editorStore';
@@ -289,3 +289,4 @@ export function eventToKeyToken(e: KeyboardEvent): string {
   }
   return parts.sort().join('+');
 }
+

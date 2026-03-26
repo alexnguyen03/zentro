@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, X, Trash2, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useTemplateStore } from '../../stores/templateStore';
 import { models } from '../../../wailsjs/go/models';
-import { Button, Spinner } from '../ui';
+import { Button, ConfirmationModal, Spinner } from '../ui';
 import { cn } from '../../lib/cn';
 
 type Template = models.Template;
@@ -15,6 +15,8 @@ interface TemplatePopoverProps {
 export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, anchorRect }) => {
     const { templates, saveTemplate, deleteTemplate, isLoading } = useTemplateStore();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [filter, setFilter] = useState('');
     const [draftTemplates, setDraftTemplates] = useState<Template[]>([]);
     const [focusNewlyAdded, setFocusNewlyAdded] = useState(false);
@@ -74,19 +76,29 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             
             if (e.key === 'Delete' && selectedIds.size > 0) {
-                if (confirm(`Are you sure you want to delete ${selectedIds.size} templates?`)) {
-                    const idsToDelete = Array.from(selectedIds);
-                    setSelectedIds(new Set());
-                    setDraftTemplates(prev => prev.filter(t => !selectedIds.has(t.id)));
-                    
-                    // Fire and forget deletions to keep UX snappy
-                    idsToDelete.forEach(id => deleteTemplate(id));
-                }
+                const ids = Array.from(selectedIds);
+                setPendingDeleteIds(ids);
+                setShowDeleteConfirm(true);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedIds, deleteTemplate, onClose]);
+    }, [selectedIds, onClose]);
+
+    const requestDeleteTemplates = (ids: string[]) => {
+        if (ids.length === 0) return;
+        setPendingDeleteIds(ids);
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDeleteTemplates = async () => {
+        const ids = pendingDeleteIds;
+        if (ids.length === 0) return;
+        setSelectedIds(new Set());
+        setDraftTemplates(prev => prev.filter(t => !ids.includes(t.id)));
+        await Promise.all(ids.map((id) => deleteTemplate(id)));
+        setPendingDeleteIds([]);
+    };
 
     const handleAdd = async () => {
         const newTemplate: Template = {
@@ -250,13 +262,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-6 text-[10px] text-error hover:bg-error/10 px-2"
-                                onClick={async () => {
-                                    if (confirm(`Delete ${selectedIds.size} templates?`)) {
-                                        const ids = Array.from(selectedIds);
-                                        setSelectedIds(new Set());
-                                        for (const id of ids) await deleteTemplate(id);
-                                    }
-                                }}
+                                onClick={() => requestDeleteTemplates(Array.from(selectedIds))}
                             >
                                 <Trash2 size={12} className="mr-1" /> Delete
                             </Button>
@@ -264,6 +270,22 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
                     )}
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={showDeleteConfirm}
+                onClose={() => {
+                    setShowDeleteConfirm(false);
+                    setPendingDeleteIds([]);
+                }}
+                onConfirm={() => {
+                    void confirmDeleteTemplates();
+                }}
+                title="Delete Templates"
+                message={`Delete ${pendingDeleteIds.length} selected ${pendingDeleteIds.length === 1 ? 'template' : 'templates'}?`}
+                description="This action cannot be undone."
+                confirmLabel="Delete"
+                variant="danger"
+            />
         </div>
     );
 };

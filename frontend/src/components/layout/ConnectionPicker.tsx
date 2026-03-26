@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { Connect, SwitchDatabase } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { Spinner } from '../ui';
 
@@ -145,3 +145,4 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
         </>
     );
 };
+

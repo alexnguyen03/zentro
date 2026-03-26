@@ -8,13 +8,13 @@ import {
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { FetchDatabaseSchema } from '../../../wailsjs/go/app/App';
+import { FetchDatabaseSchema } from '../../services/schemaService';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/cn';
 import { CreateTableModal } from '../layout/CreateTableModal';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
-import { DropObject } from '../../../wailsjs/go/app/App';
+import { DropObject } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
 
 // Extended schema node type matching the Go model
@@ -397,3 +397,4 @@ function buildCategories(s: SchemaNodeData, filter: string, profileName: string)
         { label: 'Aggregate functions', icon: <Sigma size={iconSize} className={iconClass} />, itemIcon: <Sigma size={iconSize} className={iconClass} />, items: filterFn(s.AggregateFunctions), profileName },
     ];
 }
+

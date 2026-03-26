@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { LoadTemplates, SaveTemplate, DeleteTemplate } from '../../wailsjs/go/app/App';
+import { LoadTemplates, SaveTemplate, DeleteTemplate } from '../services/templateService';
 import { models } from '../../wailsjs/go/models';
 
 type Template = models.Template;
@@ -49,3 +49,4 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
         }
     },
 }));
+

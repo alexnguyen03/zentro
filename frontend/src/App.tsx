@@ -26,16 +26,18 @@ import {
 } from './lib/events';
 import { useToast } from './components/layout/Toast';
 import { EventsOn } from '../wailsjs/runtime/runtime';
-import { ForceQuit, ConnectProjectEnvironment, GetTransactionStatus } from '../wailsjs/go/app/App';
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
 import { ProjectHub } from './components/layout/ProjectHub';
+import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { eventToKeyToken, normalizeBinding, shortcutRegistry } from './lib/shortcutRegistry';
 import { useShortcutStore } from './stores/shortcutStore';
 import { DOM_EVENT } from './lib/constants';
 import { appLogger } from './lib/logger';
 import { emitCommand, onCommand } from './lib/commandBus';
+import { ConnectProjectEnvironment, ForceQuit } from './services/projectService';
+import { GetTransactionStatus } from './services/queryService';
 
 function clearGeneratedResults(sourceTabID: string) {
     const resultState = useResultStore.getState();
@@ -68,6 +70,7 @@ function App() {
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
     const { bindings, chordStart, chordUntil, setChord } = useShortcutStore();
+    const [showForceQuitConfirm, setShowForceQuitConfirm] = useState(false);
 
     useEffect(() => {
         const off = EventsOn('app:before-close', () => {
@@ -76,10 +79,7 @@ function App() {
                 ForceQuit().catch(() => { });
                 return;
             }
-            const ok = window.confirm('One or more queries are still running.\nStop them and close anyway?');
-            if (ok) {
-                ForceQuit().catch(() => { });
-            }
+            setShowForceQuitConfirm(true);
         });
         return () => { if (typeof off === 'function') off(); };
     }, []);
@@ -330,6 +330,18 @@ function App() {
             {showCommandPalette && <CommandPalette />}
             {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
             {showProjectHub && <ProjectHub overlay onClose={() => setShowProjectHub(false)} />}
+            <ConfirmationModal
+                isOpen={showForceQuitConfirm}
+                onClose={() => setShowForceQuitConfirm(false)}
+                onConfirm={() => {
+                    ForceQuit().catch(() => { });
+                }}
+                title="Force Close Application"
+                message="One or more queries are still running."
+                description="Close now and stop all active queries?"
+                confirmLabel="Force Close"
+                variant="danger"
+            />
             <Toolbar />
             <div className="flex flex-1 overflow-hidden">
                 {showSidebar && (

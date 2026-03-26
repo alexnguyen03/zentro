@@ -23,7 +23,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { Reconnect } from '../../../wailsjs/go/app/App';
+import { Reconnect } from '../../services/connectionService';
 import {
     WindowMinimise,
     WindowToggleMaximise,
@@ -59,7 +59,6 @@ export const Toolbar: React.FC = () => {
         showSidebar,
         showResultPanel,
         showRightSidebar,
-        setShowCommandPalette,
         toggleSidebar,
         toggleResultPanel,
         toggleRightSidebar,
@@ -223,11 +222,6 @@ export const Toolbar: React.FC = () => {
         () =>
             buildAppMenuSections({
                 getShortcut,
-                addTab,
-                setShowCommandPalette,
-                toggleSidebar,
-                toggleResultPanel,
-                toggleRightSidebar,
                 isQueryTab,
                 isChecking,
                 hasUpdate,
@@ -237,11 +231,6 @@ export const Toolbar: React.FC = () => {
             }),
         [
             getShortcut,
-            addTab,
-            setShowCommandPalette,
-            toggleSidebar,
-            toggleResultPanel,
-            toggleRightSidebar,
             isQueryTab,
             isChecking,
             hasUpdate,
@@ -749,3 +738,4 @@ export const Toolbar: React.FC = () => {
         </div>
     );
 };
+

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { models } from '../../wailsjs/go/models';
-import { TestConnection, SaveConnection } from '../../wailsjs/go/app/App';
+import { TestConnection, SaveConnection } from '../services/connectionService';
 import {
     getProvider,
     makeDefaultForm,
@@ -182,3 +182,4 @@ export function useConnectionForm({
         resetForm,
     };
 }
+

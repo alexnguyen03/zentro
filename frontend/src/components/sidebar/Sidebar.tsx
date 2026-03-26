@@ -4,12 +4,14 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { ConnectionTree } from './ConnectionTree';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
-import { LoadConnections, GetConnectionStatus } from '../../../wailsjs/go/app/App';
+import { LoadConnections, GetConnectionStatus } from '../../services/connectionService';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
 import { useProjectStore } from '../../stores/projectStore';
 import { getEnvironmentLabel } from '../../lib/projects';
 import { useEnvironmentStore } from '../../stores/environmentStore';
+import { emitCommand } from '../../lib/commandBus';
+import { DOM_EVENT } from '../../lib/constants';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
@@ -118,7 +120,7 @@ export const Sidebar: React.FC = () => {
 
                              <div className="space-y-6 w-full">
                                 <button 
-                                    onClick={() => (window as any).dispatchEvent(new KeyboardEvent('keydown', { key: 'C', ctrlKey: true, shiftKey: true }))}
+                                    onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
                                     className={cn(
                                         "flex items-center group cursor-pointer",
                                         isCompact ? "justify-center" : "gap-4"
@@ -167,3 +169,4 @@ export const Sidebar: React.FC = () => {
         </div>
     );
 };
+

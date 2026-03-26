@@ -4,7 +4,7 @@ import {
     GetScriptContent,
     SaveScript,
     DeleteScript,
-} from '../../wailsjs/go/app/App';
+} from '../services/scriptService';
 import { models } from '../../wailsjs/go/models';
 
 type SavedScript = models.SavedScript;
@@ -58,3 +58,4 @@ export const useScriptStore = create<ScriptStore>((set) => ({
         return GetScriptContent(connectionName, scriptID);
     },
 }));
+

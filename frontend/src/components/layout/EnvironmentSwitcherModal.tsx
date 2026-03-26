@@ -10,7 +10,7 @@ import { getProvider } from '../../lib/providers';
 import type { ConnectionProfile } from '../../types/connection';
 import type { EnvironmentKey } from '../../types/project';
 import { useToast } from './Toast';
-import { LoadConnections } from '../../../wailsjs/go/app/App';
+import { LoadConnections } from '../../services/connectionService';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
@@ -315,3 +315,4 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         </ModalBackdrop>
     );
 };
+

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import cx from 'classnames';
 import { Loader, RotateCcw, Save, RefreshCw, Plus, Trash2, Database, Table, Info, Table2, Network, Search } from 'lucide-react';
-import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn, ExecuteQuery } from '../../../../wailsjs/go/app/App';
+import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn } from '../../../services/schemaService';
+import { ExecuteQuery } from '../../../services/queryService';
 import { models } from '../../../../wailsjs/go/models';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEditorStore } from '../../../stores/editorStore';
@@ -478,4 +479,5 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         </div>
     );
 };
+
 

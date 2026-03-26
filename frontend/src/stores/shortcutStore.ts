@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GetPreferences, SetPreferences } from '../../wailsjs/go/app/App';
+import { GetPreferences, SetPreferences } from '../services/settingsService';
 import { defaultShortcutMap, normalizeBinding, type CommandId } from '../lib/shortcutRegistry';
 
 interface ShortcutState {
@@ -86,3 +86,4 @@ export const useShortcutStore = create<ShortcutState>((set, get) => ({
     set({ chordStart: token, chordUntil: Date.now() + 1200 });
   },
 }));
+

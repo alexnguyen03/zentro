@@ -3,7 +3,11 @@ import { defaultShortcutMap, type CommandId } from './shortcutRegistry';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useShortcutStore } from '../stores/shortcutStore';
-import type { ZentroProfilePackageV1 } from '../types/profile';
+import type {
+    ZentroProfilePackage,
+    ZentroProfilePackageV1,
+    ZentroProfilePackageV2,
+} from '../types/profile';
 
 function sanitizeShortcuts(shortcuts: Record<string, string> | undefined): Record<CommandId, string> {
     const next = { ...defaultShortcutMap };
@@ -26,14 +30,17 @@ function sanitizeFileName(name: string): string {
         .replace(/^-+|-+$/g, '') || 'zentro-profile';
 }
 
-export function buildCurrentProfilePackage(profileName: string): ZentroProfilePackageV1 {
+export function buildCurrentProfilePackage(profileName: string): ZentroProfilePackageV2 {
     const settings = useSettingsStore.getState();
     const layout = useLayoutStore.getState();
     const shortcuts = useShortcutStore.getState().bindings;
+    const fontFamily = typeof window !== 'undefined'
+        ? getComputedStyle(document.documentElement).getPropertyValue('--font-family-sans').trim()
+        : '';
 
     return {
         schema: 'zentro.profile',
-        version: 1,
+        version: 2,
         metadata: {
             name: profileName.trim() || 'Zentro Profile',
             exported_at: new Date().toISOString(),
@@ -54,10 +61,21 @@ export function buildCurrentProfilePackage(profileName: string): ZentroProfilePa
             show_right_sidebar: layout.showRightSidebar,
         },
         shortcuts: sanitizeShortcuts(shortcuts),
+        customization: {
+            font_family: fontFamily || undefined,
+            token_preset_id: settings.theme || 'system',
+            layout_preset_id: 'default',
+        },
+        command_overrides: {
+            metadata: {
+                source: 'shortcut-store',
+                generated_at: new Date().toISOString(),
+            },
+        },
     };
 }
 
-export function downloadProfilePackage(profile: ZentroProfilePackageV1): void {
+export function downloadProfilePackage(profile: ZentroProfilePackage): void {
     const pretty = JSON.stringify(profile, null, 2);
     const blob = new Blob([pretty], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -74,7 +92,49 @@ function isProfilePackageV1(value: unknown): value is ZentroProfilePackageV1 {
     return candidate.schema === 'zentro.profile' && candidate.version === 1;
 }
 
-export function parseProfilePackage(raw: string): ZentroProfilePackageV1 {
+function isProfilePackageV2(value: unknown): value is ZentroProfilePackageV2 {
+    if (!value || typeof value !== 'object') return false;
+    const candidate = value as Record<string, unknown>;
+    return candidate.schema === 'zentro.profile' && candidate.version === 2;
+}
+
+function normalizeProfilePackage(profile: ZentroProfilePackage): ZentroProfilePackageV2 {
+    if (profile.version === 2) {
+        return {
+            ...profile,
+            shortcuts: sanitizeShortcuts(profile.shortcuts),
+            customization: {
+                font_family: profile.customization?.font_family,
+                token_preset_id: profile.customization?.token_preset_id || profile.settings.theme || 'system',
+                layout_preset_id: profile.customization?.layout_preset_id || 'default',
+            },
+            command_overrides: {
+                metadata: {
+                    source: profile.command_overrides?.metadata?.source || 'imported',
+                    generated_at: profile.command_overrides?.metadata?.generated_at || new Date().toISOString(),
+                },
+            },
+        };
+    }
+
+    return {
+        ...profile,
+        version: 2,
+        shortcuts: sanitizeShortcuts(profile.shortcuts),
+        customization: {
+            token_preset_id: profile.settings.theme || 'system',
+            layout_preset_id: 'default',
+        },
+        command_overrides: {
+            metadata: {
+                source: 'migrated-v1',
+                generated_at: new Date().toISOString(),
+            },
+        },
+    };
+}
+
+export function parseProfilePackage(raw: string): ZentroProfilePackageV2 {
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
@@ -82,37 +142,34 @@ export function parseProfilePackage(raw: string): ZentroProfilePackageV1 {
         throw new Error('Invalid JSON profile file.');
     }
 
-    if (!isProfilePackageV1(parsed)) {
+    if (!isProfilePackageV1(parsed) && !isProfilePackageV2(parsed)) {
         throw new Error('Unsupported profile schema or version.');
     }
 
-    const profile = parsed as ZentroProfilePackageV1;
-    return {
-        ...profile,
-        shortcuts: sanitizeShortcuts(profile.shortcuts),
-    };
+    return normalizeProfilePackage(parsed as ZentroProfilePackage);
 }
 
-export async function applyProfilePackage(profile: ZentroProfilePackageV1): Promise<void> {
+export async function applyProfilePackage(profile: ZentroProfilePackage): Promise<void> {
+    const normalized = normalizeProfilePackage(profile);
     const settings = useSettingsStore.getState();
     const shortcuts = useShortcutStore.getState();
     const layout = useLayoutStore.getState();
 
     await settings.save(new utils.Preferences({
-        theme: profile.settings.theme,
-        font_size: profile.settings.font_size,
-        default_limit: profile.settings.default_limit,
-        toast_placement: profile.settings.toast_placement,
-        connect_timeout: profile.settings.connect_timeout,
-        query_timeout: profile.settings.query_timeout,
-        auto_check_updates: profile.settings.auto_check_updates,
-        view_mode: profile.settings.view_mode,
-        shortcuts: profile.shortcuts,
+        theme: normalized.settings.theme,
+        font_size: normalized.settings.font_size,
+        default_limit: normalized.settings.default_limit,
+        toast_placement: normalized.settings.toast_placement,
+        connect_timeout: normalized.settings.connect_timeout,
+        query_timeout: normalized.settings.query_timeout,
+        auto_check_updates: normalized.settings.auto_check_updates,
+        view_mode: normalized.settings.view_mode,
+        shortcuts: normalized.shortcuts,
     }));
 
-    await shortcuts.replaceBindings(profile.shortcuts);
+    await shortcuts.replaceBindings(normalized.shortcuts);
 
-    layout.setShowSidebar(Boolean(profile.layout.show_sidebar));
-    layout.setShowResultPanel(Boolean(profile.layout.show_result_panel));
-    layout.setShowRightSidebar(Boolean(profile.layout.show_right_sidebar));
+    layout.setShowSidebar(Boolean(normalized.layout.show_sidebar));
+    layout.setShowResultPanel(Boolean(normalized.layout.show_result_panel));
+    layout.setShowRightSidebar(Boolean(normalized.layout.show_right_sidebar));
 }

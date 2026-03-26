@@ -8,7 +8,7 @@ import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletio
 import { EditorToolbar } from './EditorToolbar';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
-import { FormatSQL } from '../../../wailsjs/go/app/App';
+import { FormatSQL } from '../../services/queryService';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -384,3 +384,4 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         </div>
     );
 };
+
