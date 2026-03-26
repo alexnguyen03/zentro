@@ -200,6 +200,7 @@ func TestExecuteQuery_CancelMidStream(t *testing.T) {
 	// Verify cancellation
 	var doneEvent map[string]any
 	totalRows := 0
+	doneCount := 0
 
 	for _, ev := range events {
 		name := ev["_eventName"].(string)
@@ -209,6 +210,7 @@ func TestExecuteQuery_CancelMidStream(t *testing.T) {
 			}
 		}
 		if name == "query:done" {
+			doneCount++
 			doneEvent = ev
 		}
 	}
@@ -225,6 +227,9 @@ func TestExecuteQuery_CancelMidStream(t *testing.T) {
 
 	if totalRows >= 100000 {
 		t.Errorf("expected partial rows due to cancellation, but got all %d rows", totalRows)
+	}
+	if doneCount != 1 {
+		t.Errorf("expected exactly one query:done event, got %d", doneCount)
 	}
 }
 
@@ -260,5 +265,48 @@ func TestExecuteQuery_NonSelect(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Timeout waiting for non-select query:done")
+	}
+}
+
+func TestCancelQuery_Idempotent(t *testing.T) {
+	a := setupApp(t)
+	defer a.db.Close()
+
+	doneChan := make(chan map[string]any, 1)
+
+	em := funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
+		if eventName != "query:done" {
+			return
+		}
+		if data, ok := payload.(map[string]any); ok {
+			doneChan <- data
+		}
+	}}
+	a.emitter = em
+	a.conn.emitter = em
+	a.query.emitter = em
+	a.tx.emitter = em
+
+	query := `WITH RECURSIVE cnt(x) AS (
+		SELECT 1
+		UNION ALL
+		SELECT x+1 FROM cnt
+		LIMIT 100000
+	)
+	SELECT x FROM cnt;`
+	a.ExecuteQuery("test-tab-cancel-idempotent", query)
+
+	a.CancelQuery("test-tab-cancel-idempotent")
+	a.CancelQuery("test-tab-cancel-idempotent")
+	a.CancelQuery("test-tab-cancel-idempotent")
+
+	select {
+	case done := <-doneChan:
+		errMsg, _ := done["error"].(string)
+		if errMsg == "" {
+			t.Fatalf("expected cancellation error in done payload")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for query:done after cancellation")
 	}
 }

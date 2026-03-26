@@ -56,6 +56,9 @@ type QueryService struct {
 
 	activeQueries   map[string]string
 	activeQueriesMu sync.RWMutex
+
+	cancelledTabs   map[string]struct{}
+	cancelledTabsMu sync.RWMutex
 }
 
 func NewQueryService(
@@ -75,6 +78,7 @@ func NewQueryService(
 		emitter:       emitter,
 		sessions:      make(map[string]*QuerySession),
 		activeQueries: make(map[string]string),
+		cancelledTabs: make(map[string]struct{}),
 	}
 }
 
@@ -91,6 +95,9 @@ func (s *QueryService) Shutdown() {
 		}
 	}
 	s.sessions = make(map[string]*QuerySession)
+	s.cancelledTabsMu.Lock()
+	s.cancelledTabs = make(map[string]struct{})
+	s.cancelledTabsMu.Unlock()
 }
 
 func (s *QueryService) ExecuteQuery(tabID, query string) {
@@ -109,6 +116,8 @@ func (s *QueryService) ExplainQuery(tabID, query string, analyze bool) error {
 }
 
 func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditableMeta bool) {
+	s.clearCancelled(tabID)
+
 	statements := dbpkg.SplitStatements(query)
 	if len(statements) == 0 {
 		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
@@ -232,4 +241,23 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 			}
 		}
 	}()
+}
+
+func (s *QueryService) markCancelled(tabID string) {
+	s.cancelledTabsMu.Lock()
+	defer s.cancelledTabsMu.Unlock()
+	s.cancelledTabs[tabID] = struct{}{}
+}
+
+func (s *QueryService) clearCancelled(tabID string) {
+	s.cancelledTabsMu.Lock()
+	defer s.cancelledTabsMu.Unlock()
+	delete(s.cancelledTabs, tabID)
+}
+
+func (s *QueryService) isCancelled(tabID string) bool {
+	s.cancelledTabsMu.RLock()
+	defer s.cancelledTabsMu.RUnlock()
+	_, ok := s.cancelledTabs[tabID]
+	return ok
 }

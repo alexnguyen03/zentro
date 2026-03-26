@@ -78,7 +78,7 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 	totalRowsFetched := 0
 
 	for rows.Next() {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || s.isCancelled(statement.SourceTabID) {
 			break
 		}
 		row := scanRowAsStrings(rows, colCount)
@@ -119,8 +119,15 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 	if offset == 0 {
 		s.appendHistory(statement.Text, totalRows, time.Since(start), rows.Err())
 	}
-	if rows.Err() != nil {
+	if s.isCancelled(statement.SourceTabID) || ctx.Err() == context.Canceled {
+		err = context.Canceled
+	}
+	if rows.Err() != nil && err == nil {
 		err = rows.Err()
+	}
+	if err == context.Canceled {
+		s.emitDoneWithMore(statement, int64(totalRowsFetched), time.Since(start), true, hasMore, fmt.Errorf("query cancelled"))
+		return err
 	}
 	s.emitDoneWithMore(statement, int64(totalRowsFetched), time.Since(start), true, hasMore, err)
 	s.logger.Debug("query profile", "stage", "stream-select", "tab", statement.TabID, "rows", totalRowsFetched, "duration_ms", time.Since(start).Milliseconds())
@@ -152,6 +159,7 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 
 	s.sessionsMu.Lock()
 	sourceID := sourceTabID(tabID)
+	s.clearCancelled(sourceID)
 	if old, ok := s.sessions[sourceID]; ok {
 		old.CancelFunc()
 		delete(s.sessions, sourceID)
@@ -201,7 +209,7 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		rowCount := 0
 
 		for rows.Next() {
-			if ctx.Err() != nil {
+			if ctx.Err() != nil || s.isCancelled(sourceID) {
 				break
 			}
 			row := scanRowAsStrings(rows, len(cols))
@@ -226,6 +234,10 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			rowCount = limit
 		}
 
+		if s.isCancelled(sourceID) || ctx.Err() == context.Canceled {
+			s.emitDoneWithMore(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, int64(rowCount), duration, true, hasMore, fmt.Errorf("query cancelled"))
+			return
+		}
 		s.emitDoneWithMore(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, int64(rowCount), duration, true, hasMore, nil)
 	}()
 }
@@ -277,6 +289,7 @@ func (s *QueryService) CancelQuery(tabID string) {
 	s.sessionsMu.Lock()
 	defer s.sessionsMu.Unlock()
 	sourceID := sourceTabID(tabID)
+	s.markCancelled(sourceID)
 	if session, ok := s.sessions[sourceID]; ok {
 		s.logger.Info("cancelling query", "tab", tabID)
 		session.CancelFunc()
