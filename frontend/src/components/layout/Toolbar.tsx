@@ -536,7 +536,7 @@ export const Toolbar: React.FC = () => {
             >
                 <div
                     className="flex justify-center relative h-10/12 my-1"
-                    style={{ width: 'min(520px, 44vw)', ['--wails-draggable' as any]: 'no-drag' }}
+                    style={{ width: 'min(520px, 44vw)', '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
                     <div
                         ref={quickEnvRef}

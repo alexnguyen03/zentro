@@ -12,6 +12,7 @@ import { getEnvironmentLabel } from '../../lib/projects';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { emitCommand } from '../../lib/commandBus';
 import { DOM_EVENT } from '../../lib/constants';
+import { getErrorMessage } from '../../lib/errors';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
@@ -55,9 +56,9 @@ export const Sidebar: React.FC = () => {
                 }
                 store.resetRuntime();
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('Failed to load connections:', e);
-            toast.error(`Failed to load connections: ${e}`);
+            toast.error(`Failed to load connections: ${getErrorMessage(e)}`);
         }
     };
 

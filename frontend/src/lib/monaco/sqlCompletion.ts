@@ -5,6 +5,36 @@ import { useTemplateStore } from '../../stores/templateStore';
 import { getTypesForDriver } from '../dbTypes';
 
 type CompletionKind = number;
+type DisposableLike = { dispose: () => void };
+type CompletionKindName =
+    | 'Field'
+    | 'Module'
+    | 'Class'
+    | 'Keyword'
+    | 'Function'
+    | 'Text'
+    | 'Operator'
+    | 'Snippet';
+
+interface SqlCompletionLanguagesApi {
+    CompletionItemKind: Record<CompletionKindName, CompletionKind>;
+    CompletionItemInsertTextRule: {
+        InsertAsSnippet: number;
+    };
+}
+
+interface SqlCompletionMonacoApi {
+    languages: SqlCompletionLanguagesApi;
+}
+
+interface SqlCompletionRegisterMonacoApi extends SqlCompletionMonacoApi {
+    languages: SqlCompletionLanguagesApi & {
+        registerCompletionItemProvider: (
+            languageSelector: string,
+            provider: languages.CompletionItemProvider,
+        ) => DisposableLike;
+    };
+}
 
 export type SqlClause =
     | 'unknown'
@@ -69,7 +99,7 @@ export interface SqlAnalysis {
 }
 
 export interface SqlCompletionEnv {
-    monaco: any;
+    monaco: SqlCompletionMonacoApi;
     schemas: SchemaNode[];
     driver: string;
     fetchColumns: (schemaName: string, tableName: string) => Promise<SqlColumnLike[]>;
@@ -117,8 +147,16 @@ const TABLE_LIKE_CLAUSES = new Set<SqlClause>(['from', 'join', 'insert', 'update
 
 const DISPOSABLES_KEY = '__ZENTRO_SQL_COMPLETION_DISPOSABLES__';
 
-if (!(window as any)[DISPOSABLES_KEY]) {
-    (window as any)[DISPOSABLES_KEY] = [];
+type SqlCompletionWindow = Window & {
+    [DISPOSABLES_KEY]?: DisposableLike[];
+};
+
+function getSqlCompletionDisposables(): DisposableLike[] {
+    const globalWindow = window as SqlCompletionWindow;
+    if (!globalWindow[DISPOSABLES_KEY]) {
+        globalWindow[DISPOSABLES_KEY] = [];
+    }
+    return globalWindow[DISPOSABLES_KEY];
 }
 
 export function analyzeSqlText(fullText: string, cursorOffset: number): SqlAnalysis {
@@ -1336,8 +1374,8 @@ export async function buildSqlCompletionItems(
     return shouldAbort() ? [] : finalizeSuggestions(suggestionMap);
 }
 
-export function registerContextAwareSQLCompletion(monaco: any) {
-    const disposables = (window as any)[DISPOSABLES_KEY] as any[];
+export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterMonacoApi) {
+    const disposables = getSqlCompletionDisposables();
     let latestRequestId = 0;
 
     while (disposables.length > 0) {
@@ -1351,9 +1389,9 @@ export function registerContextAwareSQLCompletion(monaco: any) {
         }
     }
 
-    const provider = {
+    const provider: languages.CompletionItemProvider = {
         triggerCharacters: ['.', ' ', ',', '('],
-        provideCompletionItems: async (model: any, position: any, _context: any, token: { isCancellationRequested?: boolean }) => {
+        provideCompletionItems: async (model, position, _context, token) => {
             const requestId = ++latestRequestId;
             const shouldAbort = () => Boolean(token?.isCancellationRequested) || requestId !== latestRequestId;
             if (shouldAbort()) {

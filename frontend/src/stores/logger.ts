@@ -3,7 +3,7 @@ import { appLogger } from '../lib/logger';
 
 function getChangedKeys<T extends object>(before: T, after: T): string[] {
     const keys = new Set<string>([...Object.keys(before), ...Object.keys(after)]);
-    return Array.from(keys).filter((key) => (before as any)[key] !== (after as any)[key]);
+    return Array.from(keys).filter((key) => Reflect.get(before, key) !== Reflect.get(after, key));
 }
 
 export function withStoreLogger<T extends object>(storeName: string, creator: StateCreator<T, [], []>): StateCreator<T, [], []> {
@@ -13,9 +13,9 @@ export function withStoreLogger<T extends object>(storeName: string, creator: St
                 const prev = get();
                 try {
                     if (replace === true) {
-                        set(partial as any, true);
+                        set(partial as Parameters<typeof set>[0], true);
                     } else {
-                        set(partial as any);
+                        set(partial as Parameters<typeof set>[0]);
                     }
                     const next = get();
                     appLogger.debug('store state changed', {

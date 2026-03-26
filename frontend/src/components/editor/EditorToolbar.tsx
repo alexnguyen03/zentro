@@ -23,6 +23,7 @@ import { models } from '../../../wailsjs/go/models';
 import { DOM_EVENT } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery } from '../../services/queryService';
+import { getErrorMessage } from '../../lib/errors';
 import { useToast } from '../layout/Toast';
 
 type Template = models.Template;
@@ -78,8 +79,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
         try {
             await BeginTransaction();
             toast.success('Transaction started.');
-        } catch (error: any) {
-            toast.error(`Begin transaction failed: ${error}`);
+        } catch (error: unknown) {
+            toast.error(`Begin transaction failed: ${getErrorMessage(error)}`);
         }
     };
 
@@ -87,8 +88,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
         try {
             await CommitTransaction();
             toast.success('Transaction committed.');
-        } catch (error: any) {
-            toast.error(`Commit failed: ${error}`);
+        } catch (error: unknown) {
+            toast.error(`Commit failed: ${getErrorMessage(error)}`);
         }
     };
 
@@ -96,8 +97,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
         try {
             await RollbackTransaction();
             toast.success('Transaction rolled back.');
-        } catch (error: any) {
-            toast.error(`Rollback failed: ${error}`);
+        } catch (error: unknown) {
+            toast.error(`Rollback failed: ${getErrorMessage(error)}`);
         }
     };
 

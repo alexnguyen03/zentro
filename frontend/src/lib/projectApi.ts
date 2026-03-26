@@ -11,7 +11,11 @@ type AppApi = {
 };
 
 function getAppApi(): AppApi {
-    return ((window as any)?.go?.app?.App || {}) as AppApi;
+    const appApi = window.go?.app?.App;
+    if (!appApi) {
+        return {};
+    }
+    return appApi as AppApi;
 }
 
 export async function listProjects(): Promise<Project[]> {
@@ -55,4 +59,3 @@ export async function getActiveProject(): Promise<Project | null> {
     if (!api.GetActiveProject) return null;
     return await api.GetActiveProject();
 }
-

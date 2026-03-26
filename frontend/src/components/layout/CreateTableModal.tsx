@@ -7,6 +7,8 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useToast } from '../layout/Toast';
 import { FetchDatabaseSchema } from '../../services/schemaService';
+import { getErrorMessage } from '../../lib/errors';
+import { models } from '../../../wailsjs/go/models';
 
 interface Column {
     Name: string;
@@ -51,9 +53,12 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
         setColumns(columns.filter((_, i) => i !== index));
     };
 
-    const handleColumnChange = (index: number, field: keyof Column, value: string | boolean) => {
+    const handleColumnChange = <K extends keyof Column>(index: number, field: K, value: Column[K]) => {
         const newCols = [...columns];
-        (newCols[index] as any)[field] = value;
+        newCols[index] = {
+            ...newCols[index],
+            [field]: value,
+        };
         setColumns(newCols);
     };
 
@@ -84,7 +89,12 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
 
         setLoading(true);
         try {
-            await CreateTable(activeProfile.name, schema, tableName, columns as any);
+            await CreateTable(
+                activeProfile.name,
+                schema,
+                tableName,
+                columns.map((column) => new models.ColumnDef(column)),
+            );
             toast.success(`Table "${tableName}" created successfully`);
             if (activeProfile?.name && activeProfile?.db_name) {
                 await FetchDatabaseSchema(activeProfile.name, activeProfile.db_name);
@@ -92,8 +102,8 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
             setTableName('');
             setColumns([{ Name: 'id', DataType: 'SERIAL', IsNullable: false, IsPrimaryKey: true, DefaultValue: '' }]);
             onClose();
-        } catch (err: any) {
-            toast.error(`Failed to create table: ${err}`);
+        } catch (err: unknown) {
+            toast.error(`Failed to create table: ${getErrorMessage(err)}`);
         } finally {
             setLoading(false);
         }

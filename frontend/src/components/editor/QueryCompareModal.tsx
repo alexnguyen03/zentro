@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Editor, { DiffEditor } from '@monaco-editor/react';
+import type { editor as MonacoEditor } from 'monaco-editor';
 import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
 import { ModalBackdrop, Button } from '../ui';
@@ -19,8 +20,8 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
   const [unifiedDiff, setUnifiedDiff] = useState('');
   const [syncScroll, setSyncScroll] = useState(true);
 
-  const originalRef = useRef<any>(null);
-  const modifiedRef = useRef<any>(null);
+  const originalRef = useRef<MonacoEditor.ICodeEditor | null>(null);
+  const modifiedRef = useRef<MonacoEditor.ICodeEditor | null>(null);
   const syncingRef = useRef(false);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
     const original = originalRef.current;
     const modified = modifiedRef.current;
 
-    const syncTo = (src: any, dst: any) => {
+    const syncTo = (src: MonacoEditor.ICodeEditor, dst: MonacoEditor.ICodeEditor) => {
       if (syncingRef.current) return;
       syncingRef.current = true;
       dst.setScrollTop(src.getScrollTop());
@@ -85,12 +86,14 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
               renderOverviewRuler: true,
               scrollBeyondLastLine: false,
             }}
-            onMount={(editor) => {
-              originalRef.current = editor.getOriginalEditor();
-              modifiedRef.current = editor.getModifiedEditor();
+            onMount={(editor: MonacoEditor.IStandaloneDiffEditor) => {
+              const originalEditor = editor.getOriginalEditor();
+              const modifiedEditor = editor.getModifiedEditor();
+              originalRef.current = originalEditor;
+              modifiedRef.current = modifiedEditor;
 
-              originalRef.current.onDidChangeModelContent(() => setLeft(originalRef.current.getValue()));
-              modifiedRef.current.onDidChangeModelContent(() => setRight(modifiedRef.current.getValue()));
+              originalEditor.onDidChangeModelContent(() => setLeft(originalEditor.getValue()));
+              modifiedEditor.onDidChangeModelContent(() => setRight(modifiedEditor.getValue()));
             }}
           />
         </div>

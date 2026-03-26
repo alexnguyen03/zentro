@@ -39,6 +39,7 @@ import { ResultFilterBar } from './ResultFilterBar';
 import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
+import { getErrorMessage } from '../../lib/errors';
 
 export interface ResultPanelAction {
     id: string;
@@ -470,8 +471,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             setDraftRows([]);
             setSelectedCells(new Set());
             toast.success(`Saved successfully (${affected} row${affected !== 1 ? 's' : ''} affected).`);
-        } catch (error: any) {
-            toast.error(`Save failed: ${error}`);
+        } catch (error: unknown) {
+            toast.error(`Save failed: ${getErrorMessage(error)}`);
             console.error('Execute pending changes error:', error);
         } finally {
             setIsSavingDraftRows(false);

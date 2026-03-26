@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { Copy, Check } from 'lucide-react';
+import type { editor as MonacoEditor } from 'monaco-editor';
 import { useSettingsStore } from '../../stores/settingsStore';
 
 interface JsonViewerProps {
@@ -64,7 +65,7 @@ const SimpleJsonView: React.FC<{ value: string; showCopy?: boolean }> = ({ value
 
 export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', showCopy = true, height = '100%', useMonaco = true }) => {
     const [copied, setCopied] = useState(false);
-    const editorRef = useRef<any>(null);
+    const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
     const { theme } = useSettingsStore();
 
     const isValidJson = isJson(value);
@@ -83,7 +84,7 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', s
         }
     };
 
-    const handleEditorMount = (editor: any) => {
+    const handleEditorMount = (editor: MonacoEditor.IStandaloneCodeEditor) => {
         editorRef.current = editor;
     };
 

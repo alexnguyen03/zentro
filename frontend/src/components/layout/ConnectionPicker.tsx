@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
+import { getErrorMessage } from '../../lib/errors';
 import { Spinner } from '../ui';
 
 interface ConnectionPickerProps {
@@ -32,9 +33,9 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
         try {
             await Connect(name);
             // After connect the store will update activeProfile + databases via event
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('ConnectionPicker: connect failed:', err);
-            setError(typeof err === 'string' ? err : err?.message || String(err));
+            setError(getErrorMessage(err));
         } finally {
             setConnecting(false);
         }

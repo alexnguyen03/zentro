@@ -11,6 +11,7 @@ import { ShortcutsView } from '../layout/ShortcutsView';
 import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../services/queryService';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
+import { getErrorMessage } from '../../lib/errors';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -52,8 +53,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         useResultStore.getState().setFilterExpr(activeTab.id, '');
         try {
             await ExecuteQuery(activeTab.id, queryToRun);
-        } catch (err: any) {
-            console.error('ExecuteQuery error:', err);
+        } catch (err: unknown) {
+            console.error('ExecuteQuery error:', getErrorMessage(err));
         }
     }, [activeTab, isConnected]);
 
@@ -63,8 +64,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         const explainTabId = `${activeTab.id}::explain:${analyze ? 'analyze' : 'plan'}`;
         try {
             await ExplainQuery(explainTabId, queryToExplain, analyze);
-        } catch (err: any) {
-            console.error('ExplainQuery error:', err);
+        } catch (err: unknown) {
+            console.error('ExplainQuery error:', getErrorMessage(err));
         }
     }, [activeTab, isConnected]);
 

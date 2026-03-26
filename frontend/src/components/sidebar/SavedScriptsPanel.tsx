@@ -105,7 +105,7 @@ export const SavedScriptsPanel: React.FC = () => {
                             <FileCode size={13} className="text-success shrink-0 opacity-70" />
                             <div className="flex-1 overflow-hidden">
                                 <div className="text-xs text-text-primary whitespace-nowrap overflow-hidden text-ellipsis font-medium">{script.name}</div>
-                                <div className="text-[10px] text-text-secondary mt-0.5">{formatDate(script.updated_at as any)}</div>
+                                <div className="text-[10px] text-text-secondary mt-0.5">{formatDate(String(script.updated_at ?? ''))}</div>
                             </div>
                             <button
                                 className={cn(

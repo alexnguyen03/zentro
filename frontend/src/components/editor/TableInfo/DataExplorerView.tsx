@@ -1,11 +1,12 @@
 import React from 'react';
 import { ResultPanel, type ResultPanelAction } from '../ResultPanel';
 import { TabAction } from './types';
+import type { TabResult } from '../../../stores/resultStore';
 
 interface DataExplorerViewProps {
     tabId: string;
     onRun: (filter?: string) => Promise<void>;
-    result: any;
+    result: TabResult | undefined;
     onActionsChange: (actions: TabAction[]) => void;
     schema: string;
     table: string;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { models } from '../../wailsjs/go/models';
 import { TestConnection, SaveConnection } from '../services/connectionService';
+import { getErrorMessage } from '../lib/errors';
 import {
     getProvider,
     makeDefaultForm,
@@ -36,6 +37,29 @@ export interface UseConnectionFormReturn {
     handleSave: (e: React.FormEvent) => Promise<void>;
     resetFeedback: () => void;
     resetForm: () => void;
+}
+
+const DEFAULT_CONNECTION_PROFILE: ConnectionProfile = {
+    name: '',
+    driver: '',
+    host: '',
+    port: 0,
+    db_name: '',
+    username: '',
+    password: '',
+    ssl_mode: '',
+    connect_timeout: 10,
+    save_password: false,
+    encrypt_password: false,
+    show_all_schemas: false,
+    trust_server_cert: false,
+};
+
+function toConnectionProfileModel(formData: Partial<ConnectionProfile>): models.ConnectionProfile {
+    return new models.ConnectionProfile({
+        ...DEFAULT_CONNECTION_PROFILE,
+        ...formData,
+    });
 }
 
 export function useConnectionForm({
@@ -135,11 +159,11 @@ export function useConnectionForm({
         setSuccessMsg('');
         setTestResult('idle');
         try {
-            await TestConnection(new models.ConnectionProfile(formData as any));
+            await TestConnection(toConnectionProfileModel(formData));
             setSuccessMsg('Connection successful!');
             setTestResult('ok');
-        } catch (err: any) {
-            setErrorMsg(err.toString());
+        } catch (err: unknown) {
+            setErrorMsg(getErrorMessage(err));
             setTestResult('error');
         } finally {
             setTesting(false);
@@ -153,11 +177,11 @@ export function useConnectionForm({
         setSaving(true);
         setErrorMsg('');
         try {
-            await SaveConnection(new models.ConnectionProfile(formData as any));
+            await SaveConnection(toConnectionProfileModel(formData));
             onSaved?.();
             onClose?.();
-        } catch (err: any) {
-            setErrorMsg(err.toString());
+        } catch (err: unknown) {
+            setErrorMsg(getErrorMessage(err));
         } finally {
             setSaving(false);
         }

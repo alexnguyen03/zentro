@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
-import { useEditorStore } from '../../stores/editorStore';
+import { Tab, useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -23,6 +23,7 @@ import {
 } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 import { buildFilterQuery } from '../../lib/queryBuilder';
+import { getErrorMessage } from '../../lib/errors';
 
 export const QueryTabs: React.FC = () => {
     const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
@@ -43,8 +44,8 @@ export const QueryTabs: React.FC = () => {
         useResultStore.getState().setFilterExpr(globalActiveTab.id, '');
         try {
             await ExecuteQuery(globalActiveTab.id, globalActiveTab.query);
-        } catch (err: any) {
-            console.error('ExecuteQuery error:', err);
+        } catch (err: unknown) {
+            console.error('ExecuteQuery error:', getErrorMessage(err));
         }
     }, [globalActiveTab, isConnected]);
 
@@ -59,8 +60,8 @@ export const QueryTabs: React.FC = () => {
 
         try {
             await ExecuteQuery(globalActiveTab.id, queryToRun);
-        } catch (err: any) {
-            console.error('ExecuteQuery (filter) error:', err);
+        } catch (err: unknown) {
+            console.error('ExecuteQuery (filter) error:', getErrorMessage(err));
         }
     }, [globalActiveTab, isConnected, globalActiveResult]);
 
@@ -76,7 +77,7 @@ export const QueryTabs: React.FC = () => {
     }, [addTab]);
 
     // Drag overlay state
-    const [activeDragTab, setActiveDragTab] = useState<any>(null);
+    const [activeDragTab, setActiveDragTab] = useState<Tab | null>(null);
     const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
 
     const sensors = useSensors(
@@ -284,7 +285,7 @@ export const QueryTabs: React.FC = () => {
                                     onAppendToQuery={handleAppendToQuery}
                                     onOpenInNewTab={handleOpenFilterInNewTab}
                                     isReadOnlyTab={isReadOnlySubTab || viewMode}
-                                    generatedKind={generatedKind as 'result' | 'explain'}
+                                    generatedKind={generatedKind}
                                 />
                             </div>
                         </div>

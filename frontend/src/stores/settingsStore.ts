@@ -4,7 +4,7 @@ import { utils } from '../../wailsjs/go/models';
 import { ToastPlacement } from '../components/layout/Toast';
 import { useShortcutStore } from './shortcutStore';
 
-let saveTimeout: any = null;
+let saveTimeout: ReturnType<typeof window.setTimeout> | null = null;
 
 interface SettingsState {
     theme: string;

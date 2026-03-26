@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { utils } from '../../../wailsjs/go/models';
 import { cn } from '../../lib/cn';
-import { useToast } from './Toast';
+import { ToastPlacement, useToast } from './Toast';
 import {
     applyProfilePackage,
     buildCurrentProfilePackage,
@@ -228,7 +228,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                     <div className={sectionContentClass}>
                                         <div className="flex flex-col">
                                             <label className={labelClass}>Alert Placement</label>
-                                            <select className={inputClass} value={formToastPlacement} onChange={(e) => setFormToastPlacement(e.target.value as any)}>
+                                            <select className={inputClass} value={formToastPlacement} onChange={(e) => setFormToastPlacement(e.target.value as ToastPlacement)}>
                                                 <option value="bottom-left">Bottom Left</option>
                                                 <option value="bottom-center">Bottom Center</option>
                                                 <option value="bottom-right">Bottom Right</option>

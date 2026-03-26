@@ -5,6 +5,7 @@ import { useConnectionStore } from '../../../stores/connectionStore';
 import { useToast } from '../../layout/Toast';
 import { highlightSQL } from '../../../lib/sqlHighlight';
 import { Button } from '../../ui';
+import { getErrorMessage } from '../../../lib/errors';
 
 interface DDLInfoViewProps {
     schema: string;
@@ -28,8 +29,8 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
         try {
             const data = await GetTableDDL(activeProfile.name, schema, tableName);
             setDdl(data || '');
-        } catch (err: any) {
-            toast.error(`Failed to load DDL: ${err}`);
+        } catch (err: unknown) {
+            toast.error(`Failed to load DDL: ${getErrorMessage(err)}`);
         } finally {
             setLoading(false);
         }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { LoadTemplates, SaveTemplate, DeleteTemplate } from '../services/templateService';
 import { models } from '../../wailsjs/go/models';
+import { getErrorMessage } from '../lib/errors';
 
 type Template = models.Template;
 
@@ -24,8 +25,8 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
         try {
             const templates = await LoadTemplates();
             set({ templates: templates || [], isLoading: false });
-        } catch (err: any) {
-            set({ error: err.message || 'Failed to load templates', isLoading: false });
+        } catch (err: unknown) {
+            set({ error: getErrorMessage(err) || 'Failed to load templates', isLoading: false });
         }
     },
 
@@ -34,8 +35,8 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
         try {
             await SaveTemplate(template);
             await get().loadTemplates();
-        } catch (err: any) {
-            set({ error: err.message || 'Failed to save template', isLoading: false });
+        } catch (err: unknown) {
+            set({ error: getErrorMessage(err) || 'Failed to save template', isLoading: false });
         }
     },
 
@@ -44,8 +45,8 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
         try {
             await DeleteTemplate(id);
             await get().loadTemplates();
-        } catch (err: any) {
-            set({ error: err.message || 'Failed to delete template', isLoading: false });
+        } catch (err: unknown) {
+            set({ error: getErrorMessage(err) || 'Failed to delete template', isLoading: false });
         }
     },
 }));

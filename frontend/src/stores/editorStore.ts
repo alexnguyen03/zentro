@@ -26,6 +26,11 @@ interface ProjectEditorSession {
     activeGroupId: string | null;
 }
 
+interface LegacyEditorState {
+    workspaceSessions?: Record<string, Partial<ProjectEditorSession> | null | undefined>;
+    activeWorkspaceId?: string | null;
+}
+
 interface EditorState {
     projectSessions: Record<string, ProjectEditorSession>;
     activeProjectId: string | null;
@@ -451,7 +456,8 @@ export const useEditorStore = create<EditorState>()(
 
                 if (!state) return;
 
-                const legacySessions = (state as any).workspaceSessions;
+                const legacyState = state as EditorState & LegacyEditorState;
+                const legacySessions = legacyState.workspaceSessions;
                 const rawProjectSessions: Record<string, Partial<ProjectEditorSession> | null | undefined> | undefined =
                     state.projectSessions && Object.keys(state.projectSessions).length > 0
                     ? state.projectSessions
@@ -466,7 +472,7 @@ export const useEditorStore = create<EditorState>()(
                     )
                     : { [DEFAULT_WORKSPACE_ID]: createEmptySession() };
 
-                const legacyActiveProjectId = (state as any).activeWorkspaceId;
+                const legacyActiveProjectId = legacyState.activeWorkspaceId;
                 const rawActiveProjectId = state.activeProjectId || legacyActiveProjectId;
                 const activeProjectId = rawActiveProjectId && projectSessions[rawActiveProjectId]
                     ? rawActiveProjectId
