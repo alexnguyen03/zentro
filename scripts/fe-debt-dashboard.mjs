@@ -61,6 +61,8 @@ const files = walkFiles(ROOT);
 let directWailsImportsOutsidePlatform = 0;
 let nativeDialogsInProduction = 0;
 let explicitAnyInProduction = 0;
+let doubleUnknownCastsInProduction = 0;
+let windowGoOutsidePlatform = 0;
 let legacyTokenVarUsagesOutsideTokens = 0;
 let hardcodedZIndexPatterns = 0;
 
@@ -76,6 +78,11 @@ for (const file of files) {
   if (prodFile) {
     nativeDialogsInProduction += hasNativeDialog(content);
     explicitAnyInProduction += countMatches(content, /\bas\s+any\b|:\s*any\b|<\s*any\s*>|\bany\[\]/g);
+    doubleUnknownCastsInProduction += countMatches(content, /\bas\s+unknown\s+as\b/g);
+  }
+
+  if (!rel.startsWith('platform/')) {
+    windowGoOutsidePlatform += countMatches(content, /\bwindow\.go\b/g);
   }
 
   if (rel !== 'styles/tokens.css') {
@@ -91,6 +98,8 @@ const report = {
   directWailsImportsOutsidePlatform,
   nativeDialogsInProduction,
   explicitAnyInProduction,
+  doubleUnknownCastsInProduction,
+  windowGoOutsidePlatform,
   legacyTokenVarUsagesOutsideTokens,
   hardcodedZIndexPatterns,
 };

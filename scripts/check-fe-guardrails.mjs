@@ -65,6 +65,14 @@ for (const file of files) {
     violations.push(
       ...collectViolations(file, /window\.(confirm|prompt|alert)\s*\(/, 'no-native-dialogs'),
       ...collectViolations(file, /(^|[^\w.])(confirm|prompt|alert)\s*\(/, 'no-native-dialogs'),
+      ...collectViolations(file, /\bas\s+unknown\s+as\b/, 'no-double-unknown-cast'),
+      ...collectViolations(file, /\bfunction\s+toErrorMessage\s*\(/, 'use-shared-error-helper'),
+    );
+  }
+
+  if (!rel.startsWith('platform/')) {
+    violations.push(
+      ...collectViolations(file, /\bwindow\.go\b/, 'no-window-go-outside-platform'),
     );
   }
 }

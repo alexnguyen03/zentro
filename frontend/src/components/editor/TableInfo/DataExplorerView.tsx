@@ -17,7 +17,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     tabId, onRun, result, onActionsChange, schema, table, isReadOnlyMode = false
 }) => {
     const handleActionsChange = React.useCallback((actions: ResultPanelAction[]) => {
-        onActionsChange(actions as unknown as TabAction[]);
+        onActionsChange(actions);
     }, [onActionsChange]);
 
     const handleFilterRun = React.useCallback((filter: string) => {

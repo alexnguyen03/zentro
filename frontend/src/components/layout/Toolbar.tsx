@@ -4,8 +4,6 @@ import {
     RefreshCw,
     Lock,
     Eye,
-    Minus,
-    X,
     PanelLeft,
     PanelBottom,
     PanelRight,
@@ -46,6 +44,7 @@ import { utils } from '../../../wailsjs/go/models';
 import type { CommandId } from '../../lib/shortcutRegistry';
 import { emitCommand, onCommand } from '../../lib/commandBus';
 import { AppMenuItem, AppMenuSection, buildAppMenuSections } from './toolbar/appMenuSections';
+import { WindowControls } from './toolbar/WindowControls';
 
 export const Toolbar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
@@ -690,35 +689,11 @@ export const Toolbar: React.FC = () => {
                     <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                 </Button>
 
-                <div className="flex items-center gap-0.5 ml-0.5">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-[rgba(255,189,46,0.2)] hover:text-[#ffbd2e]"
-                        title="Minimize"
-                        onClick={WindowMinimise}
-                    >
-                        <Minus size={12} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-[rgba(40,201,98,0.2)] hover:text-[#28c962]"
-                        title="Maximize / Restore"
-                        onClick={WindowToggleMaximise}
-                    >
-                        <span className="block w-2.5 h-2.5 border-[1.5px] border-current rounded-[1px]" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-[rgba(255,95,87,0.2)] hover:text-[#ff5f57]"
-                        title="Close"
-                        onClick={Quit}
-                    >
-                        <X size={13} />
-                    </Button>
-                </div>
+                <WindowControls
+                    onMinimize={WindowMinimise}
+                    onToggleMaximize={WindowToggleMaximise}
+                    onClose={Quit}
+                />
             </div>
 
             {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}

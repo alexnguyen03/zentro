@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEY } from '../lib/constants';
-import { createProject, deleteProject, getActiveProject, listProjects, openProject, saveProject as persistProject } from '../lib/projectApi';
+import { createProject, deleteProject, getActiveProject, listProjects, openProject, saveProject as persistProject } from '../services/projectService';
 import type { EnvironmentKey, Project, ProjectEnvironment } from '../types/project';
 import { getEnvironmentLabel } from '../lib/projects';
 import { withStoreLogger } from './logger';

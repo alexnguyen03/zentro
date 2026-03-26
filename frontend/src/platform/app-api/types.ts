@@ -75,6 +75,15 @@ export interface AppApiGateway {
     // App-level lifecycle
     ForceQuit(): Promise<void>;
     ConnectProjectEnvironment(environmentKey: string): Promise<void>;
+
+    // Project
+    ListProjects(): Promise<models.Project[]>;
+    GetProject(projectId: string): Promise<models.Project>;
+    CreateProject(project: models.Project): Promise<models.Project>;
+    SaveProject(project: models.Project): Promise<models.Project>;
+    DeleteProject(projectId: string): Promise<void>;
+    OpenProject(projectId: string): Promise<models.Project>;
+    GetActiveProject(): Promise<models.Project>;
 }
 
 export interface ServiceError {

@@ -5,17 +5,13 @@ import { useConnectionStore } from '../../../stores/connectionStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { Button } from '../../ui';
+import { getErrorMessage } from '../../../lib/errors';
 
 interface IndexInfo {
     Name: string;
     Table: string;
     Columns: string[];
     Unique: boolean;
-}
-
-function toErrorMessage(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
 }
 
 interface IndexInfoViewProps {
@@ -45,7 +41,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             const data = await GetIndexes(activeProfile.name, schema, tableName);
             setIndexes(data || []);
         } catch (error: unknown) {
-            toast.error(`Failed to load indexes: ${toErrorMessage(error)}`);
+            toast.error(`Failed to load indexes: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
@@ -63,7 +59,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             toast.success(`Index "${dropIndexTarget}" dropped`);
             loadIndexes();
         } catch (error: unknown) {
-            toast.error(`Failed to drop index: ${toErrorMessage(error)}`);
+            toast.error(`Failed to drop index: ${getErrorMessage(error)}`);
         } finally {
             setDropIndexTarget(null);
         }
@@ -92,7 +88,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             setNewIndexColumns('');
             setNewIndexUnique(false);
         } catch (error: unknown) {
-            toast.error(`Failed to create index: ${toErrorMessage(error)}`);
+            toast.error(`Failed to create index: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }

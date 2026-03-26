@@ -10,8 +10,10 @@ import {
     Connect,
     ConnectProjectEnvironment,
     CreateIndex,
+    CreateProject,
     CreateTable,
     DeleteBookmark,
+    DeleteProject,
     DeleteScript,
     DeleteTemplate,
     Disconnect,
@@ -33,20 +35,25 @@ import {
     FormatSQL,
     GetBookmarks,
     GetConnectionStatus,
+    GetActiveProject,
     GetHistory,
     GetIndexes,
     GetPreferences,
+    GetProject,
     GetScriptContent,
     GetScripts,
     GetTableDDL,
     GetTransactionStatus,
+    ListProjects,
     LoadConnections,
     LoadDatabasesForProfile,
     LoadTemplates,
+    OpenProject,
     Reconnect,
     RollbackTransaction,
     SaveBookmark,
     SaveConnection,
+    SaveProject,
     SaveScript,
     SaveTemplate,
     SetPreferences,
@@ -54,6 +61,51 @@ import {
     TestConnection,
 } from '../../../wailsjs/go/app/App';
 import type { AppApiGateway, ConnectionRuntimeState } from './types';
+import type { ConnectionProfile } from '../../types/connection';
+
+function normalizeRuntimeConnectionStatus(status: unknown): ConnectionRuntimeState['status'] {
+    if (status === 'connected' || status === 'connecting' || status === 'disconnected' || status === 'error') {
+        return status;
+    }
+    return 'disconnected';
+}
+
+function toConnectionProfile(raw: unknown): ConnectionProfile | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const source = raw as Record<string, unknown>;
+
+    if (typeof source.name !== 'string' || typeof source.driver !== 'string') {
+        return null;
+    }
+
+    return {
+        name: source.name,
+        driver: source.driver,
+        host: typeof source.host === 'string' ? source.host : '',
+        port: typeof source.port === 'number' ? source.port : 0,
+        db_name: typeof source.db_name === 'string' ? source.db_name : '',
+        username: typeof source.username === 'string' ? source.username : '',
+        password: typeof source.password === 'string' ? source.password : '',
+        ssl_mode: typeof source.ssl_mode === 'string' ? source.ssl_mode : '',
+        connect_timeout: typeof source.connect_timeout === 'number' ? source.connect_timeout : 10,
+        save_password: source.save_password === true,
+        encrypt_password: source.encrypt_password === true,
+        show_all_schemas: source.show_all_schemas === true,
+        trust_server_cert: source.trust_server_cert === true,
+    };
+}
+
+function toConnectionRuntimeState(raw: unknown): ConnectionRuntimeState {
+    if (!raw || typeof raw !== 'object') {
+        return { status: 'disconnected', profile: null };
+    }
+    const source = raw as Record<string, unknown>;
+
+    return {
+        status: normalizeRuntimeConnectionStatus(source.status),
+        profile: toConnectionProfile(source.profile),
+    };
+}
 
 export const wailsGateway: AppApiGateway = {
     Connect,
@@ -64,7 +116,7 @@ export const wailsGateway: AppApiGateway = {
     LoadDatabasesForProfile,
     SaveConnection,
     TestConnection,
-    GetConnectionStatus: () => GetConnectionStatus() as unknown as Promise<ConnectionRuntimeState>,
+    GetConnectionStatus: async () => toConnectionRuntimeState(await GetConnectionStatus()),
 
     ExecuteQuery,
     CancelQuery,
@@ -115,4 +167,12 @@ export const wailsGateway: AppApiGateway = {
 
     ForceQuit,
     ConnectProjectEnvironment,
+
+    ListProjects,
+    GetProject,
+    CreateProject,
+    SaveProject,
+    DeleteProject,
+    OpenProject,
+    GetActiveProject,
 };

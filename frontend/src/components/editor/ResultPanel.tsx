@@ -40,17 +40,10 @@ import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
 import { getErrorMessage } from '../../lib/errors';
+import type { UiAction } from '../../types/uiAction';
+import { LIMIT_OPTIONS, formatDuration, makeCellId, parseCellId } from './resultPanelUtils';
 
-export interface ResultPanelAction {
-    id: string;
-    icon: React.ReactNode;
-    label?: string;
-    title?: string;
-    onClick: () => void;
-    disabled?: boolean;
-    loading?: boolean;
-    danger?: boolean;
-}
+export type ResultPanelAction = UiAction;
 
 interface ResultPanelProps {
     tabId: string;
@@ -63,25 +56,6 @@ interface ResultPanelProps {
     onOpenInNewTab?: (fullQuery: string) => void;
     isReadOnlyTab?: boolean;
     generatedKind?: 'result' | 'explain';
-}
-
-const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
-const CELL_ID_SEPARATOR = '|';
-
-function makeCellId(rowKey: string, colIdx: number): string {
-    return `${rowKey}${CELL_ID_SEPARATOR}${colIdx}`;
-}
-
-function parseCellId(cellId: string): { rowKey: string; colIdx: number } {
-    const separatorIndex = cellId.lastIndexOf(CELL_ID_SEPARATOR);
-    return {
-        rowKey: cellId.slice(0, separatorIndex),
-        colIdx: Number(cellId.slice(separatorIndex + 1)),
-    };
-}
-
-function formatDuration(ms: number): string {
-    return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`;
 }
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({

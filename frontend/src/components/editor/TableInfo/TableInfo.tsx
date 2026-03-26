@@ -15,6 +15,7 @@ import { Button, Spinner } from '../../ui';
 import { Modal } from '../../layout/Modal';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '../../../lib/errors';
 
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
@@ -49,11 +50,6 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
 function parseTableName(t: string) {
     const parts = t.split('.');
     return parts.length > 1 ? { schema: parts[0], table: parts.slice(1).join('.') } : { schema: '', table: t };
-}
-
-function toErrorMessage(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
 }
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
@@ -102,7 +98,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             }));
             setRows(rs);
             setRowErrors({});
-        } catch (error: unknown) { setFetchError(toErrorMessage(error)); }
+        } catch (error: unknown) { setFetchError(getErrorMessage(error)); }
         finally { setLoading(false); setReloading(false); }
     }, [schema, table]);
 
@@ -204,7 +200,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 if (r.deleted) await DropTableColumn(schema, table, r.original.Name);
                 else if (r.isNew) await AddTableColumn(schema, table, r.current);
                 else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) await AlterTableColumn(schema, table, r.original, r.current);
-            } catch (error: unknown) { errs[i] = toErrorMessage(error); }
+            } catch (error: unknown) { errs[i] = getErrorMessage(error); }
         }
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);

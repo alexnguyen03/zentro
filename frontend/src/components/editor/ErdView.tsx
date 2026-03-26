@@ -21,6 +21,7 @@ import { FetchTableRelationships, FetchTableColumns } from '../../services/schem
 import { Loader } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { models } from '../../../wailsjs/go/models';
+import { getErrorMessage } from '../../lib/errors';
 
 interface ErdEdgeData extends Record<string, unknown> {
     label?: string;
@@ -53,11 +54,6 @@ interface NodeLookupState {
 interface ConstraintGroup extends models.TableRelationship {
     columns: string[];
     targets: string[];
-}
-
-function toErrorMessage(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    return String(error);
 }
 
 function getNodeCenter(node: MeasuredNodeLike) {
@@ -449,7 +445,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
             setLoading(false);
         } catch (error: unknown) {
             if (isMounted.current) {
-                setError(toErrorMessage(error));
+                setError(getErrorMessage(error));
                 setLoading(false);
             }
         } finally {
