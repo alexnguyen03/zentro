@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     Settings,
     RefreshCw,
@@ -13,6 +13,7 @@ import {
     SlidersHorizontal,
     Server,
     Database,
+    ChevronRight,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -21,24 +22,52 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useShortcutStore } from '../../stores/shortcutStore';
 import { Reconnect } from '../../../wailsjs/go/app/App';
-import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
+import {
+    WindowMinimise,
+    WindowToggleMaximise,
+    Quit,
+    WindowReload,
+    WindowReloadApp,
+    BrowserOpenURL,
+} from '../../../wailsjs/runtime/runtime';
 
 import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
 import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
+import { LicenseModal } from './LicenseModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { cn } from '../../lib/cn';
 import { getEnvironmentMeta } from '../../lib/projects';
-import { Button, Divider } from '../ui';
+import { Button } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
 import { DOM_EVENT } from '../../lib/constants';
 import { useToast } from './Toast';
 import type { EnvironmentKey } from '../../types/project';
 import { utils } from '../../../wailsjs/go/models';
+import type { CommandId } from '../../lib/shortcutRegistry';
+
+const REPO_URL = 'https://github.com/alexnguyen03/zentro';
+
+interface AppMenuItem {
+    id: string;
+    label: string;
+    shortcut?: string;
+    disabled?: boolean;
+    danger?: boolean;
+    hasBadge?: boolean;
+    action: () => void | Promise<void>;
+}
+
+interface AppMenuSection {
+    id: string;
+    title: string;
+    items: AppMenuItem[];
+}
 
 export const Toolbar: React.FC = () => {
-    const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
+    const { activeProfile, connectionStatus } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const setProjectEnvironment = useProjectStore((state) => state.setProjectEnvironment);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
@@ -49,10 +78,12 @@ export const Toolbar: React.FC = () => {
         showSidebar,
         showResultPanel,
         showRightSidebar,
+        setShowCommandPalette,
         toggleSidebar,
         toggleResultPanel,
         toggleRightSidebar,
     } = useLayoutStore();
+    const shortcutBindings = useShortcutStore((state) => state.bindings);
     const { toast } = useToast();
     const transactionStatus = useStatusStore((state) => state.transactionStatus);
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -60,12 +91,21 @@ export const Toolbar: React.FC = () => {
 
     const [aboutOpen, setAboutOpen] = useState(false);
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
+    const [licenseOpen, setLicenseOpen] = useState(false);
     const [environmentSwitcherOpen, setEnvironmentSwitcherOpen] = useState(false);
     const [quickEnvOpen, setQuickEnvOpen] = useState(false);
     const [quickEnvHighlightedIndex, setQuickEnvHighlightedIndex] = useState(0);
+    const [appMenuOpen, setAppMenuOpen] = useState(false);
+    const [appMenuActiveSectionIndex, setAppMenuActiveSectionIndex] = useState<number | null>(null);
+    const [appMenuHighlightedIndex, setAppMenuHighlightedIndex] = useState(0);
+    const [appSubmenuTop, setAppSubmenuTop] = useState(0);
     const quickEnvRef = useRef<HTMLDivElement | null>(null);
+    const appMenuRef = useRef<HTMLDivElement | null>(null);
+    const appMenuParentPanelRef = useRef<HTMLDivElement | null>(null);
+    const appMenuSectionButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+    const submenuHideTimerRef = useRef<number | null>(null);
 
-    const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
+    const { hasUpdate, updateInfo, dismiss, check, isChecking } = useUpdateCheck();
 
     const activeGroup = groups.find((g) => g.id === activeGroupId);
     const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
@@ -90,6 +130,17 @@ export const Toolbar: React.FC = () => {
         window.addEventListener('mousedown', onDocMouseDown);
         return () => window.removeEventListener('mousedown', onDocMouseDown);
     }, [quickEnvOpen]);
+
+    useEffect(() => {
+        if (!appMenuOpen) return;
+        const onDocMouseDown = (event: MouseEvent) => {
+            if (!appMenuRef.current?.contains(event.target as Node)) {
+                setAppMenuOpen(false);
+            }
+        };
+        window.addEventListener('mousedown', onDocMouseDown);
+        return () => window.removeEventListener('mousedown', onDocMouseDown);
+    }, [appMenuOpen]);
 
     const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
     const databaseLabel = activeProfile?.db_name || 'No database';
@@ -171,6 +222,314 @@ export const Toolbar: React.FC = () => {
         toast.success(next ? 'View Mode enabled (read-only).' : 'View Mode disabled.');
     };
 
+    const getShortcut = useCallback((commandId: CommandId) => {
+        return shortcutBindings[commandId] || '';
+    }, [shortcutBindings]);
+
+    const handleManualCheckForUpdates = useCallback(async () => {
+        const result = await check(true);
+        if (result === undefined) {
+            toast.error('Could not check for updates.');
+            return;
+        }
+        if (result?.has_update) {
+            setUpdateModalOpen(true);
+            return;
+        }
+        toast.success('You are already on the latest version.');
+    }, [check, toast]);
+
+    const appMenuSections = useMemo<AppMenuSection[]>(() => {
+        return [
+            {
+                id: 'file',
+                title: 'File',
+                items: [
+                    {
+                        id: 'file.reload',
+                        label: 'Reload Frontend',
+                        shortcut: getShortcut('app.reload'),
+                        action: () => WindowReloadApp(),
+                    },
+                    {
+                        id: 'file.restart',
+                        label: 'Restart App',
+                        action: () => WindowReload(),
+                    },
+                    {
+                        id: 'file.quit',
+                        label: 'Quit',
+                        danger: true,
+                        action: () => Quit(),
+                    },
+                ],
+            },
+            {
+                id: 'edit',
+                title: 'Edit',
+                items: [
+                    {
+                        id: 'edit.newTab',
+                        label: 'New Query Tab',
+                        shortcut: getShortcut('editor.newTab'),
+                        action: () => addTab(),
+                    },
+                    {
+                        id: 'edit.closeTab',
+                        label: 'Close Current Tab',
+                        shortcut: getShortcut('editor.closeTab'),
+                        action: () => window.dispatchEvent(new CustomEvent(DOM_EVENT.CLOSE_ACTIVE_TAB)),
+                    },
+                    {
+                        id: 'edit.commandPalette',
+                        label: 'Command Palette',
+                        shortcut: getShortcut('view.commandPalette'),
+                        action: () => setShowCommandPalette(true),
+                    },
+                    {
+                        id: 'edit.formatQuery',
+                        label: 'Format Query',
+                        shortcut: getShortcut('editor.formatQuery'),
+                        action: () => window.dispatchEvent(new CustomEvent(DOM_EVENT.FORMAT_QUERY_ACTION)),
+                    },
+                ],
+            },
+            {
+                id: 'view',
+                title: 'View',
+                items: [
+                    {
+                        id: 'view.settings',
+                        label: 'Settings',
+                        shortcut: getShortcut('view.openSettings'),
+                        action: () => addTab({ type: 'settings', name: 'Settings' }),
+                    },
+                    {
+                        id: 'view.shortcuts',
+                        label: 'Keyboard Shortcuts',
+                        shortcut: getShortcut('view.openShortcuts'),
+                        action: () => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' }),
+                    },
+                    {
+                        id: 'view.sidebar',
+                        label: 'Toggle Sidebar',
+                        shortcut: getShortcut('layout.toggleSidebar'),
+                        action: () => toggleSidebar(),
+                    },
+                    {
+                        id: 'view.resultPanel',
+                        label: 'Toggle Result Panel',
+                        shortcut: getShortcut('layout.toggleResultPanel'),
+                        disabled: !isQueryTab,
+                        action: () => toggleResultPanel(),
+                    },
+                    {
+                        id: 'view.rightSidebar',
+                        label: 'Toggle Right Sidebar',
+                        shortcut: getShortcut('layout.toggleRightSidebar'),
+                        action: () => toggleRightSidebar(),
+                    },
+                ],
+            },
+            {
+                id: 'window',
+                title: 'Window',
+                items: [
+                    {
+                        id: 'window.minimize',
+                        label: 'Minimize',
+                        action: () => WindowMinimise(),
+                    },
+                    {
+                        id: 'window.maximize',
+                        label: 'Maximize / Restore',
+                        action: () => WindowToggleMaximise(),
+                    },
+                ],
+            },
+            {
+                id: 'help',
+                title: 'Help',
+                items: [
+                    {
+                        id: 'help.about',
+                        label: 'About Zentro',
+                        action: () => setAboutOpen(true),
+                    },
+                    {
+                        id: 'help.checkUpdates',
+                        label: isChecking ? 'Checking for updates...' : 'Check for Updates',
+                        disabled: isChecking,
+                        hasBadge: hasUpdate,
+                        action: () => handleManualCheckForUpdates(),
+                    },
+                    {
+                        id: 'help.license',
+                        label: 'License',
+                        action: () => setLicenseOpen(true),
+                    },
+                    {
+                        id: 'help.releaseNotes',
+                        label: 'Release Notes',
+                        action: () => BrowserOpenURL(`${REPO_URL}/releases`),
+                    },
+                    {
+                        id: 'help.reportIssue',
+                        label: 'Report Issue',
+                        action: () => BrowserOpenURL(`${REPO_URL}/issues`),
+                    },
+                ],
+            },
+        ];
+    }, [
+        addTab,
+        getShortcut,
+        handleManualCheckForUpdates,
+        hasUpdate,
+        isChecking,
+        isQueryTab,
+        setShowCommandPalette,
+        toggleResultPanel,
+        toggleRightSidebar,
+        toggleSidebar,
+    ]);
+
+    const clearSubmenuHideTimer = useCallback(() => {
+        if (submenuHideTimerRef.current !== null) {
+            window.clearTimeout(submenuHideTimerRef.current);
+            submenuHideTimerRef.current = null;
+        }
+    }, []);
+
+    const scheduleSubmenuHide = useCallback(() => {
+        clearSubmenuHideTimer();
+        submenuHideTimerRef.current = window.setTimeout(() => {
+            setAppMenuActiveSectionIndex(null);
+            submenuHideTimerRef.current = null;
+        }, 120);
+    }, [clearSubmenuHideTimer]);
+
+    const setActiveSection = useCallback((sectionIndex: number, anchor?: HTMLElement | null) => {
+        const section = appMenuSections[sectionIndex];
+        if (!section) return;
+
+        const panelElement = appMenuParentPanelRef.current;
+        const anchorElement = anchor ?? appMenuSectionButtonRefs.current[sectionIndex] ?? null;
+        if (panelElement && anchorElement) {
+            const panelRect = panelElement.getBoundingClientRect();
+            const anchorRect = anchorElement.getBoundingClientRect();
+            setAppSubmenuTop(Math.max(0, anchorRect.top - panelRect.top));
+        } else {
+            setAppSubmenuTop(0);
+        }
+
+        setAppMenuActiveSectionIndex(sectionIndex);
+        const firstEnabled = section.items.findIndex((item) => !item.disabled);
+        setAppMenuHighlightedIndex(firstEnabled >= 0 ? firstEnabled : 0);
+    }, [appMenuSections]);
+
+    const appMenuActiveSection = useMemo(() => {
+        if (appMenuActiveSectionIndex === null) return null;
+        return appMenuSections[appMenuActiveSectionIndex] ?? null;
+    }, [appMenuActiveSectionIndex, appMenuSections]);
+
+    const findNextEnabledItemIndex = useCallback((items: AppMenuItem[], startIndex: number, direction: 1 | -1) => {
+        if (items.length === 0) return 0;
+        let nextIndex = startIndex;
+        for (let i = 0; i < items.length; i += 1) {
+            nextIndex = (nextIndex + direction + items.length) % items.length;
+            if (!items[nextIndex]?.disabled) {
+                return nextIndex;
+            }
+        }
+        return Math.max(0, startIndex);
+    }, []);
+
+    useEffect(() => {
+        if (appMenuOpen) return;
+        clearSubmenuHideTimer();
+        setAppMenuActiveSectionIndex(null);
+        setAppMenuHighlightedIndex(0);
+        setAppSubmenuTop(0);
+    }, [appMenuOpen, clearSubmenuHideTimer]);
+
+    useEffect(() => {
+        return () => {
+            clearSubmenuHideTimer();
+        };
+    }, [clearSubmenuHideTimer]);
+
+    const handleSelectAppMenuItem = useCallback((item: AppMenuItem) => {
+        if (item.disabled) return;
+        setAppMenuOpen(false);
+        Promise.resolve(item.action()).catch((error) => {
+            toast.error(`Action failed: ${error}`);
+        });
+    }, [toast]);
+
+    useEffect(() => {
+        if (!appMenuOpen) return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            const activeItems = appMenuActiveSection?.items || [];
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (!appMenuActiveSection) {
+                    setActiveSection(0);
+                    return;
+                }
+                setAppMenuHighlightedIndex((current) => findNextEnabledItemIndex(activeItems, current, 1));
+                return;
+            }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (!appMenuActiveSection) {
+                    setActiveSection(0);
+                    return;
+                }
+                setAppMenuHighlightedIndex((current) => findNextEnabledItemIndex(activeItems, current, -1));
+                return;
+            }
+            if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                if (appMenuActiveSectionIndex === null) {
+                    setActiveSection(0);
+                    return;
+                }
+                setActiveSection((appMenuActiveSectionIndex + 1) % appMenuSections.length);
+                return;
+            }
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                if (appMenuActiveSectionIndex === null) return;
+                setActiveSection((appMenuActiveSectionIndex - 1 + appMenuSections.length) % appMenuSections.length);
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const target = activeItems[appMenuHighlightedIndex];
+                if (target) {
+                    handleSelectAppMenuItem(target);
+                }
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setAppMenuOpen(false);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [
+        appMenuActiveSection,
+        appMenuActiveSectionIndex,
+        appMenuHighlightedIndex,
+        appMenuOpen,
+        appMenuSections.length,
+        findNextEnabledItemIndex,
+        handleSelectAppMenuItem,
+        setActiveSection,
+    ]);
+
     return (
         <div
             className={cn(
@@ -178,14 +537,121 @@ export const Toolbar: React.FC = () => {
             )}
         >
             <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div
-                    className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative"
-                    title={hasUpdate ? 'New version available!' : 'About Zentro'}
-                    onClick={() => (hasUpdate ? setUpdateModalOpen(true) : setAboutOpen(true))}
-                >
-                    <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
-                    {hasUpdate && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success rounded-full border border-bg-secondary animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                <div ref={appMenuRef} className="relative">
+                    <button
+                        type="button"
+                        className={cn(
+                            'flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative rounded-md',
+                            appMenuOpen && 'bg-bg-primary/60'
+                        )}
+                        title="Open app menu"
+                        aria-haspopup="menu"
+                        aria-expanded={appMenuOpen}
+                        onClick={() => {
+                            setQuickEnvOpen(false);
+                            clearSubmenuHideTimer();
+                            setAppMenuOpen((current) => {
+                                if (current) return false;
+                                setAppMenuActiveSectionIndex(null);
+                                setAppMenuHighlightedIndex(0);
+                                setAppSubmenuTop(0);
+                                return true;
+                            });
+                        }}
+                    >
+                        <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
+                        {hasUpdate && (
+                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success rounded-full border border-bg-secondary animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                        )}
+                    </button>
+
+                    {appMenuOpen && (
+                        <>
+                            <div className="absolute left-0 top-[calc(100%+6px)] z-[1400]">
+                                <div
+                                    ref={appMenuParentPanelRef}
+                                    className="w-[190px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
+                                    onMouseEnter={() => clearSubmenuHideTimer()}
+                                    onMouseLeave={() => scheduleSubmenuHide()}
+                                >
+                                    <div className="space-y-0.5">
+                                        {appMenuSections.map((section, sectionIndex) => {
+                                            const isActive = sectionIndex === appMenuActiveSectionIndex;
+                                            return (
+                                                <button
+                                                    ref={(element) => {
+                                                        appMenuSectionButtonRefs.current[sectionIndex] = element;
+                                                    }}
+                                                    key={section.id}
+                                                    type="button"
+                                                    className={cn(
+                                                        'cursor-pointer w-full flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                                                        isActive
+                                                            ? 'bg-accent/12 text-text-primary'
+                                                            : 'text-text-secondary hover:bg-bg-secondary/80 hover:text-text-primary'
+                                                    )}
+                                                    onMouseEnter={(event) => {
+                                                        clearSubmenuHideTimer();
+                                                        setActiveSection(sectionIndex, event.currentTarget);
+                                                    }}
+                                                    onFocus={(event) => setActiveSection(sectionIndex, event.currentTarget)}
+                                                    onClick={(event) => setActiveSection(sectionIndex, event.currentTarget)}
+                                                >
+                                                    <span>{section.title}</span>
+                                                    <ChevronRight size={12} className={cn(isActive ? 'text-accent' : 'text-text-muted')} />
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {appMenuActiveSection && (
+                                    <div
+                                        className="absolute left-[194px] z-[1400] w-[320px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
+                                        style={{ top: appSubmenuTop }}
+                                        onMouseEnter={() => clearSubmenuHideTimer()}
+                                        onMouseLeave={() => scheduleSubmenuHide()}
+                                    >
+                                        <div className="space-y-0.5">
+                                            {appMenuActiveSection.items.map((item, itemIndex) => {
+                                                const isHighlighted = itemIndex === appMenuHighlightedIndex;
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        disabled={item.disabled}
+                                                        className={cn(
+                                                            'cursor-pointer w-full flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors',
+                                                            item.disabled
+                                                                ? 'opacity-45 cursor-not-allowed text-text-secondary'
+                                                                : isHighlighted
+                                                                    ? item.danger
+                                                                        ? 'bg-error/15 text-error'
+                                                                        : 'bg-accent/10 text-text-primary'
+                                                                    : item.danger
+                                                                        ? 'text-error/80 hover:bg-error/10 hover:text-error'
+                                                                        : 'text-text-secondary hover:bg-bg-secondary/80 hover:text-text-primary'
+                                                        )}
+                                                        onMouseEnter={() => setAppMenuHighlightedIndex(itemIndex)}
+                                                        onClick={() => handleSelectAppMenuItem(item)}
+                                                    >
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <span>{item.label}</span>
+                                                            {item.hasBadge && (
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                                                            )}
+                                                        </span>
+                                                        {item.shortcut && (
+                                                            <span className="text-[10px] font-mono text-text-muted">{item.shortcut}</span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
                     )}
                 </div>
                 <Button
@@ -412,6 +878,7 @@ export const Toolbar: React.FC = () => {
             </div>
 
             {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+            {licenseOpen && <LicenseModal onClose={() => setLicenseOpen(false)} />}
             {updateModalOpen && updateInfo && (
                 <UpdateModal
                     latestVersion={updateInfo.latest_version}

@@ -16,21 +16,21 @@ export const useUpdateCheck = () => {
     const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
     const [isChecking, setIsChecking] = useState(false);
 
-    const check = async (manual = false) => {
-        if (!manual && !autoCheckUpdates) return;
+    const check = async (manual = false): Promise<UpdateInfo | null | undefined> => {
+        if (!manual && !autoCheckUpdates) return null;
         
         setIsChecking(true);
         try {
             const info = await CheckForUpdates();
-            // Check if this version was already dismissed
             const dismissed = localStorage.getItem(STORAGE_KEY.DISMISSED_UPDATE_VERSION);
-            if (info.has_update && info.latest_version !== dismissed) {
-                setUpdateInfo(info as UpdateInfo);
-            } else {
-                setUpdateInfo(null);
-            }
+            const allowDismissFilter = !manual;
+            const hasVisibleUpdate = info.has_update && (!allowDismissFilter || info.latest_version !== dismissed);
+            const nextInfo = hasVisibleUpdate ? (info as UpdateInfo) : null;
+            setUpdateInfo(nextInfo);
+            return nextInfo;
         } catch (err) {
             console.error('Failed to check for updates:', err);
+            return undefined;
         } finally {
             setIsChecking(false);
         }
