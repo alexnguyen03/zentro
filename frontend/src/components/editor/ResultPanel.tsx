@@ -37,6 +37,7 @@ import { useResultEditing } from './useResultEditing';
 import { useResultKeyboard } from './useResultKeyboard';
 import { useResultExport } from './useResultExport';
 import { setClipboardText } from '../../services/clipboardService';
+import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
 
 export type ResultPanelAction = UiAction;
 
@@ -278,6 +279,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     } else if (result.isDone && !result.hasMore) {
         displayTotalCount = result.rows.length;
     }
+    const viewportState = resolveResultFetchStrategy(result.rows.length, result.hasMore, result.isDone);
 
     // ── Main render ───────────────────────────────────────────────────────────
     return (
@@ -390,6 +392,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             ))}
                         </select>
                         &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
+                    </span>
+                    <span className="text-[10px] uppercase opacity-80">
+                        strategy: {viewportState.strategy}
                     </span>
                     {displayTotalCount !== undefined ? (
                         <span className="flex items-center gap-1">(Total: <strong>{displayTotalCount.toLocaleString()}</strong>)</span>

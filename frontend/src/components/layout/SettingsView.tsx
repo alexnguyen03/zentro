@@ -17,6 +17,8 @@ import { SettingsData } from './settings/SettingsData';
 import { SettingsRegion } from './settings/SettingsRegion';
 import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
+import { buildTelemetryExportBundle, exportTelemetryBundle } from '../../features/telemetry/localMetricsStore';
+import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
 
 interface SettingsViewProps {
     tabId: string;
@@ -36,6 +38,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
     const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
+    const [telemetryOptIn, setTelemetryOptIn] = useState(getTelemetryConsent().optedIn);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const profileInputRef = useRef<HTMLInputElement>(null);
 
@@ -188,7 +191,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             )}
 
                             {/* Editor & Data */}
-                            {matchesSearch("Data & Query", ["Default Row Limit"]) && (
+                            {matchesSearch("Data & Query", ["Default Row Limit", "Telemetry", "Export Telemetry"]) && (
                                 <SettingsData
                                     limit={formLimit}
                                     onLimitChange={setFormLimit}
@@ -196,6 +199,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                     onConnectTimeoutChange={setFormConnectTimeout}
                                     queryTimeout={formQueryTimeout}
                                     onQueryTimeoutChange={setFormQueryTimeout}
+                                    telemetryOptIn={telemetryOptIn}
+                                    onTelemetryOptInChange={(checked) => {
+                                        setTelemetryConsent(checked);
+                                        setTelemetryOptIn(checked);
+                                        toast.success(checked ? 'Telemetry opt-in enabled.' : 'Telemetry opt-in disabled.');
+                                    }}
+                                    onExportTelemetry={() => {
+                                        const consent = getTelemetryConsent();
+                                        const bundle = buildTelemetryExportBundle(consent);
+                                        exportTelemetryBundle(bundle);
+                                        toast.success('Telemetry bundle exported.');
+                                    }}
                                 />
                             )}
 

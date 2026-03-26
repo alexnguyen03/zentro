@@ -14,6 +14,7 @@ import { models } from '../../../wailsjs/go/models';
 import { DraftRow, DisplayRow, buildDisplayRows } from '../../lib/dataEditing';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
 import { useToast } from '../layout/Toast';
+import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
 
 export interface FocusCellRequest {
     rowKey: string;
@@ -113,8 +114,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         return resultState.primaryKeys.every((primaryKey) => columns.includes(primaryKey));
     }, [columns, readOnlyMode, resultState?.primaryKeys, resultState?.tableName]);
 
+    const viewportState = resolveResultFetchStrategy(displayRows.length, Boolean(resultState?.hasMore), isDone);
     const canSortClientSide = isDone && !resultState?.hasMore;
+    const shouldUseDeferredSort = canSortClientSide && viewportState.strategy === 'incremental_client';
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [deferredSortedRows, setDeferredSortedRows] = useState<DisplayRow[]>(displayRows);
+    const [isDeferredSorting, setIsDeferredSorting] = useState(false);
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
@@ -138,6 +143,44 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             setDragStart(null);
         }
     }, [isDone, rows]);
+
+    useEffect(() => {
+        if (!shouldUseDeferredSort || sorting.length === 0) {
+            setDeferredSortedRows(displayRows);
+            setIsDeferredSorting(false);
+            return;
+        }
+
+        setIsDeferredSorting(true);
+        const id = window.setTimeout(() => {
+            const [sortRule] = sorting;
+            if (!sortRule) {
+                setDeferredSortedRows(displayRows);
+                setIsDeferredSorting(false);
+                return;
+            }
+
+            const direction = sortRule.desc ? -1 : 1;
+            const columnIndex = columns.findIndex((col) => col === String(sortRule.id));
+            if (columnIndex < 0) {
+                setDeferredSortedRows(displayRows);
+                setIsDeferredSorting(false);
+                return;
+            }
+
+            const next = [...displayRows].sort((a, b) => {
+                const left = (a.values[columnIndex] || '').toLowerCase();
+                const right = (b.values[columnIndex] || '').toLowerCase();
+                if (left < right) return -1 * direction;
+                if (left > right) return 1 * direction;
+                return 0;
+            });
+            setDeferredSortedRows(next);
+            setIsDeferredSorting(false);
+        }, 0);
+
+        return () => window.clearTimeout(id);
+    }, [columns, displayRows, shouldUseDeferredSort, sorting]);
 
     useEffect(() => {
         const handleMouseUp = () => setDragStart(null);
@@ -448,8 +491,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         return [rowNumCol, ...dataCols];
     }, [columns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
 
+    const tableData = shouldUseDeferredSort ? deferredSortedRows : displayRows;
     const table = useReactTable<DisplayRow>({
-        data: displayRows,
+        data: tableData,
         columns: colDefs,
         state: { sorting },
         meta: {
@@ -466,7 +510,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         },
         onSortingChange: canSortClientSide ? setSorting : undefined,
         getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
+        getSortedRowModel: shouldUseDeferredSort ? undefined : getSortedRowModel(),
         enableSorting: canSortClientSide,
     });
 
@@ -515,6 +559,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({
 
     return (
         <div ref={parentRef} className="result-virtual-scroll">
+            {isDeferredSorting && (
+                <div className="px-3 py-1 text-[11px] text-text-secondary border-b border-border bg-bg-secondary/50">
+                    Applying incremental sort for large result set...
+                </div>
+            )}
             <table className="result-table-tanstack">
                 <thead>
                     {table.getHeaderGroups().map((headerGroup) => (

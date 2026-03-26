@@ -19,7 +19,7 @@ import { GetTransactionStatus } from '../../services/queryService';
 import { appLogger } from '../../lib/logger';
 import type { ConnectionProfile } from '../../types/connection';
 import { classifyQueryFailure } from '../query/runtime';
-import { saveQuerySnapshot } from '../telemetry/localMetricsStore';
+import { saveQuerySnapshot, toTelemetryEvent } from '../telemetry/localMetricsStore';
 
 function normalizeTransactionStatus(value: string): typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS] {
     if (value === TRANSACTION_STATUS.ACTIVE || value === TRANSACTION_STATUS.ERROR) return value as any;
@@ -132,6 +132,12 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 if (executedText && !executedText.includes('_zentro_filter')) {
                     useResultStore.getState().setLastExecutedQuery(payload.tabID, executedText);
                 }
+                toTelemetryEvent('query.started', {
+                    tabId: payload.tabID,
+                    sourceTabId: payload.sourceTabID,
+                    statementIndex: payload.statementIndex,
+                    statementCount: payload.statementCount,
+                });
             }),
             onQueryChunk((payload) => {
                 const current = chunkBuffers.get(payload.tabID);
@@ -199,6 +205,13 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 const rowCount = payload.isSelect
                     ? (currentResults[payload.tabID]?.rows.length ?? payload.affected)
                     : payload.affected;
+                toTelemetryEvent('query.done', {
+                    tabId: payload.tabID,
+                    sourceTabId: payload.sourceTabID,
+                    durationMs: payload.duration,
+                    rowCount,
+                    failureCode,
+                });
                 useStatusStore.getState().setQueryStats(Number(rowCount), payload.duration);
                 if (currentResults[payload.tabID]?.wasRowCapApplied) {
                     toast.error('Result row cap reached. Showing truncated rows for smooth UI.');

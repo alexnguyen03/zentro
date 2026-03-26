@@ -9,12 +9,16 @@ interface Props {
     onConnectTimeoutChange: (val: number) => void;
     queryTimeout: number;
     onQueryTimeoutChange: (val: number) => void;
+    telemetryOptIn: boolean;
+    onTelemetryOptInChange: (val: boolean) => void;
+    onExportTelemetry: () => void;
 }
 
 export const SettingsData: React.FC<Props> = ({ 
     limit, onLimitChange, 
     connectTimeout, onConnectTimeoutChange, 
-    queryTimeout, onQueryTimeoutChange 
+    queryTimeout, onQueryTimeoutChange,
+    telemetryOptIn, onTelemetryOptInChange, onExportTelemetry,
 }) => {
     return (
         <div className={SettingsClasses.section}>
@@ -65,6 +69,28 @@ export const SettingsData: React.FC<Props> = ({
                             onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
                         />
                         <span className={SettingsClasses.hint}>Seconds for long queries.</span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 pt-2">
+                    <div className="flex flex-col">
+                        <label className={SettingsClasses.label}>Telemetry (Opt-in)</label>
+                        <label className="inline-flex items-center gap-2 text-[13px] text-text-primary">
+                            <input
+                                type="checkbox"
+                                checked={telemetryOptIn}
+                                onChange={(e) => onTelemetryOptInChange(e.target.checked)}
+                            />
+                            Share anonymized product telemetry
+                        </label>
+                        <span className={SettingsClasses.hint}>Local metrics always stay on device. Opt-in enables product insights export/share.</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <label className={SettingsClasses.label}>Export Telemetry Bundle</label>
+                        <button className={SettingsClasses.input} type="button" onClick={onExportTelemetry}>
+                            Export JSON Bundle
+                        </button>
+                        <span className={SettingsClasses.hint}>Exports local query snapshots + telemetry events for diagnostics.</span>
                     </div>
                 </div>
             </div>
