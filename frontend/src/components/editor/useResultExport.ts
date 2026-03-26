@@ -12,6 +12,7 @@ interface UseResultExportOptions {
 }
 
 const CHUNK_SIZE = 2000;
+const SMALL_EXPORT_THRESHOLD = 50000;
 
 function nextTick() {
     return new Promise<void>((resolve) => window.setTimeout(resolve, 0));
@@ -74,6 +75,14 @@ export function useResultExport({
 }: UseResultExportOptions) {
     const { toast } = useToast();
     const [job, setJob] = React.useState<ExportJobStatus | null>(null);
+    const queueRef = React.useRef<Array<{
+        label: string;
+        extension: string;
+        mime: string;
+        builder: (rows: string[][]) => string;
+        rows: string[][];
+    }>>([]);
+    const runningRef = React.useRef(false);
     const cancelledRef = React.useRef<Set<string>>(new Set());
 
     const notifyExport = (path: string | undefined) => {
@@ -92,29 +101,49 @@ export function useResultExport({
         extension: string,
         mime: string,
         builder: (rows: string[][]) => string,
+        rows: string[][],
     ) => {
-        if (!result?.columns || !result.rows) return;
         const startedAt = Date.now();
         const id = `job_${startedAt}_${Math.random().toString(36).slice(2, 8)}`;
         setJob({
             id,
+            label,
             status: 'running',
             startedAt,
+            processedRows: 0,
+            totalRows: rows.length,
+            progressPct: 0,
+            queuedCount: queueRef.current.length,
         });
 
         try {
-            const rows = result.rows;
             for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
                 if (cancelledRef.current.has(id)) {
                     setJob({
                         id,
+                        label,
                         status: 'cancelled',
                         startedAt,
                         finishedAt: Date.now(),
+                        processedRows: offset,
+                        totalRows: rows.length,
+                        progressPct: Math.min(100, Math.round((offset / Math.max(rows.length, 1)) * 100)),
+                        queuedCount: queueRef.current.length,
                     });
                     toast.info(`${label} export cancelled.`);
                     return;
                 }
+                const processedRows = Math.min(rows.length, offset + CHUNK_SIZE);
+                setJob({
+                    id,
+                    label,
+                    status: 'running',
+                    startedAt,
+                    processedRows,
+                    totalRows: rows.length,
+                    progressPct: Math.min(100, Math.round((processedRows / Math.max(rows.length, 1)) * 100)),
+                    queuedCount: queueRef.current.length,
+                });
                 await nextTick();
             }
 
@@ -123,50 +152,98 @@ export function useResultExport({
             downloadBlob(fileName, content, mime);
             setJob({
                 id,
+                label,
                 status: 'done',
                 startedAt,
                 finishedAt: Date.now(),
+                processedRows: rows.length,
+                totalRows: rows.length,
+                progressPct: 100,
+                queuedCount: queueRef.current.length,
             });
             notifyExport(fileName);
         } catch (error) {
             setJob({
                 id,
+                label,
                 status: 'failed',
                 startedAt,
                 finishedAt: Date.now(),
+                processedRows: 0,
+                totalRows: rows.length,
+                progressPct: 0,
+                queuedCount: queueRef.current.length,
                 error: String(error),
             });
             notifyExportError(error, `${label} export`);
         } finally {
             cancelledRef.current.delete(id);
+            runningRef.current = false;
         }
-    }, [result, toast]);
+    }, [toast]);
+
+    const drainQueue = React.useCallback(async () => {
+        if (runningRef.current) return;
+        const next = queueRef.current.shift();
+        if (!next) return;
+
+        runningRef.current = true;
+        await runBackgroundExport(
+            next.label,
+            next.extension,
+            next.mime,
+            next.builder,
+            next.rows,
+        );
+
+        if (queueRef.current.length > 0) {
+            await drainQueue();
+        }
+    }, [runBackgroundExport]);
+
+    const enqueueExport = React.useCallback((
+        label: string,
+        extension: string,
+        mime: string,
+        builder: (rows: string[][]) => string,
+        rows: string[][],
+    ) => {
+        queueRef.current.push({ label, extension, mime, builder, rows });
+        void drainQueue();
+    }, [drainQueue]);
 
     const cancelExport = React.useCallback(() => {
         if (!job || job.status !== 'running') return;
         cancelledRef.current.add(job.id);
+        queueRef.current = [];
     }, [job]);
 
     const handleExportCSV = async () => {
+        if (!result?.columns || !result.rows) return;
         setShowExportMenu(false);
-        await runBackgroundExport('CSV', 'csv', 'text/csv;charset=utf-8', (rows) => rowsToCsv(result!.columns, rows));
+        const label = result.rows.length > SMALL_EXPORT_THRESHOLD ? 'CSV (queued)' : 'CSV';
+        enqueueExport(label, 'csv', 'text/csv;charset=utf-8', (rows) => rowsToCsv(result.columns, rows), result.rows);
     };
 
     const handleExportJSON = async () => {
+        if (!result?.columns || !result.rows) return;
         setShowExportMenu(false);
-        await runBackgroundExport('JSON', 'json', 'application/json;charset=utf-8', (rows) => rowsToJson(result!.columns, rows));
+        const label = result.rows.length > SMALL_EXPORT_THRESHOLD ? 'JSON (queued)' : 'JSON';
+        enqueueExport(label, 'json', 'application/json;charset=utf-8', (rows) => rowsToJson(result.columns, rows), result.rows);
     };
 
     const handleExportSQLConfirm = async () => {
-        if (!result) return;
+        if (!result?.columns || !result.rows) return;
         const tableName = tableNameForExport.trim() || result.tableName || 'my_table';
         setShowTableNameInput(false);
         setTableNameForExport('');
-        await runBackgroundExport(
-            'SQL INSERT',
+        const label = result.rows.length > SMALL_EXPORT_THRESHOLD ? 'SQL INSERT (queued)' : 'SQL INSERT';
+        enqueueExport(
+            label,
             'sql',
             'text/sql;charset=utf-8',
             (rows) => rowsToSql(result.columns, rows, tableName),
+            result.rows,
         );
     };
 

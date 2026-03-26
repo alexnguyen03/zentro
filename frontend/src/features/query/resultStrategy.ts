@@ -9,9 +9,14 @@ export interface ResultViewportState {
 
 export interface ExportJobStatus {
     id: string;
+    label?: string;
     status: 'idle' | 'running' | 'done' | 'failed' | 'cancelled';
     startedAt: number;
     finishedAt?: number;
+    processedRows?: number;
+    totalRows?: number;
+    progressPct?: number;
+    queuedCount?: number;
     error?: string;
 }
 
@@ -49,4 +54,3 @@ export function resolveResultFetchStrategy(rowCount: number, hasMore: boolean, i
         hasMore,
     };
 }
-

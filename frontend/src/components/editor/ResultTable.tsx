@@ -584,8 +584,16 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         estimateSize: () => 32,
         overscan: 20,
     });
+    const columnVirtualizer = useVirtualizer({
+        count: Math.max(columns.length, 0),
+        horizontal: true,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 140,
+        overscan: 8,
+    });
 
     const virtualItems = virtualizer.getVirtualItems();
+    const virtualColumns = columnVirtualizer.getVirtualItems();
     const fetchMoreRef = React.useRef(false);
 
     useEffect(() => {
@@ -618,6 +626,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const paddingBottom = virtualItems.length > 0
         ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0)
         : 0;
+    const dataColumnTotalWidth = columnVirtualizer.getTotalSize();
+    const columnPaddingLeft = virtualColumns.length > 0 ? (virtualColumns[0]?.start ?? 0) : 0;
+    const columnPaddingRight = virtualColumns.length > 0
+        ? dataColumnTotalWidth - (virtualColumns[virtualColumns.length - 1]?.end ?? 0)
+        : 0;
 
     return (
         <div ref={parentRef} className="result-virtual-scroll">
@@ -632,34 +645,80 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                 <thead>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <tr key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => {
-                                const sorted = header.column.getIsSorted();
-                                const canSort = header.column.getCanSort();
+                            {(() => {
+                                const fixedHeader = headerGroup.headers[0];
+                                const dynamicHeaders = headerGroup.headers.slice(1);
                                 return (
-                                    <th
-                                        key={header.id}
-                                        style={{ width: header.getSize() }}
-                                        className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
-                                        onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-                                        title={canSort && !isDone ? 'Sort available after query completes' : undefined}
-                                    >
-                                        <span className="rt-th-label">
-                                            {flexRender(header.column.columnDef.header, header.getContext())}
-                                            {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
-                                            {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
-                                        </span>
-                                    </th>
+                                    <>
+                                        {fixedHeader && (() => {
+                                            const sorted = fixedHeader.column.getIsSorted();
+                                            const canSort = fixedHeader.column.getCanSort();
+                                            return (
+                                                <th
+                                                    key={fixedHeader.id}
+                                                    style={{ width: fixedHeader.getSize() }}
+                                                    className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
+                                                    onClick={canSort ? fixedHeader.column.getToggleSortingHandler() : undefined}
+                                                    title={canSort && !isDone ? 'Sort available after query completes' : undefined}
+                                                >
+                                                    <span className="rt-th-label">
+                                                        {flexRender(fixedHeader.column.columnDef.header, fixedHeader.getContext())}
+                                                        {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
+                                                        {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
+                                                    </span>
+                                                </th>
+                                            );
+                                        })()}
+                                        {columnPaddingLeft > 0 && (
+                                            <th
+                                                aria-hidden
+                                                className="rt-th"
+                                                style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft }}
+                                            />
+                                        )}
+                                        {virtualColumns.map((virtualColumn) => {
+                                            const header = dynamicHeaders[virtualColumn.index];
+                                            if (!header) return null;
+                                            const sorted = header.column.getIsSorted();
+                                            const canSort = header.column.getCanSort();
+                                            return (
+                                                <th
+                                                    key={header.id}
+                                                    style={{ width: header.getSize() }}
+                                                    className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
+                                                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                                                    title={canSort && !isDone ? 'Sort available after query completes' : undefined}
+                                                >
+                                                    <span className="rt-th-label">
+                                                        {flexRender(header.column.columnDef.header, header.getContext())}
+                                                        {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
+                                                        {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
+                                                    </span>
+                                                </th>
+                                            );
+                                        })}
+                                        {columnPaddingRight > 0 && (
+                                            <th
+                                                aria-hidden
+                                                className="rt-th"
+                                                style={{ width: columnPaddingRight, minWidth: columnPaddingRight }}
+                                            />
+                                        )}
+                                    </>
                                 );
-                            })}
+                            })()}
                         </tr>
                     ))}
                 </thead>
                 <tbody>
                     {paddingTop > 0 && (
-                        <tr><td style={{ height: paddingTop }} /></tr>
+                        <tr><td colSpan={columns.length + 1} style={{ height: paddingTop }} /></tr>
                     )}
                     {virtualItems.map((virtualRow) => {
                         const row = tableRows[virtualRow.index];
+                        const visibleCells = row.getVisibleCells();
+                        const fixedCell = visibleCells[0];
+                        const dynamicCells = visibleCells.slice(1);
                         const displayRow = row.original;
                         const isDeleted = displayRow.kind === 'persisted' && deletedRows?.has(displayRow.persistedIndex as number);
                         const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
@@ -667,16 +726,37 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                         const draftClass = displayRow.kind === 'draft' ? 'rt-row-draft' : '';
                         return (
                             <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
-                                {row.getVisibleCells().map((cell) => (
-                                    <td key={cell.id} style={{ width: cell.column.getSize() }}>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                {fixedCell && (
+                                    <td key={fixedCell.id} style={{ width: fixedCell.column.getSize() }}>
+                                        {flexRender(fixedCell.column.columnDef.cell, fixedCell.getContext())}
                                     </td>
-                                ))}
+                                )}
+                                {columnPaddingLeft > 0 && (
+                                    <td
+                                        aria-hidden
+                                        style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft }}
+                                    />
+                                )}
+                                {virtualColumns.map((virtualColumn) => {
+                                    const cell = dynamicCells[virtualColumn.index];
+                                    if (!cell) return null;
+                                    return (
+                                        <td key={cell.id} style={{ width: cell.column.getSize() }}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </td>
+                                    );
+                                })}
+                                {columnPaddingRight > 0 && (
+                                    <td
+                                        aria-hidden
+                                        style={{ width: columnPaddingRight, minWidth: columnPaddingRight }}
+                                    />
+                                )}
                             </tr>
                         );
                     })}
                     {paddingBottom > 0 && (
-                        <tr><td style={{ height: paddingBottom }} /></tr>
+                        <tr><td colSpan={columns.length + 1} style={{ height: paddingBottom }} /></tr>
                     )}
                     {resultState?.isFetchingMore && (
                         <tr>

@@ -531,7 +531,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     {exportJob?.status === 'running' && (
                         <div className="flex items-center gap-2 text-[11px] border border-border rounded px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
-                            <span>Exporting...</span>
+                            <span>
+                                {exportJob.label || 'Exporting'} {exportJob.progressPct ?? 0}%
+                                {typeof exportJob.totalRows === 'number' ? ` (${(exportJob.processedRows || 0).toLocaleString()}/${exportJob.totalRows.toLocaleString()})` : ''}
+                                {exportJob.queuedCount ? ` +${exportJob.queuedCount} queued` : ''}
+                            </span>
                             <button onClick={cancelExport} title="Cancel export" className="hover:text-text-primary">
                                 <X size={11} />
                             </button>
