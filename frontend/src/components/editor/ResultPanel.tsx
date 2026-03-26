@@ -48,6 +48,7 @@ export type ResultPanelAction = UiAction;
 
 interface ResultPanelProps {
     tabId: string;
+    contextTabId?: string;
     result?: TabResult;
     onRun?: () => void;
     onFilterRun?: (filter: string) => void;
@@ -61,6 +62,7 @@ interface ResultPanelProps {
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({
     tabId,
+    contextTabId,
     result,
     onRun,
     onFilterRun,
@@ -73,6 +75,15 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 }) => {
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
     const addTab = useEditorStore((s) => s.addTab);
+    const updateTabContext = useEditorStore((s) => s.updateTabContext);
+    const persistedContext = useEditorStore((state) => {
+        const targetId = contextTabId || tabId;
+        for (const group of state.groups) {
+            const match = group.tabs.find((tab) => tab.id === targetId);
+            if (match) return match.context;
+        }
+        return undefined;
+    });
     const { toast } = useToast();
     const { openDetail } = useRowDetailStore();
     const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
@@ -83,7 +94,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [showExportMenu, setShowExportMenu] = React.useState(false);
     const [showTableNameInput, setShowTableNameInput] = React.useState(false);
     const [tableNameForExport, setTableNameForExport] = React.useState('');
-    const [quickFilter, setQuickFilter] = React.useState('');
+    const [quickFilter, setQuickFilter] = React.useState(() => persistedContext?.resultQuickFilter || '');
     const [visibleRows, setVisibleRows] = React.useState(0);
     const [bookmarkedRows, setBookmarkedRows] = React.useState<number[]>([]);
     const [activeSearchHit, setActiveSearchHit] = React.useState(0);
@@ -110,9 +121,25 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
     const setFilterExpr = React.useCallback((value: string) => {
         useResultStore.getState().setFilterExpr(tabId, value);
-    }, [tabId]);
+        updateTabContext(contextTabId || tabId, { resultFilterExpr: value });
+    }, [contextTabId, tabId, updateTabContext]);
     const filterExpr = result?.filterExpr || '';
     const sourceQuery = baseQuery || result?.lastExecutedQuery;
+
+    React.useEffect(() => {
+        const nextFilter = persistedContext?.resultQuickFilter || '';
+        setQuickFilter(nextFilter);
+    }, [contextTabId, persistedContext?.resultQuickFilter, tabId]);
+
+    React.useEffect(() => {
+        const nextExpr = persistedContext?.resultFilterExpr;
+        if (typeof nextExpr !== 'string') return;
+        useResultStore.getState().setFilterExpr(tabId, nextExpr);
+    }, [persistedContext?.resultFilterExpr, tabId]);
+
+    React.useEffect(() => {
+        updateTabContext(contextTabId || tabId, { resultQuickFilter: quickFilter });
+    }, [contextTabId, quickFilter, tabId, updateTabContext]);
 
     // ── Row count ─────────────────────────────────────────────────────────────
     const handleCountTotal = React.useCallback(async () => {

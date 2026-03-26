@@ -1,5 +1,15 @@
 import { TabType, TAB_TYPE, GENERATED_KIND } from '../../lib/constants';
 
+export interface TabQueryContext {
+    resultFilterExpr?: string;
+    resultQuickFilter?: string;
+    compareLeftTabId?: string;
+    compareRightTabId?: string;
+    compareSyncScroll?: boolean;
+    compareIgnoreWhitespace?: boolean;
+    compareShowUnified?: boolean;
+}
+
 export interface Tab {
     id: string;
     name: string;
@@ -10,6 +20,7 @@ export interface Tab {
     readOnly?: boolean;
     sourceTabId?: string;
     generatedKind?: typeof GENERATED_KIND[keyof typeof GENERATED_KIND];
+    context?: TabQueryContext;
 }
 
 export interface TabGroup {
@@ -41,6 +52,7 @@ export interface EditorState {
     setActiveTabId: (tabId: string, groupId: string) => void;
     setActiveGroupId: (groupId: string) => void;
     updateTabQuery: (id: string, query: string) => void;
+    updateTabContext: (id: string, patch: Partial<TabQueryContext>) => void;
     setTabRunning: (id: string, isRunning: boolean) => void;
     renameTab: (id: string, newName: string) => void;
     setTabQuery: (id: string, query: string) => void;

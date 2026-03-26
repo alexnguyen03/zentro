@@ -278,6 +278,7 @@ export const QueryTabs: React.FC = () => {
                             <div className="flex-1 overflow-hidden relative">
                                 <ResultPanel
                                     tabId={currentResultTabId ?? ''}
+                                    contextTabId={globalActiveTabId || undefined}
                                     result={currentResult}
                                     onRun={handleRunGlobal}
                                     onFilterRun={handleFilterRunGlobal}

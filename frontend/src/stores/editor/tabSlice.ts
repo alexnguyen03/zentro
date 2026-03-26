@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { TAB_TYPE } from '../../lib/constants';
-import { EditorState, Tab } from './types';
+import { EditorState, Tab, TabQueryContext } from './types';
 import { getNextTabName, updateActiveSession } from './sessionUtils';
 
 export interface TabSlice {
@@ -8,6 +8,7 @@ export interface TabSlice {
     removeTab: (id: string, groupId?: string) => void;
     setActiveTabId: (tabId: string, groupId: string) => void;
     updateTabQuery: (id: string, query: string) => void;
+    updateTabContext: (id: string, patch: Partial<TabQueryContext>) => void;
     setTabRunning: (id: string, isRunning: boolean) => void;
     renameTab: (id: string, newName: string) => void;
     setTabQuery: (id: string, query: string) => void;
@@ -140,6 +141,18 @@ export const createTabSlice: StateCreator<EditorState, [], [], TabSlice> = (set)
         groups: session.groups.map((group) => ({
             ...group,
             tabs: group.tabs.map((tab) => (tab.id === id ? { ...tab, query } : tab)),
+        })),
+    }))),
+
+    updateTabContext: (id, patch) => set((state) => updateActiveSession(state, (session) => ({
+        ...session,
+        groups: session.groups.map((group) => ({
+            ...group,
+            tabs: group.tabs.map((tab) => (
+                tab.id === id
+                    ? { ...tab, context: { ...(tab.context || {}), ...patch } }
+                    : tab
+            )),
         })),
     }))),
 

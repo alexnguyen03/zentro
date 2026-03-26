@@ -10,19 +10,78 @@ interface QueryCompareModalProps {
 }
 
 export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose }) => {
-  const { groups, activeGroupId } = useEditorStore();
+  const { groups, activeGroupId, updateTabContext } = useEditorStore();
   const activeGroup = groups.find((g) => g.id === activeGroupId);
   const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup?.activeTabId);
+  const queryTabs = useMemo(
+    () =>
+      groups
+        .flatMap((group, groupIndex) =>
+          group.tabs
+            .filter((tab) => tab.type === 'query')
+            .map((tab, tabIndex) => ({
+              id: tab.id,
+              label: tab.name,
+              query: tab.query,
+              order: `${groupIndex.toString().padStart(3, '0')}-${tabIndex.toString().padStart(3, '0')}`,
+            })),
+        )
+        .sort((a, b) => a.order.localeCompare(b.order)),
+    [groups],
+  );
 
-  const [left, setLeft] = useState(activeTab?.query || '');
-  const [right, setRight] = useState('');
-  const [showUnified, setShowUnified] = useState(false);
+  const context = activeTab?.context;
+  const fallbackRight = useMemo(
+    () => queryTabs.find((tab) => tab.id !== activeTab?.id)?.id || '',
+    [activeTab?.id, queryTabs],
+  );
+
+  const [leftTabId, setLeftTabId] = useState(context?.compareLeftTabId || activeTab?.id || '');
+  const [rightTabId, setRightTabId] = useState(context?.compareRightTabId || fallbackRight);
+  const [showUnified, setShowUnified] = useState(context?.compareShowUnified || false);
+  const [ignoreWhitespace, setIgnoreWhitespace] = useState(context?.compareIgnoreWhitespace || false);
   const [unifiedDiff, setUnifiedDiff] = useState('');
-  const [syncScroll, setSyncScroll] = useState(true);
+  const [syncScroll, setSyncScroll] = useState(context?.compareSyncScroll ?? true);
 
   const originalRef = useRef<MonacoEditor.ICodeEditor | null>(null);
   const modifiedRef = useRef<MonacoEditor.ICodeEditor | null>(null);
   const syncingRef = useRef(false);
+
+  useEffect(() => {
+    if (!activeTab?.id) return;
+    if (!leftTabId) setLeftTabId(activeTab.id);
+    if (!rightTabId && fallbackRight) setRightTabId(fallbackRight);
+  }, [activeTab?.id, fallbackRight, leftTabId, rightTabId]);
+
+  const leftQuery = useMemo(
+    () => queryTabs.find((tab) => tab.id === leftTabId)?.query || '',
+    [leftTabId, queryTabs],
+  );
+  const rightQuery = useMemo(
+    () => queryTabs.find((tab) => tab.id === rightTabId)?.query || '',
+    [queryTabs, rightTabId],
+  );
+
+  const normalizeSql = (sql: string) => {
+    const lf = sql.replace(/\r\n/g, '\n');
+    if (!ignoreWhitespace) return lf;
+    return lf
+      .split('\n')
+      .map((line) => line.trim().replace(/\s+/g, ' '))
+      .filter((line) => line.length > 0)
+      .join('\n');
+  };
+
+  useEffect(() => {
+    if (!activeTab?.id) return;
+    updateTabContext(activeTab.id, {
+      compareLeftTabId: leftTabId,
+      compareRightTabId: rightTabId,
+      compareSyncScroll: syncScroll,
+      compareIgnoreWhitespace: ignoreWhitespace,
+      compareShowUnified: showUnified,
+    });
+  }, [activeTab?.id, ignoreWhitespace, leftTabId, rightTabId, showUnified, syncScroll, updateTabContext]);
 
   useEffect(() => {
     if (!syncScroll || !originalRef.current || !modifiedRef.current) return;
@@ -48,11 +107,11 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
     };
   }, [syncScroll]);
 
-  const canCompare = useMemo(() => left.trim() !== '' || right.trim() !== '', [left, right]);
+  const canCompare = useMemo(() => leftQuery.trim() !== '' || rightQuery.trim() !== '', [leftQuery, rightQuery]);
 
   const handleUnified = async () => {
     if (!canCompare) return;
-    const diff = await CompareQueries(left, right);
+    const diff = await CompareQueries(normalizeSql(leftQuery), normalizeSql(rightQuery));
     setUnifiedDiff(diff);
     setShowUnified(true);
   };
@@ -67,6 +126,10 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
               <input type="checkbox" checked={syncScroll} onChange={(e) => setSyncScroll(e.target.checked)} />
               Sync scroll
             </label>
+            <label className="text-xs text-text-secondary flex items-center gap-1.5">
+              <input type="checkbox" checked={ignoreWhitespace} onChange={(e) => setIgnoreWhitespace(e.target.checked)} />
+              Normalize whitespace
+            </label>
             <Button variant="ghost" onClick={handleUnified} disabled={!canCompare}>
               Unified Diff
             </Button>
@@ -74,10 +137,44 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           </div>
         </div>
 
+        <div className="px-4 py-2 border-b border-border bg-bg-primary/40 flex items-center gap-3">
+          <label className="text-xs text-text-secondary flex items-center gap-1">
+            Left
+            <select
+              className="ml-1 bg-bg-primary border border-border rounded px-2 py-1 text-[12px]"
+              value={leftTabId}
+              onChange={(e) => setLeftTabId(e.target.value)}
+            >
+              {queryTabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-text-secondary flex items-center gap-1">
+            Right
+            <select
+              className="ml-1 bg-bg-primary border border-border rounded px-2 py-1 text-[12px]"
+              value={rightTabId}
+              onChange={(e) => setRightTabId(e.target.value)}
+            >
+              {queryTabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="text-[11px] text-text-muted">
+            Deterministic source order by group/tab index
+          </span>
+        </div>
+
         <div className="flex-1 min-h-0">
           <DiffEditor
-            original={left}
-            modified={right}
+            original={normalizeSql(leftQuery)}
+            modified={normalizeSql(rightQuery)}
             language="sql"
             theme="vs-dark"
             options={{
@@ -85,15 +182,13 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
               minimap: { enabled: false },
               renderOverviewRuler: true,
               scrollBeyondLastLine: false,
+              ignoreTrimWhitespace: ignoreWhitespace,
             }}
             onMount={(editor: MonacoEditor.IStandaloneDiffEditor) => {
               const originalEditor = editor.getOriginalEditor();
               const modifiedEditor = editor.getModifiedEditor();
               originalRef.current = originalEditor;
               modifiedRef.current = modifiedEditor;
-
-              originalEditor.onDidChangeModelContent(() => setLeft(originalEditor.getValue()));
-              modifiedEditor.onDidChangeModelContent(() => setRight(modifiedEditor.getValue()));
             }}
           />
         </div>
