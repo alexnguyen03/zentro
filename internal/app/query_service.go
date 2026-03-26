@@ -114,13 +114,13 @@ func (s *QueryService) ExplainQuery(tabID, query string, analyze bool) error {
 func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditableMeta bool) {
 	statements := dbpkg.SplitStatements(query)
 	if len(statements) == 0 {
-		s.emitter.Emit(s.ctx, constant.EventQueryStarted, map[string]any{
-			"tabID":          tabID,
-			"sourceTabID":    tabID,
-			"query":          query,
-			"statementText":  query,
-			"statementIndex": 0,
-			"statementCount": 1,
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+			TabID:          tabID,
+			SourceTabID:    tabID,
+			Query:          query,
+			StatementText:  query,
+			StatementIndex: 0,
+			StatementCount: 1,
 		})
 		s.emitDoneWithMore(queryStatement{
 			SourceTabID:      tabID,
@@ -136,13 +136,13 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 	prefs := s.getPrefs()
 	if prefs.ViewMode && dbpkg.BatchHasMutatingStatements(statements) {
 		err := fmt.Errorf("view mode is enabled: write statements are blocked")
-		s.emitter.Emit(s.ctx, constant.EventQueryStarted, map[string]any{
-			"tabID":          tabID,
-			"sourceTabID":    tabID,
-			"query":          query,
-			"statementText":  query,
-			"statementIndex": 0,
-			"statementCount": len(statements),
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+			TabID:          tabID,
+			SourceTabID:    tabID,
+			Query:          query,
+			StatementText:  query,
+			StatementIndex: 0,
+			StatementCount: len(statements),
 		})
 		s.emitDoneWithMore(queryStatement{
 			SourceTabID:      tabID,
@@ -202,13 +202,13 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 				SkipEditableMeta: skipEditableMeta,
 			}
 
-			s.emitter.Emit(s.ctx, constant.EventQueryStarted, map[string]any{
-				"tabID":          statement.TabID,
-				"sourceTabID":    statement.SourceTabID,
-				"query":          statement.Text,
-				"statementText":  statement.Text,
-				"statementIndex": statement.Index,
-				"statementCount": statement.Count,
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+				TabID:          statement.TabID,
+				SourceTabID:    statement.SourceTabID,
+				Query:          statement.Text,
+				StatementText:  statement.Text,
+				StatementIndex: statement.Index,
+				StatementCount: statement.Count,
 			})
 
 			s.logger.Info("executing query statement", "tab", statement.TabID, "sourceTab", tabID, "statementIndex", index)
@@ -317,9 +317,9 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 			if !sentCols {
 				chunkCols = cols
 				sentCols = true
-				s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
+				EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
 			} else {
-				s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
+				EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(statement, chunkCols, buf, seq, "", nil))
 			}
 			buf = nil
 			seq++
@@ -330,9 +330,9 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 		var chunkCols []string
 		if !sentCols {
 			chunkCols = cols
-			s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(statement, chunkCols, buf, seq, tableName, pks))
 		} else {
-			s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(statement, chunkCols, buf, seq, "", nil))
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(statement, chunkCols, buf, seq, "", nil))
 		}
 	}
 
@@ -436,14 +436,14 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 			rowCount++
 
 			if len(chunk) >= 500 {
-				s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
+				EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
 				chunk = nil
 				seq++
 			}
 		}
 
 		if len(chunk) > 0 {
-			s.emitter.Emit(s.ctx, constant.EventQueryChunk, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
 		}
 
 		duration := time.Since(start)
@@ -534,41 +534,41 @@ func (s *QueryService) emitDone(statement queryStatement, affected int64, durati
 }
 
 func (s *QueryService) emitDoneWithMore(statement queryStatement, affected int64, duration time.Duration, isSelect bool, hasMore bool, err error) {
-	payload := map[string]any{
-		"tabID":          statement.TabID,
-		"sourceTabID":    statement.SourceTabID,
-		"affected":       affected,
-		"duration":       duration.Milliseconds(),
-		"isSelect":       isSelect,
-		"hasMore":        hasMore,
-		"statementIndex": statement.Index,
-		"statementCount": statement.Count,
-		"statementText":  statement.Text,
+	payload := QueryDoneEvent{
+		TabID:          statement.TabID,
+		SourceTabID:    statement.SourceTabID,
+		Affected:       affected,
+		Duration:       duration.Milliseconds(),
+		IsSelect:       isSelect,
+		HasMore:        hasMore,
+		StatementIndex: statement.Index,
+		StatementCount: statement.Count,
+		StatementText:  statement.Text,
 	}
 	if err != nil {
-		payload["error"] = err.Error()
+		payload.Error = err.Error()
 	}
-	s.emitter.Emit(s.ctx, constant.EventQueryDone, payload)
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryDone, constant.EventQueryDoneV2, payload)
 }
 
-func buildChunk(statement queryStatement, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
-	chunk := map[string]any{
-		"tabID":          statement.TabID,
-		"sourceTabID":    statement.SourceTabID,
-		"rows":           rows,
-		"seq":            seq,
-		"statementIndex": statement.Index,
-		"statementCount": statement.Count,
-		"statementText":  statement.Text,
+func buildChunk(statement queryStatement, cols []string, rows [][]string, seq int, tableName string, pks []string) QueryChunkEvent {
+	chunk := QueryChunkEvent{
+		TabID:          statement.TabID,
+		SourceTabID:    statement.SourceTabID,
+		Rows:           rows,
+		Seq:            seq,
+		StatementIndex: statement.Index,
+		StatementCount: statement.Count,
+		StatementText:  statement.Text,
 	}
 	if cols != nil {
-		chunk["columns"] = cols
+		chunk.Columns = cols
 	}
 	if tableName != "" {
-		chunk["tableName"] = tableName
+		chunk.TableName = tableName
 	}
 	if len(pks) > 0 {
-		chunk["primaryKeys"] = pks
+		chunk.PrimaryKeys = pks
 	}
 	return chunk
 }

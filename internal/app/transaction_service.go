@@ -166,12 +166,10 @@ func (s *TransactionService) GetExecutor() sqlExecutor {
 }
 
 func (s *TransactionService) emitStatusLocked() {
-	payload := map[string]any{
-		"status": s.status,
-		"driver": s.getDriver(),
+	payload := TransactionStatusEvent{
+		Status: s.status,
+		Driver: s.getDriver(),
+		Error:  s.lastError,
 	}
-	if s.lastError != "" {
-		payload["error"] = s.lastError
-	}
-	s.emitter.Emit(s.ctx, constant.EventTransactionStatus, payload)
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventTransactionStatus, constant.EventTransactionStatusV2, payload)
 }

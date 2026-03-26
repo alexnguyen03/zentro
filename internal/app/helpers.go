@@ -72,9 +72,9 @@ func exportJSON(ctx context.Context, columns []string, rows [][]string) (string,
 	}
 
 	// Convert rows to array of objects
-	data := make([]map[string]interface{}, len(rows))
+	data := make([]map[string]any, len(rows))
 	for i, row := range rows {
-		obj := make(map[string]interface{})
+		obj := make(map[string]any)
 		for j, col := range columns {
 			if j < len(row) {
 				obj[col] = parseCellValue(row[j])
@@ -140,7 +140,7 @@ func exportSQLInsert(ctx context.Context, columns []string, rows [][]string, tab
 }
 
 // parseCellValue attempts to parse a cell value to appropriate JSON type
-func parseCellValue(val string) interface{} {
+func parseCellValue(val string) any {
 	if val == "" || val == "NULL" {
 		return nil
 	}
@@ -149,7 +149,7 @@ func parseCellValue(val string) interface{} {
 	trimmed := strings.TrimSpace(val)
 	if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
 		(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
-		var jsonVal interface{}
+		var jsonVal any
 		if err := json.Unmarshal([]byte(trimmed), &jsonVal); err == nil {
 			return jsonVal
 		}

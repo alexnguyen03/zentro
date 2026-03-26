@@ -307,10 +307,12 @@ func (a *App) ConnectProjectEnvironment(envKey string) error {
 	}
 	return sql.ErrNoRows
 }
-func (a *App) Reconnect() error                             { return a.conn.Reconnect() }
-func (a *App) SwitchDatabase(dbName string) error           { return a.conn.SwitchDatabase(dbName) }
-func (a *App) Disconnect()                                  { a.conn.Disconnect() }
-func (a *App) GetConnectionStatus() (map[string]any, error) { return a.conn.GetConnectionStatus() }
+func (a *App) Reconnect() error                   { return a.conn.Reconnect() }
+func (a *App) SwitchDatabase(dbName string) error { return a.conn.SwitchDatabase(dbName) }
+func (a *App) Disconnect()                        { a.conn.Disconnect() }
+func (a *App) GetConnectionStatus() (ConnectionRuntimeState, error) {
+	return a.conn.GetConnectionStatus()
+}
 func (a *App) FetchDatabaseSchema(profileName, dbName string) error {
 	return a.conn.FetchDatabaseSchema(profileName, dbName)
 }

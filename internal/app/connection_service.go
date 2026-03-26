@@ -203,18 +203,18 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
 
-	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-		"profile": prof,
-		"status":  constant.StatusConnecting,
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: prof,
+		Status:  constant.StatusConnecting,
 	})
 
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
 		s.logger.Error("open connection failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-			"profile": prof,
-			"status":  constant.StatusError,
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: prof,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
@@ -226,9 +226,9 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 		db.Close()
 		s.logger.Error("ping failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-			"profile": prof,
-			"status":  constant.StatusError,
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: prof,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
@@ -240,11 +240,11 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	s.keepAliveCancel = kaCancel
 	go s.startKeepAlive(kaCtx, db, prof)
 
-	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-		"profile": prof,
-		"status":  constant.StatusConnected,
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: prof,
+		Status:  constant.StatusConnected,
 	})
-	s.logger.Info("connected — emitted connection:changed",
+	s.logger.Info("connected and emitted connection changed event",
 		"profile", prof.Name,
 		"driver", prof.Driver,
 		"db_name", prof.DBName,
@@ -282,18 +282,18 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	}
 	s.setDB(nil, &clone)
 
-	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-		"profile": &clone,
-		"status":  constant.StatusConnecting,
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: &clone,
+		Status:  constant.StatusConnecting,
 	})
 
 	db, err := dbpkg.OpenConnection(&clone)
 	if err != nil {
 		s.logger.Error("switch database failed", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-			"profile": &clone,
-			"status":  constant.StatusError,
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: &clone,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
@@ -305,9 +305,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 		db.Close()
 		s.logger.Error("ping failed on new db", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-			"profile": &clone,
-			"status":  constant.StatusError,
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: &clone,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
@@ -319,9 +319,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	go s.startKeepAlive(kaCtx, db, &clone)
 
 	s.logger.Info("switched database ok")
-	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-		"profile": &clone,
-		"status":  constant.StatusConnected,
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: &clone,
+		Status:  constant.StatusConnected,
 	})
 
 	go s.fetchDatabaseList(db, &clone)
@@ -341,21 +341,23 @@ func (s *ConnectionService) Disconnect() {
 		_ = db.Close()
 	}
 	s.setDB(nil, nil)
-	s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{"status": constant.StatusDisconnected})
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Status: constant.StatusDisconnected,
+	})
 	runtime.WindowSetTitle(s.ctx, "Zentro")
 	s.logger.Info("disconnected")
 }
 
-func (s *ConnectionService) GetConnectionStatus() (map[string]any, error) {
+func (s *ConnectionService) GetConnectionStatus() (ConnectionRuntimeState, error) {
 	prof := s.getProfile()
 	db := s.getDB()
 	status := constant.StatusDisconnected
 	if db != nil {
 		status = constant.StatusConnected
 	}
-	return map[string]any{
-		"profile": prof,
-		"status":  status,
+	return ConnectionRuntimeState{
+		Profile: prof,
+		Status:  status,
 	}, nil
 }
 
@@ -399,9 +401,9 @@ func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof
 
 			if newState != currentState {
 				currentState = newState
-				s.emitter.Emit(s.ctx, constant.EventConnectionChanged, map[string]any{
-					"profile": prof,
-					"status":  currentState,
+				EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+					Profile: prof,
+					Status:  currentState,
 				})
 			}
 		}
@@ -440,9 +442,9 @@ func (s *ConnectionService) fetchDatabaseList(db *sql.DB, prof *models.Connectio
 		}
 	}
 
-	s.emitter.Emit(s.ctx, "schema:databases", map[string]any{
-		"profileName": prof.Name,
-		"databases":   names,
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaDatabases, constant.EventSchemaDatabasesV2, SchemaDatabasesEvent{
+		ProfileName: prof.Name,
+		Databases:   names,
 	})
 }
 
@@ -459,10 +461,10 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 		conn, err := dbpkg.OpenConnection(&clone)
 		if err != nil {
 			s.logger.Warn("cannot open db for schema fetch", "db", dbName, "err", err)
-			s.emitter.Emit(s.ctx, "schema:error", map[string]any{
-				"profileName": profileName,
-				"dbName":      dbName,
-				"error":       err.Error(),
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaError, constant.EventSchemaErrorV2, SchemaErrorEvent{
+				ProfileName: profileName,
+				DBName:      dbName,
+				Error:       err.Error(),
 			})
 			return
 		}
@@ -474,27 +476,27 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 
 		d, ok := getDriver(prof.Driver)
 		if !ok {
-			s.emitter.Emit(s.ctx, "schema:error", map[string]any{
-				"profileName": profileName,
-				"dbName":      dbName,
-				"error":       "driver not found",
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaError, constant.EventSchemaErrorV2, SchemaErrorEvent{
+				ProfileName: profileName,
+				DBName:      dbName,
+				Error:       "driver not found",
 			})
 			return
 		}
 		schemas, err := d.FetchSchema(ctx, conn, prof.ShowAllSchemas, s.logger)
 		if err != nil {
 			s.logger.Warn("fetch schema failed", "db", dbName, "err", err)
-			s.emitter.Emit(s.ctx, "schema:error", map[string]any{
-				"profileName": profileName,
-				"dbName":      dbName,
-				"error":       err.Error(),
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaError, constant.EventSchemaErrorV2, SchemaErrorEvent{
+				ProfileName: profileName,
+				DBName:      dbName,
+				Error:       err.Error(),
 			})
 			return
 		}
-		s.emitter.Emit(s.ctx, "schema:loaded", map[string]any{
-			"profileName": profileName,
-			"dbName":      dbName,
-			"schemas":     schemas,
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaLoaded, constant.EventSchemaLoadedV2, SchemaLoadedEvent{
+			ProfileName: profileName,
+			DBName:      dbName,
+			Schemas:     schemas,
 		})
 	}()
 	return nil
