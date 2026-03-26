@@ -21,12 +21,13 @@ describe('FeatureGate', () => {
         expect(gate.canUse('license.online.refresh')).toBe(false);
     });
 
-    it('denies all features when inactive', () => {
+    it('uses matrix defaults when entitlement is missing', () => {
         const gate = new FeatureGate({
             ...activeState,
             status: 'inactive',
+            entitlements: [],
         });
-        expect(gate.canUse('plugin.ui.commands')).toBe(false);
+        expect(gate.canUse('query.result.compare')).toBe(true);
+        expect(gate.canUse('query.advanced.ai-assist')).toBe(false);
     });
 });
-

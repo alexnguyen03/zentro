@@ -88,9 +88,9 @@ export const SettingsData: React.FC<Props> = ({
                     <div className="flex flex-col">
                         <label className={SettingsClasses.label}>Export Telemetry Bundle</label>
                         <button className={SettingsClasses.input} type="button" onClick={onExportTelemetry}>
-                            Export JSON Bundle
+                            Export Pipeline Bundle
                         </button>
-                        <span className={SettingsClasses.hint}>Exports local query snapshots + telemetry events for diagnostics.</span>
+                        <span className={SettingsClasses.hint}>Exports local metrics + anonymized analytics outbox (if opted-in).</span>
                     </div>
                 </div>
             </div>

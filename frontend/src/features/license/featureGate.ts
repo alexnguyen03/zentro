@@ -1,12 +1,17 @@
 import type { LicenseState } from './types';
+import { ENTITLEMENT_MATRIX } from './entitlementMatrix';
 
 export class FeatureGate {
     constructor(private readonly state: LicenseState) {}
 
     canUse(featureId: string): boolean {
-        if (this.state.status !== 'active') return false;
         const entitlement = this.state.entitlements.find((item) => item.featureId === featureId);
-        return entitlement?.enabled === true;
+        if (entitlement) {
+            return entitlement.enabled === true;
+        }
+        const policy = ENTITLEMENT_MATRIX[featureId];
+        if (!policy) return true;
+        if (policy.requiresActiveLicense && this.state.status !== 'active') return false;
+        return policy.defaultEnabled;
     }
 }
-

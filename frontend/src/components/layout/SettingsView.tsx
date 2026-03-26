@@ -17,7 +17,7 @@ import { SettingsData } from './settings/SettingsData';
 import { SettingsRegion } from './settings/SettingsRegion';
 import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
-import { buildTelemetryExportBundle, exportTelemetryBundle } from '../../features/telemetry/localMetricsStore';
+import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
 
 interface SettingsViewProps {
@@ -207,9 +207,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                     }}
                                     onExportTelemetry={() => {
                                         const consent = getTelemetryConsent();
-                                        const bundle = buildTelemetryExportBundle(consent);
-                                        exportTelemetryBundle(bundle);
-                                        toast.success('Telemetry bundle exported.');
+                                        const bundle = buildTelemetryPipelineExportBundle(consent);
+                                        exportTelemetryPipelineBundle(bundle);
+                                        toast.success('Telemetry pipeline bundle exported.');
                                     }}
                                 />
                             )}

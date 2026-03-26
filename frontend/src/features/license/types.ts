@@ -6,6 +6,8 @@ export interface Entitlement {
     limit?: number;
 }
 
+export type EntitlementMatrix = Record<string, { defaultEnabled: boolean; requiresActiveLicense?: boolean }>;
+
 export interface LicensePolicy {
     requireOnlineRefresh: boolean;
     refreshIntervalMinutes: number;
@@ -27,4 +29,3 @@ export interface LicenseBackendContract {
     DeactivateLicense(reason: string): Promise<void>;
     GetLicenseState(): Promise<LicenseState>;
 }
-

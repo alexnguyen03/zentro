@@ -4,6 +4,7 @@ import type { editor as MonacoEditor } from 'monaco-editor';
 import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
 import { ModalBackdrop, Button } from '../ui';
+import { useFeatureGate } from '../../features/license/useFeatureGate';
 
 interface QueryCompareModalProps {
   onClose: () => void;
@@ -11,6 +12,8 @@ interface QueryCompareModalProps {
 
 export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose }) => {
   const { groups, activeGroupId, updateTabContext } = useEditorStore();
+  const featureGate = useFeatureGate();
+  const canUseCompare = featureGate.canUse('query.result.compare');
   const activeGroup = groups.find((g) => g.id === activeGroupId);
   const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup?.activeTabId);
   const queryTabs = useMemo(
@@ -107,7 +110,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
     };
   }, [syncScroll]);
 
-  const canCompare = useMemo(() => leftQuery.trim() !== '' || rightQuery.trim() !== '', [leftQuery, rightQuery]);
+  const canCompare = useMemo(() => canUseCompare && (leftQuery.trim() !== '' || rightQuery.trim() !== ''), [canUseCompare, leftQuery, rightQuery]);
 
   const handleUnified = async () => {
     if (!canCompare) return;
@@ -143,6 +146,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
             <select
               className="ml-1 bg-bg-primary border border-border rounded px-2 py-1 text-[12px]"
               value={leftTabId}
+              disabled={!canUseCompare}
               onChange={(e) => setLeftTabId(e.target.value)}
             >
               {queryTabs.map((tab) => (
@@ -157,6 +161,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
             <select
               className="ml-1 bg-bg-primary border border-border rounded px-2 py-1 text-[12px]"
               value={rightTabId}
+              disabled={!canUseCompare}
               onChange={(e) => setRightTabId(e.target.value)}
             >
               {queryTabs.map((tab) => (
@@ -169,6 +174,11 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           <span className="text-[11px] text-text-muted">
             Deterministic source order by group/tab index
           </span>
+          {!canUseCompare && (
+            <span className="text-[11px] text-warning">
+              Compare is not available for this license policy.
+            </span>
+          )}
         </div>
 
         <div className="flex-1 min-h-0">

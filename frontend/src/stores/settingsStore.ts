@@ -5,6 +5,27 @@ import { ToastPlacement } from '../components/layout/Toast';
 import { useShortcutStore } from './shortcutStore';
 
 let saveTimeout: ReturnType<typeof window.setTimeout> | null = null;
+const DEFAULT_TOAST_PLACEMENT: ToastPlacement = 'bottom-left';
+const VALID_TOAST_PLACEMENTS: ToastPlacement[] = [
+    'top-left',
+    'top-center',
+    'top-right',
+    'bottom-left',
+    'bottom-center',
+    'bottom-right',
+];
+
+function clampNumber(value: number | undefined, fallback: number, min: number, max: number): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+function normalizeToastPlacement(value: unknown): ToastPlacement {
+    if (typeof value === 'string' && VALID_TOAST_PLACEMENTS.includes(value as ToastPlacement)) {
+        return value as ToastPlacement;
+    }
+    return DEFAULT_TOAST_PLACEMENT;
+}
 
 interface SettingsState {
     theme: string;
@@ -37,11 +58,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             const prefs = await GetPreferences();
             set({
                 theme: prefs.theme || 'system',
-                fontSize: prefs.font_size || 14,
-                defaultLimit: prefs.default_limit || 1000,
-                toastPlacement: (prefs.toast_placement as ToastPlacement) || 'bottom-left',
-                connectTimeout: prefs.connect_timeout || 10,
-                queryTimeout: prefs.query_timeout || 60,
+                fontSize: clampNumber(prefs.font_size, 14, 8, 48),
+                defaultLimit: clampNumber(prefs.default_limit, 1000, 100, 100000),
+                toastPlacement: normalizeToastPlacement(prefs.toast_placement),
+                connectTimeout: clampNumber(prefs.connect_timeout, 10, 5, 300),
+                queryTimeout: clampNumber(prefs.query_timeout, 60, 5, 100000),
                 autoCheckUpdates: prefs.auto_check_updates !== false,
                 viewMode: prefs.view_mode === true,
             });
@@ -59,12 +80,34 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             const state = useSettingsStore.getState();
             const merged = new utils.Preferences({
                 theme: prefs.theme ?? current.theme ?? state.theme,
-                font_size: prefs.font_size ?? current.font_size ?? state.fontSize,
-                default_limit: prefs.default_limit ?? current.default_limit ?? state.defaultLimit,
+                font_size: clampNumber(
+                    prefs.font_size ?? current.font_size ?? state.fontSize,
+                    state.fontSize,
+                    8,
+                    48,
+                ),
+                default_limit: clampNumber(
+                    prefs.default_limit ?? current.default_limit ?? state.defaultLimit,
+                    state.defaultLimit,
+                    100,
+                    100000,
+                ),
                 chunk_size: prefs.chunk_size ?? current.chunk_size,
-                toast_placement: (prefs.toast_placement as ToastPlacement | undefined) ?? (current.toast_placement as ToastPlacement | undefined) ?? state.toastPlacement,
-                query_timeout: prefs.query_timeout ?? current.query_timeout ?? state.queryTimeout,
-                connect_timeout: prefs.connect_timeout ?? current.connect_timeout ?? state.connectTimeout,
+                toast_placement: normalizeToastPlacement(
+                    prefs.toast_placement ?? current.toast_placement ?? state.toastPlacement,
+                ),
+                query_timeout: clampNumber(
+                    prefs.query_timeout ?? current.query_timeout ?? state.queryTimeout,
+                    state.queryTimeout,
+                    5,
+                    100000,
+                ),
+                connect_timeout: clampNumber(
+                    prefs.connect_timeout ?? current.connect_timeout ?? state.connectTimeout,
+                    state.connectTimeout,
+                    5,
+                    300,
+                ),
                 schema_timeout: prefs.schema_timeout ?? current.schema_timeout,
                 auto_check_updates: prefs.auto_check_updates ?? current.auto_check_updates ?? state.autoCheckUpdates,
                 view_mode: prefs.view_mode ?? current.view_mode ?? state.viewMode,

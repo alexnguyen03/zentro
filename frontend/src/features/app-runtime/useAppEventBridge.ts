@@ -19,7 +19,8 @@ import { GetTransactionStatus } from '../../services/queryService';
 import { appLogger } from '../../lib/logger';
 import type { ConnectionProfile } from '../../types/connection';
 import { classifyQueryFailure } from '../query/runtime';
-import { saveQuerySnapshot, toTelemetryEvent } from '../telemetry/localMetricsStore';
+import { getTelemetryConsent } from '../telemetry/consent';
+import { queueTelemetryAnalytics, saveQuerySnapshot, toTelemetryEvent } from '../telemetry/localMetricsStore';
 
 function normalizeTransactionStatus(value: string): typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS] {
     if (value === TRANSACTION_STATUS.ACTIVE || value === TRANSACTION_STATUS.ERROR) return value as any;
@@ -40,6 +41,11 @@ function clearGeneratedResults(sourceTabID: string) {
             resultState.clearResult(k);
         }
     });
+}
+
+function recordTelemetryEvent(event: string, payload: Record<string, unknown>) {
+    toTelemetryEvent(event, payload);
+    queueTelemetryAnalytics(event, payload, getTelemetryConsent());
 }
 
 export function useAppEventBridge(toast: { error: (message: string) => void }) {
@@ -132,7 +138,7 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 if (executedText && !executedText.includes('_zentro_filter')) {
                     useResultStore.getState().setLastExecutedQuery(payload.tabID, executedText);
                 }
-                toTelemetryEvent('query.started', {
+                recordTelemetryEvent('query.started', {
                     tabId: payload.tabID,
                     sourceTabId: payload.sourceTabID,
                     statementIndex: payload.statementIndex,
@@ -205,7 +211,7 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 const rowCount = payload.isSelect
                     ? (currentResults[payload.tabID]?.rows.length ?? payload.affected)
                     : payload.affected;
-                toTelemetryEvent('query.done', {
+                recordTelemetryEvent('query.done', {
                     tabId: payload.tabID,
                     sourceTabId: payload.sourceTabID,
                     durationMs: payload.duration,

@@ -43,6 +43,7 @@ import { useResultKeyboard } from './useResultKeyboard';
 import { useResultExport } from './useResultExport';
 import { setClipboardText } from '../../services/clipboardService';
 import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
+import { useFeatureGate } from '../../features/license/useFeatureGate';
 
 export type ResultPanelAction = UiAction;
 
@@ -85,6 +86,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         return undefined;
     });
     const { toast } = useToast();
+    const featureGate = useFeatureGate();
     const { openDetail } = useRowDetailStore();
     const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
 
@@ -278,6 +280,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         });
         return hits;
     }, [quickFilter, result]);
+    const canUseResultSearch = featureGate.canUse('query.result.search');
+    const canUseResultJump = featureGate.canUse('query.result.jump');
+    const canUseResultBookmark = featureGate.canUse('query.result.bookmark');
+    const canUseResultExport = featureGate.canUse('query.result.export');
 
     const jumpToPersistedRow = React.useCallback((rowIndex: number) => {
         if (!result || rowIndex < 0 || rowIndex >= result.rows.length) return;
@@ -319,10 +325,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         displayRows, displayRowsByKey, rowOrder, editedCells, deletedRows, draftRows, isSavingDraftRows,
         onRun, onSaveRequest: handleSaveRequest, onDeleteSelected: requestDeleteSelectedRows,
         onSetShowRightSidebar: setShowRightSidebar,
-        onFocusSearch: () => quickFilterRef.current?.focus(),
-        onFocusJump: () => jumpRowRef.current?.focus(),
-        onSearchNext: jumpToNextHit,
-        onSearchPrev: jumpToPrevHit,
+        onFocusSearch: () => { if (canUseResultSearch) quickFilterRef.current?.focus(); },
+        onFocusJump: () => { if (canUseResultJump) jumpRowRef.current?.focus(); },
+        onSearchNext: () => { if (canUseResultSearch) jumpToNextHit(); },
+        onSearchPrev: () => { if (canUseResultSearch) jumpToPrevHit(); },
         setEditedCells, setDraftRows,
     });
 
@@ -510,6 +516,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         <button
                             className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border"
                             onClick={() => setShowExportMenu(!showExportMenu)}
+                            disabled={!canUseResultExport}
                             title="Export"
                         >
                             <Download size={13} /><span>Export</span>
@@ -551,7 +558,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         ref={quickFilterRef}
                         value={quickFilter}
                         onChange={(e) => setQuickFilter(e.target.value)}
+                        disabled={!canUseResultSearch}
                         onKeyDown={(e) => {
+                            if (!canUseResultSearch) return;
                             if (e.key === 'Enter') {
                                 e.preventDefault();
                                 if (e.shiftKey) jumpToPrevHit();
@@ -562,9 +571,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         className="w-[220px] bg-bg-primary border border-border rounded px-2 py-1 text-[11px] outline-none focus:border-success"
                     />
                     <button className="p-1 border border-border rounded hover:bg-bg-tertiary" onClick={jumpToPrevHit} title="Previous match (Shift+F3)">
+                        disabled={!canUseResultSearch}
                         <ChevronUp size={11} />
                     </button>
                     <button className="p-1 border border-border rounded hover:bg-bg-tertiary" onClick={jumpToNextHit} title="Next match (F3)">
+                        disabled={!canUseResultSearch}
                         <ChevronDown size={11} />
                     </button>
                     <span className="text-text-muted">
@@ -577,7 +588,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         ref={jumpRowRef}
                         value={jumpRowInput}
                         onChange={(e) => setJumpRowInput(e.target.value)}
+                        disabled={!canUseResultJump}
                         onKeyDown={(e) => {
+                            if (!canUseResultJump) return;
                             if (e.key === 'Enter') {
                                 e.preventDefault();
                                 handleJumpToRow();
@@ -586,11 +599,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         placeholder="Jump row #"
                         className="w-[100px] bg-bg-primary border border-border rounded px-2 py-1 text-[11px] outline-none focus:border-success"
                     />
-                    <button className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary" onClick={handleJumpToRow} title="Jump to row (Ctrl+G)">
+                    <button className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary disabled:opacity-60" onClick={handleJumpToRow} disabled={!canUseResultJump} title="Jump to row (Ctrl+G)">
                         Jump
                     </button>
                     <button
                         className="px-2 py-1 border border-border rounded hover:bg-bg-tertiary inline-flex items-center gap-1"
+                        disabled={!canUseResultBookmark}
                         onClick={() => {
                             const rowIndex = selectedPersistedRowIndices[0];
                             if (rowIndex === undefined) return;
