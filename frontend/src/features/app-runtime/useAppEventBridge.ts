@@ -18,6 +18,8 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { GetTransactionStatus } from '../../services/queryService';
 import { appLogger } from '../../lib/logger';
 import type { ConnectionProfile } from '../../types/connection';
+import { classifyQueryFailure } from '../query/runtime';
+import { saveQuerySnapshot } from '../telemetry/localMetricsStore';
 
 function normalizeTransactionStatus(value: string): typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS] {
     if (value === TRANSACTION_STATUS.ACTIVE || value === TRANSACTION_STATUS.ERROR) return value as any;
@@ -50,6 +52,31 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
     const { setTransactionStatus } = useStatusStore();
 
     useEffect(() => {
+        const chunkBuffers = new Map<string, {
+            columns?: string[];
+            rows: string[][];
+            tableName?: string;
+            primaryKeys?: string[];
+        }>();
+        let flushHandle: number | null = null;
+
+        const flushChunks = () => {
+            for (const [tabId, chunk] of chunkBuffers.entries()) {
+                useResultStore.getState().appendRows(tabId, chunk.columns, chunk.rows, chunk.tableName, chunk.primaryKeys);
+                useResultStore.getState().touchProgress(tabId, chunk.rows.length);
+                if (chunk.rows.length > 0) {
+                    useResultStore.getState().markFirstRow(tabId);
+                }
+            }
+            chunkBuffers.clear();
+            flushHandle = null;
+        };
+
+        const scheduleFlush = () => {
+            if (flushHandle !== null) return;
+            flushHandle = window.requestAnimationFrame(flushChunks);
+        };
+
         const subs = [
             onConnectionChanged((data: ConnectionChangedPayload) => {
                 appLogger.info('connection changed', data);
@@ -97,7 +124,9 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
 
                 useEditorStore.getState().setTabRunning(payload.sourceTabID, true);
                 useResultStore.getState().initTab(payload.tabID);
+                useResultStore.getState().setExecutionState(payload.tabID, 'running');
                 useLayoutStore.getState().setShowResultPanel(true);
+                useStatusStore.getState().setQueryRuntime('running');
 
                 const executedText = payload.statementText || payload.query;
                 if (executedText && !executedText.includes('_zentro_filter')) {
@@ -105,13 +134,63 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 }
             }),
             onQueryChunk((payload) => {
-                useResultStore.getState().appendRows(payload.tabID, payload.columns, payload.rows, payload.tableName, payload.primaryKeys);
+                const current = chunkBuffers.get(payload.tabID);
+                if (!current) {
+                    chunkBuffers.set(payload.tabID, {
+                        columns: payload.columns,
+                        rows: [...payload.rows],
+                        tableName: payload.tableName,
+                        primaryKeys: payload.primaryKeys,
+                    });
+                } else {
+                    current.rows.push(...payload.rows);
+                    if (!current.columns && payload.columns?.length) current.columns = payload.columns;
+                    if (!current.tableName && payload.tableName) current.tableName = payload.tableName;
+                    if (!current.primaryKeys && payload.primaryKeys) current.primaryKeys = payload.primaryKeys;
+                }
+
+                const pending = chunkBuffers.get(payload.tabID);
+                if ((pending?.rows.length ?? 0) > 5000) {
+                    flushChunks();
+                } else {
+                    scheduleFlush();
+                }
             }),
             onQueryDone((payload) => {
+                if (chunkBuffers.has(payload.tabID)) {
+                    flushChunks();
+                }
                 if (payload.statementCount <= 1 || payload.statementIndex === payload.statementCount - 1 || Boolean(payload.error)) {
                     useEditorStore.getState().setTabRunning(payload.sourceTabID, false);
                 }
                 useResultStore.getState().setDone(payload.tabID, payload.affected, payload.duration, payload.isSelect, payload.hasMore, payload.error);
+                const failureCode = classifyQueryFailure(payload.error);
+                useResultStore.getState().setExecutionState(
+                    payload.tabID,
+                    failureCode === 'none' ? 'done' : (failureCode === 'cancelled' ? 'cancelled' : 'failed'),
+                    failureCode,
+                );
+
+                const tabResult = useResultStore.getState().results[payload.tabID];
+                const firstRowLatencyMs = tabResult?.progress.firstRowAt
+                    ? tabResult.progress.firstRowAt - tabResult.progress.startedAt
+                    : null;
+                useStatusStore.getState().setQueryRuntime(
+                    failureCode === 'none' ? 'done' : (failureCode === 'cancelled' ? 'cancelled' : 'failed'),
+                    failureCode,
+                    firstRowLatencyMs,
+                );
+
+                saveQuerySnapshot({
+                    tabId: payload.tabID,
+                    sourceTabId: payload.sourceTabID,
+                    startedAt: tabResult?.progress.startedAt ?? Date.now(),
+                    firstRowLatencyMs: firstRowLatencyMs ?? undefined,
+                    totalDurationMs: payload.duration,
+                    rowsReceived: tabResult?.progress.rowsReceived ?? 0,
+                    failureCode,
+                });
+
                 if (payload.error) {
                     toast.error(`Query failed: ${payload.error}`);
                 }
@@ -121,6 +200,9 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                     ? (currentResults[payload.tabID]?.rows.length ?? payload.affected)
                     : payload.affected;
                 useStatusStore.getState().setQueryStats(Number(rowCount), payload.duration);
+                if (currentResults[payload.tabID]?.wasRowCapApplied) {
+                    toast.error('Result row cap reached. Showing truncated rows for smooth UI.');
+                }
             }),
             onTransactionStatus((payload) => {
                 setTransactionStatus(payload.status as any, payload.error || null);
@@ -130,7 +212,11 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
             }),
         ];
 
-        return () => subs.forEach((unsub) => unsub());
+        return () => {
+            if (flushHandle !== null) {
+                window.cancelAnimationFrame(flushHandle);
+            }
+            subs.forEach((unsub) => unsub());
+        };
     }, [setActiveProfile, setConnectionStatus, setDatabases, setIsConnected, setTransactionStatus, toast]);
 }
-

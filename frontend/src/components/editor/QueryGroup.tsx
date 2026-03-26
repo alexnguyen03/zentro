@@ -3,6 +3,8 @@ import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useResultStore } from '../../stores/resultStore';
+import { useStatusStore } from '../../stores/statusStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
@@ -12,6 +14,8 @@ import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../services/querySer
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { isMutatingSql, resolveQueryPolicy } from '../../features/query/policy';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -22,7 +26,11 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const { id: groupId, tabs, activeTabId } = group;
     const { removeTab, setActiveTabId, setActiveGroupId, renameTab, updateTabQuery, addTab, splitGroup } = useEditorStore();
     const { isConnected, activeProfile } = useConnectionStore();
+    const transactionStatus = useStatusStore((state) => state.transactionStatus);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { saveScript } = useScriptStore();
+    const [pendingRunQuery, setPendingRunQuery] = useState<string | null>(null);
+    const [showWriteConfirm, setShowWriteConfirm] = useState(false);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -48,7 +56,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     }, [tabs, removeTab, groupId, activeProfile, saveScript]);
 
     // ── Run / Cancel ──────────────────────────────────────────────────────
-    const handleRun = useCallback(async (queryToRun: string) => {
+    const executeQueryNow = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
         useResultStore.getState().setFilterExpr(activeTab.id, '');
         try {
@@ -57,6 +65,24 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             console.error('ExecuteQuery error:', getErrorMessage(err));
         }
     }, [activeTab, isConnected]);
+
+    const handleRun = useCallback(async (queryToRun: string) => {
+        const policy = resolveQueryPolicy(activeEnvironmentKey || undefined);
+        const mutating = isMutatingSql(queryToRun);
+        const shouldPrompt =
+            mutating &&
+            policy.requireWriteConfirm &&
+            policy.environmentStrictness === 'strict' &&
+            transactionStatus !== 'active';
+
+        if (shouldPrompt) {
+            setPendingRunQuery(queryToRun);
+            setShowWriteConfirm(true);
+            return;
+        }
+
+        await executeQueryNow(queryToRun);
+    }, [activeEnvironmentKey, executeQueryNow, transactionStatus]);
 
     const handleExplain = useCallback(async (queryToExplain: string, analyze: boolean) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
@@ -144,6 +170,24 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={showWriteConfirm}
+                onClose={() => {
+                    setShowWriteConfirm(false);
+                    setPendingRunQuery(null);
+                }}
+                onConfirm={() => {
+                    const sql = pendingRunQuery;
+                    setPendingRunQuery(null);
+                    if (!sql) return;
+                    void executeQueryNow(sql);
+                }}
+                title="Confirm Write Query"
+                message="Mutating SQL detected on a strict environment."
+                description="Run this query only if you are sure. Tip: start a transaction for safer control."
+                confirmLabel="Run Query"
+                variant="danger"
+            />
         </div>
     );
 };

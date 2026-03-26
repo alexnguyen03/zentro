@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { CONNECTION_STATUS, TRANSACTION_STATUS } from '../lib/constants';
+import type { QueryExecutionState, QueryFailureCode } from '../features/query/runtime';
 
 interface StatusState {
     connectionLabel: string;
@@ -10,6 +11,9 @@ interface StatusState {
     currentDriver: string;
     transactionStatus: typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
     transactionError: string | null;
+    queryExecutionState: QueryExecutionState;
+    queryFailureCode: QueryFailureCode;
+    firstRowLatencyMs: number | null;
 
     setConnectionLabel: (label: string) => void;
     setStatus: (status: StatusState['status']) => void;
@@ -17,6 +21,7 @@ interface StatusState {
     setMessage: (message: string | null) => void;
     setCurrentDriver: (driver: string) => void;
     setTransactionStatus: (status: StatusState['transactionStatus'], error?: string | null) => void;
+    setQueryRuntime: (state: QueryExecutionState, failureCode?: QueryFailureCode, firstRowLatencyMs?: number | null) => void;
 }
 
 export const useStatusStore = create<StatusState>((set) => ({
@@ -28,6 +33,9 @@ export const useStatusStore = create<StatusState>((set) => ({
     currentDriver: '',
     transactionStatus: TRANSACTION_STATUS.NONE,
     transactionError: null,
+    queryExecutionState: 'done',
+    queryFailureCode: 'none',
+    firstRowLatencyMs: null,
 
     setConnectionLabel: (label) => set({ connectionLabel: label }),
     setStatus: (status) => set({ status }),
@@ -35,4 +43,6 @@ export const useStatusStore = create<StatusState>((set) => ({
     setMessage: (message) => set({ message }),
     setCurrentDriver: (driver) => set({ currentDriver: driver }),
     setTransactionStatus: (transactionStatus, transactionError = null) => set({ transactionStatus, transactionError }),
+    setQueryRuntime: (queryExecutionState, queryFailureCode = 'none', firstRowLatencyMs = null) =>
+        set({ queryExecutionState, queryFailureCode, firstRowLatencyMs }),
 }));

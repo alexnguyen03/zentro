@@ -3,6 +3,7 @@ import type { ConnectionProfile } from '../../types/connection';
 import { CONNECTION_STATUS } from '../../lib/constants';
 import type { LicenseState } from '../../features/license/types';
 import type { PluginContribution } from '../../features/plugin/contracts';
+import type { ExecutionPolicy } from '../../features/query/runtime';
 
 export type RuntimeConnectionStatus = typeof CONNECTION_STATUS[keyof typeof CONNECTION_STATUS];
 
@@ -95,6 +96,7 @@ export interface AppApiGateway {
     GetLicenseState?(): Promise<LicenseState>;
     RegisterPluginContribution?(contribution: PluginContribution): Promise<void>;
     ListPluginByCapability?(capability: string): Promise<PluginContribution[]>;
+    GetExecutionPolicy?(environmentKey: string): Promise<ExecutionPolicy>;
 }
 
 export interface ServiceError {

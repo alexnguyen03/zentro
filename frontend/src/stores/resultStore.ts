@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { DraftRow } from '../lib/dataEditing';
 import { withStoreLogger } from './logger';
+import type { QueryExecutionState, QueryFailureCode, QueryProgress } from '../features/query/runtime';
 
 export interface TabResult {
     columns: string[];
@@ -21,6 +22,11 @@ export interface TabResult {
     pendingEdits?: Map<string, string>;
     pendingDeletions?: Set<number>;
     pendingDraftRows?: DraftRow[];
+    executionState: QueryExecutionState;
+    failureCode: QueryFailureCode;
+    progress: QueryProgress;
+    cappedRows: number;
+    wasRowCapApplied: boolean;
 }
 
 type ProjectResultBucket = Record<string, TabResult>;
@@ -49,6 +55,9 @@ interface ResultState {
     setFilterExpr: (tabId: string, filterExpr: string) => void;
     setLastExecutedQuery: (tabId: string, query: string) => void;
     updatePendingState: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>, draftRows: DraftRow[]) => void;
+    setExecutionState: (tabId: string, state: QueryExecutionState, failureCode?: QueryFailureCode) => void;
+    markFirstRow: (tabId: string) => void;
+    touchProgress: (tabId: string, appendedRows: number) => void;
 }
 
 const DEFAULT_WORKSPACE_ID = '__default__';
@@ -134,6 +143,15 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
                 pendingEdits: prev?.pendingEdits || new Map(),
                 pendingDeletions: prev?.pendingDeletions || new Set(),
                 pendingDraftRows: [],
+                executionState: 'queued',
+                failureCode: 'none',
+                progress: {
+                    startedAt: Date.now(),
+                    rowsReceived: 0,
+                    chunksReceived: 0,
+                },
+                cappedRows: 0,
+                wasRowCapApplied: false,
             },
         };
     })),
@@ -143,7 +161,10 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
         if (!prev) return bucket;
 
         const isFirstChunk = columns !== undefined && columns.length > 0;
-        const nextRows = isFirstChunk ? rows : [...prev.rows, ...rows];
+        const mergedRows = isFirstChunk ? rows : [...prev.rows, ...rows];
+        const cap = prev.cappedRows > 0 ? prev.cappedRows : 100000;
+        const nextRows = mergedRows.length > cap ? mergedRows.slice(0, cap) : mergedRows;
+        const capApplied = mergedRows.length > cap;
 
         return {
             ...bucket,
@@ -153,6 +174,7 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
                 rows: nextRows,
                 tableName: tableName || prev.tableName,
                 primaryKeys: primaryKeys || prev.primaryKeys,
+                wasRowCapApplied: capApplied || prev.wasRowCapApplied,
             },
         };
     })),
@@ -174,6 +196,9 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
                 isFetchingMore: false,
                 rows: isSelect ? prev.rows : [],
                 columns: isSelect ? prev.columns : [],
+                executionState: error
+                    ? (String(error).toLowerCase().includes('cancel') ? 'cancelled' : 'failed')
+                    : 'done',
             },
         };
     })),
@@ -266,6 +291,53 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
         return {
             ...bucket,
             [tabId]: { ...prev, pendingEdits, pendingDeletions, pendingDraftRows },
+        };
+    })),
+
+    setExecutionState: (tabId, executionState, failureCode = 'none') => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+        return {
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                executionState,
+                failureCode,
+            },
+        };
+    })),
+
+    markFirstRow: (tabId) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+        if (prev.progress.firstRowAt) return bucket;
+        return {
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                progress: {
+                    ...prev.progress,
+                    firstRowAt: Date.now(),
+                },
+            },
+        };
+    })),
+
+    touchProgress: (tabId, appendedRows) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+        return {
+            ...bucket,
+            [tabId]: {
+                ...prev,
+                executionState: appendedRows > 0 ? 'streaming' : prev.executionState,
+                progress: {
+                    ...prev.progress,
+                    rowsReceived: prev.progress.rowsReceived + appendedRows,
+                    chunksReceived: prev.progress.chunksReceived + 1,
+                    lastChunkAt: Date.now(),
+                },
+            },
         };
     })),
 

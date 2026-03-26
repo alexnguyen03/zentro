@@ -16,6 +16,9 @@ export const StatusBar: React.FC = () => {
         message,
         currentDriver,
         transactionStatus,
+        queryExecutionState,
+        queryFailureCode,
+        firstRowLatencyMs,
         setStatus,
         setConnectionLabel,
         setMessage,
@@ -108,6 +111,13 @@ export const StatusBar: React.FC = () => {
                 <span className="opacity-40 shrink-0">|</span>
                 <span className="tracking-wide uppercase text-[10px] opacity-90 truncate">{connectionLabel}</span>
                 <span className="uppercase text-[10px] opacity-80 shrink-0">{txLabel}</span>
+                <span className="uppercase text-[10px] opacity-80 shrink-0">Q: {queryExecutionState}</span>
+                {firstRowLatencyMs !== null && (
+                    <span className="uppercase text-[10px] opacity-80 shrink-0">FROW: {firstRowLatencyMs}ms</span>
+                )}
+                {queryFailureCode !== 'none' && (
+                    <span className="uppercase text-[10px] opacity-90 shrink-0 text-red-100">ERR: {queryFailureCode}</span>
+                )}
                 {message && (
                     <span className="bg-white/10 px-2 py-0.5 rounded animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0">
                         {message}
