@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react';
 import { Copy, Check } from 'lucide-react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { setClipboardText } from '../../services/clipboardService';
 
 interface JsonViewerProps {
     value: string;
@@ -39,7 +40,7 @@ const SimpleJsonView: React.FC<{ value: string; showCopy?: boolean }> = ({ value
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(value);
+            await setClipboardText(value);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
@@ -76,7 +77,7 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', s
 
     const handleCopy = async () => {
         try {
-            await navigator.clipboard.writeText(formattedValue);
+            await setClipboardText(formattedValue);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {

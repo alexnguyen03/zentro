@@ -3,6 +3,7 @@ import { Copy, PlusSquare, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { buildFilterQuery, getQueryShape } from '../../lib/queryBuilder';
 import { useToast } from '../layout/Toast';
+import { setClipboardText } from '../../services/clipboardService';
 
 interface ResultFilterBarProps {
     value: string;
@@ -111,10 +112,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         className={iconBtn}
                                         title="Copy query"
                                         onClick={() => {
-                                            navigator.clipboard.writeText(
-                                                buildFilterQuery(baseQuery, value || '<condition>')
-                                            );
-                                            toast.success('Query copied to clipboard');
+                                            void setClipboardText(buildFilterQuery(baseQuery, value || '<condition>'))
+                                                .then(() => toast.success('Query copied to clipboard'))
+                                                .catch(() => toast.error('Failed to copy query'));
                                         }}
                                     >
                                         <Copy size={12} />

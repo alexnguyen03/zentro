@@ -36,6 +36,7 @@ import { FetchTotalRowCount } from '../../services/queryService';
 import { useResultEditing } from './useResultEditing';
 import { useResultKeyboard } from './useResultKeyboard';
 import { useResultExport } from './useResultExport';
+import { setClipboardText } from '../../services/clipboardService';
 
 export type ResultPanelAction = UiAction;
 
@@ -180,8 +181,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [handleDirectExecute, hasLegacyChanges, hasPendingChanges, toast, viewMode]);
 
     const handleCopyScript = React.useCallback(() => {
-        navigator.clipboard.writeText(generatePendingScript());
-        toast.success('Script copied to clipboard');
+        void setClipboardText(generatePendingScript())
+            .then(() => toast.success('Script copied to clipboard'))
+            .catch(() => toast.error('Failed to copy script'));
     }, [generatePendingScript, toast]);
 
     const handleOpenInNewTab = React.useCallback(() => {

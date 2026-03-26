@@ -4,6 +4,7 @@ import { cn } from '../../lib/cn';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useToast } from '../layout/Toast';
 import { JsonViewer } from '../viewers/JsonViewer';
+import { setClipboardText } from '../../services/clipboardService';
 
 const JSON_COLUMN_PATTERNS = [
     /json/i,
@@ -75,12 +76,14 @@ export const RowDetailTab: React.FC = () => {
     const handleCopyJson = useCallback(() => {
         if (!detail) return;
         const data = getJsonData();
-        navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-
-        const msg = (isSelectMode && selectedFields.size > 0)
-            ? `Copied ${selectedFields.size} fields as JSON`
-            : 'Copied full row as JSON';
-        toast.success(msg);
+        void setClipboardText(JSON.stringify(data, null, 2))
+            .then(() => {
+                const msg = (isSelectMode && selectedFields.size > 0)
+                    ? `Copied ${selectedFields.size} fields as JSON`
+                    : 'Copied full row as JSON';
+                toast.success(msg);
+            })
+            .catch(() => toast.error('Failed to copy JSON'));
     }, [detail, getJsonData, toast, isSelectMode, selectedFields.size]);
 
     const toggleFieldSelection = (col: string) => {
@@ -130,8 +133,9 @@ export const RowDetailTab: React.FC = () => {
     });
 
     const copyValue = (val: string) => {
-        navigator.clipboard.writeText(val);
-        toast.success('Copied to clipboard');
+        void setClipboardText(val)
+            .then(() => toast.success('Copied to clipboard'))
+            .catch(() => toast.error('Failed to copy value'));
     };
 
     return (
@@ -311,7 +315,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     disabled={!onSave || isSelectMode}
                     title={
                         isSelectMode ? 'Click to select field' :
-                            onSave ? 'Click to edit · Enter to save · Esc to cancel' :
+                            onSave ? 'Click to edit | Enter to save | Esc to cancel' :
                                 'Read-only (no primary key)'
                     }
                     onClick={isSelectMode ? (e) => { e.preventDefault(); onToggleSelect(); } : undefined}
@@ -320,3 +324,4 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
         </div>
     );
 };
+

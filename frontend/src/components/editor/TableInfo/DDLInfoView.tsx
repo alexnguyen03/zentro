@@ -6,6 +6,7 @@ import { useToast } from '../../layout/Toast';
 import { highlightSQL } from '../../../lib/sqlHighlight';
 import { Button } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
+import { setClipboardText } from '../../../services/clipboardService';
 
 interface DDLInfoViewProps {
     schema: string;
@@ -41,9 +42,13 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
     }, [schema, tableName, activeProfile?.name, refreshKey]);
 
     const handleCopy = async () => {
-        await navigator.clipboard.writeText(ddl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+            await setClipboardText(ddl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err: unknown) {
+            toast.error(`Failed to copy DDL: ${getErrorMessage(err)}`);
+        }
     };
 
     if (loading) {

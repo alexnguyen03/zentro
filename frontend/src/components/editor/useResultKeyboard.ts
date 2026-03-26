@@ -2,6 +2,7 @@ import React from 'react';
 import type { DraftRow } from '../../lib/dataEditing';
 import { parseCellId, makeCellId } from './resultPanelUtils';
 import { useToast } from '../layout/Toast';
+import { getClipboardText, setClipboardText } from '../../services/clipboardService';
 
 interface UseResultKeyboardOptions {
     tabId: string;
@@ -141,7 +142,8 @@ export function useResultKeyboard({
                     }
                     matrix.push(row);
                 }
-                navigator.clipboard.writeText(matrix.map((r) => r.join('\t')).join('\n'));
+                void setClipboardText(matrix.map((r) => r.join('\t')).join('\n'))
+                    .catch(() => toast.error('Failed to write to clipboard'));
                 return;
             }
 
@@ -150,7 +152,7 @@ export function useResultKeyboard({
                 if (!isEditable || selectedCells.size === 0) return;
                 event.preventDefault();
 
-                navigator.clipboard.readText().then((text) => {
+                void getClipboardText().then((text) => {
                     if (!text) return;
                     const lines = text.split(/\r?\n/).map((l) => l.split('\t'));
                     if (lines.length === 0 || lines[0].length === 0) return;
