@@ -4,8 +4,10 @@ import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useStatusStore } from '../../stores/statusStore';
 import { CONNECTION_STATUS } from '../../lib/constants';
 import { ConnectProjectEnvironment } from '../../services/projectService';
+import { recoverStartupState } from './startupRecovery';
 
 export function useWorkspaceLifecycle() {
     const bootstrapProjects = useProjectStore((state) => state.bootstrap);
@@ -15,14 +17,21 @@ export function useWorkspaceLifecycle() {
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const activeProfile = useConnectionStore((state) => state.activeProfile);
     const connectionStatus = useConnectionStore((state) => state.connectionStatus);
+    const setStatusMessage = useStatusStore((state) => state.setMessage);
     const connectAttemptRef = useRef<string>('');
 
     useEffect(() => {
+        const recoveryReport = recoverStartupState();
+        if (recoveryReport.warnings.length > 0) {
+            recoveryReport.warnings.forEach((warning) => appLogger.warn(warning));
+            setStatusMessage('Recovered corrupted local state during startup.');
+        }
+
         useSettingsStore.getState().load();
         bootstrapProjects().catch((error) => {
             appLogger.warn('project bootstrap failed', error);
         });
-    }, [bootstrapProjects]);
+    }, [bootstrapProjects, setStatusMessage]);
 
     useEffect(() => {
         if (!activeProject) {

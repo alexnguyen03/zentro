@@ -15,6 +15,7 @@ import {
     RotateCcw,
     Search,
     Save,
+    Sparkles,
     X,
 } from 'lucide-react';
 import { ExecuteUpdateSync } from '../../services/queryService';
@@ -44,6 +45,7 @@ import { useResultExport } from './useResultExport';
 import { setClipboardText } from '../../services/clipboardService';
 import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
+import { listResultActionContributions } from '../../features/query/contributionRegistry';
 
 export type ResultPanelAction = UiAction;
 
@@ -259,8 +261,39 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 actions.push({ id: 'save', icon: <Save size={11} />, label: 'Save', title: 'Save', onClick: () => { void handleSaveRequest(); }, loading: isSavingDraftRows });
             }
         }
+
+        const resultActionContext = {
+            tabId,
+            rowCount: result?.rows.length || 0,
+            columnCount: result?.columns.length || 0,
+        };
+        const extensionActions = listResultActionContributions()
+            .filter((contribution) => (contribution.isAvailable ? contribution.isAvailable(resultActionContext) : true))
+            .map<ResultPanelAction>((contribution) => ({
+                id: `ext:${contribution.id}`,
+                icon: <Sparkles size={11} />,
+                label: contribution.title,
+                title: contribution.title,
+                onClick: () => contribution.run(resultActionContext),
+            }));
+        actions.push(...extensionActions);
+
         return actions;
-    }, [canManageDraftRows, handleAddRow, handleDuplicateRows, handleSaveRequest, hasPendingChanges, isSavingDraftRows, resetEditState, selectedPersistedRowIndices.length, setSelectedCells, viewMode]);
+    }, [
+        canManageDraftRows,
+        handleAddRow,
+        handleDuplicateRows,
+        handleSaveRequest,
+        hasPendingChanges,
+        isSavingDraftRows,
+        resetEditState,
+        result?.columns.length,
+        result?.rows.length,
+        selectedPersistedRowIndices.length,
+        setSelectedCells,
+        tabId,
+        viewMode,
+    ]);
 
     React.useEffect(() => { onActionsChange?.(panelActions); }, [onActionsChange, panelActions]);
 

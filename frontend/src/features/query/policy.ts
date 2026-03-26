@@ -1,17 +1,20 @@
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { QueryPolicy } from './runtime';
-
-const DEFAULT_ROW_CAP = 100000;
+import { resolveExecutionPolicyProfile } from './policyProfiles';
 
 export function resolveQueryPolicy(environmentKey?: string): QueryPolicy {
     const settings = useSettingsStore.getState();
-    const strict = environmentKey === 'pro' || environmentKey === 'sta';
+    const profile = resolveExecutionPolicyProfile(environmentKey);
+    const timeoutFromSettings = settings.queryTimeout || profile.timeoutSeconds || 60;
 
     return {
-        queryTimeoutSeconds: settings.queryTimeout || 60,
-        rowCapPerTab: strict ? Math.min(DEFAULT_ROW_CAP, 50000) : DEFAULT_ROW_CAP,
-        requireWriteConfirm: settings.viewMode !== true,
-        environmentStrictness: strict ? 'strict' : 'normal',
+        queryTimeoutSeconds: Math.max(5, timeoutFromSettings),
+        rowCapPerTab: Math.max(1000, profile.rowCapPerTab),
+        requireWriteConfirm:
+            settings.viewMode !== true &&
+            (profile.destructiveRules === 'prompt' || profile.destructiveRules === 'block'),
+        destructiveRules: profile.destructiveRules,
+        environmentStrictness: profile.environmentStrictness,
     };
 }
 
@@ -20,4 +23,3 @@ export function isMutatingSql(sql: string): boolean {
     if (!normalized) return false;
     return /^(insert|update|delete|drop|alter|create|truncate|grant|revoke|merge|replace)\b/.test(normalized);
 }
-

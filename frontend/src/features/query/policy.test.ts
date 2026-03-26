@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { isMutatingSql } from './policy';
+import { isMutatingSql, resolveQueryPolicy } from './policy';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { assignExecutionPolicyProfile, saveExecutionPolicyProfile } from './policyProfiles';
 
 describe('query policy', () => {
     it('detects mutating statements', () => {
@@ -10,5 +12,22 @@ describe('query policy', () => {
     it('keeps select as non-mutating', () => {
         expect(isMutatingSql('SELECT * FROM users')).toBe(false);
     });
-});
 
+    it('uses assigned execution policy profile for environment', () => {
+        useSettingsStore.setState({ queryTimeout: 120, viewMode: false });
+        saveExecutionPolicyProfile({
+            id: 'team-guarded',
+            label: 'Team Guarded',
+            timeoutSeconds: 30,
+            rowCapPerTab: 25000,
+            destructiveRules: 'block',
+            environmentStrictness: 'strict',
+        });
+        assignExecutionPolicyProfile('dev', 'team-guarded');
+
+        const policy = resolveQueryPolicy('dev');
+        expect(policy.rowCapPerTab).toBe(25000);
+        expect(policy.destructiveRules).toBe('block');
+        expect(policy.environmentStrictness).toBe('strict');
+    });
+});

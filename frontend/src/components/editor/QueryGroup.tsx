@@ -16,6 +16,7 @@ import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { isMutatingSql, resolveQueryPolicy } from '../../features/query/policy';
+import { useToast } from '../layout/Toast';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -31,6 +32,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const { saveScript } = useScriptStore();
     const [pendingRunQuery, setPendingRunQuery] = useState<string | null>(null);
     const [showWriteConfirm, setShowWriteConfirm] = useState(false);
+    const { toast } = useToast();
 
     const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -73,7 +75,18 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             mutating &&
             policy.requireWriteConfirm &&
             policy.environmentStrictness === 'strict' &&
+            policy.destructiveRules === 'prompt' &&
             transactionStatus !== 'active';
+
+        if (
+            mutating &&
+            policy.requireWriteConfirm &&
+            policy.environmentStrictness === 'strict' &&
+            policy.destructiveRules === 'block'
+        ) {
+            toast.error('Blocked by execution policy: destructive SQL is disabled for this environment.');
+            return;
+        }
 
         if (shouldPrompt) {
             setPendingRunQuery(queryToRun);
@@ -82,7 +95,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         }
 
         await executeQueryNow(queryToRun);
-    }, [activeEnvironmentKey, executeQueryNow, transactionStatus]);
+    }, [activeEnvironmentKey, executeQueryNow, toast, transactionStatus]);
 
     const handleExplain = useCallback(async (queryToExplain: string, analyze: boolean) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;

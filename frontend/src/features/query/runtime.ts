@@ -27,6 +27,7 @@ export interface QueryPolicy {
     queryTimeoutSeconds: number;
     rowCapPerTab: number;
     requireWriteConfirm: boolean;
+    destructiveRules: 'prompt' | 'block';
     environmentStrictness: 'normal' | 'strict';
 }
 
@@ -47,4 +48,3 @@ export function classifyQueryFailure(errorMessage?: string): QueryFailureCode {
     if (raw.includes('network') || raw.includes('connection') || raw.includes('socket')) return 'network';
     return 'unknown';
 }
-
