@@ -31,21 +31,25 @@ interface TableInfoProps {
     tableName: string;
 }
 
-const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => (
-    <Button
-        variant="ghost"
-        size="icon"
-        danger={action.danger}
-        onClick={() => {
-            const res = action.onClick();
-            if (res instanceof Promise) res.catch(() => {});
-        }}
-        disabled={action.disabled || action.loading}
-        title={action.title || action.label}
-    >
-        {action.loading ? <Spinner size={12} /> : action.icon}
-    </Button>
-);
+const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
+    if (action.render) return <>{action.render()}</>;
+    if (!action.onClick || !action.icon) return null;
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            danger={action.danger}
+            onClick={() => {
+                const res = action.onClick?.();
+                if (res instanceof Promise) res.catch(() => {});
+            }}
+            disabled={action.disabled || action.loading}
+            title={action.title || action.label}
+        >
+            {action.loading ? <Spinner size={12} /> : action.icon}
+        </Button>
+    );
+};
 
 function parseTableName(t: string) {
     const parts = t.split('.');

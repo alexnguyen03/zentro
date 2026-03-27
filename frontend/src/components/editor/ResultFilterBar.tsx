@@ -25,6 +25,8 @@ interface ResultFilterBarProps {
     columns?: string[];
     /** Optional table name for model identity */
     tableName?: string;
+    /** Hide SQL filter editor and keep only actions area */
+    showFilterInput?: boolean;
     /** Optional actions to render on the right side of the bar */
     children?: React.ReactNode;
 }
@@ -39,6 +41,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     onOpenInNewTab,
     columns = [],
     tableName,
+    showFilterInput = true,
     children,
 }) => {
     const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
@@ -168,7 +171,8 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
 
     return (
         <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-bg-secondary shrink-0 relative">
-            <div className="flex items-center flex-3 min-w-0">
+            {showFilterInput && (
+                <div className="flex items-center flex-3 min-w-0">
                 <div
                     className="relative flex items-center border-r pr-2 mr-2"
                     onMouseEnter={() => {
@@ -278,9 +282,13 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                         </span>
                     )}
                 </div>
-            </div>
+                </div>
+            )}
             {children && (
-                <div className="flex items-center flex-2 justify-end min-w-0 border-l border-border pl-2 gap-1 overflow-x-auto">
+                <div className={cn(
+                    'flex items-center justify-end min-w-0 gap-1 overflow-visible',
+                    showFilterInput ? 'flex-2 pl-2' : 'flex-1',
+                )}>
                     {children}
                 </div>
             )}

@@ -34,6 +34,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 onFilterRun={handleFilterRun}
                 baseQuery={result?.lastExecutedQuery || `SELECT * FROM "${schema}"."${table}"`}
                 isReadOnlyTab={isReadOnlyMode}
+                showMaximizeControl={false}
             />
         </div>
     );

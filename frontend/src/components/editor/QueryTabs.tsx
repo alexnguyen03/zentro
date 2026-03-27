@@ -42,12 +42,13 @@ export const QueryTabs: React.FC = () => {
     const handleRunGlobal = React.useCallback(async () => {
         if (!globalActiveTab || !isConnected) return;
         useResultStore.getState().setFilterExpr(globalActiveTab.id, '');
+        const queryToRun = globalActiveResult?.lastExecutedQuery || globalActiveTab.query;
         try {
-            await ExecuteQuery(globalActiveTab.id, globalActiveTab.query);
+            await ExecuteQuery(globalActiveTab.id, queryToRun);
         } catch (err: unknown) {
             console.error('ExecuteQuery error:', getErrorMessage(err));
         }
-    }, [globalActiveTab, isConnected]);
+    }, [globalActiveResult?.lastExecutedQuery, globalActiveTab, isConnected]);
 
     const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
         if (!globalActiveTab || !isConnected) return;
@@ -79,6 +80,7 @@ export const QueryTabs: React.FC = () => {
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<Tab | null>(null);
     const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
+    const [isResultMaximized, setIsResultMaximized] = useState(false);
     const recentTabIdsRef = useRef<string[]>([]);
     const [tabSwitcher, setTabSwitcher] = useState<{ open: boolean; orderedIds: string[]; index: number }>({
         open: false,
@@ -191,6 +193,12 @@ export const QueryTabs: React.FC = () => {
             window.removeEventListener('blur', handleWindowBlur);
         };
     }, [activateTabById, globalActiveTabId, tabMetaById]);
+
+    useEffect(() => {
+        if (!showResultPanel || !activeTabIsQuery) {
+            setIsResultMaximized(false);
+        }
+    }, [activeTabIsQuery, showResultPanel]);
 
     // Handle automatically closing groups when they are empty
     useEffect(() => {
@@ -333,7 +341,7 @@ export const QueryTabs: React.FC = () => {
                     </div>
                 )}
                 <Allotment vertical>
-                    <Allotment.Pane>
+                    <Allotment.Pane visible={!isResultMaximized}>
                         <Allotment separator={false}>
                             {groups.map((group, index) => (
                                 <Allotment.Pane key={group.id} minSize={300}>
@@ -352,7 +360,7 @@ export const QueryTabs: React.FC = () => {
                     </Allotment.Pane>
 
                     <Allotment.Pane 
-                        preferredSize="35%" 
+                        preferredSize={isResultMaximized ? '100%' : '35%'} 
                         minSize={100} 
                         visible={showResultPanel && activeTabIsQuery}
                     >
@@ -401,6 +409,8 @@ export const QueryTabs: React.FC = () => {
                                     onOpenInNewTab={handleOpenFilterInNewTab}
                                     isReadOnlyTab={isReadOnlySubTab || viewMode}
                                     generatedKind={generatedKind}
+                                    isMaximized={isResultMaximized}
+                                    onToggleMaximize={() => setIsResultMaximized((prev) => !prev)}
                                 />
                             </div>
                         </div>

@@ -8,11 +8,11 @@ import {
     Loader,
     Play,
     Plus,
-    RefreshCw,
+    Maximize2,
+    Minimize2,
     RotateCcw,
     Save,
     Sparkles,
-    X,
 } from 'lucide-react';
 import { ExecuteUpdateSync } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
@@ -20,7 +20,6 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useResultStore, TabResult } from '../../stores/resultStore';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useStatusStore } from '../../stores/statusStore';
 import { models } from '../../../wailsjs/go/models';
 import { Modal } from '../layout/Modal';
 import { useToast } from '../layout/Toast';
@@ -57,6 +56,9 @@ interface ResultPanelProps {
     onOpenInNewTab?: (fullQuery: string) => void;
     isReadOnlyTab?: boolean;
     generatedKind?: 'result' | 'explain';
+    isMaximized?: boolean;
+    onToggleMaximize?: () => void;
+    showMaximizeControl?: boolean;
 }
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({
@@ -71,6 +73,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     onOpenInNewTab,
     isReadOnlyTab = false,
     generatedKind,
+    isMaximized = false,
+    onToggleMaximize,
+    showMaximizeControl = true,
 }) => {
     const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
@@ -246,6 +251,33 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId, viewMode]);
 
     // ── Panel actions (bubbled to toolbar) ────────────────────────────────────
+    const { handleExportCSV, handleExportJSON, handleExportSQLConfirm, exportJob, cancelExport } = useResultExport({
+        result, tableNameForExport, setTableNameForExport, setShowExportMenu, setShowTableNameInput,
+    });
+    const canUseResultExport = featureGate.canUse('query.result.export');
+    const handleLimitChange = React.useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+        const newLimit = parseInt(event.target.value, 10) || 1000;
+        save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
+    }, [fontSize, save, theme]);
+
+    const renderPanelAction = React.useCallback((action: ResultPanelAction) => {
+        if (action.render) return <React.Fragment key={action.id}>{action.render()}</React.Fragment>;
+        if (!action.onClick) return null;
+        return (
+            <Button
+                key={action.id}
+                variant="ghost"
+                size="icon"
+                danger={action.danger}
+                onClick={() => action.onClick?.()}
+                disabled={action.disabled || action.loading}
+                title={action.title || action.label}
+            >
+                {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
+            </Button>
+        );
+    }, []);
+
     const panelActions = React.useMemo(() => {
         const actions: ResultPanelAction[] = [];
         if (canManageDraftRows) {
@@ -278,6 +310,76 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             }));
         actions.push(...extensionActions);
 
+        actions.push({
+            id: 'row-limit',
+            signature: `limit:${defaultLimit}`,
+            render: () => (
+                <select
+                    className="bg-transparent border border-border/40 text-text-secondary text-[11px] px-1.5 py-0.5 h-7 rounded-md cursor-pointer outline-none transition-colors duration-100 hover:bg-bg-tertiary focus:border-success appearance-auto"
+                    value={defaultLimit}
+                    onChange={handleLimitChange}
+                    title="Row limit for next query"
+                >
+                    {LIMIT_OPTIONS.map((value) => (
+                        <option key={value} value={value}>{value.toLocaleString()}</option>
+                    ))}
+                </select>
+            ),
+        });
+
+        actions.push({
+            id: 'export-dropdown',
+            signature: `export:${canUseResultExport ? 1 : 0}:${showExportMenu ? 1 : 0}`,
+            render: () => (
+                <div className="relative">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowExportMenu((prev) => !prev)}
+                        disabled={!canUseResultExport}
+                        title="Export"
+                        className="gap-1"
+                    >
+                        <Download size={13} /><span>Export</span>
+                    </Button>
+                    {showExportMenu && (
+                        <div className="absolute right-0 top-full z-panel-overlay mt-1 min-w-[160px] rounded-md border border-border bg-bg-primary py-1 shadow-lg">
+                            <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportCSV}>
+                                <span>CSV</span>
+                            </button>
+                            <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportJSON}>
+                                <span>JSON</span>
+                            </button>
+                            <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={() => { setShowExportMenu(false); setShowTableNameInput(true); }}>
+                                <span>SQL INSERT</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            ),
+        });
+
+        if (showMaximizeControl) {
+            actions.push({
+                id: 'toggle-maximize',
+                icon: isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />,
+                title: isMaximized ? 'Restore result panel size' : 'Maximize result panel',
+                onClick: onToggleMaximize,
+                disabled: !onToggleMaximize,
+                signature: `maximize:${isMaximized ? 1 : 0}:${onToggleMaximize ? 1 : 0}`,
+            });
+        }
+
+        if (exportJob?.status === 'running') {
+            actions.push({
+                id: 'cancel-export',
+                icon: <Loader size={12} className="animate-spin" />,
+                title: 'Cancel export',
+                onClick: cancelExport,
+                signature: `export-running:${exportJob.progressPct ?? 0}`,
+            });
+        }
+
         return actions;
     }, [
         canManageDraftRows,
@@ -293,12 +395,23 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setSelectedCells,
         tabId,
         viewMode,
+        defaultLimit,
+        canUseResultExport,
+        showExportMenu,
+        handleExportCSV,
+        handleExportJSON,
+        showMaximizeControl,
+        isMaximized,
+        onToggleMaximize,
+        exportJob?.status,
+        exportJob?.progressPct,
+        cancelExport,
     ]);
 
     React.useEffect(() => {
         if (!onActionsChange) return;
         const signature = panelActions
-            .map((action) => `${action.id}:${action.disabled ? 1 : 0}:${action.loading ? 1 : 0}:${action.danger ? 1 : 0}:${action.label}:${action.title || ''}`)
+            .map((action) => `${action.id}:${action.disabled ? 1 : 0}:${action.loading ? 1 : 0}:${action.danger ? 1 : 0}:${action.label || ''}:${action.title || ''}:${action.signature || ''}:${action.render ? 1 : 0}`)
             .join('|');
         if (actionsSignatureRef.current === signature) return;
         actionsSignatureRef.current = signature;
@@ -306,10 +419,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [onActionsChange, panelActions]);
 
     // ── Export ────────────────────────────────────────────────────────────────
-    const { handleExportCSV, handleExportJSON, handleExportSQLConfirm, exportJob, cancelExport } = useResultExport({
-        result, tableNameForExport, setTableNameForExport, setShowExportMenu, setShowTableNameInput,
-    });
-
     const searchHits = React.useMemo(() => {
         if (!result || !quickFilter.trim()) return [];
         const query = quickFilter.trim().toLowerCase();
@@ -323,7 +432,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [quickFilter, result]);
     const canUseResultSearch = featureGate.canUse('query.result.search');
     const canUseResultJump = featureGate.canUse('query.result.jump');
-    const canUseResultExport = featureGate.canUse('query.result.export');
 
     const jumpToPersistedRow = React.useCallback((rowIndex: number) => {
         if (!result || rowIndex < 0 || rowIndex >= result.rows.length) return;
@@ -367,11 +475,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
 
     // ── Limit selector ────────────────────────────────────────────────────────
-    const handleLimitChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newLimit = parseInt(event.target.value, 10) || 1000;
-        save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
-    };
-    const shouldShowResultFilterBar = result ? (result.isSelect || filterExpr !== '') && generatedKind !== 'explain' : false;
+    const shouldShowResultFilterBar = Boolean(result?.isSelect);
+    const shouldShowFilterInput = generatedKind !== 'explain';
     const resultFilterBar = result && shouldShowResultFilterBar ? (
         <ResultFilterBar
             value={filterExpr}
@@ -379,6 +484,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             baseQuery={baseQuery}
             columns={result.columns}
             tableName={result.tableName}
+            showFilterInput={shouldShowFilterInput}
             onAppendToQuery={onAppendToQuery}
             onOpenInNewTab={onOpenInNewTab}
             onRun={(currentValue) => {
@@ -390,17 +496,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         >
             {!onActionsChange && panelActions.length > 0 && (
                 <>
-                    {panelActions.map((action) => (
-                        <Button
-                            key={action.id} variant="ghost" size="icon"
-                            danger={action.danger}
-                            onClick={() => action.onClick()}
-                            disabled={action.disabled || action.loading}
-                            title={action.title || action.label}
-                        >
-                            {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
-                        </Button>
-                    ))}
+                    {panelActions.map(renderPanelAction)}
                 </>
             )}
         </ResultFilterBar>
@@ -452,6 +548,26 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         displayTotalCount = result.rows.length;
     }
     const viewportState = resolveResultFetchStrategy(result.rows.length, result.hasMore, result.isDone);
+    const strategyTooltip = (() => {
+        switch (viewportState.strategy) {
+            case 'server_aware':
+                return 'Server-aware: result may still stream or has more rows on server.';
+            case 'incremental_client':
+                return 'Incremental client: large completed dataset, client handles viewport incrementally.';
+            case 'client_full':
+            default:
+                return 'Client full: result fits comfortably, client can handle all rows directly.';
+        }
+    })();
+    const executionStartedAt = result.progress?.startedAt;
+    const executionTimeText = (() => {
+        if (!executionStartedAt) return null;
+        return new Date(executionStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    })();
+    const executionTimeTooltip = (() => {
+        if (!executionStartedAt) return '';
+        return `Execution started at ${new Date(executionStartedAt).toLocaleString()}`;
+    })();
 
     // ── Main render ───────────────────────────────────────────────────────────
     return (
@@ -524,35 +640,31 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 );
             })()}
 
-            {/* Status bar */}
-            <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
+            {/* Status bar (info only) */}
+            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
-                        Showing <strong>{(quickFilter.trim() ? visibleRows : (result.rows.length + draftRows.length)).toLocaleString()}</strong> of&nbsp;
-                        <select
-                            className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-md cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
-                            value={defaultLimit}
-                            onChange={handleLimitChange}
-                            title="Row limit for next query"
-                        >
-                            {LIMIT_OPTIONS.map((value) => (
-                                <option key={value} value={value}>{value.toLocaleString()}</option>
-                            ))}
-                        </select>
-                        &nbsp;rows&nbsp;·&nbsp;{formatDuration(result.duration)}
+                        {displayTotalCount !== undefined ? (
+                            <span className="flex items-center gap-1">(Total: <strong>{displayTotalCount.toLocaleString()}</strong>)</span>
+                        ) : totalCount === -1 ? (
+                            <span className="flex items-center gap-1 text-warning" title="Failed to count total rows in background">(Total: ?)</span>
+                        ) : isCounting ? (
+                            <span className="flex items-center gap-1 opacity-70">
+                                <Loader size={12} className="animate-spin inline-block align-middle mr-1" />Counting...
+                            </span>
+                        ) : null}
+                        <strong>{(quickFilter.trim() ? visibleRows : (result.rows.length + draftRows.length)).toLocaleString()}</strong>
+                        of&nbsp;
+                        <strong>{defaultLimit.toLocaleString()}</strong>&nbsp;rows&nbsp;&nbsp;{formatDuration(result.duration)}
                     </span>
-                    <span className="text-[10px] uppercase opacity-80">
+                    <span className="" title={strategyTooltip}>
                         strategy: {viewportState.strategy}
                     </span>
-                    {displayTotalCount !== undefined ? (
-                        <span className="flex items-center gap-1">(Total: <strong>{displayTotalCount.toLocaleString()}</strong>)</span>
-                    ) : totalCount === -1 ? (
-                        <span className="flex items-center gap-1 text-warning" title="Failed to count total rows in background">(Total: ?)</span>
-                    ) : isCounting ? (
-                        <span className="flex items-center gap-1 opacity-70">
-                            <Loader size={12} className="animate-spin inline-block align-middle mr-1" />Counting...
+                    {executionTimeText && (
+                        <span title={executionTimeTooltip}>
+                            executed: {executionTimeText}
                         </span>
-                    ) : null}
+                    )}
                 </div>
 
                 <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
@@ -564,29 +676,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <button
-                            className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-md cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border"
-                            onClick={() => setShowExportMenu(!showExportMenu)}
-                            disabled={!canUseResultExport}
-                            title="Export"
-                        >
-                            <Download size={13} /><span>Export</span>
-                        </button>
-                        {showExportMenu && (
-                            <div className="absolute right-0 top-full z-panel-overlay mt-1 min-w-[160px] rounded-md border border-border bg-bg-primary py-1 shadow-lg">
-                                <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportCSV}>
-                                    <span className="w-4">📄</span>CSV
-                                </button>
-                                <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportJSON}>
-                                    <span className="w-4">📋</span>JSON
-                                </button>
-                                <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={() => { setShowExportMenu(false); setShowTableNameInput(true); }}>
-                                    <span className="w-4">💾</span>SQL INSERT
-                                </button>
-                            </div>
-                        )}
-                    </div>
                     {exportJob?.status === 'running' && (
                         <div className="flex items-center gap-2 text-[11px] border border-border rounded-md px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
@@ -595,9 +684,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 {typeof exportJob.totalRows === 'number' ? ` (${(exportJob.processedRows || 0).toLocaleString()}/${exportJob.totalRows.toLocaleString()})` : ''}
                                 {exportJob.queuedCount ? ` +${exportJob.queuedCount} queued` : ''}
                             </span>
-                            <button onClick={cancelExport} title="Cancel export" className="hover:text-text-primary">
-                                <X size={11} />
-                            </button>
                         </div>
                     )}
                 </div>
