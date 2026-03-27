@@ -20,6 +20,7 @@ export type {
     SqlClause,
     SqlToken,
     SqlColumnLike,
+    SqlTableRelationshipLike,
     SqlTemplateLike,
     SqlSourceRef,
     SqlAnalysis,

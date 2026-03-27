@@ -17,6 +17,7 @@ import {
     makeSortText,
     normalizeInsertClause,
 } from './sqlCompletionBuilderUtils';
+import { buildJoinSuggestionItems } from './sqlCompletionJoinSuggestions';
 import { TableCompletionItem } from './sqlSuggestionTableDocs';
 import { CompletionKind, SqlAnalysis, SqlCompletionBuildOptions, SqlCompletionEnv, SuggestionRecord, SqlSourceRef } from './sqlCompletionTypes';
 
@@ -163,6 +164,11 @@ export async function buildSqlCompletionItems(
         addKeyword('AS', 'AS ', 130);
         if (baseClause === 'insert') { addKeyword('VALUES', 'VALUES ', 120); addKeyword('DEFAULT VALUES', 'DEFAULT VALUES', 110); }
         if (baseClause === 'delete') addKeyword('WHERE', 'WHERE ', 140);
+    }
+    if (baseClause === 'from' || baseClause === 'join' || baseClause === 'on') {
+        const joinSuggestions = await buildJoinSuggestionItems(analysis, baseClause, currentWord, range, env, shouldAbort);
+        if (shouldAbort()) return [];
+        joinSuggestions.forEach((record) => addSuggestion(record.label, record.item, record.priority));
     }
     if (baseClause === 'where' || baseClause === 'having' || baseClause === 'on' || baseClause === 'set') {
         const columns = await buildColumnItems(analysis.sources);

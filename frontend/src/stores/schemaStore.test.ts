@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchTableColumnsMock } = vi.hoisted(() => ({
+const { fetchTableColumnsMock, fetchTableRelationshipsMock } = vi.hoisted(() => ({
     fetchTableColumnsMock: vi.fn(),
+    fetchTableRelationshipsMock: vi.fn(),
 }));
 
 vi.mock('../../wailsjs/go/app/App', async (importOriginal) => {
@@ -9,10 +10,11 @@ vi.mock('../../wailsjs/go/app/App', async (importOriginal) => {
     return {
         ...actual,
         FetchTableColumns: fetchTableColumnsMock,
+        FetchTableRelationships: fetchTableRelationshipsMock,
     };
 });
 
-import { COLUMN_CACHE_TTL_MS, useSchemaStore } from './schemaStore';
+import { COLUMN_CACHE_TTL_MS, RELATIONSHIP_CACHE_TTL_MS, useSchemaStore } from './schemaStore';
 import { models } from '../../wailsjs/go/models';
 
 function makeColumn(name: string) {
@@ -28,10 +30,13 @@ function makeColumn(name: string) {
 describe('schemaStore', () => {
     beforeEach(() => {
         fetchTableColumnsMock.mockReset();
+        fetchTableRelationshipsMock.mockReset();
         useSchemaStore.setState({
             trees: {},
             cachedColumns: {},
+            cachedRelationships: {},
             pendingColumnRequests: {},
+            pendingRelationshipRequests: {},
             loadingKeys: new Set(),
         });
     });
@@ -92,9 +97,23 @@ describe('schemaStore', () => {
                 'main:db1:public:users': { columns: [makeColumn('id')], fetchedAt: 1_000 },
                 'main:db2:public:orders': { columns: [makeColumn('order_id')], fetchedAt: 1_000 },
             },
+            cachedRelationships: {
+                'main:db1:public:users': {
+                    relationships: [models.TableRelationship.createFrom({ ConstraintName: 'fk1' })],
+                    fetchedAt: 1_000,
+                },
+                'main:db2:public:orders': {
+                    relationships: [models.TableRelationship.createFrom({ ConstraintName: 'fk2' })],
+                    fetchedAt: 1_000,
+                },
+            },
             pendingColumnRequests: {
                 'main:db1:public:users': Promise.resolve([makeColumn('id')]),
                 'main:db2:public:orders': Promise.resolve([makeColumn('order_id')]),
+            },
+            pendingRelationshipRequests: {
+                'main:db1:public:users': Promise.resolve([models.TableRelationship.createFrom({ ConstraintName: 'fk1' })]),
+                'main:db2:public:orders': Promise.resolve([models.TableRelationship.createFrom({ ConstraintName: 'fk2' })]),
             },
         });
 
@@ -102,8 +121,78 @@ describe('schemaStore', () => {
 
         const state = useSchemaStore.getState();
         expect(state.cachedColumns['main:db1:public:users']).toBeUndefined();
+        expect(state.cachedRelationships['main:db1:public:users']).toBeUndefined();
         expect(state.pendingColumnRequests['main:db1:public:users']).toBeUndefined();
+        expect(state.pendingRelationshipRequests['main:db1:public:users']).toBeUndefined();
         expect(state.cachedColumns['main:db2:public:orders']).toBeDefined();
+        expect(state.cachedRelationships['main:db2:public:orders']).toBeDefined();
         expect(state.pendingColumnRequests['main:db2:public:orders']).toBeDefined();
+        expect(state.pendingRelationshipRequests['main:db2:public:orders']).toBeDefined();
+    });
+
+    it('returns cached relationships within ttl without refetch', async () => {
+        const relationships = [models.TableRelationship.createFrom({
+            ConstraintName: 'fk_users_orders',
+            SourceSchema: 'public',
+            SourceTable: 'users',
+            SourceColumn: 'id',
+            TargetSchema: 'public',
+            TargetTable: 'orders',
+            TargetColumn: 'user_id',
+        })];
+        fetchTableRelationshipsMock.mockResolvedValue(relationships);
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+
+        const first = await useSchemaStore.getState().checkAndFetchRelationships('main', 'db1', 'public', 'users');
+        const second = await useSchemaStore.getState().checkAndFetchRelationships('main', 'db1', 'public', 'users');
+
+        expect(first).toEqual(relationships);
+        expect(second).toEqual(relationships);
+        expect(fetchTableRelationshipsMock).toHaveBeenCalledTimes(1);
+
+        nowSpy.mockRestore();
+    });
+
+    it('dedupes in-flight relationship requests for the same table key', async () => {
+        let resolveFetch: ((value: models.TableRelationship[]) => void) | undefined;
+        fetchTableRelationshipsMock.mockReturnValueOnce(new Promise<models.TableRelationship[]>((resolve) => {
+            resolveFetch = resolve;
+        }));
+
+        const p1 = useSchemaStore.getState().checkAndFetchRelationships('main', 'db1', 'public', 'users');
+        const p2 = useSchemaStore.getState().checkAndFetchRelationships('main', 'db1', 'public', 'users');
+
+        expect(fetchTableRelationshipsMock).toHaveBeenCalledTimes(1);
+
+        if (resolveFetch) {
+            resolveFetch([models.TableRelationship.createFrom({
+                ConstraintName: 'fk_users_orders',
+                SourceSchema: 'public',
+                SourceTable: 'users',
+                SourceColumn: 'id',
+                TargetSchema: 'public',
+                TargetTable: 'orders',
+                TargetColumn: 'user_id',
+            })]);
+        }
+        await expect(p1).resolves.toHaveLength(1);
+        await expect(p2).resolves.toHaveLength(1);
+    });
+
+    it('refetches relationships after ttl expires', async () => {
+        fetchTableRelationshipsMock
+            .mockResolvedValueOnce([models.TableRelationship.createFrom({ ConstraintName: 'fk_users_orders' })])
+            .mockResolvedValueOnce([models.TableRelationship.createFrom({ ConstraintName: 'fk_users_orders_v2' })]);
+
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+        await useSchemaStore.getState().checkAndFetchRelationships('main', 'db1', 'public', 'users');
+
+        nowSpy.mockReturnValue(1_000 + RELATIONSHIP_CACHE_TTL_MS + 1);
+        const next = await useSchemaStore.getState().checkAndFetchRelationships('main', 'db1', 'public', 'users');
+
+        expect(fetchTableRelationshipsMock).toHaveBeenCalledTimes(2);
+        expect(next[0].ConstraintName).toBe('fk_users_orders_v2');
+
+        nowSpy.mockRestore();
     });
 });

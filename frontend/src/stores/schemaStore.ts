@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FetchTableColumns } from '../services/schemaService';
+import { FetchTableColumns, FetchTableRelationships } from '../services/schemaService';
 import { models } from '../../wailsjs/go/models';
 
 export interface SchemaNode {
@@ -20,19 +20,28 @@ export interface CachedColumnEntry {
     fetchedAt: number;
 }
 
+export interface CachedRelationshipEntry {
+    relationships: models.TableRelationship[];
+    fetchedAt: number;
+}
+
 export const COLUMN_CACHE_TTL_MS = 5 * 60 * 1000;
+export const RELATIONSHIP_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface SchemaTreeState {
     // Keyed by "ProfileName:DBName"
     trees: Record<string, SchemaNode[]>;
     // Keyed by "ProfileName:DBName:Schema:Table"
     cachedColumns: Partial<Record<string, CachedColumnEntry>>;
+    cachedRelationships: Partial<Record<string, CachedRelationshipEntry>>;
     pendingColumnRequests: Partial<Record<string, Promise<models.ColumnDef[]>>>;
+    pendingRelationshipRequests: Partial<Record<string, Promise<models.TableRelationship[]>>>;
     loadingKeys: Set<string>;
     
     setTree: (profileName: string, dbName: string, schemas: SchemaNode[]) => void;
     setLoading: (profileName: string, dbName: string, loading: boolean) => void;
     checkAndFetchColumns: (profileName: string, dbName: string, schemaName: string, tableName: string) => Promise<models.ColumnDef[]>;
+    checkAndFetchRelationships: (profileName: string, dbName: string, schemaName: string, tableName: string) => Promise<models.TableRelationship[]>;
     clearColumnCacheForDatabase: (profileName: string, dbName: string) => void;
 }
 
@@ -49,7 +58,9 @@ function removeRecordKeysByPrefix<T>(source: Partial<Record<string, T>>, prefix:
 export const useSchemaStore = create<SchemaTreeState>((set, get) => ({
     trees: {},
     cachedColumns: {},
+    cachedRelationships: {},
     pendingColumnRequests: {},
+    pendingRelationshipRequests: {},
     loadingKeys: new Set(),
 
     setTree: (profileName, dbName, schemas) => set((state) => {
@@ -61,7 +72,9 @@ export const useSchemaStore = create<SchemaTreeState>((set, get) => ({
                 [dbKey]: schemas,
             },
             cachedColumns: removeRecordKeysByPrefix(state.cachedColumns, columnPrefix),
+            cachedRelationships: removeRecordKeysByPrefix(state.cachedRelationships, columnPrefix),
             pendingColumnRequests: removeRecordKeysByPrefix(state.pendingColumnRequests, columnPrefix),
+            pendingRelationshipRequests: removeRecordKeysByPrefix(state.pendingRelationshipRequests, columnPrefix),
             loadingKeys: new Set([...state.loadingKeys].filter(k => k !== dbKey)),
         };
     }),
@@ -77,7 +90,9 @@ export const useSchemaStore = create<SchemaTreeState>((set, get) => ({
         const prefix = `${profileName}:${dbName}:`;
         return {
             cachedColumns: removeRecordKeysByPrefix(state.cachedColumns, prefix),
+            cachedRelationships: removeRecordKeysByPrefix(state.cachedRelationships, prefix),
             pendingColumnRequests: removeRecordKeysByPrefix(state.pendingColumnRequests, prefix),
+            pendingRelationshipRequests: removeRecordKeysByPrefix(state.pendingRelationshipRequests, prefix),
         };
     }),
 
@@ -129,6 +144,61 @@ export const useSchemaStore = create<SchemaTreeState>((set, get) => ({
         set((s) => ({
             pendingColumnRequests: {
                 ...s.pendingColumnRequests,
+                [key]: request,
+            }
+        }));
+
+        return request;
+    },
+
+    checkAndFetchRelationships: async (profileName, dbName, schemaName, tableName) => {
+        const state = get();
+        const key = `${profileName}:${dbName}:${schemaName}:${tableName}`;
+        const now = Date.now();
+
+        const cached = state.cachedRelationships[key];
+        if (cached && now - cached.fetchedAt < RELATIONSHIP_CACHE_TTL_MS) {
+            return cached.relationships;
+        }
+
+        const pendingRequest = state.pendingRelationshipRequests[key];
+        if (pendingRequest) {
+            return pendingRequest;
+        }
+
+        const request = FetchTableRelationships(schemaName, tableName)
+            .then((relationships) => {
+                set((s) => {
+                    const nextPending = { ...s.pendingRelationshipRequests };
+                    delete nextPending[key];
+                    return {
+                        cachedRelationships: {
+                            ...s.cachedRelationships,
+                            [key]: {
+                                relationships,
+                                fetchedAt: Date.now(),
+                            },
+                        },
+                        pendingRelationshipRequests: nextPending,
+                    };
+                });
+                return relationships;
+            })
+            .catch((error) => {
+                console.error(`Failed to fetch relationships for ${tableName}:`, error);
+                set((s) => {
+                    const nextPending = { ...s.pendingRelationshipRequests };
+                    delete nextPending[key];
+                    return {
+                        pendingRelationshipRequests: nextPending,
+                    };
+                });
+                return [];
+            });
+
+        set((s) => ({
+            pendingRelationshipRequests: {
+                ...s.pendingRelationshipRequests,
                 [key]: request,
             }
         }));

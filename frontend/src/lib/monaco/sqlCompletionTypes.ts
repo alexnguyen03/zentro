@@ -69,6 +69,16 @@ export interface SqlColumnLike {
     DefaultValue?: string;
 }
 
+export interface SqlTableRelationshipLike {
+    ConstraintName: string;
+    SourceSchema: string;
+    SourceTable: string;
+    SourceColumn: string;
+    TargetSchema: string;
+    TargetTable: string;
+    TargetColumn: string;
+}
+
 export interface SqlTemplateLike {
     trigger: string;
     name: string;
@@ -104,6 +114,7 @@ export interface SqlCompletionEnv {
     profileKey?: string;
     dbName?: string;
     fetchColumns: (schemaName: string, tableName: string) => Promise<SqlColumnLike[]>;
+    fetchRelationships: (schemaName: string, tableName: string) => Promise<SqlTableRelationshipLike[]>;
     templates: SqlTemplateLike[];
 }
 

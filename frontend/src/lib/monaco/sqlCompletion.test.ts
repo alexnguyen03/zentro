@@ -44,6 +44,7 @@ const env: SqlCompletionEnv = {
         }
         return [];
     }),
+    fetchRelationships: vi.fn(async () => []),
     templates: [],
 };
 
@@ -265,6 +266,225 @@ describe('sqlCompletion', () => {
         );
 
         expect(String(items[0].label)).toBe('SELECT');
+    });
+
+    it('suggests relationship-based INNER JOIN snippets when typing jo', async () => {
+        const text = 'SELECT * FROM inventory_balance ib jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'inv', Tables: ['inventory_balance', 'inventory_lot_balance'], Views: [] }],
+                fetchRelationships: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (schemaName === 'inv' && tableName === 'inventory_balance') {
+                        return [{
+                            ConstraintName: 'fk_inventory_balance_lot_balance',
+                            SourceSchema: 'inv',
+                            SourceTable: 'inventory_balance',
+                            SourceColumn: 'balance_id',
+                            TargetSchema: 'inv',
+                            TargetTable: 'inventory_lot_balance',
+                            TargetColumn: 'balance_id',
+                        }];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        const joinSnippet = items.find((item) => String(item.label).startsWith('JOIN inv.inventory_lot_balance'));
+        expect(joinSnippet).toBeTruthy();
+        expect(String(joinSnippet?.insertText)).toContain('INNER JOIN inv.inventory_lot_balance ilb ON ib.balance_id = ilb.balance_id');
+        expect(items.findIndex((item) => String(item.label).startsWith('JOIN inv.inventory_lot_balance')))
+            .toBeLessThan(items.findIndex((item) => String(item.label) === 'JOIN'));
+        const plainJoin = items.find((item) => String(item.label) === 'JOIN');
+        expect(plainJoin).toBeTruthy();
+    });
+
+    it('suggests relationship JOIN snippet when Monaco word extraction is empty but trailing token is jo', async () => {
+        const text = 'SELECT * FROM inventory_balance ib jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            '',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'inv', Tables: ['inventory_balance', 'inventory_lot_balance'], Views: [] }],
+                fetchRelationships: vi.fn(async () => [{
+                    ConstraintName: 'fk_inventory_balance_lot_balance',
+                    SourceSchema: 'inv',
+                    SourceTable: 'inventory_balance',
+                    SourceColumn: 'balance_id',
+                    TargetSchema: 'inv',
+                    TargetTable: 'inventory_lot_balance',
+                    TargetColumn: 'balance_id',
+                }]),
+            },
+        );
+
+        expect(items.some((item) => String(item.label).startsWith('JOIN inv.inventory_lot_balance'))).toBe(true);
+    });
+
+    it('builds ON clause for reverse relationship direction and dedupes alias', async () => {
+        const text = 'SELECT * FROM inventory_balance ib jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'inv', Tables: ['inventory_balance', 'inventory_batch'], Views: [] }],
+                fetchRelationships: vi.fn(async () => [{
+                    ConstraintName: 'fk_inventory_batch_balance',
+                    SourceSchema: 'inv',
+                    SourceTable: 'inventory_batch',
+                    SourceColumn: 'id',
+                    TargetSchema: 'inv',
+                    TargetTable: 'inventory_balance',
+                    TargetColumn: 'batch_id',
+                }]),
+            },
+        );
+        const joinItem = items.find((item) => String(item.label).startsWith('JOIN inv.inventory_batch'));
+        expect(joinItem).toBeTruthy();
+        expect(String(joinItem?.insertText)).toContain('INNER JOIN inv.inventory_batch ib2 ON ib.batch_id = ib2.id');
+    });
+
+    it('groups multi-column relationships into single JOIN ON with AND', async () => {
+        const text = 'SELECT * FROM inventory_balance ib jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'inv', Tables: ['inventory_balance', 'inventory_ledger'], Views: [] }],
+                fetchRelationships: vi.fn(async () => [
+                    {
+                        ConstraintName: 'fk_inventory_balance_ledger',
+                        SourceSchema: 'inv',
+                        SourceTable: 'inventory_balance',
+                        SourceColumn: 'store_id',
+                        TargetSchema: 'inv',
+                        TargetTable: 'inventory_ledger',
+                        TargetColumn: 'store_id',
+                    },
+                    {
+                        ConstraintName: 'fk_inventory_balance_ledger',
+                        SourceSchema: 'inv',
+                        SourceTable: 'inventory_balance',
+                        SourceColumn: 'item_id',
+                        TargetSchema: 'inv',
+                        TargetTable: 'inventory_ledger',
+                        TargetColumn: 'item_id',
+                    },
+                ]),
+            },
+        );
+        const joinItem = items.find((item) => String(item.label).startsWith('JOIN inv.inventory_ledger'));
+        expect(joinItem).toBeTruthy();
+        expect(String(joinItem?.insertText)).toContain('ib.store_id = il.store_id AND ib.item_id = il.item_id');
+    });
+
+    it('keeps default behavior when relationship fetch returns empty', async () => {
+        const text = 'SELECT * FROM inventory_balance ib jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{ Name: 'inv', Tables: ['inventory_balance'], Views: [] }],
+                fetchRelationships: vi.fn(async () => []),
+            },
+        );
+        expect(items.some((item) => String(item.label).startsWith('JOIN inv.'))).toBe(false);
+        expect(items.some((item) => String(item.label) === 'JOIN')).toBe(true);
+    });
+
+    it('suggests relationship JOIN snippets after ON clause when typing jo again', async () => {
+        const text = 'SELECT * FROM inventory_count_header ich INNER JOIN inv.inventory_document_header idh ON ich.adjustment_document_id = idh.document_id INNER JOIN inv.inventory_transaction it ON idh.document_id = it.document_id jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{
+                    Name: 'inv',
+                    Tables: [
+                        'inventory_count_header',
+                        'inventory_document_header',
+                        'inventory_transaction',
+                        'inventory_balance',
+                    ],
+                    Views: [],
+                }],
+                fetchRelationships: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (schemaName === 'inv' && tableName === 'inventory_transaction') {
+                        return [{
+                            ConstraintName: 'fk_transaction_balance',
+                            SourceSchema: 'inv',
+                            SourceTable: 'inventory_transaction',
+                            SourceColumn: 'balance_id',
+                            TargetSchema: 'inv',
+                            TargetTable: 'inventory_balance',
+                            TargetColumn: 'balance_id',
+                        }];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        const joinSnippet = items.find((item) => String(item.label).startsWith('JOIN inv.inventory_balance'));
+        expect(joinSnippet).toBeTruthy();
+        expect(String(joinSnippet?.insertText)).toContain('INNER JOIN inv.inventory_balance ib ON it.balance_id = ib.balance_id');
+    });
+
+    it('falls back to previous source table when last joined table has no relationships', async () => {
+        const text = 'SELECT * FROM inventory_count_header ich INNER JOIN inv.inventory_count_line icl ON ich.count_id = icl.count_id jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [{
+                    Name: 'inv',
+                    Tables: ['inventory_count_header', 'inventory_count_line', 'inventory_document_header'],
+                    Views: [],
+                }],
+                fetchRelationships: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (schemaName === 'inv' && tableName === 'inventory_count_line') return [];
+                    if (schemaName === 'inv' && tableName === 'inventory_count_header') {
+                        return [{
+                            ConstraintName: 'fk_count_header_document',
+                            SourceSchema: 'inv',
+                            SourceTable: 'inventory_count_header',
+                            SourceColumn: 'document_id',
+                            TargetSchema: 'inv',
+                            TargetTable: 'inventory_document_header',
+                            TargetColumn: 'document_id',
+                        }];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        const joinSnippet = items.find((item) => String(item.label).startsWith('JOIN inv.inventory_document_header'));
+        expect(joinSnippet).toBeTruthy();
+        expect(String(joinSnippet?.insertText)).toContain('INNER JOIN inv.inventory_document_header idh ON ich.document_id = idh.document_id');
     });
 
     it('always includes keyword suggestions when active db schema is missing', async () => {

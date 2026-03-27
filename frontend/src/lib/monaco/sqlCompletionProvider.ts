@@ -29,7 +29,7 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
     }
 
     const provider: languages.CompletionItemProvider = {
-        triggerCharacters: ['.', ' ', ',', '('],
+        triggerCharacters: ['.', ' ', ',', '(', 'j', 'J', 'o', 'O', 'i', 'I', 'n', 'N'],
         provideCompletionItems: async (model, position, _context, token) => {
             const requestId = ++latestRequestId;
             const shouldAbort = () => Boolean(token?.isCancellationRequested) || requestId !== latestRequestId;
@@ -48,12 +48,16 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
                 if (shouldAbort()) return [];
                 return useSchemaStore.getState().checkAndFetchColumns(profileKey, dbName, schemaName, tableName);
             };
+            const fetchRelationships = async (schemaName: string, tableName: string) => {
+                if (shouldAbort()) return [];
+                return useSchemaStore.getState().checkAndFetchRelationships(profileKey, dbName, schemaName, tableName);
+            };
             const templates = useTemplateStore.getState().templates;
             const suggestions = await buildSqlCompletionItems(
                 analysis,
                 word.word || '',
                 range,
-                { monaco, schemas, driver: profile?.driver || '', profileKey, dbName, fetchColumns, templates },
+                { monaco, schemas, driver: profile?.driver || '', profileKey, dbName, fetchColumns, fetchRelationships, templates },
                 { shouldAbort },
             );
             if (shouldAbort()) return { suggestions: [] };
