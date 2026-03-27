@@ -404,7 +404,9 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         if (!model) return;
 
         if (selection && !selection.isEmpty()) {
-            return model.getValueInRange(selection).trim().replace(/;+$/, '');
+            const selectedText = model.getValueInRange(selection);
+            if (!selectedText.trim()) return '';
+            return selectedText;
         }
 
         const position = editor.getPosition();
@@ -447,7 +449,9 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             startColumn: 1,
             endLineNumber: endLine,
             endColumn: model.getLineMaxColumn(endLine),
-        }).trim().replace(/;+$/, '');
+        });
+
+        if (!blockText.trim()) return '';
 
         return blockText;
     }, []);
