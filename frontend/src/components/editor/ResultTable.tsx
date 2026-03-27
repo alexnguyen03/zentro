@@ -132,6 +132,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const [lastSelected, setLastSelected] = useState<string | null>(null);
     const [dragStart, setDragStart] = useState<{ rowKey: string; colIdx: number; active: boolean; initialSelected: Set<string> } | null>(null);
     const pendingSelectionRef = React.useRef<{ cellId: string; rowKey: string; colIdx: number } | null>(null);
+    const onViewStatsChangeRef = React.useRef(onViewStatsChange);
+    const lastViewStatsRef = React.useRef<{ visibleRows: number; totalRows: number } | null>(null);
 
     const editValueRef = React.useRef(editValue);
     useEffect(() => { editValueRef.current = editValue; }, [editValue]);
@@ -141,6 +143,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
 
     const displayRowsRef = React.useRef(displayRows);
     useEffect(() => { displayRowsRef.current = displayRows; }, [displayRows]);
+    useEffect(() => { onViewStatsChangeRef.current = onViewStatsChange; }, [onViewStatsChange]);
 
     useEffect(() => {
         if (!isDone) {
@@ -549,11 +552,17 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;
 
     useEffect(() => {
-        onViewStatsChange?.({
+        const nextStats = {
             visibleRows: tableData.length,
             totalRows: displayRows.length,
-        });
-    }, [displayRows.length, onViewStatsChange, tableData.length]);
+        };
+        const prev = lastViewStatsRef.current;
+        if (prev && prev.visibleRows === nextStats.visibleRows && prev.totalRows === nextStats.totalRows) {
+            return;
+        }
+        lastViewStatsRef.current = nextStats;
+        onViewStatsChangeRef.current?.(nextStats);
+    }, [displayRows.length, tableData.length]);
     const table = useReactTable<DisplayRow>({
         data: tableData,
         columns: colDefs,

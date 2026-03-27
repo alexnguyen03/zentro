@@ -72,6 +72,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     isReadOnlyTab = false,
     generatedKind,
 }) => {
+    const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
     const addTab = useEditorStore((s) => s.addTab);
     const updateTabContext = useEditorStore((s) => s.updateTabContext);
@@ -289,7 +290,15 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         viewMode,
     ]);
 
-    React.useEffect(() => { onActionsChange?.(panelActions); }, [onActionsChange, panelActions]);
+    React.useEffect(() => {
+        if (!onActionsChange) return;
+        const signature = panelActions
+            .map((action) => `${action.id}:${action.disabled ? 1 : 0}:${action.loading ? 1 : 0}:${action.danger ? 1 : 0}:${action.label}:${action.title || ''}`)
+            .join('|');
+        if (actionsSignatureRef.current === signature) return;
+        actionsSignatureRef.current = signature;
+        onActionsChange(panelActions);
+    }, [onActionsChange, panelActions]);
 
     // ── Export ────────────────────────────────────────────────────────────────
     const { handleExportCSV, handleExportJSON, handleExportSQLConfirm, exportJob, cancelExport } = useResultExport({
