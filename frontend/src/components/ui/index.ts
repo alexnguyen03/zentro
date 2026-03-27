@@ -9,3 +9,4 @@ export * from './ConfirmationModal';
 export * from './AlertModal';
 export * from './PromptModal';
 export * from './Tooltip';
+export * from './BaseTable';

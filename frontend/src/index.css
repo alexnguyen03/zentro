@@ -280,7 +280,12 @@
   cursor: pointer;
   font-weight: 700;
   opacity: 0.8;
+  text-decoration: underline;
+  text-decoration-thickness: 1.4px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--interactive-primary) 78%, transparent);
   transition:
     color 140ms ease,
     opacity 140ms ease,
+    text-decoration-color 140ms ease,
 }

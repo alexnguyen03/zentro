@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
+import { createRoot, type Root } from 'react-dom/client';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -8,12 +9,15 @@ import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
 import { getSchemasForActiveDatabase } from '../../lib/monaco/sqlCompletionIdentifiers';
-import { resolveTableNavigationAtPosition, type TableNavigationMatch } from '../../lib/monaco/sqlTableNavigation';
+import { resolveSqlObjectNavigationAtPosition, resolveTableNavigationAtPosition, type SchemaObjectKind, type TableNavigationMatch } from '../../lib/monaco/sqlTableNavigation';
 import { runCtrlClickTableNavigation } from './monacoTableNavigation';
+import { ObjectQuickViewPanel } from './ObjectQuickViewPanel';
 import { EditorToolbar } from './EditorToolbar';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
 import { FormatSQL } from '../../services/queryService';
+import { FetchTableColumns } from '../../services/schemaService';
+import type { models } from '../../../wailsjs/go/models';
 
 type EditorPosition = Parameters<MonacoEditor.IStandaloneCodeEditor['setPosition']>[0];
 
@@ -200,6 +204,161 @@ class InlineTableNavigationWidget implements MonacoEditor.IContentWidget {
     }
 }
 
+class InlineObjectQuickViewWidget implements MonacoEditor.IContentWidget {
+    private readonly id = `zentro-object-quickview-${crypto.randomUUID()}`;
+    private readonly domNode: HTMLDivElement;
+    private readonly root: Root;
+    private position: EditorPosition | null = null;
+    private keydownHandler: ((event: KeyboardEvent) => void) | null = null;
+    private outsidePointerHandler: ((event: PointerEvent) => void) | null = null;
+
+    constructor(
+        private readonly editor: MonacoEditor.IStandaloneCodeEditor,
+        private readonly monaco: Parameters<OnMount>[1],
+    ) {
+        this.domNode = document.createElement('div');
+        this.domNode.className = 'hidden';
+        this.root = createRoot(this.domNode);
+        this.domNode.addEventListener('wheel', (event) => {
+            event.stopPropagation();
+        }, { passive: true });
+        this.editor.addContentWidget(this);
+    }
+
+    getId(): string {
+        return this.id;
+    }
+
+    getDomNode(): HTMLElement {
+        return this.domNode;
+    }
+
+    getPosition(): MonacoEditor.IContentWidgetPosition | null {
+        if (!this.position) return null;
+        return {
+            position: this.position,
+            preference: [this.monaco.editor.ContentWidgetPositionPreference.BELOW],
+        };
+    }
+
+    showLoading(match: TableNavigationMatch, position: EditorPosition, onOpenDefinition?: (() => void) | null) {
+        this.position = position;
+        this.domNode.className = '';
+        this.render({
+            title: `${toObjectTitle(match.objectKind)} - ${match.qualifiedName}`,
+            loading: true,
+            columns: [],
+            message: null,
+            onOpenDefinition: onOpenDefinition ?? null,
+        });
+        this.bindDismissListeners();
+        this.editor.layoutContentWidget(this);
+    }
+
+    showColumns(
+        match: TableNavigationMatch,
+        position: EditorPosition,
+        columns: models.ColumnDef[],
+        onOpenDefinition?: (() => void) | null,
+    ) {
+        this.position = position;
+        this.domNode.className = '';
+        this.render({
+            title: `${toObjectTitle(match.objectKind)} - ${match.qualifiedName}`,
+            loading: false,
+            columns,
+            message: null,
+            onOpenDefinition: onOpenDefinition ?? null,
+        });
+        this.bindDismissListeners();
+        this.editor.layoutContentWidget(this);
+    }
+
+    showMessage(match: TableNavigationMatch, position: EditorPosition, message: string, onOpenDefinition?: (() => void) | null) {
+        this.position = position;
+        this.domNode.className = '';
+        this.render({
+            title: `${toObjectTitle(match.objectKind)} - ${match.qualifiedName}`,
+            loading: false,
+            columns: [],
+            message,
+            onOpenDefinition: onOpenDefinition ?? null,
+        });
+        this.bindDismissListeners();
+        this.editor.layoutContentWidget(this);
+    }
+
+    hide() {
+        this.clearDismissListeners();
+        this.position = null;
+        this.domNode.className = 'hidden';
+        this.root.render(null);
+        this.editor.layoutContentWidget(this);
+    }
+
+    dispose() {
+        this.hide();
+        this.root.unmount();
+        this.editor.removeContentWidget(this);
+    }
+
+    private bindDismissListeners() {
+        this.clearDismissListeners();
+        this.keydownHandler = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                this.hide();
+            }
+        };
+        this.outsidePointerHandler = (event: PointerEvent) => {
+            if (!this.domNode.contains(event.target as Node)) {
+                this.hide();
+            }
+        };
+        window.addEventListener('keydown', this.keydownHandler, true);
+        window.addEventListener('pointerdown', this.outsidePointerHandler, true);
+    }
+
+    private clearDismissListeners() {
+        if (this.keydownHandler) {
+            window.removeEventListener('keydown', this.keydownHandler, true);
+            this.keydownHandler = null;
+        }
+        if (this.outsidePointerHandler) {
+            window.removeEventListener('pointerdown', this.outsidePointerHandler, true);
+            this.outsidePointerHandler = null;
+        }
+    }
+
+    private render(props: {
+        title: string;
+        loading: boolean;
+        columns: models.ColumnDef[];
+        message: string | null;
+        onOpenDefinition: (() => void) | null;
+    }) {
+        this.root.render(
+            <ObjectQuickViewPanel
+                title={props.title}
+                loading={props.loading}
+                columns={props.columns}
+                message={props.message}
+                onOpenDefinition={props.onOpenDefinition}
+            />
+        );
+    }
+}
+
+function toObjectTitle(kind: SchemaObjectKind): string {
+    switch (kind) {
+        case 'view': return 'View';
+        case 'materialized_view': return 'Materialized View';
+        case 'foreign_table': return 'Foreign Table';
+        case 'function': return 'Function';
+        default: return 'Table';
+    }
+}
+
 export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     tabId,
     value,
@@ -338,6 +497,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     const addTabRef = useRef(addTab);
     addTabRef.current = addTab;
     const navWidgetRef = useRef<InlineTableNavigationWidget | null>(null);
+    const quickViewWidgetRef = useRef<InlineObjectQuickViewWidget | null>(null);
 
     const applyBookmarkDecorations = useCallback(() => {
         const editor = editorRef.current;
@@ -368,6 +528,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     useEffect(() => () => {
         navWidgetRef.current?.dispose();
         navWidgetRef.current = null;
+        quickViewWidgetRef.current?.dispose();
+        quickViewWidgetRef.current = null;
     }, []);
 
     // Resolve 'system' theme to actual monaco theme
@@ -382,11 +544,21 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         monacoRef.current = monacoInstance;
         navWidgetRef.current?.dispose();
         navWidgetRef.current = new InlineTableNavigationWidget(editor, monacoInstance);
+        quickViewWidgetRef.current?.dispose();
+        quickViewWidgetRef.current = new InlineObjectQuickViewWidget(editor, monacoInstance);
         let lastHoverPosition: EditorPosition | null = null;
         let modifierPressed = false;
+        let hoverQuickViewTimer: ReturnType<typeof setTimeout> | null = null;
+        let lastHoverQuickViewKey = '';
 
         const clearCtrlHoverDecoration = () => {
             ctrlHoverDecorationRef.current = editor.deltaDecorations(ctrlHoverDecorationRef.current, []);
+        };
+
+        const clearHoverQuickViewTimer = () => {
+            if (!hoverQuickViewTimer) return;
+            clearTimeout(hoverQuickViewTimer);
+            hoverQuickViewTimer = null;
         };
 
         const applyCtrlHoverDecoration = (position: EditorPosition | null) => {
@@ -432,6 +604,45 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             }]);
         };
 
+        const openDefinition = (target: TableNavigationMatch) => {
+            addTabRef.current({
+                type: TAB_TYPE.TABLE,
+                name: target.qualifiedName,
+                content: target.qualifiedName,
+                query: '',
+            });
+        };
+
+        const previewObject = async (target: TableNavigationMatch, position: EditorPosition) => {
+            const profile = activeProfileRef.current;
+            const profileName = profile?.name || '';
+            const dbName = profile?.db_name || '';
+            if (!profileName || !dbName) {
+                navWidgetRef.current?.showHint('Khong tim thay table trong context', position);
+                return;
+            }
+
+            quickViewWidgetRef.current?.showLoading(target, position, () => openDefinition(target));
+
+            if (target.objectKind === 'function') {
+                quickViewWidgetRef.current?.showMessage(
+                    target,
+                    position,
+                    'Stored procedure/function quick preview se bo sung tiep. Hien tai ban co the mo definition.',
+                    () => openDefinition(target),
+                );
+                return;
+            }
+
+            const columns = await FetchTableColumns(target.schemaName, target.tableName);
+            quickViewWidgetRef.current?.showColumns(
+                target,
+                position,
+                columns,
+                () => openDefinition(target),
+            );
+        };
+
         // Register SQL completion provider
         registerContextAwareSQLCompletion(monacoInstance);
 
@@ -475,6 +686,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             editorFocusKey.set(false);
             navWidgetRef.current?.hide();
             clearCtrlHoverDecoration();
+            clearHoverQuickViewTimer();
         });
 
         // Bind run query directly on this editor instance for reliable Ctrl/Cmd+Enter behavior.
@@ -487,29 +699,23 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
         editor.onMouseDown((e) => {
             const browserEvent = e?.event?.browserEvent as MouseEvent | undefined;
+            const targetType = e?.target?.type;
+            const mt = monacoInstance.editor.MouseTargetType;
+            const inContentText = targetType === mt.CONTENT_TEXT;
+            const clickPosition = e?.target?.position;
+
             const isModifierClick = Boolean(browserEvent && (browserEvent.ctrlKey || browserEvent.metaKey) && browserEvent.button === 0);
             if (isModifierClick && isActiveRef.current) {
-                const targetType = e?.target?.type;
-                const mt = monacoInstance.editor.MouseTargetType;
-                if (targetType === mt.CONTENT_TEXT) {
+                if (inContentText) {
                     const model = editor.getModel();
-                    const clickPosition = e?.target?.position;
 
                     if (model && clickPosition) {
-                        const openTable = (target: TableNavigationMatch) => {
-                            addTabRef.current({
-                                type: TAB_TYPE.TABLE,
-                                name: target.qualifiedName,
-                                content: target.qualifiedName,
-                                query: '',
-                            });
-                        };
                         runCtrlClickTableNavigation({
                             model,
                             position: clickPosition,
                             profile: activeProfileRef.current,
                             trees: treesRef.current,
-                            onOpenTable: openTable,
+                            onOpenTable: openDefinition,
                             onShowHint: (message, position) => navWidgetRef.current?.showHint(message, position),
                             onShowPicker: (matches, position, onPick) => navWidgetRef.current?.showPicker(matches, position, onPick),
                         });
@@ -526,8 +732,6 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             if (readOnlyRef.current) return;
             if (!isActiveRef.current) return;
 
-            const targetType = e?.target?.type;
-            const mt = monacoInstance.editor.MouseTargetType;
             const inBookmarkGutter =
                 targetType === mt.GUTTER_LINE_NUMBERS ||
                 targetType === mt.GUTTER_GLYPH_MARGIN;
@@ -548,17 +752,45 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             if (targetType !== mt.CONTENT_TEXT) {
                 lastHoverPosition = null;
                 clearCtrlHoverDecoration();
+                clearHoverQuickViewTimer();
                 return;
             }
             const browserEvent = e?.event?.browserEvent as MouseEvent | undefined;
             modifierPressed = Boolean(browserEvent?.ctrlKey || browserEvent?.metaKey);
             lastHoverPosition = e?.target?.position || null;
             applyCtrlHoverDecoration(lastHoverPosition);
+
+            const noModifier = !browserEvent?.ctrlKey && !browserEvent?.metaKey && !browserEvent?.shiftKey && !browserEvent?.altKey;
+            const model = editor.getModel();
+            const profile = activeProfileRef.current;
+            const profileName = profile?.name || '';
+            const dbName = profile?.db_name || '';
+            if (!noModifier || !model || !lastHoverPosition || !profileName || !dbName) {
+                clearHoverQuickViewTimer();
+                return;
+            }
+
+            const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
+            const resolved = resolveSqlObjectNavigationAtPosition(model, lastHoverPosition, schemas);
+            if (resolved.kind !== 'single_match') {
+                clearHoverQuickViewTimer();
+                lastHoverQuickViewKey = '';
+                return;
+            }
+
+            const hoverKey = `${resolved.match.objectKind}:${resolved.match.qualifiedName}`;
+            if (hoverKey === lastHoverQuickViewKey) return;
+            clearHoverQuickViewTimer();
+            hoverQuickViewTimer = setTimeout(() => {
+                lastHoverQuickViewKey = hoverKey;
+                void previewObject(resolved.match, lastHoverPosition!);
+            }, 320);
         });
 
         editor.onMouseLeave(() => {
             lastHoverPosition = null;
             clearCtrlHoverDecoration();
+            clearHoverQuickViewTimer();
         });
 
         const handleModifierKey = (event: KeyboardEvent) => {
@@ -579,6 +811,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             window.removeEventListener('keydown', handleModifierKey, true);
             window.removeEventListener('keyup', handleModifierKey, true);
             clearCtrlHoverDecoration();
+            clearHoverQuickViewTimer();
         });
 
         if (isActiveRef.current) {

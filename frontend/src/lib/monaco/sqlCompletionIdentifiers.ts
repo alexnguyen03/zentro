@@ -22,10 +22,10 @@ function shouldQuoteIdentifier(identifier: string): boolean {
     return /[^a-zA-Z0-9_]/.test(identifier) || /^[0-9]/.test(identifier);
 }
 
-export function quoteIdentifierForDriver(identifier: string, driver: string): string {
+export function quoteIdentifierForDriver(identifier: string, driver: string, forceQuote = false): string {
     const id = stripIdentifierQuotes(identifier);
     if (!id) return identifier;
-    if (!shouldQuoteIdentifier(id)) return id;
+    if (!forceQuote && !shouldQuoteIdentifier(id)) return id;
     const facade = resolveSqlDriverFacade(driver);
     if (!facade) return `"${id}"`;
     return facade.quoteIdentifier(id);

@@ -242,6 +242,27 @@ describe('sqlCompletion', () => {
         expect(target?.insertText).toBe('order_items oi');
     });
 
+    it('always inserts schema-qualified table names when active db has multiple schemas', async () => {
+        const text = 'SELECT * FROM inventory_bal';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'inventory_bal',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory_balance'], Views: [] },
+                    { Name: 'public', Tables: ['users'], Views: [] },
+                ],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'inventory_balance');
+        expect(target?.insertText).toBe('"inv"."inventory_balance" ib');
+    });
+
     it('prioritizes tables over keywords for matching prefixes', async () => {
         const text = 'SELECT * FROM a';
         const analysis = analyzeSqlText(text, text.length);
@@ -448,6 +469,46 @@ describe('sqlCompletion', () => {
         const joinSnippet = items.find((item) => String(item.label).startsWith('JOIN inv.inventory_balance'));
         expect(joinSnippet).toBeTruthy();
         expect(String(joinSnippet?.insertText)).toContain('INNER JOIN inv.inventory_balance ib ON it.balance_id = ib.balance_id');
+    });
+
+    it('suggests all aliases and alias-qualified columns in WHERE clause', async () => {
+        const text = 'SELECT * FROM "inv"."inventory_balance" ib INNER JOIN inv.inventory_lot il ON ib.lot_id = il.lot_id WHERE i';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'i',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory_balance', 'inventory_lot'], Views: [] },
+                ],
+                fetchColumns: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (schemaName === 'inv' && tableName === 'inventory_balance') {
+                        return [
+                            { Name: 'item_id', DataType: 'uuid' },
+                            { Name: 'in_transit_qty', DataType: 'numeric' },
+                        ];
+                    }
+                    if (schemaName === 'inv' && tableName === 'inventory_lot') {
+                        return [
+                            { Name: 'item_id', DataType: 'uuid' },
+                            { Name: 'lot_id', DataType: 'uuid' },
+                        ];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        const labels = items.map((item) => String(item.label));
+        expect(labels).toContain('ib');
+        expect(labels).toContain('il');
+        expect(labels).toContain('ib.item_id');
+        expect(labels).toContain('ib.in_transit_qty');
+        expect(labels).toContain('il.item_id');
+        expect(labels).toContain('il.lot_id');
     });
 
     it('falls back to previous source table when last joined table has no relationships', async () => {

@@ -9,7 +9,7 @@ import {
     SQL_OPERATORS,
     TABLE_LIKE_CLAUSES,
 } from './sqlCompletionConstants';
-import { buildCatalogIndex, resolveColumnsForSources, resolveSourcesFromIdentifier } from './sqlCompletionCatalog';
+import { buildCatalogIndex, findCatalogMatches, resolveColumnsForSources, resolveSourcesFromIdentifier } from './sqlCompletionCatalog';
 import { generateAliasFromObjectName, normalizeDriverKey, normalizeIdentifier, quoteIdentifierForDriver } from './sqlCompletionIdentifiers';
 import {
     buildSelectLikeSuggestions,
@@ -93,8 +93,9 @@ export async function buildSqlCompletionItems(
         for (const entry of catalog.entries) {
             const label = entry.duplicateCount > 1 ? `${entry.schemaName}.${entry.name}` : entry.name;
             const detail = `${entry.kind === 'view' ? 'View' : 'Table'} - ${entry.schemaName}`;
-            const qualifiedName = entry.duplicateCount > 1
-                ? `${quoteIdentifierForDriver(entry.schemaName, env.driver)}.${quoteIdentifierForDriver(entry.name, env.driver)}`
+            const forceQualifiedBySchema = env.schemas.length > 1 || entry.duplicateCount > 1;
+            const qualifiedName = forceQualifiedBySchema
+                ? `${quoteIdentifierForDriver(entry.schemaName, env.driver, true)}.${quoteIdentifierForDriver(entry.name, env.driver, true)}`
                 : quoteIdentifierForDriver(entry.name, env.driver);
             const alias = options?.withAlias ? generateAliasFromObjectName(entry.name) : '';
             const insertText = alias ? `${qualifiedName} ${alias}` : qualifiedName;
@@ -130,6 +131,81 @@ export async function buildSqlCompletionItems(
             insertText: column.Name,
             range,
         }));
+    };
+
+    const buildAliasItems = (sources: SqlSourceRef[]) => {
+        const uniqueAliases = new Set<string>();
+        const items: Array<{ label: string; kind: CompletionKind; detail: string; insertText: string; range: typeof range }> = [];
+
+        sources.slice(0, 8).forEach((source) => {
+            const alias = (source.alias || source.name || '').trim();
+            if (!alias) return;
+            const key = normalizeIdentifier(alias);
+            if (!key || uniqueAliases.has(key)) return;
+            uniqueAliases.add(key);
+            items.push({
+                label: alias,
+                kind: env.monaco.languages.CompletionItemKind.Text as CompletionKind,
+                detail: 'Alias',
+                insertText: `${alias}.`,
+                range,
+            });
+        });
+
+        return items;
+    };
+
+    const buildAliasQualifiedColumnItems = async (sources: SqlSourceRef[]) => {
+        const unique = new Map<string, { label: string; kind: CompletionKind; detail: string; insertText: string; range: typeof range }>();
+        const targetSources = sources.slice(0, 8);
+
+        for (const source of targetSources) {
+            if (shouldAbort()) return [];
+            const alias = (source.alias || source.name || '').trim();
+            if (!alias) continue;
+            const aliasNorm = normalizeIdentifier(alias);
+            if (!aliasNorm) continue;
+
+            if (source.columns && source.columns.length > 0) {
+                source.columns.forEach((columnName) => {
+                    const label = `${alias}.${columnName}`;
+                    const key = normalizeIdentifier(label);
+                    if (!unique.has(key)) {
+                        unique.set(key, {
+                            label,
+                            kind: env.monaco.languages.CompletionItemKind.Field as CompletionKind,
+                            detail: `Column - ${alias}`,
+                            insertText: label,
+                            range,
+                        });
+                    }
+                });
+                continue;
+            }
+
+            if (source.kind === 'cte' || source.kind === 'subquery') continue;
+            const matches = findCatalogMatches(env.schemas, source.name, source.schemaName);
+            for (const match of matches) {
+                if (shouldAbort()) return [];
+                const columns = await env.fetchColumns(match.schemaName, match.name);
+                if (shouldAbort()) return [];
+                columns.forEach((column) => {
+                    const label = `${alias}.${column.Name}`;
+                    const key = normalizeIdentifier(label);
+                    if (!unique.has(key)) {
+                        unique.set(key, {
+                            label,
+                            kind: env.monaco.languages.CompletionItemKind.Field as CompletionKind,
+                            detail: column.DataType ? `${column.DataType} - ${alias}` : `Column - ${alias}`,
+                            insertText: label,
+                            range,
+                        });
+                    }
+                });
+            }
+        }
+
+        return Array.from(unique.values()).sort((a, b) => a.label.localeCompare(b.label));
     };
 
     const clause = normalizeInsertClause(analysis);
@@ -172,8 +248,12 @@ export async function buildSqlCompletionItems(
     }
     if (baseClause === 'where' || baseClause === 'having' || baseClause === 'on' || baseClause === 'set') {
         const columns = await buildColumnItems(analysis.sources);
+        const aliases = buildAliasItems(analysis.sources);
+        const aliasColumns = await buildAliasQualifiedColumnItems(analysis.sources);
         if (shouldAbort()) return [];
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
+        aliases.forEach((item) => addSuggestion(item.label, item, -25));
+        aliasColumns.forEach((item) => addSuggestion(item.label, item, -10));
         SQL_OPERATORS.forEach((op) => addOperator(op, `${op} `, 50));
         buildSelectLikeSuggestions(addKeyword, addFunction, addText, addOperator);
     }

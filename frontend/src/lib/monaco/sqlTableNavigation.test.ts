@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SchemaNode } from '../../stores/schemaStore';
-import { resolveTableNavigationAtPosition, type SqlModelLike, type SqlPositionLike } from './sqlTableNavigation';
+import { resolveSqlObjectNavigationAtPosition, resolveTableNavigationAtPosition, type SqlModelLike, type SqlPositionLike } from './sqlTableNavigation';
 
 function createModel(text: string): SqlModelLike {
     return {
@@ -26,6 +26,7 @@ const schemas: SchemaNode[] = [
         Name: 'audit',
         Tables: ['users'],
         Views: [],
+        Functions: ['sp_recompute_balance'],
     },
 ];
 
@@ -71,5 +72,15 @@ describe('sqlTableNavigation.resolveTableNavigationAtPosition', () => {
         expect(result.kind).toBe('multiple_matches');
         if (result.kind !== 'multiple_matches') return;
         expect(result.matches.map((x) => x.qualifiedName)).toEqual(['audit.users', 'public.users']);
+    });
+
+    it('resolves function object in sql object navigation mode', () => {
+        const model = createModel('SELECT * FROM sp_recompute_balance');
+        const result = resolveSqlObjectNavigationAtPosition(model, { lineNumber: 1, column: 18 }, schemas);
+
+        expect(result.kind).toBe('single_match');
+        if (result.kind !== 'single_match') return;
+        expect(result.match.qualifiedName).toBe('audit.sp_recompute_balance');
+        expect(result.match.objectKind).toBe('function');
     });
 });

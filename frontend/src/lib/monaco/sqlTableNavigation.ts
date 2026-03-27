@@ -15,7 +15,10 @@ export interface TableNavigationMatch {
     schemaName: string;
     tableName: string;
     qualifiedName: string;
+    objectKind: SchemaObjectKind;
 }
+
+export type SchemaObjectKind = 'table' | 'view' | 'materialized_view' | 'foreign_table' | 'function';
 
 export type TableNavigationResolution =
     | { kind: 'not_found'; lookup: string }
@@ -23,6 +26,11 @@ export type TableNavigationResolution =
     | { kind: 'multiple_matches'; lookup: string; matches: TableNavigationMatch[] };
 
 const IDENTIFIER_CHAR = /[A-Za-z0-9_$.[\]`"]/;
+
+export type SqlObjectNavigationResolution =
+    | { kind: 'not_found'; lookup: string }
+    | { kind: 'single_match'; lookup: string; match: TableNavigationMatch }
+    | { kind: 'multiple_matches'; lookup: string; matches: TableNavigationMatch[] };
 
 export function resolveTableNavigationAtPosition(
     model: SqlModelLike,
@@ -43,7 +51,38 @@ export function resolveTableNavigationAtPosition(
     return { kind: 'multiple_matches', lookup, matches };
 }
 
+export function resolveSqlObjectNavigationAtPosition(
+    model: SqlModelLike,
+    position: SqlPositionLike,
+    schemas: SchemaNode[],
+): SqlObjectNavigationResolution {
+    const text = model.getValue();
+    const offset = model.getOffsetAt(position);
+    const chain = extractIdentifierChainAtOffset(text, offset);
+    const lookup = chain?.raw ?? '';
+    if (!chain || chain.segments.length === 0) {
+        return { kind: 'not_found', lookup };
+    }
+
+    const matches = findSqlObjectMatches(schemas, chain.segments);
+    if (matches.length === 0) return { kind: 'not_found', lookup };
+    if (matches.length === 1) return { kind: 'single_match', lookup, match: matches[0] };
+    return { kind: 'multiple_matches', lookup, matches };
+}
+
 export function findTableMatches(schemas: SchemaNode[], segments: string[]): TableNavigationMatch[] {
+    return findMatchesByKinds(schemas, segments, new Set<SchemaObjectKind>(['table', 'view', 'materialized_view', 'foreign_table']));
+}
+
+export function findSqlObjectMatches(schemas: SchemaNode[], segments: string[]): TableNavigationMatch[] {
+    return findMatchesByKinds(schemas, segments, new Set<SchemaObjectKind>(['table', 'view', 'materialized_view', 'foreign_table', 'function']));
+}
+
+function findMatchesByKinds(
+    schemas: SchemaNode[],
+    segments: string[],
+    kinds: Set<SchemaObjectKind>,
+): TableNavigationMatch[] {
     if (!segments.length) return [];
 
     const normalized = segments.map((segment) => normalizeIdentifier(segment));
@@ -58,20 +97,21 @@ export function findTableMatches(schemas: SchemaNode[], segments: string[]): Tab
         if (!schemaName) return;
         if (schemaHint && normalizeIdentifier(schemaName) !== schemaHint) return;
 
-        const names = collectSchemaObjectNames(schemaNode);
-        names.forEach((name) => {
+        const objects = collectSchemaObjectNames(schemaNode, kinds);
+        objects.forEach(({ name, kind }) => {
             if (normalizeIdentifier(name) !== objectName) return;
             results.push({
                 schemaName,
                 tableName: name,
                 qualifiedName: `${schemaName}.${name}`,
+                objectKind: kind,
             });
         });
     });
 
     const unique = new Map<string, TableNavigationMatch>();
     results.forEach((item) => {
-        const key = `${normalizeIdentifier(item.schemaName)}:${normalizeIdentifier(item.tableName)}`;
+        const key = `${normalizeIdentifier(item.schemaName)}:${normalizeIdentifier(item.tableName)}:${item.objectKind}`;
         if (!unique.has(key)) unique.set(key, item);
     });
 
@@ -158,12 +198,26 @@ function parseIdentifierSegment(value: string, startIndex: number): { segment: s
     return { segment: value.slice(startIndex, i), nextIndex: i };
 }
 
-function collectSchemaObjectNames(schema: SchemaNode): string[] {
-    const all = [
-        ...(schema.Tables || []),
-        ...(schema.Views || []),
-        ...(schema.MaterializedViews || []),
-        ...(schema.ForeignTables || []),
+function collectSchemaObjectNames(
+    schema: SchemaNode,
+    kinds: Set<SchemaObjectKind>,
+): Array<{ name: string; kind: SchemaObjectKind }> {
+    const all: Array<{ kind: SchemaObjectKind; values: string[] | undefined }> = [
+        { kind: 'table', values: schema.Tables },
+        { kind: 'view', values: schema.Views },
+        { kind: 'materialized_view', values: schema.MaterializedViews },
+        { kind: 'foreign_table', values: schema.ForeignTables },
+        { kind: 'function', values: schema.Functions },
     ];
-    return all.filter((name): name is string => Boolean(name && name.trim()));
+
+    const items: Array<{ name: string; kind: SchemaObjectKind }> = [];
+    all.forEach(({ kind, values }) => {
+        if (!kinds.has(kind)) return;
+        (values || []).forEach((name) => {
+            if (name && name.trim()) {
+                items.push({ name, kind });
+            }
+        });
+    });
+    return items;
 }
