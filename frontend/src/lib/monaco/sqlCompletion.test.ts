@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     analyzeSqlText,
     buildSqlCompletionItems,
+    formatTableSuggestionDocumentation,
     getSchemasForActiveDatabase,
+    isTableCompletionItem,
+    resolveTableSuggestionItem,
     type SqlCompletionEnv,
 } from './sqlCompletion';
 
@@ -30,6 +33,8 @@ const env: SqlCompletionEnv = {
         { Name: 'public', Tables: ['users'], Views: ['active_users'] },
     ],
     driver: 'postgres',
+    profileKey: 'main',
+    dbName: 'db1',
     fetchColumns: vi.fn(async (schemaName: string, tableName: string) => {
         if (schemaName === 'public' && tableName === 'users') {
             return [
@@ -96,6 +101,107 @@ describe('sqlCompletion', () => {
         );
 
         expect(String(items[0].label)).toBe('users');
+        expect(items[0].detail).toBe('Table - public');
+    });
+
+    it('attaches table metadata to table suggestions', async () => {
+        const text = 'SELECT * FROM us';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'us',
+            createRange(text.length),
+            env,
+        );
+        const users = items.find((item) => String(item.label) === 'users');
+        expect(users).toBeTruthy();
+        expect(isTableCompletionItem(users!)).toBe(true);
+        if (isTableCompletionItem(users!)) {
+            expect(users!.__zentroTableMeta).toMatchObject({
+                schemaName: 'public',
+                tableName: 'users',
+                objectKind: 'table',
+                profileKey: 'main',
+                dbName: 'db1',
+            });
+        }
+    });
+
+    it('formats table documentation with full columns and data types', () => {
+        const doc = formatTableSuggestionDocumentation(
+            {
+                schemaName: 'public',
+                tableName: 'users',
+                objectKind: 'table',
+                profileKey: 'main',
+                dbName: 'db1',
+                driver: 'postgres',
+            },
+            [
+                { Name: 'id', DataType: 'integer', IsPrimaryKey: true, IsNullable: false, DefaultValue: '' },
+                { Name: 'name', DataType: 'text', IsNullable: true, DefaultValue: 'NULL' },
+            ],
+        );
+        expect(doc.value).toContain('Table - public.users');
+        expect(doc.value).toContain('<table');
+        expect(doc.value).toContain('class="zentro-suggest-doc__table"');
+        expect(doc.value).toContain('>Data Type<');
+        expect(doc.value).toContain('>id<');
+        expect(doc.value).toContain('>integer<');
+        expect(doc.value).toContain('>PK<');
+        expect(doc.supportHtml).toBe(true);
+        expect(doc.isTrusted).toBe(true);
+    });
+
+    it('resolves table suggestion lazily on focus', async () => {
+        const item = {
+            label: 'users',
+            kind: monacoStub.languages.CompletionItemKind.Module,
+            __zentroTableMeta: {
+                schemaName: 'public',
+                tableName: 'users',
+                objectKind: 'table',
+                profileKey: 'main',
+                dbName: 'db1',
+                driver: 'postgres',
+            },
+        } as any;
+        const fetchColumns = vi.fn(async () => [
+            { Name: 'id', DataType: 'integer', IsPrimaryKey: true, IsNullable: false, DefaultValue: '' },
+            { Name: 'name', DataType: 'text', IsNullable: true, DefaultValue: 'NULL' },
+        ]);
+
+        const resolved = await resolveTableSuggestionItem(item, {
+            shouldAbort: () => false,
+            fetchColumns,
+        });
+        expect(fetchColumns).toHaveBeenCalledTimes(1);
+        expect((resolved.documentation as { value: string }).value).toContain('<table');
+        expect((resolved.documentation as { value: string }).value).toContain('>id<');
+        expect((resolved.documentation as { value: string }).value).toContain('>name<');
+    });
+
+    it('returns fallback documentation when lazy table metadata fetch fails', async () => {
+        const item = {
+            label: 'users',
+            kind: monacoStub.languages.CompletionItemKind.Module,
+            __zentroTableMeta: {
+                schemaName: 'public',
+                tableName: 'users',
+                objectKind: 'table',
+                profileKey: 'main',
+                dbName: 'db1',
+                driver: 'postgres',
+            },
+        } as any;
+
+        const resolved = await resolveTableSuggestionItem(item, {
+            shouldAbort: () => false,
+            fetchColumns: vi.fn(async () => {
+                throw new Error('boom');
+            }),
+        });
+        expect((resolved.documentation as { value: string }).value).toContain('Unable to load column metadata');
     });
 
     it('auto-fills table alias using initials in FROM clause', async () => {

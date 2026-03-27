@@ -1,4 +1,4 @@
-import { languages } from 'monaco-editor';
+﻿import { languages } from 'monaco-editor';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { SchemaNode, useSchemaStore } from '../../stores/schemaStore';
 import { useTemplateStore } from '../../stores/templateStore';
@@ -77,6 +77,8 @@ export interface SqlColumnLike {
     Name: string;
     DataType?: string;
     IsPrimaryKey?: boolean;
+    IsNullable?: boolean;
+    DefaultValue?: string;
 }
 
 export interface SqlTemplateLike {
@@ -111,6 +113,8 @@ export interface SqlCompletionEnv {
     monaco: SqlCompletionMonacoApi;
     schemas: SchemaNode[];
     driver: string;
+    profileKey?: string;
+    dbName?: string;
     fetchColumns: (schemaName: string, tableName: string) => Promise<SqlColumnLike[]>;
     templates: SqlTemplateLike[];
 }
@@ -123,6 +127,19 @@ interface SuggestionRecord {
     priority: number;
     item: languages.CompletionItem;
 }
+
+interface TableSuggestionMetadata {
+    schemaName: string;
+    tableName: string;
+    objectKind: 'table' | 'view';
+    profileKey: string;
+    dbName: string;
+    driver: string;
+}
+
+type TableCompletionItem = languages.CompletionItem & {
+    __zentroTableMeta?: TableSuggestionMetadata;
+};
 
 const DISPOSABLES_KEY = '__ZENTRO_SQL_COMPLETION_DISPOSABLES__';
 
@@ -1073,6 +1090,117 @@ function finalizeSuggestions(suggestionMap: Map<string, SuggestionRecord>): lang
         .map((record) => record.item);
 }
 
+export function isTableCompletionItem(item: languages.CompletionItem): item is TableCompletionItem {
+    return Boolean((item as TableCompletionItem).__zentroTableMeta);
+}
+
+export function formatTableSuggestionDocumentation(
+    meta: TableSuggestionMetadata,
+    columns: SqlColumnLike[],
+    options: { error?: boolean } = {},
+): { value: string; isTrusted: boolean; supportHtml: boolean } {
+    const objectLabel = meta.objectKind === 'view' ? 'View' : 'Table';
+    const qualifiedName = `${meta.schemaName}.${meta.tableName}`;
+    const escapeHtml = (value: string) =>
+        value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+    const renderStatusTable = (status: string, message: string) =>
+        `<div class="zentro-suggest-doc">` +
+        `<div class="zentro-suggest-doc__title">${escapeHtml(objectLabel)} - ${escapeHtml(qualifiedName)}</div>` +
+        `<table class="zentro-suggest-doc__table">` +
+        `<thead><tr><th>Status</th><th>Message</th></tr></thead>` +
+        `<tbody><tr><td>${escapeHtml(status)}</td><td>${escapeHtml(message)}</td></tr></tbody>` +
+        `</table>` +
+        `</div>`;
+
+    if (options.error) {
+        return {
+            value: renderStatusTable('Error', 'Unable to load column metadata.'),
+            isTrusted: true,
+            supportHtml: true,
+        };
+    }
+    if (!columns || columns.length === 0) {
+        return {
+            value: renderStatusTable('Info', 'No columns found.'),
+            isTrusted: true,
+            supportHtml: true,
+        };
+    }
+
+    const rows = columns
+        .map((column, index) => {
+            const columnName = escapeHtml(column.Name || '(unnamed)');
+            const dataType = escapeHtml((column.DataType || 'unknown').trim() || 'unknown');
+            const key = column.IsPrimaryKey ? 'PK' : '';
+            const nullable = column.IsNullable ? 'YES' : 'NO';
+            const defaultValueRaw = (column.DefaultValue || '').trim();
+            const defaultValue = escapeHtml(defaultValueRaw || 'NULL');
+            return (
+                '<tr>' +
+                `<td>${index + 1}</td>` +
+                `<td>${columnName}</td>` +
+                `<td>${dataType}</td>` +
+                `<td>${key}</td>` +
+                `<td>${nullable}</td>` +
+                `<td>${defaultValue}</td>` +
+                '</tr>'
+            );
+        })
+        .join('\n');
+
+    return {
+        value:
+            `<div class="zentro-suggest-doc">` +
+            `<div class="zentro-suggest-doc__title">${escapeHtml(objectLabel)} - ${escapeHtml(qualifiedName)}</div>` +
+            '<table class="zentro-suggest-doc__table">' +
+            '<thead><tr><th>#</th><th>Name</th><th>Data Type</th><th>PK</th><th>Null</th><th>Default</th></tr></thead>' +
+            `<tbody>${rows}</tbody>` +
+            '</table>' +
+            '</div>',
+        isTrusted: true,
+        supportHtml: true,
+    };
+}
+export async function resolveTableSuggestionItem(
+    item: languages.CompletionItem,
+    options: {
+        shouldAbort: () => boolean;
+        fetchColumns: (meta: TableSuggestionMetadata) => Promise<SqlColumnLike[]>;
+    },
+): Promise<languages.CompletionItem> {
+    if (!isTableCompletionItem(item)) {
+        return item;
+    }
+    if (options.shouldAbort()) {
+        return item;
+    }
+    const meta = item.__zentroTableMeta!;
+    try {
+        const columns = await options.fetchColumns(meta);
+        if (options.shouldAbort()) {
+            return item;
+        }
+        return {
+            ...item,
+            documentation: formatTableSuggestionDocumentation(meta, columns),
+        };
+    } catch {
+        if (options.shouldAbort()) {
+            return item;
+        }
+        return {
+            ...item,
+            documentation: formatTableSuggestionDocumentation(meta, [], { error: true }),
+        };
+    }
+}
+
 function getOffsetAtPosition(text: string, position: { lineNumber: number; column: number }): number {
     const lines = text.split(/\r?\n/);
     let offset = 0;
@@ -1200,13 +1328,13 @@ export async function buildSqlCompletionItems(
 
     const buildTableItems = (options?: { withAlias?: boolean }) => {
         const catalog = buildCatalogIndex(env.schemas);
-        const items: Array<{ item: languages.CompletionItem; priority: number }> = [];
+        const items: Array<{ item: TableCompletionItem; priority: number }> = [];
 
         for (const entry of catalog.entries) {
             const label = entry.duplicateCount > 1
                 ? `${entry.schemaName}.${entry.name}`
                 : entry.name;
-            const detail = entry.kind === 'view' ? 'View' : 'Table';
+            const detail = `${entry.kind === 'view' ? 'View' : 'Table'} - ${entry.schemaName}`;
             const qualifiedName = entry.duplicateCount > 1
                 ? `${quoteIdentifierForDriver(entry.schemaName, env.driver)}.${quoteIdentifierForDriver(entry.name, env.driver)}`
                 : quoteIdentifierForDriver(entry.name, env.driver);
@@ -1222,6 +1350,14 @@ export async function buildSqlCompletionItems(
                     detail,
                     insertText,
                     range,
+                    __zentroTableMeta: {
+                        schemaName: entry.schemaName,
+                        tableName: entry.name,
+                        objectKind: entry.kind,
+                        profileKey: env.profileKey || '',
+                        dbName: env.dbName || '',
+                        driver: env.driver || '',
+                    },
                 },
             });
         }
@@ -1415,6 +1551,8 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
                     monaco,
                     schemas,
                     driver: profile?.driver || '',
+                    profileKey,
+                    dbName,
                     fetchColumns,
                     templates,
                 },
@@ -1428,8 +1566,22 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
             }
             return { suggestions };
         },
+        resolveCompletionItem: async (item, token) => {
+            const shouldAbort = () => Boolean(token?.isCancellationRequested);
+            return resolveTableSuggestionItem(item, {
+                shouldAbort,
+                fetchColumns: (meta) =>
+                    useSchemaStore.getState().checkAndFetchColumns(
+                        meta.profileKey,
+                        meta.dbName,
+                        meta.schemaName,
+                        meta.tableName,
+                    ),
+            });
+        },
     };
 
     const registration = monaco.languages.registerCompletionItemProvider('sql', provider);
     disposables.push(registration);
 }
+

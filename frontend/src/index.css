@@ -155,3 +155,65 @@
   border: none !important;
   background: color-mix(in srgb, var(--interactive-primary) 12%, transparent) !important;
 }
+
+/* Monaco suggest documentation table styling (enterprise compact) */
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--content-primary);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__title {
+  margin: 0 0 8px 0;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--content-primary);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table th,
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table th {
+  background: var(--surface-elevated);
+  color: var(--content-secondary);
+  font-weight: 700;
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Fallback selectors if Monaco sanitizer strips class attributes */
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc table th,
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
