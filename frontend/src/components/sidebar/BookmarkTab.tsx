@@ -258,13 +258,13 @@ export const BookmarkTab: React.FC = () => {
             <div className="flex-1 overflow-auto p-2">
                 {scope === 'current' ? (
                     bookmarks.length === 0 ? (
-                        <div className="text-[12px] text-text-secondary px-2 py-2 rounded-sm">No bookmarks for this tab.</div>
+                        <div className="text-[12px] text-text-secondary px-2 py-2 rounded-md">No bookmarks for this tab.</div>
                     ) : (
                         <div className="space-y-0.5">
                             {bookmarks.map((item) => (
                                 <button
                                     key={item.id || item.line}
-                                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
+                                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
                                     onClick={() => {
                                         emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: activeTabId, line: item.line });
                                     }}
@@ -277,7 +277,7 @@ export const BookmarkTab: React.FC = () => {
                         </div>
                     )
                 ) : groupedGlobalBookmarks.length === 0 ? (
-                    <div className="text-[12px] text-text-secondary px-2 py-2 rounded-sm">No global bookmarks yet.</div>
+                    <div className="text-[12px] text-text-secondary px-2 py-2 rounded-md">No global bookmarks yet.</div>
                 ) : (
                     <div className="space-y-1">
                         {groupedGlobalBookmarks.map((group) => {
@@ -301,7 +301,7 @@ export const BookmarkTab: React.FC = () => {
                                         </button>
 
                                         <button
-                                            className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
+                                            className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
                                             onClick={() => {
                                                 void restoreAndOpen({
                                                     bookmarkKey: group.bookmarkKey,
@@ -325,7 +325,7 @@ export const BookmarkTab: React.FC = () => {
                                                     <button
                                                         key={`${group.bookmarkKey}-${item.id || item.line}`}
                                                         className={cn(
-                                                            'group flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent',
+                                                            'group flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent',
                                                             index === 0 && 'mt-0'
                                                         )}
                                                         onClick={(e) => {

@@ -148,13 +148,13 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
         <div 
             ref={containerRef}
             style={style}
-            className="z-popover flex h-[400px] w-[600px] flex-col overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-2xl animate-in slide-in-from-bottom-2 duration-200"
+            className="z-popover flex h-[400px] w-[600px] flex-col overflow-hidden rounded-md border border-border bg-bg-secondary shadow-2xl animate-in slide-in-from-bottom-2 duration-200"
         >
             {/* Header */}
             <div className="px-4 py-3 border-b border-border bg-bg-tertiary/30 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <h3 className="text-xs font-bold text-text-primary tracking-tight">MANAGE TEMPLATES</h3>
-                    <span className="text-[10px] text-text-muted bg-bg-primary px-1.5 py-0.5 rounded border border-border">
+                    <span className="text-[10px] text-text-muted bg-bg-primary px-1.5 py-0.5 rounded-md border border-border">
                         {templates.length} total
                     </span>
                 </div>
@@ -162,7 +162,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
                     <div className="relative">
                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-text-muted" size={12} />
                         <input 
-                            className="bg-bg-primary border border-border rounded px-7 py-1 text-[11px] outline-none focus:border-success/50 transition-colors w-40"
+                            className="bg-bg-primary border border-border rounded-md px-7 py-1 text-[11px] outline-none focus:border-success/50 transition-colors w-40"
                             placeholder="Filter..."
                             value={filter}
                             onChange={e => setFilter(e.target.value)}
@@ -204,7 +204,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
                             <div className="px-3 py-2 border-r border-border/5 overflow-hidden">
                                 <input 
                                     data-name-id={t.id}
-                                    className="bg-transparent border-none outline-none text-text-primary w-full truncate focus:text-success focus:bg-success/5 px-1 -mx-1 rounded transition-colors"
+                                    className="bg-transparent border-none outline-none text-text-primary w-full truncate focus:text-success focus:bg-success/5 px-1 -mx-1 rounded-md transition-colors"
                                     value={t.name}
                                     onBlur={(e) => handleBlur(t.id, 'name', e.target.value)}
                                     onChange={(e) => handleDraftUpdate(t.id, 'name', e.target.value)}
@@ -212,7 +212,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
                             </div>
                             <div className="px-3 py-2 border-r border-border/5 overflow-hidden font-mono text-warning">
                                 <input 
-                                    className="bg-transparent border-none outline-none text-warning w-full truncate focus:bg-warning/5 px-1 -mx-1 rounded transition-colors"
+                                    className="bg-transparent border-none outline-none text-warning w-full truncate focus:bg-warning/5 px-1 -mx-1 rounded-md transition-colors"
                                     value={t.trigger}
                                     onBlur={(e) => handleBlur(t.id, 'trigger', e.target.value)}
                                     onChange={(e) => handleDraftUpdate(t.id, 'trigger', e.target.value)}
@@ -220,7 +220,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
                             </div>
                             <div className="px-3 py-2 overflow-hidden text-text-muted group-hover:text-text-secondary">
                                 <input 
-                                    className="bg-transparent border-none outline-none w-full truncate font-mono text-[11px] focus:text-text-primary focus:bg-bg-tertiary px-1 -mx-1 rounded transition-colors"
+                                    className="bg-transparent border-none outline-none w-full truncate font-mono text-[11px] focus:text-text-primary focus:bg-bg-tertiary px-1 -mx-1 rounded-md transition-colors"
                                     value={t.content}
                                     onBlur={(e) => handleBlur(t.id, 'content', e.target.value)}
                                     onChange={(e) => handleDraftUpdate(t.id, 'content', e.target.value)}
@@ -241,10 +241,10 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({ onClose, ancho
             <div className="px-4 py-2 border-t border-border bg-bg-tertiary/20 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3 text-[10px] text-text-muted">
                     <span className="flex items-center gap-1">
-                        <kbd className="px-1 bg-bg-tertiary rounded border border-border/50 text-[9px]">Ctrl</kbd> Select
+                        <kbd className="px-1 bg-bg-tertiary rounded-md border border-border/50 text-[9px]">Ctrl</kbd> Select
                     </span>
                     <span className="flex items-center gap-1">
-                        <kbd className="px-1 bg-bg-tertiary rounded border border-border/50 text-[9px]">Del</kbd> Delete
+                        <kbd className="px-1 bg-bg-tertiary rounded-md border border-border/50 text-[9px]">Del</kbd> Delete
                     </span>
                     {isLoading && (
                         <span className="flex items-center gap-1 text-success animate-pulse">

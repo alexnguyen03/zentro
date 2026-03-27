@@ -121,7 +121,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
 
   return (
     <ModalBackdrop onClose={onClose} className="items-start pt-[8vh]">
-      <div className="w-[92vw] h-[84vh] bg-bg-secondary border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-[92vw] h-[84vh] bg-bg-secondary border border-border rounded-md shadow-2xl overflow-hidden flex flex-col">
         <div className="h-11 px-4 border-b border-border flex items-center justify-between">
           <div className="text-sm font-semibold">Compare Queries</div>
           <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           <label className="text-xs text-text-secondary flex items-center gap-1">
             Left
             <select
-              className="ml-1 bg-bg-primary border border-border rounded px-2 py-1 text-[12px]"
+              className="ml-1 bg-bg-primary border border-border rounded-md px-2 py-1 text-[12px]"
               value={leftTabId}
               disabled={!canUseCompare}
               onChange={(e) => setLeftTabId(e.target.value)}
@@ -159,7 +159,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           <label className="text-xs text-text-secondary flex items-center gap-1">
             Right
             <select
-              className="ml-1 bg-bg-primary border border-border rounded px-2 py-1 text-[12px]"
+              className="ml-1 bg-bg-primary border border-border rounded-md px-2 py-1 text-[12px]"
               value={rightTabId}
               disabled={!canUseCompare}
               onChange={(e) => setRightTabId(e.target.value)}

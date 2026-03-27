@@ -170,13 +170,13 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
                         placeholder="Filter connections or databases..."
-                        className="w-full rounded-sm border border-border bg-bg-primary px-2 py-1 text-[11px] text-text-primary outline-none transition-colors placeholder:text-text-secondary/60 focus:border-success"
+                        className="w-full rounded-md border border-border bg-bg-primary px-2 py-1 text-[11px] text-text-primary outline-none transition-colors placeholder:text-text-secondary/60 focus:border-success"
                     />
                     {filter && (
                         <button
                             type="button"
                             onClick={() => setFilter('')}
-                            className="cursor-pointer rounded p-1 text-text-secondary transition-colors hover:bg-error/10 hover:text-error"
+                            className="cursor-pointer rounded-md p-1 text-text-secondary transition-colors hover:bg-error/10 hover:text-error"
                             title="Clear"
                         >
                             <X size={12} />
@@ -201,7 +201,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                         <Spinner size={14} /> Loading connections...
                     </div>
                 ) : connections.length === 0 ? (
-                    <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border/35 bg-bg-primary/20 px-6 text-center text-[12px] leading-5 text-text-secondary">
+                    <div className="flex h-48 items-center justify-center rounded-md border border-dashed border-border/35 bg-bg-primary/20 px-6 text-center text-[12px] leading-5 text-text-secondary">
                         No saved connections yet.
                     </div>
                 ) : (
@@ -220,7 +220,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                     type="button"
                                     onClick={() => toggleConnection(name)}
                                     className={cn(
-                                        'flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[13px] text-text-primary transition-colors',
+                                        'flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left text-[13px] text-text-primary transition-colors',
                                         'hover:bg-bg-tertiary',
                                         profileSelected && 'bg-accent/8',
                                     )}
@@ -255,7 +255,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                                         type="button"
                                                         onClick={() => handleSelect(name, dbName)}
                                                         className={cn(
-                                                            'flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-left text-[12px] text-text-primary transition-colors',
+                                                            'flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left text-[12px] text-text-primary transition-colors',
                                                             isDbSelected
                                                                 ? 'border border-accent/35 bg-accent/10'
                                                                 : 'border border-transparent hover:bg-bg-tertiary',

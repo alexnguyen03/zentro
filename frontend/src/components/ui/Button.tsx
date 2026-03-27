@@ -37,8 +37,8 @@ const variantClasses: Record<ButtonVariant, string> = {
 const ghostDangerClass = 'bg-transparent border-none text-error/70 hover:text-error hover:bg-error/10';
 
 const sizeClasses: Record<ButtonSize, string> = {
-    [BUTTON_SIZE.ICON]: 'p-1.5 text-xs h-7 w-7 rounded-lg',
-    [BUTTON_SIZE.SM]: 'px-2 py-1 text-xs h-7 rounded-lg',
+    [BUTTON_SIZE.ICON]: 'p-1.5 text-xs h-7 w-7 rounded-md',
+    [BUTTON_SIZE.SM]: 'px-2 py-1 text-xs h-7 rounded-md',
     [BUTTON_SIZE.MD]: 'px-3 py-1.5 text-[13px] h-8',
     [BUTTON_SIZE.LG]: 'px-4 py-2 text-sm h-9',
 };

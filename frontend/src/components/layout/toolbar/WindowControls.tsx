@@ -30,7 +30,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
             title="Maximize / Restore"
             onClick={onToggleMaximize}
         >
-            <span className="block w-2.5 h-2.5 border-[1.5px] border-current rounded-[1px]" />
+            <span className="block w-2.5 h-2.5 border-[1.5px] border-current rounded-md" />
         </Button>
         <Button
             variant="ghost"

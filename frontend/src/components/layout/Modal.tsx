@@ -38,7 +38,7 @@ export const Modal: React.FC<ModalProps> = ({
                 footer={footer}
                 style={{ width, maxWidth: '90vw' }}
                 className={cn(
-                    'w-full max-h-[90vh] rounded-xl border border-border/30 shadow-elevation-lg',
+                    'w-full max-h-[90vh] rounded-md border border-border/30 shadow-elevation-lg',
                     className,
                 )}
                 headerClassName="shrink-0 border-b border-border/25 bg-bg-secondary px-5 py-4"

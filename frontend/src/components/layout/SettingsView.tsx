@@ -132,7 +132,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
             <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
                 {/* Logo/Title Section */}
                 <div className="flex items-center gap-3 text-text-primary">
-                    <div className="p-2 rounded-xl bg-accent/5 text-accent">
+                    <div className="p-2 rounded-md bg-accent/5 text-accent">
                         <SettingsIcon size={18} />
                     </div>
                     <h1 className="text-[15px] font-bold tracking-tight">System Settings</h1>
@@ -141,7 +141,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                 {/* Centered Flush Search Bar */}
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
                     <div className="relative group w-full max-w-md">
-                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-2xl border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
+                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-md border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
                             <SearchIcon size={14} className="text-text-muted/50 group-focus-within:text-accent" />
                             <input
                                 type="text"
@@ -159,7 +159,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
-                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-xl transition-all font-bold text-[11px] tracking-widest uppercase"
+                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-md transition-all font-bold text-[11px] tracking-widest uppercase"
                         title="Keyboard Shortcuts"
                     >
                         <Keyboard size={16} />

@@ -77,7 +77,7 @@ export const SecondarySidebar: React.FC = () => {
                     </div>
 
                     <button
-                        className="bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary"
+                        className="bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary"
                         onClick={() => setShowRightSidebar(false)}
                         title="Close right sidebar"
                     >

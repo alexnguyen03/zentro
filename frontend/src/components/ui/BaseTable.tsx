@@ -40,7 +40,7 @@ export function BaseTable<T>({
 }: BaseTableProps<T>) {
     return (
         <div
-            className={cn('w-full overflow-auto rounded-lg', containerClassName)}
+            className={cn('w-full overflow-auto rounded-md', containerClassName)}
             style={{
                 background: 'var(--surface-panel)',
             }}

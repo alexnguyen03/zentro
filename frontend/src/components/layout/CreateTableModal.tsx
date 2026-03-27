@@ -141,7 +141,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         onChange={(e) => setTableName(e.target.value)}
                         placeholder="Enter table name"
                         disabled={viewMode}
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-sm outline-none focus:border-accent"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
                     />
                 </div>
 
@@ -156,20 +156,20 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
 
                     <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                         {columns.map((col, idx) => (
-                            <div key={idx} className="flex items-center gap-2 bg-bg-primary p-2 rounded border border-border">
+                            <div key={idx} className="flex items-center gap-2 bg-bg-primary p-2 rounded-md border border-border">
                                 <input
                                     type="text"
                                     value={col.Name}
                                     onChange={(e) => handleColumnChange(idx, 'Name', e.target.value)}
                                     placeholder="Column name"
                                     disabled={viewMode}
-                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded outline-none focus:border-accent min-w-[100px]"
+                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[100px]"
                                 />
                                 <select
                                     value={col.DataType}
                                     onChange={(e) => handleColumnChange(idx, 'DataType', e.target.value)}
                                     disabled={viewMode}
-                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded outline-none focus:border-accent min-w-[120px]"
+                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[120px]"
                                 >
                                     {DATA_TYPES.map(dt => (
                                         <option key={dt} value={dt}>{dt}</option>
@@ -181,7 +181,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                         checked={col.IsNullable}
                                         onChange={(e) => handleColumnChange(idx, 'IsNullable', e.target.checked)}
                                         disabled={viewMode}
-                                        className="rounded"
+                                        className="rounded-md"
                                     />
                                     Null
                                 </label>
@@ -191,7 +191,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                         checked={col.IsPrimaryKey}
                                         onChange={(e) => handleColumnChange(idx, 'IsPrimaryKey', e.target.checked)}
                                         disabled={viewMode}
-                                        className="rounded"
+                                        className="rounded-md"
                                     />
                                     PK
                                 </label>

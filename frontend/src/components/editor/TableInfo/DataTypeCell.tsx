@@ -86,7 +86,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
             <div
                 ref={listRef}
                 data-dtype-drop
-                className="fixed z-panel-overlay overflow-y-auto bg-bg-secondary border border-border/40 rounded-2xl"
+                className="fixed z-panel-overlay overflow-y-auto bg-bg-secondary border border-border/40 rounded-md"
                 style={{
                     top: dropPos.top,
                     left: dropPos.left,

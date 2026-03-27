@@ -48,7 +48,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     }, [onClear]);
 
     const iconBtn = cn(
-        'flex items-center justify-center p-1 border border-transparent rounded',
+        'flex items-center justify-center p-1 border border-transparent rounded-md',
         'text-text-secondary hover:border-border hover:bg-bg-secondary hover:text-text-primary',
         'transition-colors cursor-pointer shrink-0'
     );

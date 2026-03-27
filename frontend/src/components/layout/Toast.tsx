@@ -85,7 +85,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
                         <div
                             key={t.id}
                             className={cn(
-                                "flex items-start gap-2.5 py-3 px-4 rounded text-[13px] min-w-[250px] max-w-[400px] bg-bg-primary shadow-[0_4px_20px_rgba(0,0,0,0.25)] pointer-events-auto",
+                                "flex items-start gap-2.5 py-3 px-4 rounded-md text-[13px] min-w-[250px] max-w-[400px] bg-bg-primary shadow-[0_4px_20px_rgba(0,0,0,0.25)] pointer-events-auto",
                                 "border border-border border-l-4",
                                 style.border,
                                 "animate-in fade-in slide-in-from-bottom-3 duration-250 ease-[cubic-bezier(0.16,1,0.3,1)]"
@@ -100,7 +100,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
                                 {t.message}
                             </span>
                             <button
-                                className="bg-transparent border-none cursor-pointer text-text-secondary flex items-center p-1 -mr-1 -mt-1 rounded shrink-0 transition-colors duration-150 hover:text-text-primary hover:bg-bg-secondary"
+                                className="bg-transparent border-none cursor-pointer text-text-secondary flex items-center p-1 -mr-1 -mt-1 rounded-md shrink-0 transition-colors duration-150 hover:text-text-primary hover:bg-bg-secondary"
                                 onClick={() => dismiss(t.id)}
                             >
                                 <X size={14} />

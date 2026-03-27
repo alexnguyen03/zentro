@@ -95,7 +95,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             )}
             {tab.isRunning && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0 animate-pulse" title="Running" />}
             <button
-                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-sm opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
+                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-md opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent drag start when clicking close
                 title="Close tab"
@@ -216,7 +216,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     return (
         <div className="flex items-center bg-bg-secondary border-b border-border h-9 shrink-0 overflow-hidden">
             <div
-                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border"
+                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-md [&:hover::-webkit-scrollbar-thumb]:bg-border"
                 ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
             >
                 <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>

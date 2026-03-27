@@ -54,7 +54,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                 title="License"
                 subtitle="MIT License"
                 onClose={onClose}
-                className="w-[720px] max-w-[calc(100vw-32px)] max-h-[86vh] rounded-2xl border border-border/10 shadow-elevation-lg"
+                className="w-[720px] max-w-[calc(100vw-32px)] max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
                 headerClassName="px-6 py-4"
                 titleClassName="m-0 text-[16px] font-bold"
                 subtitleClassName="text-[11px] text-text-secondary"
@@ -62,7 +62,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
             >
                 <div className="text-left">
                     {licenseState && (
-                        <div className="mb-3 rounded-lg border border-border/30 bg-bg-primary/30 p-3 text-[11px] text-text-secondary">
+                        <div className="mb-3 rounded-md border border-border/30 bg-bg-primary/30 p-3 text-[11px] text-text-secondary">
                             <div>Status: <span className="font-semibold text-text-primary">{licenseState.status}</span></div>
                             <div>
                                 Plugin Commands: {new FeatureGate(licenseState).canUse('plugin.ui.commands') ? 'Enabled' : 'Disabled'}
@@ -78,7 +78,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                         </div>
                     )}
                     {!isLoading && !error && (
-                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-text-secondary font-mono bg-bg-primary/40 rounded-xl border border-border/20 p-4">
+                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-text-secondary font-mono bg-bg-primary/40 rounded-md border border-border/20 p-4">
                             {licenseText}
                         </pre>
                     )}

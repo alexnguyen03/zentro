@@ -286,12 +286,12 @@ export const QueryTabs: React.FC = () => {
             <div className="flex items-center justify-center h-full text-text-secondary">
                 <div className="text-center max-w-[320px]">
                     <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-md px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
                         <p className="text-xs">Connect to a database using the sidebar first.</p>
                     )}
                     <button
-                        className="mt-4 bg-success text-white px-3 py-1.5 rounded text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
+                        className="mt-4 bg-success text-white px-3 py-1.5 rounded-md text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
                         onClick={() => addTab()}
                     >
                         New Query
@@ -311,7 +311,7 @@ export const QueryTabs: React.FC = () => {
             <div className="flex flex-col h-full w-full overflow-hidden">
                 {tabSwitcher.open && tabSwitcher.orderedIds.length > 0 && (
                     <div className="fixed left-1/2 top-40 z-topmost -translate-x-1/2 pointer-events-none">
-                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-lg border border-border/60 bg-bg-secondary/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
+                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-md border border-border/60 bg-bg-secondary/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
                             {tabSwitcher.orderedIds.map((id, index) => {
                                 const meta = tabMetaById.get(id);
                                 if (!meta) return null;

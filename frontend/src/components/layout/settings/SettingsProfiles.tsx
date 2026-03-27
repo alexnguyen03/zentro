@@ -38,13 +38,13 @@ export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameCh
                 <div className="flex items-center gap-3">
                     <button
                         onClick={onExportProfile}
-                        className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+                        className="px-4 py-2 text-[12px] font-semibold rounded-md border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
                     >
                         Export Profile
                     </button>
                     <button
                         onClick={() => profileInputRef.current?.click()}
-                        className="px-4 py-2 text-[12px] font-semibold rounded-xl border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+                        className="px-4 py-2 text-[12px] font-semibold rounded-md border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
                     >
                         Import Profile
                     </button>

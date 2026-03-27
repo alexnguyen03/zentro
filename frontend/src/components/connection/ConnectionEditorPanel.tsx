@@ -35,7 +35,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
     return (
         <div
             className={cn(
-                'grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg bg-bg-primary/20',
+                'grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md bg-bg-primary/20',
                 className,
             )}
         >
@@ -53,7 +53,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                         onClick={handleOpenProviderPicker}
                         disabled={form.isEditing}
                         className={cn(
-                            'flex h-9 w-9 items-center justify-center rounded-lg border border-border/40 bg-bg-primary/60 transition-colors',
+                            'flex h-9 w-9 items-center justify-center rounded-md border border-border/40 bg-bg-primary/60 transition-colors',
                             form.isEditing
                                 ? 'cursor-not-allowed opacity-50'
                                 : 'cursor-pointer hover:border-border hover:bg-bg-primary',
@@ -73,7 +73,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                 )}
 
                 {isSelectingProvider && (
-                    <div className="flex h-9 items-center gap-2 rounded-lg border border-border/30 bg-bg-primary/50 px-2.5 text-[11px] text-text-secondary">
+                    <div className="flex h-9 items-center gap-2 rounded-md border border-border/30 bg-bg-primary/50 px-2.5 text-[11px] text-text-secondary">
                         {selectedProvider ? (
                             <img
                                 src={selectedProvider.icon}

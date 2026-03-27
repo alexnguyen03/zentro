@@ -168,7 +168,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 title={activeProject.name}
                 subtitle="Project"
                 onClose={onClose}
-                className="h-[588px] w-[900px] max-w-[calc(100vw-24px)] rounded-lg"
+                className="h-[588px] w-[900px] max-w-[calc(100vw-24px)] rounded-md"
                 titleClassName="text-[20px]"
                 bodyClassName="min-h-0 overflow-hidden"
                 footerClassName="flex items-center justify-end px-3 py-2.5"
@@ -177,7 +177,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                         variant="primary"
                         onClick={() => void handleApply()}
                         disabled={applyDisabled}
-                        className="rounded-lg"
+                        className="rounded-md"
                     >
                         {saving ? (
                             'Applying...'
@@ -205,7 +205,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                         type="button"
                                         onClick={() => setSelectedEnvironmentKey(environmentKey)}
                                         className={cn(
-                                            'w-full cursor-pointer rounded-lg border px-3 py-3 text-left transition-colors',
+                                            'w-full cursor-pointer rounded-md border px-3 py-3 text-left transition-colors',
                                             isSelected
                                                 ? 'border-accent/40 bg-accent/8'
                                                 : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
@@ -240,7 +240,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
                     <section className="min-h-0 px-3 py-2.5">
                         {mode === 'choose' ? (
-                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-lg bg-bg-primary/20">
+                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-md bg-bg-primary/20">
                                 <div className="min-h-0 px-2.5 py-2">
                                     <DatabaseTreePicker
                                         onSelect={handleSelectFromTree}
@@ -272,7 +272,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 />
 
                                 {isSelectingProvider ? (
-                                    <div className="h-full min-h-0 rounded-lg bg-bg-primary/15 p-2">
+                                    <div className="h-full min-h-0 rounded-md bg-bg-primary/15 p-2">
                                         <ProviderGrid
                                             selected={form.selectedProvider}
                                             locked={form.isEditing}

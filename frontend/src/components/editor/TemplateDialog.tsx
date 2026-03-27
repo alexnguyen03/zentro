@@ -7,7 +7,7 @@ import { models } from '../../../wailsjs/go/models';
 
 type Template = models.Template;
 
-const fi = 'bg-bg-primary border border-border text-text-primary px-3 py-2 rounded text-[13px] outline-none focus:border-success transition-colors w-full';
+const fi = 'bg-bg-primary border border-border text-text-primary px-3 py-2 rounded-md text-[13px] outline-none focus:border-success transition-colors w-full';
 const lbl = 'text-[11px] text-text-secondary block mb-1 font-medium uppercase tracking-wider';
 
 interface TemplateDialogProps {
@@ -44,7 +44,7 @@ export const TemplateDialog: React.FC<TemplateDialogProps> = ({ template, onClos
                 contentClassName="flex w-full items-center justify-center p-3"
             >
                 <div 
-                    className="bg-bg-secondary border border-border/30 rounded-xl w-[500px] max-w-[90vw] shadow-elevation-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+                    className="bg-bg-secondary border border-border/30 rounded-md w-[500px] max-w-[90vw] shadow-elevation-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
                     onClick={e => e.stopPropagation()}
                 >
                     {/* Header */}

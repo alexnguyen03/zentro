@@ -122,7 +122,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                         value={newIndexName}
                         onChange={(e) => setNewIndexName(e.target.value)}
                         placeholder="idx_name"
-                        className="w-full bg-bg-primary border border-border/40 text-text-primary text-[12px] px-2.5 py-1.5 rounded outline-none focus:border-accent"
+                        className="w-full bg-bg-primary border border-border/40 text-text-primary text-[12px] px-2.5 py-1.5 rounded-md outline-none focus:border-accent"
                     />
                 </div>
                 <div>
@@ -132,7 +132,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                         value={newIndexColumns}
                         onChange={(e) => setNewIndexColumns(e.target.value)}
                         placeholder="col1, col2"
-                        className="w-full bg-bg-primary border border-border/40 text-text-primary text-[12px] px-2.5 py-1.5 rounded outline-none focus:border-accent"
+                        className="w-full bg-bg-primary border border-border/40 text-text-primary text-[12px] px-2.5 py-1.5 rounded-md outline-none focus:border-accent"
                     />
                 </div>
             </div>
@@ -142,7 +142,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                         type="checkbox"
                         checked={newIndexUnique}
                         onChange={(e) => setNewIndexUnique(e.target.checked)}
-                        className="rounded cursor-pointer"
+                        className="rounded-md cursor-pointer"
                     />
                     <span className="text-[11px] font-medium text-text-secondary">Unique Index</span>
                 </label>
@@ -229,7 +229,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                             <div className="flex items-center gap-2 truncate">
                                 <span className="font-medium truncate" title={idx.Name}>{idx.Name}</span>
                                 {idx.Unique && (
-                                    <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded tracking-wide shrink-0">
+                                    <span className="text-[9px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md tracking-wide shrink-0">
                                         UNIQUE
                                     </span>
                                 )}
@@ -240,7 +240,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                             <div className="w-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => setDropIndexTarget(idx.Name)}
-                                    className="text-text-muted hover:text-error hover:bg-error/10 p-1.5 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="text-text-muted hover:text-error hover:bg-error/10 p-1.5 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                                     title="Drop Index"
                                     disabled={readOnlyMode}
                                 >

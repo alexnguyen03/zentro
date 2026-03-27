@@ -242,7 +242,7 @@ export const Toolbar: React.FC = () => {
 
                         {/* Quick env dropdown */}
                         {quickEnvOpen && activeProject && (
-                            <div className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-lg border border-border/40 bg-bg-secondary shadow-xl p-2">
+                            <div className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-bg-secondary shadow-xl p-2">
                                 <div className="space-y-1">
                                     {quickEnvOptions.map((envKey, index) => {
                                         const meta = getEnvironmentMeta(envKey);
@@ -252,7 +252,7 @@ export const Toolbar: React.FC = () => {
                                             <button
                                                 key={envKey} type="button"
                                                 className={cn(
-                                                    'w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                    'w-full flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition-colors',
                                                     isActive ? 'bg-accent/10 border border-accent/35 text-text-primary' : isHighlighted ? 'bg-bg-primary/60 text-text-primary' : 'hover:bg-bg-primary/50 text-text-secondary',
                                                 )}
                                                 onClick={() => void handleQuickSwitchEnv(envKey)}

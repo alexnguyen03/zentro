@@ -102,7 +102,7 @@ export const CommandPalette: React.FC = () => {
     return (
         <ModalBackdrop onClose={close} className="items-start pt-[15vh]">
             <div
-                className="w-[560px] max-h-[420px] flex flex-col bg-bg-secondary border border-border rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
+                className="w-[560px] max-h-[420px] flex flex-col bg-bg-secondary border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Search input */}
@@ -118,7 +118,7 @@ export const CommandPalette: React.FC = () => {
                         autoComplete="off"
                         spellCheck={false}
                     />
-                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded text-[10px] font-mono text-text-muted shrink-0">
+                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded-md text-[10px] font-mono text-text-muted shrink-0">
                         Esc
                     </kbd>
                 </div>
@@ -162,7 +162,7 @@ export const CommandPalette: React.FC = () => {
                                                     {cmd.keybinding.split(' ').map((key, ki) => (
                                                         <kbd
                                                             key={ki}
-                                                            className="px-1.5 py-px bg-bg-primary border border-border rounded text-[10px] font-mono text-text-muted"
+                                                            className="px-1.5 py-px bg-bg-primary border border-border rounded-md text-[10px] font-mono text-text-muted"
                                                         >
                                                             {key}
                                                         </kbd>

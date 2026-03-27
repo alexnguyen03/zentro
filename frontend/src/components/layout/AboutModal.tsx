@@ -21,14 +21,14 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
             <ModalFrame
                 title="About Zentro"
                 onClose={onClose}
-                className="w-[420px] max-w-[calc(100vw-24px)] rounded-[32px] border border-border/10 shadow-elevation-lg"
+                className="w-[420px] max-w-[calc(100vw-24px)] rounded-md border border-border/10 shadow-elevation-lg"
                 headerClassName="shrink-0 border-b-0 px-6 pt-5 pb-0"
                 titleClassName="m-0 text-[15px] font-semibold tracking-wide text-text-secondary"
                 bodyClassName="overflow-y-auto px-10 pb-10 pt-2"
             >
                 <div className="flex flex-col items-center">
                     {/* Integrated Logo Section */}
-                    <div className="w-24 h-24 mb-6 bg-bg-tertiary/40 rounded-[24px] flex items-center justify-center p-4 border border-border/5">
+                    <div className="w-24 h-24 mb-6 bg-bg-tertiary/40 rounded-md flex items-center justify-center p-4 border border-border/5">
                         <img src={zentroLogo} alt="Zentro Logo" className="w-full h-full object-contain" />
                     </div>
 
@@ -44,7 +44,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
 
                     {/* Information Grid */}
                     <div className="w-full flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between px-5 py-4 rounded-2xl bg-bg-tertiary/20 border border-border/5">
+                        <div className="flex items-center justify-between px-5 py-4 rounded-md bg-bg-tertiary/20 border border-border/5">
                             <span className="text-[13px] font-bold text-text-secondary">Author</span>
                             <span className="text-[13px] font-medium text-text-primary">AlexNguyen</span>
                         </div>
@@ -53,7 +53,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
                             href="https://github.com/alexnguyen03/zentro"
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center justify-between px-5 py-4 rounded-2xl bg-bg-tertiary/20 border border-border/5 hover:bg-bg-tertiary/40 hover:border-accent/10 transition-all group cursor-pointer"
+                            className="flex items-center justify-between px-5 py-4 rounded-md bg-bg-tertiary/20 border border-border/5 hover:bg-bg-tertiary/40 hover:border-accent/10 transition-all group cursor-pointer"
                         >
                             <div className="flex items-center gap-3">
                                 <Github size={16} className="text-text-muted group-hover:text-accent transition-colors" />
@@ -64,7 +64,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
 
                         <button
                             onClick={() => setShowChangelog(true)}
-                            className="flex items-center justify-between px-5 py-4 rounded-2xl bg-bg-tertiary/20 border border-border/5 hover:bg-bg-tertiary/40 hover:border-accent/10 transition-all group cursor-pointer"
+                            className="flex items-center justify-between px-5 py-4 rounded-md bg-bg-tertiary/20 border border-border/5 hover:bg-bg-tertiary/40 hover:border-accent/10 transition-all group cursor-pointer"
                         >
                             <div className="flex items-center gap-3">
                                 <FileText size={16} className="text-text-muted group-hover:text-accent transition-colors" />

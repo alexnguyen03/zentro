@@ -14,7 +14,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ onClose }) => {
             <ModalFrame
                 title="Changelog"
                 onClose={onClose}
-                className="h-[80vh] w-[700px] max-h-[800px] max-w-[calc(100vw-24px)] rounded-xl border border-border shadow-elevation-lg"
+                className="h-[80vh] w-[700px] max-h-[800px] max-w-[calc(100vw-24px)] rounded-md border border-border shadow-elevation-lg"
                 headerClassName="shrink-0 border-b border-border bg-bg-tertiary px-4 py-3"
                 titleClassName="m-0 text-[14px] font-semibold text-text-primary"
                 bodyClassName="min-h-0 flex-1 overflow-y-auto p-6 text-[13px] leading-relaxed markdown-body"

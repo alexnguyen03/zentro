@@ -39,10 +39,10 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
     const envMeta = getEnvironmentMeta(envKey);
 
     return (
-        <div className="rounded-lg bg-bg-primary/50 px-5 py-5">
+        <div className="rounded-md bg-bg-primary/50 px-5 py-5">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-bg-secondary text-text-primary">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-bg-secondary text-text-primary">
                         {React.createElement(PROJECT_ICON_MAP[editDraft.iconKey].icon, { size: 16 })}
                     </div>
                     <div>
@@ -56,11 +56,11 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
             <div className="mt-4 grid gap-3">
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-text-primary">Project name</label>
-                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} className="h-10 rounded-lg bg-bg-secondary" placeholder="Project name" autoFocus />
+                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} className="h-10 rounded-md bg-bg-secondary" placeholder="Project name" autoFocus />
                 </div>
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-text-primary">Description</label>
-                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} className="h-10 rounded-lg bg-bg-secondary" placeholder="Short context about this project" />
+                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} className="h-10 rounded-md bg-bg-secondary" placeholder="Short context about this project" />
                 </div>
             </div>
 
@@ -74,7 +74,7 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
                             <button
                                 key={option.key} type="button"
                                 onClick={() => setEditDraft((c) => ({ ...c, iconKey: option.key }))}
-                                className={cn('cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] transition-colors', active ? 'border-accent/50 bg-accent/10 text-text-primary' : 'border-border/30 bg-bg-secondary text-text-secondary hover:text-text-primary')}
+                                className={cn('cursor-pointer flex items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'border-accent/50 bg-accent/10 text-text-primary' : 'border-border/30 bg-bg-secondary text-text-secondary hover:text-text-primary')}
                             >
                                 <OptionIcon size={14} /><span>{option.label}</span>
                             </button>
@@ -84,8 +84,8 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="rounded-lg"><X size={14} /> Cancel</Button>
-                <Button variant="primary" size="sm" onClick={() => onSave(project)} disabled={isSaving || !editDraft.name.trim()} className="rounded-lg">
+                <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="rounded-md"><X size={14} /> Cancel</Button>
+                <Button variant="primary" size="sm" onClick={() => onSave(project)} disabled={isSaving || !editDraft.name.trim()} className="rounded-md">
                     {isSaving ? <><Spinner size={12} className="mr-1 text-white" /> Saving...</> : <><Check size={14} /> Save changes</>}
                 </Button>
             </div>
@@ -121,7 +121,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             onClick={() => !isDeleting && onClick()}
             disabled={isOpening || isDeleting}
             className={cn(
-                'group relative w-full cursor-pointer rounded-lg bg-bg-primary/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-bg-primary/60',
+                'group relative w-full cursor-pointer rounded-md bg-bg-primary/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-bg-primary/60',
                 isCurrentProject && 'border border-accent/45',
             )}
         >
@@ -135,7 +135,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             </div>
 
             <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bg-secondary text-text-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-bg-secondary text-text-primary">
                     <ProjectIcon size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -153,7 +153,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     <button
                         type="button" onClick={onEdit}
                         disabled={isDeleting || isOpening}
-                        className="cursor-pointer rounded-lg p-1.5 text-text-secondary opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
+                        className="cursor-pointer rounded-md p-1.5 text-text-secondary opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
                         title="Edit project"
                     >
                         <Pencil size={14} />
@@ -161,7 +161,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     <button
                         type="button" onClick={onDelete}
                         disabled={isDeleting || isOpening}
-                        className="cursor-pointer rounded-lg p-1.5 text-text-secondary opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
+                        className="cursor-pointer rounded-md p-1.5 text-text-secondary opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
                         title="Delete project"
                     >
                         {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}

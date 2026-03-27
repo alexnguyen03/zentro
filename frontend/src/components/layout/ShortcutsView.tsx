@@ -81,7 +81,7 @@ export const ShortcutsView: React.FC = () => {
         setRebindTarget(null);
     };
 
-    const sectionClass = 'grid grid-cols-1 lg:grid-cols-12 gap-8 py-10 first:pt-4 border-b border-border/10 last:border-0 hover:bg-bg-secondary/20 transition-all px-8 -mx-8 rounded-3xl';
+    const sectionClass = 'grid grid-cols-1 lg:grid-cols-12 gap-8 py-10 first:pt-4 border-b border-border/10 last:border-0 hover:bg-bg-secondary/20 transition-all px-8 -mx-8 rounded-md';
     const sectionInfoClass = 'lg:col-span-4 flex flex-col gap-2';
     const sectionContentClass = 'lg:col-span-8 flex flex-col gap-3 max-w-3xl';
 
@@ -89,7 +89,7 @@ export const ShortcutsView: React.FC = () => {
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
             <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
                 <div className="flex items-center gap-3 text-text-primary">
-                    <div className="p-2 rounded-xl bg-accent/5 text-accent">
+                    <div className="p-2 rounded-md bg-accent/5 text-accent">
                         <Keyboard size={18} />
                     </div>
                     <h1 className="text-[15px] font-bold tracking-tight">Keyboard Shortcuts</h1>
@@ -97,7 +97,7 @@ export const ShortcutsView: React.FC = () => {
 
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
                     <div className="relative group w-full max-w-md">
-                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-2xl border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
+                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-md border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
                             <Search size={14} className="text-text-muted/50 group-focus-within:text-accent" />
                             <input
                                 ref={searchInputRef}
@@ -112,7 +112,7 @@ export const ShortcutsView: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                     <button
-                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-xl transition-all font-bold text-[11px] tracking-widest uppercase"
+                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-md transition-all font-bold text-[11px] tracking-widest uppercase"
                         onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                         title="Reset all shortcuts to default"
                     >
@@ -146,12 +146,12 @@ export const ShortcutsView: React.FC = () => {
                                     const isCustomized = currentBinding !== item.defaultBinding;
 
                                     return (
-                                        <div key={item.id} className="flex items-center justify-between p-4 rounded-2xl bg-bg-tertiary/20 border border-border/10">
+                                        <div key={item.id} className="flex items-center justify-between p-4 rounded-md bg-bg-tertiary/20 border border-border/10">
                                             <div className="flex flex-col gap-1 min-w-0 pr-4">
                                                 <div className="text-[13px] font-bold text-text-primary truncate">{item.label}</div>
                                                 <div className="flex items-center gap-2 text-[11px] text-text-muted">
                                                     <span>Default:</span>
-                                                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded text-[10px] font-mono text-text-muted">
+                                                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded-md text-[10px] font-mono text-text-muted">
                                                         {item.defaultBinding}
                                                     </kbd>
                                                     {isCustomized && (
@@ -161,11 +161,11 @@ export const ShortcutsView: React.FC = () => {
                                             </div>
 
                                             <div className="flex items-center gap-2 shrink-0">
-                                                <kbd className="px-2 py-1 rounded bg-bg-primary border border-border text-text-primary text-xs font-mono min-w-[86px] text-center">
+                                                <kbd className="px-2 py-1 rounded-md bg-bg-primary border border-border text-text-primary text-xs font-mono min-w-[86px] text-center">
                                                     {currentBinding}
                                                 </kbd>
                                                 <button
-                                                    className="px-2.5 py-1.5 text-[11px] border border-border rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold"
+                                                    className="px-2.5 py-1.5 text-[11px] border border-border rounded-md bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold"
                                                     onClick={() => {
                                                         openRebindPrompt(item.id);
                                                     }}
@@ -173,7 +173,7 @@ export const ShortcutsView: React.FC = () => {
                                                     {editing === item.id ? 'Editing...' : 'Rebind'}
                                                 </button>
                                                 <button
-                                                    className="px-2.5 py-1.5 text-[11px] border border-border rounded-lg bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="px-2.5 py-1.5 text-[11px] border border-border rounded-md bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                                                     disabled={!isCustomized}
                                                     onClick={() => restoreBinding(item.id).catch((err) => console.error('restore shortcut failed', err))}
                                                     title={`Restore default: ${item.defaultBinding}`}

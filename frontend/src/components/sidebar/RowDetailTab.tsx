@@ -113,7 +113,7 @@ export const RowDetailTab: React.FC = () => {
         });
     }, [detail]);
 
-    const actionBtnClass = 'bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary';
+    const actionBtnClass = 'bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary';
     const actionBtnActiveClass = 'bg-bg-tertiary text-[#7c6af7]';
 
     if (!detail) {
@@ -254,7 +254,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
 
     return (
         <div className={cn(
-            'flex flex-col gap-1 rounded p-0.5 transition-colors duration-150',
+            'flex flex-col gap-1 rounded-md p-0.5 transition-colors duration-150',
             isDirty && 'bg-warning/10',
             isSelected && 'bg-success/12'
         )}>
@@ -274,12 +274,12 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                         className={cn('flex items-center gap-1 shrink-0', isPK && 'text-[#7c6af7]')}
                         style={{ cursor: isSelectMode ? 'pointer' : 'default', margin: 0 }}
                     >
-                        {isPK && <span className="text-[9px] font-bold tracking-[0.04em] bg-[#7c6af7]/20 text-[#7c6af7] border border-[#7c6af7]/40 rounded-[3px] px-1 py-[1px]">PK</span>}
+                        {isPK && <span className="text-[9px] font-bold tracking-[0.04em] bg-[#7c6af7]/20 text-[#7c6af7] border border-[#7c6af7]/40 rounded-md px-1 py-[1px]">PK</span>}
                         {col}
                     </label>
                 </div>
                 <button
-                    className="bg-transparent border-none text-text-muted cursor-pointer p-0.5 rounded-[3px] opacity-0 transition-opacity duration-200 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-0 disabled:cursor-default"
+                    className="bg-transparent border-none text-text-muted cursor-pointer p-0.5 rounded-md opacity-0 transition-opacity duration-200 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-0 disabled:cursor-default"
                     onClick={onCopy}
                     title="Copy value"
                     disabled={isNull || isJsonField}
@@ -289,7 +289,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             </div>
             {isPK || isJsonField ? (
                 <div className={cn(
-                    'bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] cursor-default opacity-85 select-text overflow-auto',
+                    'bg-bg-primary border border-border rounded-md px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] cursor-default opacity-85 select-text overflow-auto',
                     isNull && 'text-text-muted italic bg-bg-tertiary',
                     isJsonField && 'max-h-[200px]'
                 )}
@@ -303,7 +303,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             ) : (
                 <textarea
                     className={cn(
-                        'bg-bg-primary border border-border rounded px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] w-full box-border resize-y cursor-text outline-none leading-normal transition-all duration-150 focus:border-[#7c6af7] focus:shadow-[0_0_0_2px_rgba(124,106,247,0.2)] disabled:opacity-70 disabled:cursor-default disabled:resize-none',
+                        'bg-bg-primary border border-border rounded-md px-2 py-1.5 text-xs font-mono text-text-primary whitespace-pre-wrap break-all min-h-[28px] w-full box-border resize-y cursor-text outline-none leading-normal transition-all duration-150 focus:border-[#7c6af7] focus:shadow-[0_0_0_2px_rgba(124,106,247,0.2)] disabled:opacity-70 disabled:cursor-default disabled:resize-none',
                         isNull && 'text-text-muted italic bg-bg-tertiary',
                         isDirty && 'border-warning!'
                     )}

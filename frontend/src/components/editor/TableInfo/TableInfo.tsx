@@ -319,7 +319,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6"><Info size={32} className="text-error" /></div>
             <h2 className="text-xl font-bold text-text-primary mb-2">Failed to load table</h2>
             <p className="text-text-secondary max-w-md mb-8">{fetchError}</p>
-            <Button onClick={() => loadInfo()} variant="solid" className="rounded-xl px-8">Try Again</Button>
+            <Button onClick={() => loadInfo()} variant="solid" className="rounded-md px-8">Try Again</Button>
         </div>
     );
 
@@ -330,7 +330,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     <div className="flex items-center gap-2 min-w-0">
                         <span className="font-bold text-text-muted/60 text-[11px] uppercase tracking-wider select-none">Table</span>
                         {schema && (
-                            <span className="text-[10px] font-mono text-text-muted/60 bg-bg-tertiary/50 px-1.5 py-0.5 rounded tracking-tight select-none">
+                            <span className="text-[10px] font-mono text-text-muted/60 bg-bg-tertiary/50 px-1.5 py-0.5 rounded-md tracking-tight select-none">
                                 {schema}
                             </span>
                         )}
@@ -392,7 +392,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                     setFilterCol(e.target.value);
                                 }}
                                 onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
-                                className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-lg text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
+                                className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-md text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
                             />
                         </div>
                     </div>

@@ -57,7 +57,7 @@ export const ModalFrame: React.FC<ModalFrameProps> = ({
                             size="icon"
                             onClick={onClose}
                             title={closeTitle}
-                            className="h-8 w-8 rounded-xl text-text-secondary hover:bg-bg-primary/30 hover:text-text-primary"
+                            className="h-8 w-8 rounded-md text-text-secondary hover:bg-bg-primary/30 hover:text-text-primary"
                         >
                             <X size={16} />
                         </Button>

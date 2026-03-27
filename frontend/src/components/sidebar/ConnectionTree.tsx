@@ -49,7 +49,7 @@ export const ConnectionTree: React.FC = () => {
                     <input
                         ref={filterInputRef}
                         type="text"
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-sm outline-none focus:border-success transition-colors"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
@@ -57,7 +57,7 @@ export const ConnectionTree: React.FC = () => {
                     />
                 </div>
                 {filter && (
-                    <button className="bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded flex items-center justify-center hover:bg-error/10 hover:text-error shrink-0 transition-colors" onClick={() => setFilter('')} title="Clear filter">
+                    <button className="bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded-md flex items-center justify-center hover:bg-error/10 hover:text-error shrink-0 transition-colors" onClick={() => setFilter('')} title="Clear filter">
                         <Trash2 size={13} />
                     </button>
                 )}
@@ -129,7 +129,7 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
     return (
         <div>
             <div
-                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden")}
+                className={cn("flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden")}
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); handleExpand(); }}
                 title={dbName}
@@ -143,12 +143,12 @@ const DatabaseNode: React.FC<DatabaseNodeProps> = ({ dbName, profileName, filter
             {expanded && (
                 <div className="pl-4">
                     {isLoading && !schemas && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-sm outline-none" tabIndex={0}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-md outline-none" tabIndex={0}>
                             Loading schemas…
                         </div>
                     )}
                     {schemas && schemas.length === 0 && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-sm outline-none" tabIndex={0}>
+                        <div className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-secondary select-none rounded-md outline-none" tabIndex={0}>
                             No schemas found
                         </div>
                     )}
@@ -197,7 +197,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName, re
                 schema={schema.Name}
             />
             <div
-                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); if (hasItems) setExpanded(!expanded); }}
                 title={schema.Name}
@@ -209,7 +209,7 @@ const SchemaNode: React.FC<SchemaNodeProps> = ({ schema, filter, profileName, re
                 <span className="text-xs truncate flex-1">{schema.Name}</span>
                 <button
                     onClick={(e) => { e.stopPropagation(); if (!readOnlyMode) setShowCreateTable(true); }}
-                    className="opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary p-0.5 rounded shrink-0"
+                    className="opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary p-0.5 rounded-md shrink-0"
                     title="New Table"
                     disabled={readOnlyMode}
                 >
@@ -309,7 +309,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                 variant="danger"
             />
             <div
-                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
+                className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             >
@@ -324,7 +324,7 @@ const CategoryNode: React.FC<CategoryDef> = ({ label, icon, items, itemIcon, sch
                     {items.map((item, idx) => (
                         <div
                             key={`${label}-${item}-${idx}`}
-                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-sm transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
+                            className="flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden"
                             tabIndex={0}
                             onDoubleClick={() => handleItemDoubleClick(item)}
                             onContextMenu={(e) => {

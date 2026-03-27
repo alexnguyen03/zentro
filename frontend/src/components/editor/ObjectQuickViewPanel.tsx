@@ -53,7 +53,7 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
 
     return (
         <div
-            className="pointer-events-auto flex flex-col overflow-hidden rounded-[10px] shadow"
+            className="pointer-events-auto flex flex-col overflow-hidden rounded-md shadow"
             style={{
                 width: 'min(560px, calc(100vw - 40px))',
                 maxWidth: 'min(560px, calc(100vw - 40px))',

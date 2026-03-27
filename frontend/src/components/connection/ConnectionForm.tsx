@@ -8,7 +8,7 @@ import { Button, Spinner } from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
 // ── Style tokens (shared, defined once) ──────────────────────────────────────
-export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded text-[12px] outline-none focus:border-success transition-colors w-full';
+export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded-md text-[12px] outline-none focus:border-success transition-colors w-full';
 export const lbl = 'text-[11px] text-text-secondary block mb-0.5';
 
 interface ConnectionFormProps {
@@ -225,13 +225,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
             {/* Feedback */}
             {errorMsg && (
-                <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded text-[11px] text-error bg-[#f48771]/10 border border-[#f48771]/20">
+                <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] text-error bg-[#f48771]/10 border border-[#f48771]/20">
                     <AlertCircle size={12} className="shrink-0 mt-px" />
                     <span className="wrap-break-word flex-1">{errorMsg}</span>
                 </div>
             )}
             {successMsg && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] text-success bg-[#89d185]/10 border border-[#89d185]/20">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] text-success bg-[#89d185]/10 border border-[#89d185]/20">
                     <CheckCircle size={12} className="shrink-0" />
                     <span className="flex-1">{successMsg}</span>
                 </div>

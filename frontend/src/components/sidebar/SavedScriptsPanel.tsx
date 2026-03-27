@@ -74,7 +74,7 @@ export const SavedScriptsPanel: React.FC = () => {
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
                         placeholder="Filter scripts…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -109,7 +109,7 @@ export const SavedScriptsPanel: React.FC = () => {
                             </div>
                             <button
                                 className={cn(
-                                    "bg-transparent border-none text-text-secondary cursor-pointer p-[3px] rounded-[3px] flex items-center shrink-0 transition-all duration-100 hover:text-error hover:bg-[#f48771]/10",
+                                    "bg-transparent border-none text-text-secondary cursor-pointer p-[3px] rounded-md flex items-center shrink-0 transition-all duration-100 hover:text-error hover:bg-[#f48771]/10",
                                     confirmDelete === script.id ? "opacity-100 text-error" : "opacity-0 group-hover:opacity-100"
                                 )}
                                 title={confirmDelete === script.id ? 'Click again to confirm' : 'Delete script'}

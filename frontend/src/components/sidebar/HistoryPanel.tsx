@@ -74,7 +74,7 @@ export const HistoryPanel: React.FC = () => {
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
                         placeholder="Filter history…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -84,7 +84,7 @@ export const HistoryPanel: React.FC = () => {
                 {entries.length > 0 && (
                     <button
                         className={cn(
-                            "bg-transparent border border-transparent text-text-secondary cursor-pointer flex items-center gap-1 px-1.5 py-1 rounded-[3px] text-[11px] transition-all hover:text-error hover:border-error hover:bg-[#f48771]/10 shrink-0",
+                            "bg-transparent border border-transparent text-text-secondary cursor-pointer flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-all hover:text-error hover:border-error hover:bg-[#f48771]/10 shrink-0",
                             confirmClear && "text-error border-error bg-[#f48771]/10"
                         )}
                         onClick={handleClear}

@@ -170,19 +170,19 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 <>
                     <div className="flex items-center gap-3">
                         {step !== 'basics' ? (
-                            <Button variant="solid" onClick={goBack} className="rounded-lg">Back</Button>
+                            <Button variant="solid" onClick={goBack} className="rounded-md">Back</Button>
                         ) : (
-                            <Button variant="ghost" onClick={onClose} className="rounded-lg" disabled={!onClose}>Cancel</Button>
+                            <Button variant="ghost" onClick={onClose} className="rounded-md" disabled={!onClose}>Cancel</Button>
                         )}
                     </div>
                     {step !== 'review' ? (
-                        <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-lg px-5">Continue</Button>
+                        <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-md px-5">Continue</Button>
                     ) : (
                         <Button
                             variant="success"
                             onClick={() => void handleCreateAndEnter()}
                             disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
-                            className="rounded-lg px-5"
+                            className="rounded-md px-5"
                         >
                             {submitting ? <><Spinner size={12} className="mr-2 text-white" />Creating...</> : <>Create &amp; enter</>}
                         </Button>
@@ -194,16 +194,16 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 {/* Step: basics */}
                 {step === 'basics' && (
                     <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-                        <div className="rounded-lg bg-bg-primary/25 p-5">
+                        <div className="rounded-md bg-bg-primary/25 p-5">
                             <div className="text-[12px] font-semibold text-text-secondary">Project details</div>
                             <div className="mt-4 grid gap-3">
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project name</label>
-                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-lg bg-bg-secondary" autoFocus />
+                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-md bg-bg-secondary" autoFocus />
                                 </div>
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-text-primary">Description</label>
-                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" className="h-11 rounded-lg bg-bg-secondary" />
+                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" className="h-11 rounded-md bg-bg-secondary" />
                                 </div>
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-text-primary">Icon</label>
@@ -215,7 +215,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                                 <button
                                                     key={option.key} type="button"
                                                     onClick={() => setDraft((c) => ({ ...c, iconKey: option.key }))}
-                                                    className={cn('cursor-pointer flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] transition-colors', active ? 'bg-accent/10 text-text-primary' : 'bg-bg-secondary text-text-secondary hover:text-text-primary')}
+                                                    className={cn('cursor-pointer flex items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'bg-accent/10 text-text-primary' : 'bg-bg-secondary text-text-secondary hover:text-text-primary')}
                                                 >
                                                     <OptionIcon size={14} /><span>{option.label}</span>
                                                 </button>
@@ -238,7 +238,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                 <button
                                     key={envKey} type="button"
                                     onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
-                                    className={cn('cursor-pointer rounded-lg px-4 py-4 text-left transition-colors', envKey === ENVIRONMENT_KEY.PRODUCTION && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40')}
+                                    className={cn('cursor-pointer rounded-md px-4 py-4 text-left transition-colors', envKey === ENVIRONMENT_KEY.PRODUCTION && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40')}
                                 >
                                     <div className="flex items-center justify-between gap-3">
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>{envKey}</span>
@@ -255,7 +255,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 {/* Step: connection */}
                 {step === 'connection' && (
                     <div className="mx-auto w-full max-w-[980px]">
-                        <div className="flex min-h-[520px] flex-col rounded-lg bg-bg-primary/20">
+                        <div className="flex min-h-[520px] flex-col rounded-md bg-bg-primary/20">
                             {connectionMode === 'existing' ? (
                                 <div className="flex-1 overflow-hidden px-4 py-3">
                                     <DatabaseTreePicker
@@ -277,7 +277,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         onClearProviderFilter={() => setProviderFilter('')}
                                     />
                                     {isSelectingProvider ? (
-                                        <div className="h-full min-h-0 rounded-lg bg-bg-primary/15 p-2">
+                                        <div className="h-full min-h-0 rounded-md bg-bg-primary/15 p-2">
                                             <ProviderGrid selected={form.selectedProvider} locked={form.isEditing} filterText={providerFilter} onSelect={handleProviderSelect} />
                                         </div>
                                     ) : (
@@ -308,19 +308,19 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 {/* Step: review */}
                 {step === 'review' && (
                     <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-                        <div className="rounded-lg bg-bg-primary/20 p-5">
+                        <div className="rounded-md bg-bg-primary/20 p-5">
                             <div className="space-y-3">
-                                <div className="rounded-lg bg-bg-secondary px-4 py-4">
+                                <div className="rounded-md bg-bg-secondary px-4 py-4">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Project</div>
                                     <div className="mt-2 flex items-center gap-2">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-primary/30">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-bg-primary/30">
                                             <DraftIcon size={14} className="text-text-primary" />
                                         </div>
                                         <div className="text-[16px] font-semibold text-text-primary">{draft.name.trim()}</div>
                                     </div>
                                     <div className="mt-1 text-[12px] text-text-secondary">{draft.description.trim() || draftIconLabel}</div>
                                 </div>
-                                <div className="rounded-lg bg-bg-secondary px-4 py-4">
+                                <div className="rounded-md bg-bg-secondary px-4 py-4">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Starter environment</div>
                                     <div className="mt-2 flex items-center gap-2">
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>{draft.starterEnv}</span>
@@ -328,7 +328,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                     </div>
                                     <div className="mt-1 text-[12px] text-text-secondary">First workspace will open in this context.</div>
                                 </div>
-                                <div className="rounded-lg bg-bg-secondary px-4 py-4">
+                                <div className="rounded-md bg-bg-secondary px-4 py-4">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Connection</div>
                                     <div className="mt-2 text-[16px] font-semibold text-text-primary">{selectedProfileName || 'Missing connection'}</div>
                                     <div className="mt-1 text-[12px] text-text-secondary">{selectedDatabase || 'Pick a database'}</div>

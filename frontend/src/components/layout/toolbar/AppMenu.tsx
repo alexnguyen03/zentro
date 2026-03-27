@@ -207,7 +207,7 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                     {/* Section list */}
                     <div
                         ref={parentPanelRef}
-                        className="w-[190px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
+                        className="w-[190px] rounded-md bg-bg-secondary/95 shadow-2xl p-2"
                         onMouseEnter={clearHideTimer}
                         onMouseLeave={scheduleHide}
                     >
@@ -238,7 +238,7 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                     {/* Submenu */}
                     {activeSection && (
                         <div
-                            className="absolute left-[194px] z-toolbar w-[320px] rounded-xl bg-bg-secondary/95 shadow-2xl p-2"
+                            className="absolute left-[194px] z-toolbar w-[320px] rounded-md bg-bg-secondary/95 shadow-2xl p-2"
                             style={{ top: submenuTop }}
                             onMouseEnter={clearHideTimer}
                             onMouseLeave={scheduleHide}

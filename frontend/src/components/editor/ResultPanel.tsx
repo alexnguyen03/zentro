@@ -498,7 +498,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <span className="flex items-center gap-1">
                         Showing <strong>{(quickFilter.trim() ? visibleRows : (result.rows.length + draftRows.length)).toLocaleString()}</strong> of&nbsp;
                         <select
-                            className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
+                            className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-md cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
                             value={defaultLimit}
                             onChange={handleLimitChange}
                             title="Row limit for next query"
@@ -534,7 +534,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <button
-                            className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border"
+                            className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-md cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border"
                             onClick={() => setShowExportMenu(!showExportMenu)}
                             disabled={!canUseResultExport}
                             title="Export"
@@ -556,7 +556,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         )}
                     </div>
                     {exportJob?.status === 'running' && (
-                        <div className="flex items-center gap-2 text-[11px] border border-border rounded px-2 py-0.5">
+                        <div className="flex items-center gap-2 text-[11px] border border-border rounded-md px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
                             <span>
                                 {exportJob.label || 'Exporting'} {exportJob.progressPct ?? 0}%
@@ -597,7 +597,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             </p>
                         </div>
                     </div>
-                    <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-lg font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
+                    <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-md font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
                         {generatePendingScript()}
                     </div>
                 </div>

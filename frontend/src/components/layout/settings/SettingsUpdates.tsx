@@ -21,7 +21,7 @@ export const SettingsUpdates: React.FC<Props> = ({ autoCheckUpdates, onAutoCheck
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-bg-tertiary/20 border border-border/5">
+                <div className="flex items-center justify-between p-4 rounded-md bg-bg-tertiary/20 border border-border/5">
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[13px] font-bold text-text-primary">Auto-Check For Updates</span>
                         <span className="text-[11px] text-text-muted">Automatically notify when a new version is available.</span>

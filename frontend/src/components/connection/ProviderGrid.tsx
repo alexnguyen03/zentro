@@ -25,7 +25,7 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
         disabled={disabled}
         onClick={() => !disabled && onSelect(provider.key)}
         className={cn(
-            'relative flex aspect-square w-full items-center justify-center rounded-xl border p-2 transition-all duration-200 select-none',
+            'relative flex aspect-square w-full items-center justify-center rounded-md border p-2 transition-all duration-200 select-none',
             active
                 ? 'border-success/60 shadow-[0_2px_8px_rgba(0,0,0,0.05)]'
                 : disabled
@@ -70,7 +70,7 @@ export const ProviderGrid: React.FC<ProviderGridProps> = ({
                 />
             ))}
             {visibleProviders.length === 0 && (
-                <div className="col-span-full rounded-lg border border-dashed border-border/35 px-3 py-5 text-center text-[12px] text-text-secondary">
+                <div className="col-span-full rounded-md border border-dashed border-border/35 px-3 py-5 text-center text-[12px] text-text-secondary">
                     No providers found.
                 </div>
             )}

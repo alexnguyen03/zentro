@@ -96,7 +96,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             checked={col.IsPrimaryKey}
                             disabled={isDeleted || readOnlyMode}
                             onChange={e => onUpdate(rowIdx, { IsPrimaryKey: e.target.checked })}
-                            className="w-3.5 h-3.5 rounded-sm border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
+                            className="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
                         />
                     </div>
                 </td>
@@ -109,7 +109,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             checked={col.IsNullable}
                             disabled={isDeleted || readOnlyMode}
                             onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
-                            className="w-3.5 h-3.5 rounded-sm border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
+                            className="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
                         />
                     </div>
                 </td>

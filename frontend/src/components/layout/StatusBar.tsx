@@ -119,7 +119,7 @@ export const StatusBar: React.FC = () => {
                     <span className="uppercase text-[10px] opacity-90 shrink-0 text-red-100">ERR: {queryFailureCode}</span>
                 )}
                 {message && (
-                    <span className="bg-white/10 px-2 py-0.5 rounded animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0">
+                    <span className="bg-white/10 px-2 py-0.5 rounded-md animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0">
                         {message}
                     </span>
                 )}

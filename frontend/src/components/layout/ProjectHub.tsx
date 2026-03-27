@@ -99,8 +99,8 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
             'overflow-hidden bg-bg-secondary text-text-primary transition-all duration-200',
             overlay
                 ? surface === 'wizard'
-                    ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-lg'
-                    : 'h-[560px] w-[460px] max-w-[calc(100vw-24px)] rounded-lg'
+                    ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-md'
+                    : 'h-[560px] w-[460px] max-w-[calc(100vw-24px)] rounded-md'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (
@@ -133,15 +133,15 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                                 </div>
                                 <div className="shrink-0 flex items-center gap-2">
                                     <span className="text-[12px] text-text-secondary">Or create new one</span>
-                                    <Button variant="primary" onClick={() => setSurface('wizard')} size="sm" className="rounded-lg px-4">Create</Button>
+                                    <Button variant="primary" onClick={() => setSurface('wizard')} size="sm" className="rounded-md px-4">Create</Button>
                                 </div>
                             </div>
                         )}
                     >
                         {sortedProjects.length === 0 && !isLoading ? (
-                            <div className="flex h-full min-h-[220px] items-center justify-center rounded-lg border border-dashed border-border/50 bg-bg-primary/30 px-6 text-center">
+                            <div className="flex h-full min-h-[220px] items-center justify-center rounded-md border border-dashed border-border/50 bg-bg-primary/30 px-6 text-center">
                                 <div className="max-w-[340px]">
-                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-bg-secondary text-text-primary"><Plus size={18} /></div>
+                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-bg-secondary text-text-primary"><Plus size={18} /></div>
                                     <div className="mt-4 text-[15px] font-semibold text-text-primary">No projects yet</div>
                                 </div>
                             </div>
@@ -181,7 +181,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, onClose
                                     );
                                 })}
                                 {error && (
-                                    <div className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-[12px] text-error">{error}</div>
+                                    <div className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-[12px] text-error">{error}</div>
                                 )}
                             </div>
                         )}
