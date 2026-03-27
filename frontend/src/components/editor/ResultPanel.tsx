@@ -99,6 +99,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [visibleRows, setVisibleRows] = React.useState(0);
     const [activeSearchHit, setActiveSearchHit] = React.useState(0);
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const keepFilterFocusRef = React.useRef(false);
     const quickFilterRef = React.useRef<HTMLInputElement>(null);
     const jumpRowRef = React.useRef<HTMLInputElement>(null);
 
@@ -164,7 +165,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 resetEditState();
                 setShowSaveModal(false);
                 handleCountTotal();
-                setTimeout(() => containerRef.current?.focus({ preventScroll: true }), 50);
+                if (!keepFilterFocusRef.current) {
+                    setTimeout(() => containerRef.current?.focus({ preventScroll: true }), 50);
+                }
+            } else {
+                keepFilterFocusRef.current = false;
             }
             prevIsDone.current = result.isDone;
         }
@@ -366,6 +371,40 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         const newLimit = parseInt(event.target.value, 10) || 1000;
         save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
     };
+    const shouldShowResultFilterBar = result ? (result.isSelect || filterExpr !== '') && generatedKind !== 'explain' : false;
+    const resultFilterBar = result && shouldShowResultFilterBar ? (
+        <ResultFilterBar
+            value={filterExpr}
+            onChange={setFilterExpr}
+            baseQuery={baseQuery}
+            columns={result.columns}
+            tableName={result.tableName}
+            onAppendToQuery={onAppendToQuery}
+            onOpenInNewTab={onOpenInNewTab}
+            onRun={(currentValue) => {
+                keepFilterFocusRef.current = true;
+                const nextExpr = typeof currentValue === 'string' ? currentValue : filterExpr;
+                if (nextExpr.trim()) onFilterRun?.(nextExpr);
+            }}
+            onClear={() => { keepFilterFocusRef.current = true; setFilterExpr(''); onFilterRun?.(''); }}
+        >
+            {!onActionsChange && panelActions.length > 0 && (
+                <>
+                    {panelActions.map((action) => (
+                        <Button
+                            key={action.id} variant="ghost" size="icon"
+                            danger={action.danger}
+                            onClick={() => action.onClick()}
+                            disabled={action.disabled || action.loading}
+                            title={action.title || action.label}
+                        >
+                            {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
+                        </Button>
+                    ))}
+                </>
+            )}
+        </ResultFilterBar>
+    ) : null;
 
     // ── Early renders ─────────────────────────────────────────────────────────
     if (!result) {
@@ -376,6 +415,16 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         );
     }
     if (result.error) {
+        if (shouldShowResultFilterBar) {
+            return (
+                <div className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden">
+                    {resultFilterBar}
+                    <div className="flex items-center justify-center flex-1 text-error gap-2">
+                        <AlertCircle size={16} /><span>{result.error}</span>
+                    </div>
+                </div>
+            );
+        }
         return (
             <div className="flex items-center justify-center h-full text-[13px] text-error gap-2">
                 <AlertCircle size={16} /><span>{result.error}</span>
@@ -440,38 +489,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             </div>
                         )}
 
-                        {(result.isSelect || filterExpr !== '') && generatedKind !== 'explain' && (
-                            <ResultFilterBar
-                                value={filterExpr}
-                                onChange={setFilterExpr}
-                                baseQuery={baseQuery}
-                                columns={result.columns}
-                                tableName={result.tableName}
-                                onAppendToQuery={onAppendToQuery}
-                                onOpenInNewTab={onOpenInNewTab}
-                                onRun={(currentValue) => {
-                                    const nextExpr = typeof currentValue === 'string' ? currentValue : filterExpr;
-                                    if (nextExpr.trim()) onFilterRun?.(nextExpr);
-                                }}
-                                onClear={() => { setFilterExpr(''); onFilterRun?.(''); }}
-                            >
-                                {!onActionsChange && panelActions.length > 0 && (
-                                    <>
-                                        {panelActions.map((action) => (
-                                            <Button
-                                                key={action.id} variant="ghost" size="icon"
-                                                danger={action.danger}
-                                                onClick={() => action.onClick()}
-                                                disabled={action.disabled || action.loading}
-                                                title={action.title || action.label}
-                                            >
-                                                {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
-                                            </Button>
-                                        ))}
-                                    </>
-                                )}
-                            </ResultFilterBar>
-                        )}
+                        {resultFilterBar}
 
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1 }}>
                             {explainJsonValue ? (

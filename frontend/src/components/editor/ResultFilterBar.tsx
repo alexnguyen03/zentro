@@ -115,7 +115,12 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             event.preventDefault();
             event.stopPropagation();
             const currentValue = editor.getValue();
+            const nextValue = currentValue.trim();
             onChangeRef.current(currentValue);
+            if (!nextValue) {
+                onClearRef.current();
+                return;
+            }
             onRunRef.current(currentValue);
         });
     }, [registerCompletion]);
