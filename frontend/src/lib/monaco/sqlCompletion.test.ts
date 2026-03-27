@@ -88,6 +88,9 @@ describe('sqlCompletion', () => {
 
         expect(items.map((item) => String(item.label))).toEqual(expect.arrayContaining(['id', 'name']));
         expect(String(items[0].label)).toBe('id');
+        const byLabel = new Map(items.map((item) => [String(item.label), item]));
+        expect(byLabel.get('id')?.detail).toBe('integer');
+        expect(byLabel.get('name')?.detail).toBe('text');
     });
 
     it('prioritizes table suggestions in FROM clause', async () => {

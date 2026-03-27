@@ -122,7 +122,13 @@ export async function buildSqlCompletionItems(
     const buildColumnItems = async (sources: SqlSourceRef[]) => {
         const resolvedColumns = await resolveColumnsForSources(sources, analysis, env, shouldAbort);
         if (shouldAbort()) return [];
-        return resolvedColumns.map((column) => ({ label: column.Name, kind: env.monaco.languages.CompletionItemKind.Field as CompletionKind, detail: column.detail, insertText: column.Name, range }));
+        return resolvedColumns.map((column) => ({
+            label: column.Name,
+            kind: env.monaco.languages.CompletionItemKind.Field as CompletionKind,
+            detail: column.DataType || column.detail || '',
+            insertText: column.Name,
+            range,
+        }));
     };
 
     const clause = normalizeInsertClause(analysis);
