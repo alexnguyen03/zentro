@@ -9,6 +9,7 @@ import { useProjectStore } from './stores/projectStore';
 import { useToast } from './components/layout/Toast';
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
+import { ContextSearchDialog } from './components/layout/ContextSearchDialog';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
 import { ProjectHub } from './components/layout/ProjectHub';
 import { ConfirmationModal } from './components/ui/ConfirmationModal';
@@ -30,6 +31,7 @@ function App() {
     const [showForceQuitConfirm, setShowForceQuitConfirm] = useState(false);
     const [showCompareModal, setShowCompareModal] = useState(false);
     const [showProjectHub, setShowProjectHub] = useState(false);
+    const [showContextSearch, setShowContextSearch] = useState(false);
 
     const { sidebarWidth, startResizing } = useSidebarResize();
 
@@ -49,6 +51,11 @@ function App() {
         return off;
     }, []);
 
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_CONTEXT_SEARCH, () => setShowContextSearch(true));
+        return off;
+    }, []);
+
     if (!activeProject) {
         return (
             <div className="h-full w-full bg-bg-primary">
@@ -60,6 +67,7 @@ function App() {
     return (
         <div className="flex flex-col h-full w-full">
             {showCommandPalette && <CommandPalette />}
+            {showContextSearch && <ContextSearchDialog onClose={() => setShowContextSearch(false)} />}
             {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
             {showProjectHub && <ProjectHub overlay onClose={() => setShowProjectHub(false)} />}
             <ConfirmationModal

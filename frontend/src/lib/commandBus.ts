@@ -3,6 +3,7 @@ import { DOM_EVENT } from './constants';
 export type CommandPayloadMap = {
     [DOM_EVENT.OPEN_WORKSPACE_MODAL]: undefined;
     [DOM_EVENT.OPEN_PROJECT_HUB]: undefined;
+    [DOM_EVENT.OPEN_CONTEXT_SEARCH]: undefined;
     [DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER]: undefined;
     [DOM_EVENT.CLOSE_ACTIVE_TAB]: undefined;
     [DOM_EVENT.RUN_QUERY_ACTION]: { tabId: string };

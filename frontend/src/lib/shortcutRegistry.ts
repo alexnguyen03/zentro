@@ -12,6 +12,7 @@ export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App
 export type BuiltInCommandId =
   | 'editor.newTab'
   | 'editor.closeTab'
+  | 'editor.contextSearch'
   | 'editor.runQuery'
   | 'editor.explain'
   | 'editor.explainAnalyze'
@@ -59,6 +60,13 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     category: 'Editor',
     defaultBinding: 'Ctrl+W',
     action: () => { emitCommand(DOM_EVENT.CLOSE_ACTIVE_TAB); },
+  },
+  {
+    id: 'editor.contextSearch',
+    label: 'Open Context Search',
+    category: 'Editor',
+    defaultBinding: 'Ctrl+E',
+    action: () => { emitCommand(DOM_EVENT.OPEN_CONTEXT_SEARCH); },
   },
   {
     id: 'editor.runQuery',
