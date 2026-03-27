@@ -184,50 +184,47 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     </span>
 
                     {showTooltip && baseQuery && (
-                        <div className="absolute top-full left-0 z-panel-overlay mt-2 flex w-[480px] flex-col overflow-hidden rounded-md border border-border bg-bg-primary shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                            <div className="px-3 py-2 bg-bg-tertiary flex items-center justify-between border-b border-border">
-                                <span className="text-xs font-semibold text-text-primary">Current Query (Filtered)</span>
-                                <div className="flex items-center gap-0.5">
+                        <div className="group absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-md border border-border bg-bg-primary shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-md bg-bg-primary/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <button
+                                    className={iconBtn}
+                                    title="Copy query"
+                                    onClick={() => {
+                                        void setClipboardText(buildFilterQuery(baseQuery, value || '<condition>'))
+                                            .then(() => toast.success('Query copied to clipboard'))
+                                            .catch(() => toast.error('Failed to copy query'));
+                                    }}
+                                >
+                                    <Copy size={12} />
+                                </button>
+
+                                {onAppendToQuery && (
                                     <button
-                                        className={iconBtn}
-                                        title="Copy query"
+                                        className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
+                                        title="Append to current tab (last line)"
                                         onClick={() => {
-                                            void setClipboardText(buildFilterQuery(baseQuery, value || '<condition>'))
-                                                .then(() => toast.success('Query copied to clipboard'))
-                                                .catch(() => toast.error('Failed to copy query'));
+                                            onAppendToQuery(buildFilterQuery(baseQuery, value || '<condition>'));
+                                            setShowTooltip(false);
                                         }}
                                     >
-                                        <Copy size={12} />
+                                        <PlusSquare size={12} />
                                     </button>
+                                )}
 
-                                    {onAppendToQuery && (
-                                        <button
-                                            className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
-                                            title="Append to current tab (last line)"
-                                            onClick={() => {
-                                                onAppendToQuery(buildFilterQuery(baseQuery, value || '<condition>'));
-                                                setShowTooltip(false);
-                                            }}
-                                        >
-                                            <PlusSquare size={12} />
-                                        </button>
-                                    )}
-
-                                    {onOpenInNewTab && (
-                                        <button
-                                            className={cn(iconBtn, 'text-text-secondary hover:text-text-primary')}
-                                            title="Open in new tab"
-                                            onClick={() => {
-                                                onOpenInNewTab(buildFilterQuery(baseQuery, value || '<condition>'));
-                                                setShowTooltip(false);
-                                            }}
-                                        >
-                                            <ExternalLink size={12} />
-                                        </button>
-                                    )}
-                                </div>
+                                {onOpenInNewTab && (
+                                    <button
+                                        className={cn(iconBtn, 'text-text-secondary hover:text-text-primary')}
+                                        title="Open in new tab"
+                                        onClick={() => {
+                                            onOpenInNewTab(buildFilterQuery(baseQuery, value || '<condition>'));
+                                            setShowTooltip(false);
+                                        }}
+                                    >
+                                        <ExternalLink size={12} />
+                                    </button>
+                                )}
                             </div>
-                            <div className="p-3 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-text-secondary">
+                            <div className="p-3 pr-12 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-text-secondary">
                                 {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim())}
                             </div>
                         </div>
