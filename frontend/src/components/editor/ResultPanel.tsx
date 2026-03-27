@@ -445,9 +445,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 value={filterExpr}
                                 onChange={setFilterExpr}
                                 baseQuery={baseQuery}
+                                columns={result.columns}
+                                tableName={result.tableName}
                                 onAppendToQuery={onAppendToQuery}
                                 onOpenInNewTab={onOpenInNewTab}
-                                onRun={() => { if (filterExpr.trim()) onFilterRun?.(filterExpr); }}
+                                onRun={(currentValue) => {
+                                    const nextExpr = typeof currentValue === 'string' ? currentValue : filterExpr;
+                                    if (nextExpr.trim()) onFilterRun?.(nextExpr);
+                                }}
                                 onClear={() => { setFilterExpr(''); onFilterRun?.(''); }}
                             >
                                 {!onActionsChange && panelActions.length > 0 && (
