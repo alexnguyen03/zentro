@@ -9,7 +9,7 @@
     formatTableSuggestionDocumentation,
     isTableCompletionItem,
     resolveTableSuggestionItem,
-} from './sqlCompletionEngine';
+} from './sqlCompletionCore';
 
 export type {
     SqlClause,
@@ -20,4 +20,4 @@ export type {
     SqlAnalysis,
     SqlCompletionEnv,
     SqlCompletionBuildOptions,
-} from './sqlCompletionEngine';
+} from './sqlCompletionCore';
