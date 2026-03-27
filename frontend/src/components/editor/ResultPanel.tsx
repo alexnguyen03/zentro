@@ -13,6 +13,7 @@ import {
     RotateCcw,
     Save,
     Sparkles,
+    Upload,
 } from 'lucide-react';
 import { ExecuteUpdateSync } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
@@ -340,10 +341,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         title="Export"
                         className="gap-1"
                     >
-                        <Download size={13} /><span>Export</span>
+                        <Upload size={13} />
                     </Button>
                     {showExportMenu && (
-                        <div className="absolute right-0 top-full z-panel-overlay mt-1 min-w-[160px] rounded-md border border-border bg-bg-primary py-1 shadow-lg">
+                        <div className="absolute right-0 top-full z-panel-overlay mt-1 min-w-40 rounded-md border border-border bg-bg-primary py-1 shadow-lg">
                             <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportCSV}>
                                 <span>CSV</span>
                             </button>

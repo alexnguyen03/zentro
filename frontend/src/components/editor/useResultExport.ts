@@ -2,6 +2,7 @@ import React from 'react';
 import { useToast } from '../layout/Toast';
 import { useStatusStore } from '../../stores/statusStore';
 import type { ExportJobStatus } from '../../features/query/resultStrategy';
+import { ExportCSV, ExportJSON, ExportSQLInsert } from '../../services/queryService';
 
 interface UseResultExportOptions {
     result: { columns: string[]; rows: string[][]; tableName?: string } | undefined;
@@ -18,54 +19,6 @@ function nextTick() {
     return new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
-function downloadBlob(filename: string, content: string, mime: string) {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-}
-
-function escapeCsvCell(value: string): string {
-    const needsQuotes = value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r');
-    if (!needsQuotes) return value;
-    return `"${value.replace(/"/g, '""')}"`;
-}
-
-function rowsToCsv(columns: string[], rows: string[][]): string {
-    const header = columns.map(escapeCsvCell).join(',');
-    const body = rows.map((row) => row.map((cell) => escapeCsvCell(cell ?? '')).join(',')).join('\n');
-    return `${header}\n${body}`;
-}
-
-function rowsToJson(columns: string[], rows: string[][]): string {
-    const objects = rows.map((row) => {
-        const entry: Record<string, string> = {};
-        columns.forEach((column, index) => {
-            entry[column] = row[index] ?? '';
-        });
-        return entry;
-    });
-    return JSON.stringify(objects, null, 2);
-}
-
-function rowsToSql(columns: string[], rows: string[][], tableName: string): string {
-    const quotedColumns = columns.map((column) => `"${column.replace(/"/g, '""')}"`).join(', ');
-    const values = rows
-        .map((row) => {
-            const mapped = columns.map((_, index) => {
-                const value = row[index] ?? '';
-                if (value === '' || value.toLowerCase() === 'null') return 'NULL';
-                return `'${value.replace(/'/g, "''")}'`;
-            });
-            return `(${mapped.join(', ')})`;
-        })
-        .join(',\n');
-    return `INSERT INTO "${tableName.replace(/"/g, '""')}" (${quotedColumns})\nVALUES\n${values};\n`;
-}
-
 export function useResultExport({
     result,
     tableNameForExport,
@@ -77,10 +30,8 @@ export function useResultExport({
     const [job, setJob] = React.useState<ExportJobStatus | null>(null);
     const queueRef = React.useRef<Array<{
         label: string;
-        extension: string;
-        mime: string;
-        builder: (rows: string[][]) => string;
-        rows: string[][];
+        totalRows: number;
+        runner: () => Promise<string>;
     }>>([]);
     const runningRef = React.useRef(false);
     const cancelledRef = React.useRef<Set<string>>(new Set());
@@ -98,10 +49,8 @@ export function useResultExport({
 
     const runBackgroundExport = React.useCallback(async (
         label: string,
-        extension: string,
-        mime: string,
-        builder: (rows: string[][]) => string,
-        rows: string[][],
+        totalRows: number,
+        runner: () => Promise<string>,
     ) => {
         const startedAt = Date.now();
         const id = `job_${startedAt}_${Math.random().toString(36).slice(2, 8)}`;
@@ -111,13 +60,13 @@ export function useResultExport({
             status: 'running',
             startedAt,
             processedRows: 0,
-            totalRows: rows.length,
+            totalRows,
             progressPct: 0,
             queuedCount: queueRef.current.length,
         });
 
         try {
-            for (let offset = 0; offset < rows.length; offset += CHUNK_SIZE) {
+            for (let offset = 0; offset < totalRows; offset += CHUNK_SIZE) {
                 if (cancelledRef.current.has(id)) {
                     setJob({
                         id,
@@ -126,42 +75,54 @@ export function useResultExport({
                         startedAt,
                         finishedAt: Date.now(),
                         processedRows: offset,
-                        totalRows: rows.length,
-                        progressPct: Math.min(100, Math.round((offset / Math.max(rows.length, 1)) * 100)),
+                        totalRows,
+                        progressPct: Math.min(100, Math.round((offset / Math.max(totalRows, 1)) * 100)),
                         queuedCount: queueRef.current.length,
                     });
                     toast.info(`${label} export cancelled.`);
                     return;
                 }
-                const processedRows = Math.min(rows.length, offset + CHUNK_SIZE);
+                const processedRows = Math.min(totalRows, offset + CHUNK_SIZE);
                 setJob({
                     id,
                     label,
                     status: 'running',
                     startedAt,
                     processedRows,
-                    totalRows: rows.length,
-                    progressPct: Math.min(100, Math.round((processedRows / Math.max(rows.length, 1)) * 100)),
+                    totalRows,
+                    progressPct: Math.min(100, Math.round((processedRows / Math.max(totalRows, 1)) * 100)),
                     queuedCount: queueRef.current.length,
                 });
                 await nextTick();
             }
 
-            const content = builder(rows);
-            const fileName = `zentro-export-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`;
-            downloadBlob(fileName, content, mime);
+            const filePath = await runner();
+            if (!filePath) {
+                setJob({
+                    id,
+                    label,
+                    status: 'cancelled',
+                    startedAt,
+                    finishedAt: Date.now(),
+                    processedRows: totalRows,
+                    totalRows,
+                    progressPct: 100,
+                    queuedCount: queueRef.current.length,
+                });
+                return;
+            }
             setJob({
                 id,
                 label,
                 status: 'done',
                 startedAt,
                 finishedAt: Date.now(),
-                processedRows: rows.length,
-                totalRows: rows.length,
+                processedRows: totalRows,
+                totalRows,
                 progressPct: 100,
                 queuedCount: queueRef.current.length,
             });
-            notifyExport(fileName);
+            notifyExport(filePath);
         } catch (error) {
             setJob({
                 id,
@@ -170,7 +131,7 @@ export function useResultExport({
                 startedAt,
                 finishedAt: Date.now(),
                 processedRows: 0,
-                totalRows: rows.length,
+                totalRows,
                 progressPct: 0,
                 queuedCount: queueRef.current.length,
                 error: String(error),
@@ -190,10 +151,8 @@ export function useResultExport({
         runningRef.current = true;
         await runBackgroundExport(
             next.label,
-            next.extension,
-            next.mime,
-            next.builder,
-            next.rows,
+            next.totalRows,
+            next.runner,
         );
 
         if (queueRef.current.length > 0) {
@@ -203,12 +162,10 @@ export function useResultExport({
 
     const enqueueExport = React.useCallback((
         label: string,
-        extension: string,
-        mime: string,
-        builder: (rows: string[][]) => string,
-        rows: string[][],
+        totalRows: number,
+        runner: () => Promise<string>,
     ) => {
-        queueRef.current.push({ label, extension, mime, builder, rows });
+        queueRef.current.push({ label, totalRows, runner });
         void drainQueue();
     }, [drainQueue]);
 
@@ -222,14 +179,14 @@ export function useResultExport({
         if (!result?.columns || !result.rows) return;
         setShowExportMenu(false);
         const label = result.rows.length > SMALL_EXPORT_THRESHOLD ? 'CSV (queued)' : 'CSV';
-        enqueueExport(label, 'csv', 'text/csv;charset=utf-8', (rows) => rowsToCsv(result.columns, rows), result.rows);
+        enqueueExport(label, result.rows.length, () => ExportCSV(result.columns, result.rows));
     };
 
     const handleExportJSON = async () => {
         if (!result?.columns || !result.rows) return;
         setShowExportMenu(false);
         const label = result.rows.length > SMALL_EXPORT_THRESHOLD ? 'JSON (queued)' : 'JSON';
-        enqueueExport(label, 'json', 'application/json;charset=utf-8', (rows) => rowsToJson(result.columns, rows), result.rows);
+        enqueueExport(label, result.rows.length, () => ExportJSON(result.columns, result.rows));
     };
 
     const handleExportSQLConfirm = async () => {
@@ -238,13 +195,7 @@ export function useResultExport({
         setShowTableNameInput(false);
         setTableNameForExport('');
         const label = result.rows.length > SMALL_EXPORT_THRESHOLD ? 'SQL INSERT (queued)' : 'SQL INSERT';
-        enqueueExport(
-            label,
-            'sql',
-            'text/sql;charset=utf-8',
-            (rows) => rowsToSql(result.columns, rows, tableName),
-            result.rows,
-        );
+        enqueueExport(label, result.rows.length, () => ExportSQLInsert(result.columns, result.rows, tableName));
     };
 
     return { handleExportCSV, handleExportJSON, handleExportSQLConfirm, exportJob: job, cancelExport };
