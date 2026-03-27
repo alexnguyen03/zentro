@@ -1,66 +1,48 @@
 ---
 name: zentro-project-architecture
 description: >
-  Định nghĩa cấu trúc thư mục, dependency rules giữa các layer, naming
-  conventions, và go.mod dependencies chuẩn cho toàn bộ dự án Zentro.
-  Phải đọc trước khi tạo bất kỳ file Go nào trong dự án.
+  Architecture guardrails for Go + Wails + React + TypeScript: folder structure,
+  dependency direction, and ownership boundaries.
 ---
 
-# Skill 01: Project Architecture & Code Conventions
+# Skill 01: Project Architecture
 
-## Cấu trúc thư mục cố định
+## Purpose
 
-```
-zentro/
-├── cmd/
-│   └── zentro/
-│       └── main.go          // Entry point DUY NHẤT — khởi tạo app, window, wiring
-├── internal/
-│   ├── ui/                  // Fyne widgets & layouts (không chứa business logic)
-│   │   ├── mainwindow.go    // Main window, toolbar, status bar
-│   │   ├── connection/      // Connection dialog & list widget
-│   │   ├── editor/          // Query tab & editor widget
-│   │   └── result/          // Result table widget
-│   ├── db/                  // Database logic (không import Fyne)
-│   │   ├── executor.go      // Query execution
-│   │   ├── connector.go     // sql.Open, ping, connection string build
-│   │   └── history.go       // Query history persistence
-│   ├── models/              // Shared data structs (không import Fyne hoặc db)
-│   │   ├── connection.go    // ConnectionProfile
-│   │   └── query.go         // QueryResult, HistoryEntry
-│   └── utils/               // Config, logging helpers (không import ui hoặc db)
-│       ├── logger.go        // slog setup
-│       └── prefs.go         // Fyne Preferences wrappers
-├── go.mod
-└── go.sum
+Define clear module boundaries so features are easy to change and safe to extend.
+
+## Canonical Structure
+
+```text
+cmd/zentro/main.go
+internal/models
+internal/adapters
+internal/services
+internal/app (wails-exposed facade)
+frontend/src/{features,components,stores,lib}
 ```
 
-## Dependency Rules (bắt buộc, không được vi phạm)
+## Ownership Rules
 
-| Layer | Được import | Không được import |
-|---|---|---|
-| `models` | stdlib only | `ui`, `db`, `utils` |
-| `db` | `models`, stdlib | `ui` |
-| `utils` | `models`, stdlib, fyne prefs | `ui`, `db` |
-| `ui` | `models`, `db`, `utils`, fyne | — |
-| `main.go` | tất cả | — |
+- `main.go`: composition root and dependency wiring only.
+- `models`: shared DTO/value types, no Wails/UI imports.
+- `adapters`: DB/provider/OS integration.
+- `services`: business workflows using models + adapters.
+- `internal/app`: thin facade for Wails bindings.
+- `frontend`: render and interaction; business rules in features/stores, not pure view components.
 
-> `main.go` là nơi **duy nhất** wire tất cả dependencies lại với nhau.
+## Dependency Rules
 
-## Naming Conventions
-
-- Fyne widget constructor: `New<WidgetName>(deps...)` → trả về struct pointer
-- Internal types không export nếu chỉ dùng trong package
-- Tất cả exported function phải có Go doc comment
-- Error wrapping: `fmt.Errorf("package: operation failed: %w", err)`
-- Constant keys cho Preferences: dạng `"zentro.<key>"` (xem Skill 08)
-
-## go.mod Dependencies
-
-```
-fyne.io/fyne/v2 v2.5.x
-github.com/jackc/pgx/v5 v5.x      // dùng pgx/v5/stdlib adapter cho database/sql
-github.com/microsoft/go-mssqldb v1.x
+```text
+models <- adapters <- services <- app(facade)
+frontend -> generated bindings -> app(facade)
 ```
 
-Không thêm dependency ngoài danh sách trên nếu không có lý do rõ ràng.
+- Lower backend layers must not import upper layers.
+- Frontend must not depend on DB-driver specifics.
+
+## Definition of Done
+
+- Boundary is explicit in package placement and imports.
+- Wails facade remains thin.
+- New code preserves dependency direction.
