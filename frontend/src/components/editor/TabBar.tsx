@@ -162,24 +162,6 @@ export const TabBar: React.FC<TabBarProps> = ({
         return () => el.removeEventListener('wheel', onWheel);
     }, []);
 
-    // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs in this group
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if (!e.ctrlKey || e.key !== 'Tab') return;
-            if (tabs.length < 2) return;
-            e.preventDefault();
-            const idx = tabs.findIndex(t => t.id === activeTabId);
-            const next = e.shiftKey
-                ? (idx - 1 + tabs.length) % tabs.length
-                : (idx + 1) % tabs.length;
-            onActivate(tabs[next].id);
-        };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [tabs, activeTabId, onActivate]);
-
-
-
     // Listen to F2 rename custom hook
     useEffect(() => {
         const off = onCommand(DOM_EVENT.RENAME_TAB, (tabId) => {

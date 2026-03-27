@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { Tab, useEditorStore } from '../../stores/editorStore';
@@ -26,7 +26,7 @@ import { buildFilterQuery } from '../../lib/queryBuilder';
 import { getErrorMessage } from '../../lib/errors';
 
 export const QueryTabs: React.FC = () => {
-    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
+    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, setActiveTabId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
     const { results } = useResultStore();
     const { isConnected } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -79,6 +79,28 @@ export const QueryTabs: React.FC = () => {
     // Drag overlay state
     const [activeDragTab, setActiveDragTab] = useState<Tab | null>(null);
     const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
+    const recentTabIdsRef = useRef<string[]>([]);
+    const [tabSwitcher, setTabSwitcher] = useState<{ open: boolean; orderedIds: string[]; index: number }>({
+        open: false,
+        orderedIds: [],
+        index: 0,
+    });
+
+    const allTabs = useMemo(
+        () => groups.flatMap((group) => group.tabs.map((tab) => ({ tab, groupId: group.id }))),
+        [groups],
+    );
+    const tabMetaById = useMemo(
+        () => new Map(allTabs.map((item) => [item.tab.id, item])),
+        [allTabs],
+    );
+
+    const activateTabById = React.useCallback((tabId: string) => {
+        const meta = tabMetaById.get(tabId);
+        if (!meta) return;
+        setActiveGroupId(meta.groupId);
+        setActiveTabId(tabId, meta.groupId);
+    }, [setActiveGroupId, setActiveTabId, tabMetaById]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -100,6 +122,75 @@ export const QueryTabs: React.FC = () => {
         });
         return off;
     }, [activeGroupId, groups, removeTab]);
+
+    useEffect(() => {
+        const alive = new Set(allTabs.map((item) => item.tab.id));
+        recentTabIdsRef.current = recentTabIdsRef.current.filter((id) => alive.has(id));
+    }, [allTabs]);
+
+    useEffect(() => {
+        if (!globalActiveTabId) return;
+        recentTabIdsRef.current = [
+            globalActiveTabId,
+            ...recentTabIdsRef.current.filter((id) => id !== globalActiveTabId),
+        ];
+    }, [globalActiveTabId]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!e.ctrlKey || e.key !== 'Tab') return;
+            if (e.repeat) return;
+
+            const availableIds = recentTabIdsRef.current.filter((id) => tabMetaById.has(id));
+            if (availableIds.length < 2) return;
+            e.preventDefault();
+
+            setTabSwitcher((prev) => {
+                if (!prev.open) {
+                    const current = globalActiveTabId || availableIds[0];
+                    const ordered = [current, ...availableIds.filter((id) => id !== current)];
+                    const direction = e.shiftKey ? -1 : 1;
+                    const nextIndex = (direction + ordered.length) % ordered.length;
+                    return { open: true, orderedIds: ordered, index: nextIndex };
+                }
+
+                const direction = e.shiftKey ? -1 : 1;
+                const nextIndex = (prev.index + direction + prev.orderedIds.length) % prev.orderedIds.length;
+                return { ...prev, index: nextIndex };
+            });
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Control') {
+                setTabSwitcher((prev) => {
+                    if (prev.open && prev.orderedIds.length > 0) {
+                        const targetTabId = prev.orderedIds[prev.index];
+                        if (targetTabId) {
+                            activateTabById(targetTabId);
+                        }
+                    }
+                    return { ...prev, open: false };
+                });
+                return;
+            }
+            if (!e.ctrlKey) {
+                setTabSwitcher((prev) => ({ ...prev, open: false }));
+            }
+        };
+
+        const handleWindowBlur = () => {
+            setTabSwitcher((prev) => ({ ...prev, open: false }));
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('blur', handleWindowBlur);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('blur', handleWindowBlur);
+        };
+    }, [activateTabById, globalActiveTabId, tabMetaById]);
 
     // Handle automatically closing groups when they are empty
     useEffect(() => {
@@ -218,6 +309,29 @@ export const QueryTabs: React.FC = () => {
             onDragEnd={handleDragEnd}
         >
             <div className="flex flex-col h-full w-full overflow-hidden">
+                {tabSwitcher.open && tabSwitcher.orderedIds.length > 0 && (
+                    <div className="fixed left-1/2 top-40 z-topmost -translate-x-1/2 pointer-events-none">
+                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-lg border border-border/60 bg-bg-secondary/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
+                            {tabSwitcher.orderedIds.map((id, index) => {
+                                const meta = tabMetaById.get(id);
+                                if (!meta) return null;
+                                const isSelected = index === tabSwitcher.index;
+                                return (
+                                    <div
+                                        key={id}
+                                        className={cn(
+                                            'flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px]',
+                                            isSelected ? 'bg-accent/25 text-text-primary' : 'text-text-secondary',
+                                        )}
+                                    >
+                                        <span className="truncate flex-1">{meta.tab.name}</span>
+                                        <span className="text-[10px] text-text-muted">{meta.tab.type || 'query'}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 <Allotment vertical>
                     <Allotment.Pane>
                         <Allotment separator={false}>
