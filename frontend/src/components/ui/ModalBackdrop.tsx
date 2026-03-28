@@ -80,7 +80,7 @@ export const ModalBackdrop: React.FC<ModalBackdropProps> = ({
     return ReactDOM.createPortal(
         <div
             className={cn(
-                'fixed inset-0 flex items-center justify-center animate-in fade-in duration-150',
+                'fixed inset-0 flex items-center justify-center animate-in fade-in duration-150 modal-backdrop-fade-in',
                 backdropClass,
                 layerClass,
                 className
