@@ -45,6 +45,7 @@ describe('projectStore', () => {
             projects: [],
             activeProject: null,
             selectedProjectId: null,
+            recentProjectIds: [],
             isLoading: false,
             error: null,
         });
@@ -61,6 +62,7 @@ describe('projectStore', () => {
         expect(state.projects).toHaveLength(1);
         expect(state.activeProject?.id).toBe('active-1');
         expect(state.selectedProjectId).toBe('active-1');
+        expect(state.recentProjectIds).toEqual(['active-1']);
         expect(state.error).toBeNull();
     });
 
@@ -90,5 +92,41 @@ describe('projectStore', () => {
         expect(projectServiceMock.saveProject).toHaveBeenCalledTimes(1);
         expect(result?.default_environment_key).toBe(ENVIRONMENT_KEY.DEVELOPMENT);
         expect(result?.environments?.some((environment) => environment.key === ENVIRONMENT_KEY.DEVELOPMENT)).toBe(true);
+    });
+
+    it('tracks recent projects when opening, keeps max 4, and deduplicates', async () => {
+        const projects = [
+            makeProject({ id: 'p1', name: 'P1' }),
+            makeProject({ id: 'p2', name: 'P2' }),
+            makeProject({ id: 'p3', name: 'P3' }),
+            makeProject({ id: 'p4', name: 'P4' }),
+        ];
+        useProjectStore.setState({ projects, recentProjectIds: ['p1', 'p2'] });
+
+        projectServiceMock.openProject.mockResolvedValue(makeProject({ id: 'p3', name: 'P3' }));
+        await useProjectStore.getState().openProject('p3');
+
+        projectServiceMock.openProject.mockResolvedValue(makeProject({ id: 'p2', name: 'P2' }));
+        await useProjectStore.getState().openProject('p2');
+
+        projectServiceMock.openProject.mockResolvedValue(makeProject({ id: 'p4', name: 'P4' }));
+        await useProjectStore.getState().openProject('p4');
+
+        expect(useProjectStore.getState().recentProjectIds).toEqual(['p4', 'p2', 'p3', 'p1']);
+    });
+
+    it('removes deleted project id from recent list', async () => {
+        useProjectStore.setState({
+            projects: [makeProject({ id: 'p1' }), makeProject({ id: 'p2' })],
+            recentProjectIds: ['p2', 'p1'],
+            activeProject: makeProject({ id: 'p1' }),
+            selectedProjectId: 'p1',
+        });
+        projectServiceMock.deleteProject.mockResolvedValue(undefined);
+
+        const ok = await useProjectStore.getState().deleteProject('p2');
+
+        expect(ok).toBe(true);
+        expect(useProjectStore.getState().recentProjectIds).toEqual(['p1']);
     });
 });

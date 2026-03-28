@@ -16,6 +16,7 @@ import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { DOM_EVENT } from './lib/constants';
 import { emitCommand, onCommand } from './lib/commandBus';
 import { ForceQuit } from './services/projectService';
+import { Disconnect } from './services/connectionService';
 import { useGlobalShortcuts } from './features/shortcuts/useGlobalShortcuts';
 import { useAppEventBridge } from './features/app-runtime/useAppEventBridge';
 import { useBeforeCloseGuard } from './features/app-runtime/useBeforeCloseGuard';
@@ -24,7 +25,10 @@ import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge
 
 function App() {
     const { isConnected } = useConnectionStore();
+    const resetRuntime = useConnectionStore((state) => state.resetRuntime);
     const activeProject = useProjectStore((state) => state.activeProject);
+    const projects = useProjectStore((state) => state.projects);
+    const openProject = useProjectStore((state) => state.openProject);
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
 
@@ -56,10 +60,27 @@ function App() {
         return off;
     }, []);
 
+    const handleStartupClose = React.useCallback(async () => {
+        const latestProject = [...projects].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
+        if (!latestProject?.id) return;
+
+        try {
+            try { await Disconnect(); } catch { /* ignore */ }
+            const project = await openProject(latestProject.id);
+            if (!project) {
+                resetRuntime();
+                return;
+            }
+            resetRuntime();
+        } catch {
+            resetRuntime();
+        }
+    }, [openProject, projects, resetRuntime]);
+
     if (!activeProject) {
         return (
             <div className="h-full w-full bg-bg-primary">
-                <ProjectHub />
+                <ProjectHub overlay startupMode onClose={() => { void handleStartupClose(); }} />
             </div>
         );
     }

@@ -11,6 +11,7 @@ interface ProjectState {
     projects: Project[];
     activeProject: Project | null;
     selectedProjectId: string | null;
+    recentProjectIds: string[];
     isLoading: boolean;
     error: string | null;
 
@@ -24,6 +25,18 @@ interface ProjectState {
     bindEnvironmentConnection: (environmentKey: EnvironmentKey, profile: ConnectionProfile) => Promise<Project | null>;
     setActiveProject: (project: Project | null) => void;
     clearActiveProject: () => void;
+}
+
+const MAX_RECENT_PROJECTS = 4;
+
+function pushRecentProject(recentProjectIds: string[], projectId: string): string[] {
+    return [projectId, ...recentProjectIds.filter((id) => id !== projectId)].slice(0, MAX_RECENT_PROJECTS);
+}
+
+function sanitizeRecentProjects(recentProjectIds: string[], projects: Project[]): string[] {
+    if (recentProjectIds.length === 0) return recentProjectIds;
+    const validIds = new Set(projects.map((project) => project.id));
+    return recentProjectIds.filter((projectId) => validIds.has(projectId));
 }
 
 function patchProjects(projects: Project[], project: Project) {
@@ -77,6 +90,7 @@ export const useProjectStore = create<ProjectState>()(
             projects: [],
             activeProject: null,
             selectedProjectId: null,
+            recentProjectIds: [],
             isLoading: false,
             error: null,
 
@@ -99,15 +113,21 @@ export const useProjectStore = create<ProjectState>()(
                     const projects = await listProjects();
                     const active = await getActiveProject();
                     const selectedProjectId = get().selectedProjectId;
+                    const currentRecent = get().recentProjectIds;
                     const hydratedActive = active ? {
                         ...active,
                         last_active_environment_key: active.last_active_environment_key || active.default_environment_key || ENVIRONMENT_KEY.LOCAL,
                     } : null;
+                    let recentProjectIds = sanitizeRecentProjects(currentRecent, projects);
+                    if (hydratedActive?.id) {
+                        recentProjectIds = pushRecentProject(recentProjectIds, hydratedActive.id);
+                    }
 
                     set({
                         projects,
                         activeProject: hydratedActive,
                         selectedProjectId: hydratedActive?.id || selectedProjectId || null,
+                        recentProjectIds,
                         isLoading: false,
                     });
                 } catch (error) {
@@ -125,10 +145,15 @@ export const useProjectStore = create<ProjectState>()(
                         ...project,
                         last_active_environment_key: project.last_active_environment_key || project.default_environment_key || ENVIRONMENT_KEY.LOCAL,
                     } : null;
+                    let recentProjectIds = sanitizeRecentProjects(get().recentProjectIds, projects);
+                    if (hydratedProject?.id) {
+                        recentProjectIds = pushRecentProject(recentProjectIds, hydratedProject.id);
+                    }
                     set({
                         activeProject: hydratedProject,
                         selectedProjectId: hydratedProject?.id || projectId,
                         projects,
+                        recentProjectIds,
                         isLoading: false,
                     });
                     return hydratedProject;
@@ -163,6 +188,7 @@ export const useProjectStore = create<ProjectState>()(
                         projects,
                         activeProject: project,
                         selectedProjectId: project.id,
+                        recentProjectIds: pushRecentProject(sanitizeRecentProjects(get().recentProjectIds, projects), project.id),
                         isLoading: false,
                     });
                     return project;
@@ -199,6 +225,7 @@ export const useProjectStore = create<ProjectState>()(
                         projects: state.projects.filter((p) => p.id !== projectId),
                         activeProject: state.activeProject?.id === projectId ? null : state.activeProject,
                         selectedProjectId: state.selectedProjectId === projectId ? null : state.selectedProjectId,
+                        recentProjectIds: state.recentProjectIds.filter((id) => id !== projectId),
                         isLoading: false,
                     }));
                     return true;
@@ -259,16 +286,18 @@ export const useProjectStore = create<ProjectState>()(
                 });
             },
 
-            setActiveProject: (project) => set({
+            setActiveProject: (project) => set((state) => ({
                 activeProject: project,
                 selectedProjectId: project?.id || null,
-            }),
+                recentProjectIds: project?.id ? pushRecentProject(state.recentProjectIds, project.id) : state.recentProjectIds,
+            })),
             clearActiveProject: () => set({ activeProject: null }),
         })),
         {
             name: STORAGE_KEY.PROJECT_STORE,
             partialize: (state) => ({
                 selectedProjectId: state.selectedProjectId,
+                recentProjectIds: state.recentProjectIds,
             }),
         }
     )

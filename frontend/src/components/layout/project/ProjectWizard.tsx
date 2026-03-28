@@ -193,10 +193,9 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
             <div className="py-4">
                 {/* Step: basics */}
                 {step === 'basics' && (
-                    <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-                        <div className="rounded-md bg-bg-primary/25 p-5">
-                            <div className="text-[12px] font-semibold text-text-secondary">Project details</div>
-                            <div className="mt-4 grid gap-3">
+                    <div className="mx-auto flex max-w-190 flex-col gap-4">
+                        <div className="">
+                            <div className="grid gap-3">
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project name</label>
                                     <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-md bg-bg-secondary" autoFocus />
@@ -230,7 +229,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
 
                 {/* Step: environment */}
                 {step === 'environment' && (
-                    <div className="mx-auto grid max-w-[860px] gap-4 md:grid-cols-2">
+                    <div className="mx-auto grid max-w-215 gap-4 md:grid-cols-2">
                         {ENVIRONMENT_KEYS.map((envKey) => {
                             const meta = getEnvironmentMeta(envKey);
                             const active = draft.starterEnv === envKey;
@@ -254,8 +253,8 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
 
                 {/* Step: connection */}
                 {step === 'connection' && (
-                    <div className="mx-auto w-full max-w-[980px]">
-                        <div className="flex min-h-[520px] flex-col rounded-md bg-bg-primary/20">
+                    <div className="mx-auto w-full max-w-245">
+                        <div className="flex min-h-130 flex-col rounded-md bg-bg-primary/20">
                             {connectionMode === 'existing' ? (
                                 <div className="flex-1 overflow-hidden px-4 py-3">
                                     <DatabaseTreePicker
@@ -282,7 +281,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         </div>
                                     ) : (
                                         <div className="h-full overflow-y-auto">
-                                            <div className="mx-auto flex min-h-full w-full max-w-[620px] items-start justify-center">
+                                            <div className="mx-auto flex min-h-full w-full max-w-155 items-start justify-center">
                                                 <div className="w-full">
                                                     <ConnectionForm
                                                         formData={form.formData} connString={form.connString}
@@ -307,7 +306,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
 
                 {/* Step: review */}
                 {step === 'review' && (
-                    <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+                    <div className="mx-auto flex max-w-190 flex-col gap-4">
                         <div className="rounded-md bg-bg-primary/20 p-5">
                             <div className="space-y-3">
                                 <div className="rounded-md bg-bg-secondary px-4 py-4">
