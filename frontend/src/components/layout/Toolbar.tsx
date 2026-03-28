@@ -60,8 +60,10 @@ export const Toolbar: React.FC = () => {
     const [licenseOpen, setLicenseOpen] = useState(false);
     const [environmentSwitcherOpen, setEnvironmentSwitcherOpen] = useState(false);
     const [quickEnvOpen, setQuickEnvOpen] = useState(false);
+    const [quickEnvKeyboardMode, setQuickEnvKeyboardMode] = useState(false);
     const [quickEnvHighlightedIndex, setQuickEnvHighlightedIndex] = useState(0);
     const quickEnvRef = useRef<HTMLDivElement | null>(null);
+    const quickEnvCloseTimerRef = useRef<number | null>(null);
 
     // Active tab detection for menu
     const { groups, activeGroupId } = useEditorStore();
@@ -71,6 +73,7 @@ export const Toolbar: React.FC = () => {
 
     const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
     const databaseLabel = activeProfile?.db_name || 'No database';
+    const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
 
     const quickEnvOptions = useMemo(() => {
@@ -79,19 +82,68 @@ export const Toolbar: React.FC = () => {
         return [] as EnvironmentKey[];
     }, [activeProject?.default_environment_key, environments]);
 
+    const quickEnvConnectionDetails = useMemo(() => {
+        const byKey = new Map<EnvironmentKey, { host: string; database: string }>();
+        quickEnvOptions.forEach((envKey) => {
+            const envConnection = activeProject?.connections?.find((connection) => connection.environment_key === envKey);
+            const envModel = activeProject?.environments?.find((env) => env.key === envKey);
+            const isActive = envKey === activeEnvKey;
+
+            const host = (isActive ? (activeProfile?.host || activeProfile?.name) : undefined)
+                || envConnection?.host
+                || envConnection?.name
+                || 'No host';
+            const database = (isActive ? activeProfile?.db_name : undefined)
+                || envConnection?.database
+                || envModel?.last_database
+                || 'No DB';
+
+            byKey.set(envKey, { host, database });
+        });
+        return byKey;
+    }, [activeEnvKey, activeProfile?.db_name, activeProfile?.host, activeProfile?.name, activeProject?.connections, activeProject?.environments, quickEnvOptions]);
+
+    const clearQuickEnvCloseTimer = useCallback(() => {
+        if (quickEnvCloseTimerRef.current === null) return;
+        window.clearTimeout(quickEnvCloseTimerRef.current);
+        quickEnvCloseTimerRef.current = null;
+    }, []);
+
+    const openQuickEnv = useCallback((keyboardMode = false) => {
+        clearQuickEnvCloseTimer();
+        setQuickEnvOpen(true);
+        setQuickEnvKeyboardMode(keyboardMode);
+    }, [clearQuickEnvCloseTimer]);
+
+    const scheduleQuickEnvClose = useCallback(() => {
+        clearQuickEnvCloseTimer();
+        quickEnvCloseTimerRef.current = window.setTimeout(() => {
+            setQuickEnvOpen(false);
+            setQuickEnvKeyboardMode(false);
+            quickEnvCloseTimerRef.current = null;
+        }, 120);
+    }, [clearQuickEnvCloseTimer]);
+
     // ── Environment switcher command ──────────────────────────────────────────
     useEffect(() => {
         const off = onCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, () => {
             setQuickEnvOpen(false);
+            setQuickEnvKeyboardMode(false);
             setEnvironmentSwitcherOpen(true);
         });
         return off;
     }, []);
 
+    useEffect(() => () => clearQuickEnvCloseTimer(), [clearQuickEnvCloseTimer]);
+
     // ── Quick env dropdown: close on outside click ────────────────────────────
     useEffect(() => {
         if (!quickEnvOpen) return;
-        const onDown = (e: MouseEvent) => { if (!quickEnvRef.current?.contains(e.target as Node)) setQuickEnvOpen(false); };
+        const onDown = (e: MouseEvent) => {
+            if (quickEnvRef.current?.contains(e.target as Node)) return;
+            setQuickEnvOpen(false);
+            setQuickEnvKeyboardMode(false);
+        };
         window.addEventListener('mousedown', onDown);
         return () => window.removeEventListener('mousedown', onDown);
     }, [quickEnvOpen]);
@@ -99,13 +151,13 @@ export const Toolbar: React.FC = () => {
     // ── Quick env keyboard ────────────────────────────────────────────────────
     useEffect(() => {
         if (!quickEnvOpen) return;
-        const activeKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
+        const activeKey = activeEnvKey;
         const idx = activeKey ? quickEnvOptions.findIndex((k) => k === activeKey) : -1;
         setQuickEnvHighlightedIndex(idx >= 0 ? idx : 0);
-    }, [activeEnvironmentKey, activeProject?.default_environment_key, quickEnvOpen, quickEnvOptions]);
+    }, [activeEnvKey, quickEnvOpen, quickEnvOptions]);
 
     useEffect(() => {
-        if (!quickEnvOpen) return;
+        if (!quickEnvOpen || !quickEnvKeyboardMode) return;
         const onKeyDown = (e: KeyboardEvent) => {
             if (quickEnvOptions.length === 0) return;
             if (e.key === 'ArrowDown') { e.preventDefault(); setQuickEnvHighlightedIndex((c) => (c + 1) % quickEnvOptions.length); return; }
@@ -116,14 +168,19 @@ export const Toolbar: React.FC = () => {
                 if (target) void handleQuickSwitchEnv(target);
                 return;
             }
-            if (e.key === 'Escape') { e.preventDefault(); setQuickEnvOpen(false); }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setQuickEnvOpen(false);
+                setQuickEnvKeyboardMode(false);
+            }
         };
         window.addEventListener('keydown', onKeyDown, true);
         return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, [quickEnvHighlightedIndex, quickEnvOpen, quickEnvOptions]);
+    }, [quickEnvHighlightedIndex, quickEnvKeyboardMode, quickEnvOpen, quickEnvOptions]);
 
     const handleQuickSwitchEnv = async (envKey: EnvironmentKey) => {
         setQuickEnvOpen(false);
+        setQuickEnvKeyboardMode(false);
         if (!activeProject || envKey === activeEnvironmentKey) return;
         try {
             setActiveEnvironment(envKey);
@@ -189,6 +246,12 @@ export const Toolbar: React.FC = () => {
                             'relative flex items-stretch w-full rounded-full text-xs font-medium text-text-secondary select-none transition-all duration-200 bg-success/10',
                             (quickEnvOpen || environmentSwitcherOpen) && 'border-success text-text-primary',
                         )}
+                        onMouseLeave={scheduleQuickEnvClose}
+                        onBlurCapture={(event) => {
+                            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                            setQuickEnvOpen(false);
+                            setQuickEnvKeyboardMode(false);
+                        }}
                     >
                         {/* Project button */}
                         <button
@@ -210,8 +273,14 @@ export const Toolbar: React.FC = () => {
                         {/* Connection info / env switcher trigger */}
                         <button
                             type="button"
-                            className={cn('relative h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none', !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border')}
-                            onClick={() => setQuickEnvOpen((c) => !c)}
+                            className={cn(
+                                'relative h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
+                                connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
+                                !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border',
+                            )}
+                            onClick={() => openQuickEnv(true)}
+                            onMouseEnter={() => openQuickEnv(false)}
+                            onFocus={() => openQuickEnv(true)}
                             disabled={!activeProject}
                             title="Switch environment"
                         >
@@ -230,7 +299,11 @@ export const Toolbar: React.FC = () => {
                             type="button"
                             className="relative h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-bg-secondary/40 transition-colors leading-none"
                             title="Configure environment bindings"
-                            onClick={() => { setQuickEnvOpen(false); setEnvironmentSwitcherOpen(true); }}
+                            onClick={() => {
+                                setQuickEnvOpen(false);
+                                setQuickEnvKeyboardMode(false);
+                                setEnvironmentSwitcherOpen(true);
+                            }}
                         >
                             {activeProject && (
                                 <span className={cn('shrink-0 px-1.5 py-0.5 rounded-full border font-bold uppercase tracking-wider leading-none text-[10px]', envMeta.colorClass)}>
@@ -242,25 +315,41 @@ export const Toolbar: React.FC = () => {
 
                         {/* Quick env dropdown */}
                         {quickEnvOpen && activeProject && (
-                            <div className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-bg-secondary shadow-xl p-2">
+                            <div
+                                className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-bg-secondary shadow-xl p-2"
+                                onMouseEnter={clearQuickEnvCloseTimer}
+                            >
                                 <div className="space-y-1">
                                     {quickEnvOptions.map((envKey, index) => {
                                         const meta = getEnvironmentMeta(envKey);
                                         const isActive = envKey === (activeEnvironmentKey || activeProject.default_environment_key);
                                         const isHighlighted = index === quickEnvHighlightedIndex;
+                                        const details = quickEnvConnectionDetails.get(envKey);
                                         return (
                                             <button
                                                 key={envKey} type="button"
                                                 className={cn(
-                                                    'w-full flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                    'w-full flex cursor-pointer items-start justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition-colors',
                                                     isActive ? 'bg-accent/10 border border-accent/35 text-text-primary' : isHighlighted ? 'bg-bg-primary/60 text-text-primary' : 'hover:bg-bg-primary/50 text-text-secondary',
                                                 )}
                                                 onClick={() => void handleQuickSwitchEnv(envKey)}
                                                 onMouseEnter={() => setQuickEnvHighlightedIndex(index)}
                                             >
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
-                                                    <span className="truncate font-semibold">{meta.label}</span>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
+                                                        <span className="truncate font-semibold">{meta.label}</span>
+                                                    </div>
+                                                    <div className="mt-1 flex items-center gap-3 text-[10px] text-text-secondary">
+                                                        <span className="inline-flex min-w-0 items-center gap-1">
+                                                            <Server size={11} className="shrink-0" />
+                                                            <span className="truncate max-w-[140px]">{details?.host || 'No host'}</span>
+                                                        </span>
+                                                        <span className="inline-flex min-w-0 items-center gap-1">
+                                                            <Database size={11} className="shrink-0" />
+                                                            <span className="truncate max-w-[130px]">{details?.database || 'No DB'}</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 {isActive && <span className="text-[10px] text-accent font-semibold">Active</span>}
                                             </button>

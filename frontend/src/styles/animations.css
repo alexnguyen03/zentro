@@ -63,3 +63,36 @@
 .modal-backdrop-fade-in {
     animation: modal-backdrop-fade-in 150ms ease-out;
 }
+
+@keyframes connecting-soft-flash {
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.08), 0 0 0 rgba(34, 197, 94, 0);
+    }
+
+    50% {
+        opacity: 0.86;
+        box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.22), 0 0 10px rgba(34, 197, 94, 0.12);
+    }
+}
+
+.connecting-soft-flash {
+    animation: connecting-soft-flash 1.35s ease-in-out infinite;
+}
+
+@keyframes statusbar-connecting-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    100% {
+        background-position: 100% 50%;
+    }
+}
+
+.statusbar-connecting-overlay {
+    background-image: linear-gradient(90deg, rgba(14, 165, 233, 0.2) 0%, rgba(59, 130, 246, 0.32) 50%, rgba(14, 165, 233, 0.2) 100%);
+    background-size: 180% 100%;
+    animation: statusbar-connecting-shift 1.2s ease-in-out infinite alternate;
+}

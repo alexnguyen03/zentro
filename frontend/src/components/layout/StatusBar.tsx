@@ -67,7 +67,7 @@ export const StatusBar: React.FC = () => {
 
     const barColor = {
         [CONNECTION_STATUS.CONNECTED]: 'bg-success',
-        [CONNECTION_STATUS.CONNECTING]: 'bg-accent-600',
+        [CONNECTION_STATUS.CONNECTING]: 'bg-accent-700',
         [CONNECTION_STATUS.ERROR]: 'bg-red-500',
         [CONNECTION_STATUS.FAILED]: 'bg-red-500',
         [CONNECTION_STATUS.DISCONNECTED]: 'bg-yellow-500',
@@ -82,11 +82,21 @@ export const StatusBar: React.FC = () => {
     return (
         <div
             className={cn(
-                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-300',
+                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-500 ease-out',
                 viewMode ? 'bg-linear-to-r from-amber-500/70 to-red-500/70' : barColor,
-                status === CONNECTION_STATUS.CONNECTING && ''
             )}
         >
+            {!viewMode && (
+                <span
+                    aria-hidden
+                    className={cn(
+                        'pointer-events-none absolute inset-0 transition-opacity duration-500 ease-out',
+                        status === CONNECTION_STATUS.CONNECTING
+                            ? 'opacity-100 statusbar-connecting-overlay'
+                            : 'opacity-0',
+                    )}
+                />
+            )}
             <div className="flex items-center gap-3 font-medium text-[11px] text-white min-w-0">
                 <span className="uppercase text-[10px] opacity-80 shrink-0">{txLabel}</span>
                 <span className="uppercase text-[10px] opacity-80 shrink-0">Q: {queryExecutionState}</span>
