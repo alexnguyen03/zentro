@@ -8,6 +8,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
+import { registerSqlFolding } from '../../lib/monaco/sqlFolding';
 import { getSchemasForActiveDatabase } from '../../lib/monaco/sqlCompletionIdentifiers';
 import { resolveSqlObjectNavigationAtPosition, resolveTableNavigationAtPosition, type SchemaObjectKind, type TableNavigationMatch } from '../../lib/monaco/sqlTableNavigation';
 import { runCtrlClickTableNavigation } from './monacoTableNavigation';
@@ -396,21 +397,29 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         }
     }, [isActive]);
 
-    const extractRunnableQuery = useCallback(() => {
-        if (!editorRef.current) return;
+    const resolveRunnableQueryTarget = useCallback((): {
+        query: string;
+        range: {
+            startLineNumber: number;
+            startColumn: number;
+            endLineNumber: number;
+            endColumn: number;
+        };
+    } | null => {
+        if (!editorRef.current) return null;
         const editor = editorRef.current;
         const selection = editor.getSelection();
         const model = editor.getModel();
-        if (!model) return;
+        if (!model) return null;
 
         if (selection && !selection.isEmpty()) {
             const selectedText = model.getValueInRange(selection);
-            if (!selectedText.trim()) return '';
-            return selectedText;
+            if (!selectedText.trim()) return null;
+            return { query: selectedText, range: selection };
         }
 
         const position = editor.getPosition();
-        if (!position) return '';
+        if (!position) return null;
 
         const currentLine = position.lineNumber;
         const lineCount = model.getLineCount();
@@ -425,7 +434,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             while (searchLine <= lineCount && model.getLineContent(searchLine).trim() === '') {
                 searchLine++;
             }
-            if (searchLine > lineCount) return '';
+            if (searchLine > lineCount) return null;
         }
 
         let startLine = searchLine;
@@ -444,17 +453,20 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             endLine++;
         }
 
-        const blockText = model.getValueInRange({
+        const range = {
             startLineNumber: startLine,
             startColumn: 1,
             endLineNumber: endLine,
             endColumn: model.getLineMaxColumn(endLine),
-        });
+        };
+        const blockText = model.getValueInRange(range);
 
-        if (!blockText.trim()) return '';
+        if (!blockText.trim()) return null;
 
-        return blockText;
+        return { query: blockText, range };
     }, []);
+
+    const extractRunnableQuery = useCallback(() => resolveRunnableQueryTarget()?.query || '', [resolveRunnableQueryTarget]);
 
     const runQueryRef = useRef<() => void>();
     const runQuery = useCallback(() => {
@@ -649,6 +661,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
         // Register SQL completion provider
         registerContextAwareSQLCompletion(monacoInstance);
+        registerSqlFolding(monacoInstance);
 
         // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
         // because Monaco's abstraction sometimes fails to capture in specific environments
@@ -833,18 +846,21 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         const handleFormat = async (detail?: { tabId?: string }) => {
             if (detail?.tabId && detail?.tabId !== tabId) return;
             if (!isActiveRef.current || !editorRef.current) return;
-            const query = extractRunnableQuery() || editorRef.current.getModel()?.getValue() || '';
-            if (!query.trim()) return;
+            const model = editorRef.current.getModel();
+            if (!model) return;
+            const target = resolveRunnableQueryTarget() || {
+                query: model.getValue(),
+                range: model.getFullModelRange(),
+            };
+            if (!target.query.trim()) return;
             try {
                 const dialect = activeProfile?.driver || '';
-                const formatted = await FormatSQL(query, dialect);
-                const model = editorRef.current.getModel();
-                if (!model) return;
+                const formatted = await FormatSQL(target.query, dialect);
                 model.pushEditOperations([], [{
-                    range: model.getFullModelRange(),
+                    range: target.range,
                     text: formatted
                 }], () => null);
-                onChange(formatted);
+                onChange(model.getValue());
             } catch (err) {
                 console.error('format failed', err);
             }
@@ -893,7 +909,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             offNext();
             offJump();
         };
-    }, [activeProfile?.driver, activeProfile?.name, extractRunnableQuery, nextLine, onChange, tabId, toggleLine]);
+    }, [activeProfile?.driver, activeProfile?.name, nextLine, onChange, resolveRunnableQueryTarget, tabId, toggleLine]);
 
     return (
         <div
