@@ -22,7 +22,7 @@ import {
     closestCenter
 } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
-import { buildFilterQuery } from '../../lib/queryBuilder';
+import { buildFilterQuery, splitLastQuery } from '../../lib/queryBuilder';
 import { getErrorMessage } from '../../lib/errors';
 
 export const QueryTabs: React.FC = () => {
@@ -42,19 +42,19 @@ export const QueryTabs: React.FC = () => {
     const handleRunGlobal = React.useCallback(async () => {
         if (!globalActiveTab || !isConnected) return;
         useResultStore.getState().setFilterExpr(globalActiveTab.id, '');
-        const queryToRun = globalActiveResult?.lastExecutedQuery || globalActiveTab.query;
+        const queryToRun = globalActiveTab.query;
         try {
             await ExecuteQuery(globalActiveTab.id, queryToRun);
         } catch (err: unknown) {
             console.error('ExecuteQuery error:', getErrorMessage(err));
         }
-    }, [globalActiveResult?.lastExecutedQuery, globalActiveTab, isConnected]);
+    }, [globalActiveTab, isConnected]);
 
     const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
         if (!globalActiveTab || !isConnected) return;
 
-        // Use lastExecutedQuery (= the query the backend actually ran) as filter base
-        const baseForFilter = globalActiveResult?.lastExecutedQuery || globalActiveTab.query;
+        // Filter should target the current executable statement, not the whole script.
+        const baseForFilter = splitLastQuery(globalActiveTab.query || '').base.trim() || globalActiveTab.query;
         const queryToRun = filter.trim() !== ''
             ? buildFilterQuery(baseForFilter, filter)
             : baseForFilter;
@@ -64,7 +64,7 @@ export const QueryTabs: React.FC = () => {
         } catch (err: unknown) {
             console.error('ExecuteQuery (filter) error:', getErrorMessage(err));
         }
-    }, [globalActiveTab, isConnected, globalActiveResult]);
+    }, [globalActiveTab, isConnected]);
 
     const handleAppendToQuery = React.useCallback((fullQuery: string) => {
         if (!globalActiveTabId) return;
@@ -404,7 +404,7 @@ export const QueryTabs: React.FC = () => {
                                     result={currentResult}
                                     onRun={handleRunGlobal}
                                     onFilterRun={handleFilterRunGlobal}
-                                    baseQuery={currentResult?.lastExecutedQuery || globalActiveTab?.query}
+                                    baseQuery={(splitLastQuery(globalActiveTab?.query || '').base.trim() || globalActiveTab?.query)}
                                     onAppendToQuery={handleAppendToQuery}
                                     onOpenInNewTab={handleOpenFilterInNewTab}
                                     isReadOnlyTab={isReadOnlySubTab || viewMode}

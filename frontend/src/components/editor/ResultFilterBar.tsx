@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { Copy, PlusSquare, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { buildFilterQuery, getQueryShape } from '../../lib/queryBuilder';
+import { buildFilterQuery } from '../../lib/queryBuilder';
 import { useToast } from '../layout/Toast';
 import { setClipboardText } from '../../services/clipboardService';
 import { createResultFilterModelPath, registerResultFilterCompletion } from '../../lib/monaco/resultFilterCompletion';
@@ -141,32 +141,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     );
 
     const renderQueryPreview = (q: string) => {
-        const shape = getQueryShape(q);
-        const cond = value || '<condition>';
-
-        if (shape === 'bare') {
-            return <>
-                {q} <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter<br />
-                <span className="text-success font-semibold">WHERE</span> {cond}
-            </>;
-        }
-
-        if (shape === 'has-where') {
-            const whereIdx = q.search(/\bwhere\b/i);
-            const beforeWhere = q.slice(0, whereIdx).trimEnd();
-            const existingCond = q.slice(whereIdx + 5).trim();
-            return <>
-                {beforeWhere} <span className="text-pink-600 dark:text-pink-400">WHERE</span> ({existingCond})<br />
-                <span className="pl-4 inline-block text-pink-600 dark:text-pink-400">AND</span> ({cond})
-            </>;
-        }
-
-        return <>
-            <span className="text-pink-600 dark:text-pink-400">SELECT</span> * <span className="text-pink-600 dark:text-pink-400">FROM</span> (<br />
-            <span className="pl-4 inline-block">{q}</span><br />
-            ) <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter<br />
-            <span className="text-success font-semibold">WHERE</span> {cond}
-        </>;
+        return buildFilterQuery(q, value || '<condition>');
     };
 
     return (
@@ -188,7 +163,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     </span>
 
                     {showTooltip && baseQuery && (
-                        <div className="group absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-md border border-border bg-bg-primary shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                        <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-md border border-border bg-bg-primary shadow-lg animate-in fade-in zoom-in-95 duration-100">
                             <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-md bg-bg-primary/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
                                 <button
                                     className={iconBtn}
@@ -235,7 +210,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     )}
                 </div>
 
-                <div className="flex-1 min-w-[50px] h-[22px] relative zentro-filter-monaco">
+                <div className="flex-1 min-w-12.5 h-5.5 relative zentro-filter-monaco">
                     <Editor
                         path={modelPath}
                         theme={getMonacoTheme()}
