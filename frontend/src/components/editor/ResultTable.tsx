@@ -4,17 +4,35 @@ import {
     getCoreRowModel,
     getSortedRowModel,
     type ColumnDef,
+    type Header,
     type SortingState,
     useReactTable,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDown, ArrowUp, Lock, Unlock } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical, Lock, Search, Unlock, X } from 'lucide-react';
+import {
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    closestCenter,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { FetchMoreRows } from '../../services/queryService';
 import { models } from '../../../wailsjs/go/models';
 import { DraftRow, DisplayRow, buildDisplayRows } from '../../lib/dataEditing';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
+import { useConnectionStore } from '../../stores/connectionStore';
 import { useToast } from '../layout/Toast';
 import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
+import {
+    buildHeaderColumnFilterExpr,
+    computeAutoFitWidth,
+    normalizeDataTypeLabel,
+    reorderDataColumnIds,
+} from './resultTableUtils';
 
 export interface FocusCellRequest {
     rowKey: string;
@@ -41,6 +59,8 @@ interface ResultTableProps {
     onRemoveDraftRows: (draftIds: string[]) => void;
     readOnlyMode?: boolean;
     quickFilter?: string;
+    filterExpr?: string;
+    onHeaderFilterRun?: (filterExpr: string) => void;
     onViewStatsChange?: (stats: { visibleRows: number; totalRows: number }) => void;
 }
 
@@ -83,6 +103,66 @@ function parseCellId(cellId: string): { rowKey: string; colIdx: number } {
     };
 }
 
+interface SortableHeaderCellProps {
+    header: Header<DisplayRow, unknown>;
+    className: string;
+    title?: string;
+    onSortToggle?: React.MouseEventHandler<HTMLTableHeaderCellElement>;
+    onAutoFit?: () => void;
+    children: React.ReactNode;
+}
+
+const SortableHeaderCell: React.FC<SortableHeaderCellProps> = ({
+    header,
+    className,
+    title,
+    onSortToggle,
+    onAutoFit,
+    children,
+}) => {
+    const sortable = useSortable({ id: header.column.id });
+    const style: React.CSSProperties = {
+        width: header.getSize(),
+        minWidth: header.getSize(),
+        maxWidth: header.getSize(),
+        transform: CSS.Transform.toString(sortable.transform),
+        transition: sortable.transition,
+        zIndex: sortable.isDragging ? 2 : 1,
+    };
+
+    return (
+        <th
+            ref={sortable.setNodeRef}
+            style={style}
+            className={className}
+            onClick={onSortToggle}
+            title={title}
+        >
+            {children}
+            <span
+                className="rt-th-drag-handle"
+                title="Drag to reorder column"
+                onClick={(event) => event.stopPropagation()}
+                {...sortable.attributes}
+                {...sortable.listeners}
+            >
+                <GripVertical size={11} />
+            </span>
+            <div
+                className="rt-col-resizer"
+                onMouseDown={header.getResizeHandler()}
+                onTouchStart={header.getResizeHandler()}
+                onClick={(event) => event.stopPropagation()}
+                onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    onAutoFit?.();
+                }}
+            />
+        </th>
+    );
+};
+
 export const ResultTable: React.FC<ResultTableProps> = ({
     tabId,
     columns,
@@ -102,11 +182,14 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     onRemoveDraftRows,
     readOnlyMode = false,
     quickFilter = '',
+    filterExpr = '',
+    onHeaderFilterRun,
     onViewStatsChange,
 }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
+    const driver = useConnectionStore((state) => state.activeProfile?.driver);
     const displayRows = useMemo(() => buildDisplayRows(rows, draftRows), [rows, draftRows]);
     const displayRowsByKey = useMemo(() => new Map(displayRows.map((row) => [row.key, row])), [displayRows]);
     const rowOrder = useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
@@ -126,6 +209,16 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const [isDeferredSorting, setIsDeferredSorting] = useState(false);
     const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[]>(displayRows);
     const [isDeferredFiltering, setIsDeferredFiltering] = useState(false);
+    const dataColumnIds = useMemo(
+        () => columns.map((col, index) => col || `col_${index}`),
+        [columns],
+    );
+    const [columnOrder, setColumnOrder] = useState<string[]>(dataColumnIds);
+    const tableColumnOrder = useMemo(() => ['__rownum__', ...columnOrder], [columnOrder]);
+    const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+    const [columnFilterDrafts, setColumnFilterDrafts] = useState<Record<string, string>>({});
+    const [columnFilterApplied, setColumnFilterApplied] = useState<Record<string, string>>({});
+    const [activeFilterPopoverColumn, setActiveFilterPopoverColumn] = useState<string | null>(null);
     const parentRef = React.useRef<HTMLDivElement>(null);
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
@@ -134,6 +227,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const pendingSelectionRef = React.useRef<{ cellId: string; rowKey: string; colIdx: number } | null>(null);
     const onViewStatsChangeRef = React.useRef(onViewStatsChange);
     const lastViewStatsRef = React.useRef<{ visibleRows: number; totalRows: number } | null>(null);
+    const dndSensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 5 },
+        }),
+    );
 
     const editValueRef = React.useRef(editValue);
     useEffect(() => { editValueRef.current = editValue; }, [editValue]);
@@ -144,6 +242,25 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const displayRowsRef = React.useRef(displayRows);
     useEffect(() => { displayRowsRef.current = displayRows; }, [displayRows]);
     useEffect(() => { onViewStatsChangeRef.current = onViewStatsChange; }, [onViewStatsChange]);
+
+    useEffect(() => {
+        setColumnOrder((prev) => {
+            const alive = new Set(dataColumnIds);
+            const kept = prev.filter((id) => alive.has(id));
+            const missing = dataColumnIds.filter((id) => !kept.includes(id));
+            return [...kept, ...missing];
+        });
+        setColumnSizing((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => key === '__rownum__' || dataColumnIds.includes(key))));
+        setColumnFilterDrafts((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => dataColumnIds.includes(key))));
+        setColumnFilterApplied((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => dataColumnIds.includes(key))));
+    }, [dataColumnIds]);
+
+    useEffect(() => {
+        if (filterExpr.trim()) return;
+        setColumnFilterApplied({});
+        setColumnFilterDrafts({});
+        setActiveFilterPopoverColumn(null);
+    }, [filterExpr]);
 
     useEffect(() => {
         if (!isDone) {
@@ -439,6 +556,43 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         }
     }, [deletedRows, displayRowsByKey, onRemoveDraftRows, setDeletedRows, setEditedCells]);
 
+    const dataTypeByColumn = React.useMemo(() => {
+        const map = new Map<string, string>();
+        columnDefs.forEach((columnDef) => {
+            map.set(columnDef.Name, normalizeDataTypeLabel(columnDef.DataType));
+        });
+        return map;
+    }, [columnDefs]);
+
+    const applyHeaderFilter = React.useCallback((columnId: string) => {
+        const nextApplied = { ...columnFilterApplied };
+        const draft = (columnFilterDrafts[columnId] || '').trim();
+        if (!draft) {
+            delete nextApplied[columnId];
+        } else {
+            nextApplied[columnId] = draft;
+        }
+        setColumnFilterApplied(nextApplied);
+        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextApplied, driver));
+        setActiveFilterPopoverColumn(null);
+    }, [columnFilterApplied, columnFilterDrafts, driver, onHeaderFilterRun]);
+
+    const clearHeaderFilter = React.useCallback((columnId: string) => {
+        const nextApplied = { ...columnFilterApplied };
+        delete nextApplied[columnId];
+        setColumnFilterApplied(nextApplied);
+        setColumnFilterDrafts((prev) => ({ ...prev, [columnId]: '' }));
+        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextApplied, driver));
+        setActiveFilterPopoverColumn(null);
+    }, [columnFilterApplied, driver, onHeaderFilterRun]);
+
+    const handleHeaderDragEnd = React.useCallback((event: DragEndEvent) => {
+        const activeId = String(event.active.id || '');
+        const overId = String(event.over?.id || '');
+        if (!overId || !activeId || activeId === overId) return;
+        setColumnOrder((prev) => reorderDataColumnIds(prev, activeId, overId));
+    }, []);
+
     const colDefs = useMemo<ColumnDef<DisplayRow>[]>(() => {
         const rowNumCol: ColumnDef<DisplayRow> = {
             id: '__rownum__',
@@ -459,6 +613,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             ),
             enableSorting: false,
             size: 52,
+            minSize: 52,
+            maxSize: 52,
             cell: ({ row, table }) => {
                 const meta = table.options.meta as TableMeta | undefined;
                 return (
@@ -479,6 +635,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             accessorFn: (row) => row.values[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
+            minSize: 72,
+            maxSize: 720,
             cell: (info) => {
                 const meta = info.table.options.meta as TableMeta | undefined;
                 const rowKey = info.row.original.key;
@@ -550,6 +708,19 @@ export const ResultTable: React.FC<ResultTableProps> = ({
 
     const filteredRows = quickFilter.trim() ? deferredFilteredRows : displayRows;
     const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;
+    const handleAutoFitColumn = React.useCallback((columnId: string) => {
+        const colIdx = columns.findIndex((columnName) => columnName === columnId);
+        if (colIdx < 0) return;
+
+        const sampledRows = tableData.slice(0, 5000);
+        const texts = [
+            columnId,
+            dataTypeByColumn.get(columnId) || '',
+            ...sampledRows.map((row) => row.values[colIdx] ?? ''),
+        ];
+        const width = computeAutoFitWidth(texts);
+        setColumnSizing((prev) => ({ ...prev, [columnId]: width }));
+    }, [columns, dataTypeByColumn, tableData]);
 
     useEffect(() => {
         const nextStats = {
@@ -566,7 +737,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const table = useReactTable<DisplayRow>({
         data: tableData,
         columns: colDefs,
-        state: { sorting },
+        state: { sorting, columnOrder: tableColumnOrder, columnSizing },
         meta: {
             selectedCells,
             editedCells,
@@ -580,9 +751,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             handleRevertRow,
         },
         onSortingChange: canSortClientSide ? setSorting : undefined,
+        onColumnSizingChange: setColumnSizing,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: shouldUseDeferredSort ? undefined : getSortedRowModel(),
         enableSorting: canSortClientSide,
+        enableColumnResizing: true,
+        columnResizeMode: 'onChange',
     });
 
     const { rows: tableRows } = table.getRowModel();
@@ -590,7 +764,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const virtualizer = useVirtualizer({
         count: tableRows.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 32,
+        estimateSize: () => 22,
         overscan: 20,
     });
     const columnVirtualizer = useVirtualizer({
@@ -603,6 +777,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({
 
     const virtualItems = virtualizer.getVirtualItems();
     const virtualColumns = columnVirtualizer.getVirtualItems();
+    const renderedColumnIndexes = virtualColumns.length > 0
+        ? virtualColumns.map((virtualColumn) => virtualColumn.index)
+        : columns.map((_, index) => index);
     const fetchMoreRef = React.useRef(false);
 
     useEffect(() => {
@@ -650,6 +827,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                         : 'Applying incremental sort for large result set...'}
                 </div>
             )}
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleHeaderDragEnd}>
             <table className="result-table-tanstack">
                 <thead>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -665,8 +843,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                             return (
                                                 <th
                                                     key={fixedHeader.id}
-                                                    style={{ width: fixedHeader.getSize() }}
-                                                    className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
+                                                    style={{ width: fixedHeader.getSize(), minWidth: fixedHeader.getSize(), maxWidth: fixedHeader.getSize() }}
+                                                    className={`rt-th rt-index-sticky ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
                                                     onClick={canSort ? fixedHeader.column.getToggleSortingHandler() : undefined}
                                                     title={canSort && !isDone ? 'Sort available after query completes' : undefined}
                                                 >
@@ -682,35 +860,90 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                             <th
                                                 aria-hidden
                                                 className="rt-th"
-                                                style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft }}
+                                                style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft, maxWidth: columnPaddingLeft }}
                                             />
                                         )}
-                                        {virtualColumns.map((virtualColumn) => {
-                                            const header = dynamicHeaders[virtualColumn.index];
-                                            if (!header) return null;
-                                            const sorted = header.column.getIsSorted();
-                                            const canSort = header.column.getCanSort();
-                                            return (
-                                                <th
-                                                    key={header.id}
-                                                    style={{ width: header.getSize() }}
-                                                    className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
-                                                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-                                                    title={canSort && !isDone ? 'Sort available after query completes' : undefined}
-                                                >
-                                                    <span className="rt-th-label">
-                                                        {flexRender(header.column.columnDef.header, header.getContext())}
-                                                        {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
-                                                        {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
-                                                    </span>
-                                                </th>
-                                            );
-                                        })}
+                                        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                                            {renderedColumnIndexes.map((columnIndex) => {
+                                                const header = dynamicHeaders[columnIndex];
+                                                if (!header) return null;
+                                                const sorted = header.column.getIsSorted();
+                                                const canSort = header.column.getCanSort();
+                                                const columnId = String(header.column.id);
+                                                const isFilterOpen = activeFilterPopoverColumn === columnId;
+                                                const isFilterActive = Boolean((columnFilterApplied[columnId] || '').trim());
+                                                const dataTypeLabel = dataTypeByColumn.get(columnId) || 'unknown';
+                                                return (
+                                                    <SortableHeaderCell
+                                                        key={header.id}
+                                                        header={header}
+                                                        className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
+                                                        onSortToggle={canSort ? header.column.getToggleSortingHandler() : undefined}
+                                                        onAutoFit={() => handleAutoFitColumn(columnId)}
+                                                        title={canSort && !isDone ? 'Sort available after query completes' : undefined}
+                                                    >
+                                                        <div className="rt-th-content">
+                                                            <span className="rt-th-label">
+                                                                <span className="rt-th-name">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                                                                <span className="rt-th-type">{dataTypeLabel}</span>
+                                                                {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
+                                                                {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                className={`rt-th-filter-btn ${isFilterActive ? 'is-active' : ''}`}
+                                                                title="Filter this column"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    setColumnFilterDrafts((prev) => ({
+                                                                        ...prev,
+                                                                        [columnId]: prev[columnId] ?? columnFilterApplied[columnId] ?? '',
+                                                                    }));
+                                                                    setActiveFilterPopoverColumn(isFilterOpen ? null : columnId);
+                                                                }}
+                                                            >
+                                                                <Search size={10} />
+                                                            </button>
+                                                            {isFilterOpen && (
+                                                                <div className="rt-th-filter-popover" onClick={(event) => event.stopPropagation()}>
+                                                                    <div className="rt-th-filter-input-row">
+                                                                        <input
+                                                                            autoFocus
+                                                                            className="rt-th-filter-input"
+                                                                            value={columnFilterDrafts[columnId] ?? columnFilterApplied[columnId] ?? ''}
+                                                                            onChange={(event) => setColumnFilterDrafts((prev) => ({ ...prev, [columnId]: event.target.value }))}
+                                                                            onKeyDown={(event) => {
+                                                                                if (event.key === 'Enter') {
+                                                                                    event.preventDefault();
+                                                                                    applyHeaderFilter(columnId);
+                                                                                } else if (event.key === 'Escape') {
+                                                                                    event.preventDefault();
+                                                                                    clearHeaderFilter(columnId);
+                                                                                }
+                                                                            }}
+                                                                            placeholder={`Contains in ${columnId}`}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            className="rt-th-filter-input-clear"
+                                                                            title="Clear filter"
+                                                                            onClick={() => clearHeaderFilter(columnId)}
+                                                                        >
+                                                                            <X size={10} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </SortableHeaderCell>
+                                                );
+                                            })}
+                                        </SortableContext>
                                         {columnPaddingRight > 0 && (
                                             <th
                                                 aria-hidden
                                                 className="rt-th"
-                                                style={{ width: columnPaddingRight, minWidth: columnPaddingRight }}
+                                                style={{ width: columnPaddingRight, minWidth: columnPaddingRight, maxWidth: columnPaddingRight }}
                                             />
                                         )}
                                     </>
@@ -736,21 +969,25 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                         return (
                             <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
                                 {fixedCell && (
-                                    <td key={fixedCell.id} style={{ width: fixedCell.column.getSize() }}>
+                                    <td
+                                        key={fixedCell.id}
+                                        style={{ width: fixedCell.column.getSize(), minWidth: fixedCell.column.getSize(), maxWidth: fixedCell.column.getSize() }}
+                                        className="rt-index-sticky"
+                                    >
                                         {flexRender(fixedCell.column.columnDef.cell, fixedCell.getContext())}
                                     </td>
                                 )}
                                 {columnPaddingLeft > 0 && (
                                     <td
                                         aria-hidden
-                                        style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft }}
+                                        style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft, maxWidth: columnPaddingLeft }}
                                     />
                                 )}
-                                {virtualColumns.map((virtualColumn) => {
-                                    const cell = dynamicCells[virtualColumn.index];
+                                {renderedColumnIndexes.map((columnIndex) => {
+                                    const cell = dynamicCells[columnIndex];
                                     if (!cell) return null;
                                     return (
-                                        <td key={cell.id} style={{ width: cell.column.getSize() }}>
+                                        <td key={cell.id} style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}>
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                         </td>
                                     );
@@ -758,7 +995,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                 {columnPaddingRight > 0 && (
                                     <td
                                         aria-hidden
-                                        style={{ width: columnPaddingRight, minWidth: columnPaddingRight }}
+                                        style={{ width: columnPaddingRight, minWidth: columnPaddingRight, maxWidth: columnPaddingRight }}
                                     />
                                 )}
                             </tr>
@@ -797,6 +1034,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                     )}
                 </tbody>
             </table>
+            </DndContext>
         </div>
     );
 };

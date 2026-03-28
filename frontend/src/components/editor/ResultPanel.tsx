@@ -131,6 +131,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [contextTabId, tabId, updateTabContext]);
     const filterExpr = result?.filterExpr || '';
     const sourceQuery = baseQuery || result?.lastExecutedQuery;
+    const handleHeaderFilterRun = React.useCallback((expr: string) => {
+        keepFilterFocusRef.current = true;
+        setFilterExpr(expr);
+        onFilterRun?.(expr);
+    }, [onFilterRun, setFilterExpr]);
 
     React.useEffect(() => {
         const nextFilter = persistedContext?.resultQuickFilter || '';
@@ -620,6 +625,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     rows={result.rows}
                                     isDone={result.isDone}
                                     quickFilter={quickFilter}
+                                    filterExpr={filterExpr}
+                                    onHeaderFilterRun={handleHeaderFilterRun}
                                     onViewStatsChange={({ visibleRows: nextVisible }) => setVisibleRows(nextVisible)}
                                     editedCells={editedCells}
                                     setEditedCells={setEditedCells}
