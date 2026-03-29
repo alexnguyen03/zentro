@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditorStore } from './editorStore';
+import { TAB_TYPE } from '../lib/constants';
 
 describe('editorStore', () => {
     beforeEach(() => {
@@ -31,5 +32,16 @@ describe('editorStore', () => {
         expect(state.groups).toHaveLength(2);
         expect(state.groups[1].tabs[0].id).toBe(id);
     });
-});
 
+    it('renames only query tabs', () => {
+        const queryId = useEditorStore.getState().addTab({ name: 'Query A', type: TAB_TYPE.QUERY });
+        const settingsId = useEditorStore.getState().addTab({ name: 'Settings', type: TAB_TYPE.SETTINGS });
+
+        useEditorStore.getState().renameTab(queryId, 'Renamed Query');
+        useEditorStore.getState().renameTab(settingsId, 'Should Not Rename');
+
+        const tabs = useEditorStore.getState().groups.flatMap((group) => group.tabs);
+        expect(tabs.find((tab) => tab.id === queryId)?.name).toBe('Renamed Query');
+        expect(tabs.find((tab) => tab.id === settingsId)?.name).toBe('Settings');
+    });
+});

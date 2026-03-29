@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Keyboard } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
+import { Button, FormField, Input } from '../../ui';
 
 interface Props {
     profileName: string;
@@ -17,37 +18,36 @@ export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameCh
             <div className={SettingsClasses.sectionInfo}>
                 <div className="flex items-center gap-2.5 text-accent mb-1">
                     <Keyboard size={18} strokeWidth={2.5} />
-                    <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Profiles</h2>
+                    <h2 className={SettingsClasses.sectionTitle}>Profiles</h2>
                 </div>
-                <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                <p className={SettingsClasses.sectionDescription}>
                     Export and import your theme, layout and shortcut configuration.
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <div className="flex flex-col gap-2">
-                    <label className={SettingsClasses.label}>Profile Name</label>
-                    <input
-                        className={SettingsClasses.input}
+                <FormField label="Profile Name" hint="Used as file name and profile metadata.">
+                    <Input
                         value={profileName}
                         onChange={(e) => onProfileNameChange(e.target.value)}
                         placeholder="Zentro Profile"
                     />
-                    <span className={SettingsClasses.hint}>Used as file name and profile metadata.</span>
-                </div>
+                </FormField>
 
-                <div className="flex items-center gap-3">
-                    <button
+                <div className="flex flex-wrap items-center gap-2.5">
+                    <Button
                         onClick={onExportProfile}
-                        className="px-4 py-2 text-[12px] font-semibold rounded-md border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+                        variant="ghost"
+                        size="sm"
                     >
                         Export Profile
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => profileInputRef.current?.click()}
-                        className="px-4 py-2 text-[12px] font-semibold rounded-md border border-border/40 bg-bg-tertiary/30 text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+                        variant="ghost"
+                        size="sm"
                     >
                         Import Profile
-                    </button>
+                    </Button>
                     <input
                         ref={profileInputRef}
                         type="file"

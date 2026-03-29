@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings as SettingsIcon, Search as SearchIcon, Keyboard } from 'lucide-react';
+import { Settings as SettingsIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { utils } from '../../../wailsjs/go/models';
-import { cn } from '../../lib/cn';
 import { ToastPlacement, useToast } from './Toast';
 import {
     applyProfilePackage,
@@ -19,6 +18,7 @@ import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
 import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
+import { Button, SearchField } from '../ui';
 
 interface SettingsViewProps {
     tabId: string;
@@ -40,7 +40,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [telemetryOptIn, setTelemetryOptIn] = useState(getTelemetryConsent().optedIn);
     const searchInputRef = useRef<HTMLInputElement>(null);
-    const profileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,37 +139,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
 
                 {/* Centered Flush Search Bar */}
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
-                    <div className="relative group w-full max-w-md">
-                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-md border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
-                            <SearchIcon size={14} className="text-text-muted/50 group-focus-within:text-accent" />
-                            <input
-                                type="text"
-                                placeholder="Search settings..."
-                                ref={searchInputRef}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-transparent border-none text-[13px] text-text-primary pl-3 outline-none placeholder:text-text-muted/40"
-                            />
-                        </div>
-                    </div>
+                    <SearchField
+                        placeholder="Search settings..."
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        wrapperClassName="max-w-md"
+                    />
                 </div>
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-2">
-                    <button
+                    <Button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
-                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-md transition-all font-bold text-[11px] tracking-widest uppercase"
+                        variant="ghost"
+                        size="md"
+                        className="gap-2 font-bold text-[11px] tracking-widest uppercase"
                         title="Keyboard Shortcuts"
                     >
                         <Keyboard size={16} />
                         <span className="hidden xl:inline">Shortcuts</span>
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-y-auto scroll-smooth">
-                    <div className="max-w-5xl mx-auto px-12 py-10 animate-in fade-in duration-700">
+                    <div className="max-w-4xl mx-auto px-5 py-6 animate-in fade-in duration-300">
                         <div className="flex flex-col">
                             {/* Appearance */}
                             {matchesSearch("Appearance", ["Theme Interface", "Editor Font Size"]) && (

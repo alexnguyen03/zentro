@@ -168,7 +168,11 @@ export const createTabSlice: StateCreator<EditorState, [], [], TabSlice> = (set)
         ...session,
         groups: session.groups.map((group) => ({
             ...group,
-            tabs: group.tabs.map((tab) => (tab.id === id ? { ...tab, name: newName } : tab)),
+            tabs: group.tabs.map((tab) => (
+                tab.id === id && tab.type === TAB_TYPE.QUERY
+                    ? { ...tab, name: newName }
+                    : tab
+            )),
         })),
     }))),
 

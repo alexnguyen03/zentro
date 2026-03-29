@@ -25,6 +25,8 @@ interface ContextMenu {
     tabId: string;
 }
 
+const canRenameTab = (tab: Tab): boolean => tab.type === 'query';
+
 // ── Sortable Tab Item ──────────────────────────────────────────────────
 interface SortableTabItemProps {
     tab: Tab;
@@ -166,7 +168,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     useEffect(() => {
         const off = onCommand(DOM_EVENT.RENAME_TAB, (tabId) => {
             const tab = tabs.find(t => t.id === tabId);
-            if (tab) {
+            if (tab && canRenameTab(tab)) {
                 setRenamingId(tab.id);
                 setRenameValue(tab.name);
             }
@@ -182,6 +184,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     }, []);
 
     const startRename = useCallback((tab: Tab) => {
+        if (!canRenameTab(tab)) return;
         setRenamingId(tab.id);
         setRenameValue(tab.name);
     }, []);
@@ -252,12 +255,18 @@ export const TabBar: React.FC<TabBarProps> = ({
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div
-                        className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white"
-                        onClick={() => { const t = tabs.find(t => t.id === contextMenu!.tabId); if (t) startRename(t); setContextMenu(null); }}
-                    >
-                        Rename
-                    </div>
+                    {(() => {
+                        const contextTab = tabs.find((tab) => tab.id === contextMenu.tabId);
+                        if (!contextTab || !canRenameTab(contextTab)) return null;
+                        return (
+                            <div
+                                className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white"
+                                onClick={() => { startRename(contextTab); setContextMenu(null); }}
+                            >
+                                Rename
+                            </div>
+                        );
+                    })()}
 
                     {onSplit && (
                         <div

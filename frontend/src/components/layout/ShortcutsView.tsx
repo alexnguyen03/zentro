@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Search, RotateCcw, Edit3, PanelsTopLeft, Plug, Eye, AppWindow } from 'lucide-react';
 import { getCommandRegistry, type CommandId, type CommandCategory } from '../../lib/shortcutRegistry';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { AlertModal, PromptModal } from '../ui';
+import { AlertModal, Button, PromptModal, SearchField } from '../ui';
 
 const CATEGORY_ORDER: CommandCategory[] = ['Editor', 'Layout', 'Connection', 'View', 'App'];
 
@@ -81,9 +81,9 @@ export const ShortcutsView: React.FC = () => {
         setRebindTarget(null);
     };
 
-    const sectionClass = 'grid grid-cols-1 lg:grid-cols-12 gap-8 py-10 first:pt-4 border-b border-border/10 last:border-0 hover:bg-bg-secondary/20 transition-all px-8 -mx-8 rounded-md';
-    const sectionInfoClass = 'lg:col-span-4 flex flex-col gap-2';
-    const sectionContentClass = 'lg:col-span-8 flex flex-col gap-3 max-w-3xl';
+    const sectionClass = 'mt-4 rounded-lg bg-bg-secondary/18 px-5 py-5 first:mt-0';
+    const sectionInfoClass = 'flex flex-col gap-1.5';
+    const sectionContentClass = 'mt-3 flex flex-col gap-2.5';
 
     return (
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
@@ -96,34 +96,31 @@ export const ShortcutsView: React.FC = () => {
                 </div>
 
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
-                    <div className="relative group w-full max-w-md">
-                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-md border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
-                            <Search size={14} className="text-text-muted/50 group-focus-within:text-accent" />
-                            <input
-                                ref={searchInputRef}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search shortcuts..."
-                                className="w-full bg-transparent border-none text-[13px] text-text-primary pl-3 outline-none placeholder:text-text-muted/40"
-                            />
-                        </div>
-                    </div>
+                    <SearchField
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search shortcuts..."
+                        wrapperClassName="max-w-md"
+                    />
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button
-                        className="flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-accent hover:bg-accent/5 rounded-md transition-all font-bold text-[11px] tracking-widest uppercase"
+                    <Button
+                        variant="ghost"
+                        size="md"
+                        className="gap-2 font-bold text-[11px] tracking-widest uppercase"
                         onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                         title="Reset all shortcuts to default"
                     >
                         <RotateCcw size={14} />
                         <span className="hidden xl:inline">Reset All</span>
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             <main className="flex-1 overflow-y-auto scroll-smooth">
-                <div className="max-w-5xl mx-auto px-12 py-10 animate-in fade-in duration-700">
+                <div className="max-w-4xl mx-auto px-5 py-6 animate-in fade-in duration-300">
                     {Array.from(grouped.entries()).map(([category, items]) => (
                         <section key={category} className={sectionClass}>
                             <div className={sectionInfoClass}>
@@ -133,11 +130,8 @@ export const ShortcutsView: React.FC = () => {
                                     {category === 'Connection' && <Plug size={18} strokeWidth={2.5} />}
                                     {category === 'View' && <Eye size={18} strokeWidth={2.5} />}
                                     {category === 'App' && <AppWindow size={18} strokeWidth={2.5} />}
-                                    <h2 className="text-[17px] font-bold tracking-tight text-text-primary">{category}</h2>
+                                    <h2 className="text-[16px] font-semibold tracking-tight text-text-primary">{category}</h2>
                                 </div>
-                                <p className="text-[13px] text-text-muted leading-relaxed font-medium">
-                                    {items.length} command{items.length > 1 ? 's' : ''} available.
-                                </p>
                             </div>
 
                             <div className={sectionContentClass}>
@@ -146,12 +140,12 @@ export const ShortcutsView: React.FC = () => {
                                     const isCustomized = currentBinding !== item.defaultBinding;
 
                                     return (
-                                        <div key={item.id} className="flex items-center justify-between p-4 rounded-md bg-bg-tertiary/20 border border-border/10">
-                                            <div className="flex flex-col gap-1 min-w-0 pr-4">
-                                                <div className="text-[13px] font-bold text-text-primary truncate">{item.label}</div>
-                                                <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-md border border-border/20 bg-bg-primary/70 px-3 py-2">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="truncate text-[12px] font-semibold text-text-primary">{item.label}</div>
+                                                <div className="mt-1 flex items-center gap-2 text-[11px] text-text-muted">
                                                     <span>Default:</span>
-                                                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded-md text-[10px] font-mono text-text-muted">
+                                                    <kbd className="rounded border border-border bg-bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-text-secondary">
                                                         {item.defaultBinding}
                                                     </kbd>
                                                     {isCustomized && (
@@ -160,26 +154,30 @@ export const ShortcutsView: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <kbd className="px-2 py-1 rounded-md bg-bg-primary border border-border text-text-primary text-xs font-mono min-w-[86px] text-center">
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <kbd className="min-w-[86px] rounded border border-border bg-bg-secondary px-2 py-1 text-center text-[11px] font-mono text-text-primary">
                                                     {currentBinding}
                                                 </kbd>
-                                                <button
-                                                    className="px-2.5 py-1.5 text-[11px] border border-border rounded-md bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold"
+                                                <Button
+                                                    size="sm"
+                                                    variant="solid"
+                                                    className="text-[11px]"
                                                     onClick={() => {
                                                         openRebindPrompt(item.id);
                                                     }}
                                                 >
                                                     {editing === item.id ? 'Editing...' : 'Rebind'}
-                                                </button>
-                                                <button
-                                                    className="px-2.5 py-1.5 text-[11px] border border-border rounded-md bg-bg-secondary hover:bg-bg-tertiary text-text-secondary hover:text-text-primary font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="solid"
+                                                    className="text-[11px]"
                                                     disabled={!isCustomized}
                                                     onClick={() => restoreBinding(item.id).catch((err) => console.error('restore shortcut failed', err))}
                                                     title={`Restore default: ${item.defaultBinding}`}
                                                 >
                                                     Restore
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                     );

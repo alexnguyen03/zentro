@@ -1,6 +1,7 @@
 import React from 'react';
 import { Database } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
+import { Button, FormField, Input, SelectField, SwitchField } from '../../ui';
 
 interface Props {
     limit: number;
@@ -25,74 +26,65 @@ export const SettingsData: React.FC<Props> = ({
             <div className={SettingsClasses.sectionInfo}>
                 <div className="flex items-center gap-2.5 text-accent mb-1">
                     <Database size={18} strokeWidth={2.5} />
-                    <h2 className="text-[17px] font-bold tracking-tight text-text-primary">Data & Query</h2>
+                    <h2 className={SettingsClasses.sectionTitle}>Data & Query</h2>
                 </div>
-                <p className="text-[13px] text-text-muted leading-relaxed font-medium">
+                <p className={SettingsClasses.sectionDescription}>
                     Manage performance thresholds for your datasets.
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <div className="flex flex-col">
-                    <label className={SettingsClasses.label}>Fetch Row Limit</label>
-                    <select className={SettingsClasses.input} value={limit} onChange={(e) => onLimitChange(parseInt(e.target.value) || 1000)}>
+                <FormField label="Fetch Row Limit" hint="Default row count for the result records.">
+                    <SelectField value={limit} onChange={(e) => onLimitChange(parseInt(e.target.value) || 1000)}>
                         <option value={100}>100 rows</option>
                         <option value={500}>500 rows</option>
                         <option value={1000}>1,000 rows</option>
                         <option value={5000}>5,000 rows</option>
                         <option value={10000}>10,000 rows</option>
-                    </select>
-                    <span className={SettingsClasses.hint}>Default row count for the result records.</span>
-                </div>
+                    </SelectField>
+                </FormField>
 
-                <div className="grid grid-cols-2 gap-6 pt-2">
-                    <div className="flex flex-col">
-                        <label className={SettingsClasses.label}>Connection Timeout</label>
-                        <input
-                            className={SettingsClasses.input}
-                            type="number"
-                            min={5}
-                            max={300}
-                            value={connectTimeout}
-                            onChange={(e) => onConnectTimeoutChange(parseInt(e.target.value) || 10)}
+                <FormField label="Connection Timeout" hint="Seconds before aborting login.">
+                    <Input
+                        type="number"
+                        min={5}
+                        max={300}
+                        value={connectTimeout}
+                        onChange={(e) => onConnectTimeoutChange(parseInt(e.target.value) || 10)}
+                    />
+                </FormField>
+
+                <FormField label="Execution Timeout" hint="Seconds for long queries.">
+                    <Input
+                        type="number"
+                        min={5}
+                        max={100000}
+                        value={queryTimeout}
+                        onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
+                    />
+                </FormField>
+
+                <FormField
+                    label="Telemetry (Opt-in)"
+                    hint="Local metrics always stay on device. Opt-in enables product insights export/share."
+                >
+                    <div className="flex items-center justify-between rounded-md border border-border/25 bg-bg-primary/60 px-3 py-2">
+                        <span className="text-[12px] text-text-primary">Share anonymized product telemetry</span>
+                        <SwitchField
+                            checked={telemetryOptIn}
+                            onChange={onTelemetryOptInChange}
+                            aria-label="Share anonymized product telemetry"
                         />
-                        <span className={SettingsClasses.hint}>Seconds before aborting login.</span>
                     </div>
+                </FormField>
 
-                    <div className="flex flex-col">
-                        <label className={SettingsClasses.label}>Execution Timeout</label>
-                        <input
-                            className={SettingsClasses.input}
-                            type="number"
-                            min={5}
-                            max={100000}
-                            value={queryTimeout}
-                            onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
-                        />
-                        <span className={SettingsClasses.hint}>Seconds for long queries.</span>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6 pt-2">
-                    <div className="flex flex-col">
-                        <label className={SettingsClasses.label}>Telemetry (Opt-in)</label>
-                        <label className="inline-flex items-center gap-2 text-[13px] text-text-primary">
-                            <input
-                                type="checkbox"
-                                checked={telemetryOptIn}
-                                onChange={(e) => onTelemetryOptInChange(e.target.checked)}
-                            />
-                            Share anonymized product telemetry
-                        </label>
-                        <span className={SettingsClasses.hint}>Local metrics always stay on device. Opt-in enables product insights export/share.</span>
-                    </div>
-                    <div className="flex flex-col">
-                        <label className={SettingsClasses.label}>Export Telemetry Bundle</label>
-                        <button className={SettingsClasses.input} type="button" onClick={onExportTelemetry}>
-                            Export Pipeline Bundle
-                        </button>
-                        <span className={SettingsClasses.hint}>Exports local metrics + anonymized analytics outbox (if opted-in).</span>
-                    </div>
-                </div>
+                <FormField
+                    label="Export Telemetry Bundle"
+                    hint="Exports local metrics + anonymized analytics outbox (if opted-in)."
+                >
+                    <Button type="button" variant="solid" size="sm" className="w-fit" onClick={onExportTelemetry}>
+                        Export Pipeline Bundle
+                    </Button>
+                </FormField>
             </div>
         </div>
     );

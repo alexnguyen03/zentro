@@ -819,6 +819,14 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const fetchMoreRef = React.useRef(false);
 
     useEffect(() => {
+        if (!resultState?.progress?.startedAt) return;
+        const scrollEl = parentRef.current;
+        if (!scrollEl) return;
+        scrollEl.scrollTop = 0;
+        virtualizer.scrollToIndex(0, { align: 'start' });
+    }, [resultState?.progress?.startedAt, virtualizer]);
+
+    useEffect(() => {
         if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore || fetchMoreRef.current) return;
 
         const lastItem = virtualItems[virtualItems.length - 1];
@@ -1076,4 +1084,3 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         </div>
     );
 };
-
