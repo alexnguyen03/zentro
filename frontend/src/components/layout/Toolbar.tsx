@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     Settings,
-    RefreshCw,
     Lock,
     Eye,
     PanelLeft,
@@ -19,7 +18,6 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { Reconnect } from '../../services/connectionService';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 
 import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
@@ -229,9 +227,6 @@ export const Toolbar: React.FC = () => {
                     {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
                 </Button>
 
-                <Button variant="ghost" size="icon" title="Reload Connection" onClick={() => activeProfile && Reconnect().catch(() => {})} disabled={!activeProfile || connectionStatus === CONNECTION_STATUS.CONNECTING}>
-                    <RefreshCw size={14} className={cn(connectionStatus === CONNECTION_STATUS.CONNECTING && 'animate-spin')} />
-                </Button>
             </div>
 
             {/* Center: project / connection pill + quick env switcher */}

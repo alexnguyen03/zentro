@@ -7,6 +7,7 @@ export const STORAGE_KEY = {
     CONNECTION_STORE: 'zentro:connection-store-v2',
     PROJECT_STORE: 'zentro:project-store-v2',
     LAYOUT_STORE: 'zentro:layout-store-v2',
+    CONNECTION_TREE_UI: 'zentro:connection-tree-ui-v1',
     DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version-v2',
 } as const;
 

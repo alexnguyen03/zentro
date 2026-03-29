@@ -69,6 +69,7 @@ export const Sidebar: React.FC = () => {
         { id: 'history', label: 'History', icon: <Clock size={14} /> },
         { id: 'scripts', label: 'Scripts', icon: <BookMarked size={14} /> },
     ];
+    const lockExplorerScroll = activeTab === 'explorer' && isConnected;
 
     return (
         <div ref={sidebarRef} className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary select-none">
@@ -101,7 +102,12 @@ export const Sidebar: React.FC = () => {
             </div>
 
             {/* Content Area - Flush with top */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden border-t border-border/40">
+            <div
+                className={cn(
+                    'flex-1 border-t border-border/40',
+                    lockExplorerScroll ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden',
+                )}
+            >
                 {activeTab === 'explorer' ? (
                     !isConnected ? (
                         <div className={cn(
