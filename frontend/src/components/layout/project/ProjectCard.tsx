@@ -139,10 +139,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
         >
             <div className="absolute top-3 right-3">
                 <div className="gap-1 flex">
-                    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', ready ? 'border-success/30 bg-success/10 text-success' : 'border-amber-400/30 bg-amber-400/10 text-amber-300')}>
-                        {ready ? 'Ready' : 'Needs setup'}
-                    </span>
-                    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>{envKey}</span>
+                    {!ready && (
+                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', ready ? 'border-success/30 bg-success/10 text-success' : 'border-amber-400/30 bg-amber-400/10 text-amber-300')}>
+                            Needs setup
+                        </span>
+                    )}
+                    <span title='Last used' className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>{envKey}</span>
                 </div>
             </div>
 
