@@ -18,14 +18,11 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../lib/cn';
 import { TemplatePopover } from './TemplatePopover';
-import { models } from '../../../wailsjs/go/models';
 import { DOM_EVENT } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
 import { BeginTransaction, CommitTransaction, RollbackTransaction, CancelQuery } from '../../services/queryService';
 import { getErrorMessage } from '../../lib/errors';
 import { useToast } from '../layout/Toast';
-
-type Template = models.Template;
 
 interface EditorToolbarProps {
     isActive?: boolean;
@@ -219,9 +216,11 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                 <TemplatePopover
                     onClose={() => setShowPopover(false)}
                     anchorRect={plusBtnRef.current?.getBoundingClientRect() || null}
+                    tabId={tabId}
+                    isActive={isActive}
+                    readOnly={readOnly}
                 />
             )}
         </div>
     );
 };
-

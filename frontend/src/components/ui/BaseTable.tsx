@@ -21,6 +21,8 @@ interface BaseTableProps<T> {
     containerClassName?: string;
     emptyMessage?: string;
     getRowKey?: (row: T, rowIndex: number) => string;
+    onRowClick?: (row: T, rowIndex: number, event: React.MouseEvent<HTMLTableRowElement>) => void;
+    getRowClassName?: (row: T, rowIndex: number) => string | undefined;
 }
 
 function alignClassName(align: BaseTableAlign | undefined): string {
@@ -37,6 +39,8 @@ export function BaseTable<T>({
     containerClassName,
     emptyMessage = 'No data found.',
     getRowKey,
+    onRowClick,
+    getRowClassName,
 }: BaseTableProps<T>) {
     return (
         <div
@@ -85,12 +89,17 @@ export function BaseTable<T>({
                         rows.map((row, rowIndex) => (
                             <tr
                                 key={getRowKey ? getRowKey(row, rowIndex) : String(rowIndex)}
-                                className="transition-colors hover:bg-[color-mix(in_srgb,var(--content-primary)_8%,transparent)]"
+                                className={cn(
+                                    'transition-colors hover:bg-[color-mix(in_srgb,var(--content-primary)_8%,transparent)]',
+                                    onRowClick && 'cursor-pointer',
+                                    getRowClassName?.(row, rowIndex),
+                                )}
                                 style={{
                                     background: rowIndex % 2 === 0
                                         ? 'color-mix(in srgb, var(--surface-panel) 82%, transparent)'
                                         : 'color-mix(in srgb, var(--surface-panel) 70%, transparent)',
                                 }}
+                                onClick={onRowClick ? (event) => onRowClick(row, rowIndex, event) : undefined}
                             >
                                 {columns.map((column) => (
                                     <td
