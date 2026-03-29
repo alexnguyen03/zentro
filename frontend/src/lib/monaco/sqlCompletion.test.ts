@@ -94,6 +94,71 @@ describe('sqlCompletion', () => {
         expect(byLabel.get('name')?.detail).toBe('text');
     });
 
+    it('suggests alias columns even when FROM appears after cursor in same statement', async () => {
+        const text = 'SELECT ib.\nFROM inventory_balance ib';
+        const cursorOffset = text.indexOf('ib.') + 3;
+        const analysis = analyzeSqlText(text, cursorOffset);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            '',
+            createRange(1),
+            {
+                ...env,
+                schemas: [{ Name: 'inv', Tables: ['inventory_balance'], Views: [] }],
+                fetchColumns: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (schemaName === 'inv' && tableName === 'inventory_balance') {
+                        return [
+                            { Name: 'store_id', DataType: 'bigint' },
+                            { Name: 'on_hand_qty', DataType: 'numeric' },
+                        ];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        const labels = items.map((item) => String(item.label));
+        expect(labels).toContain('store_id');
+        expect(labels).toContain('on_hand_qty');
+    });
+
+    it('prefers current schema columns for unqualified alias sources', async () => {
+        const text = 'SELECT ib.\nFROM inventory_balance ib';
+        const cursorOffset = text.indexOf('ib.') + 3;
+        const analysis = analyzeSqlText(text, cursorOffset);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            '',
+            createRange(1),
+            {
+                ...env,
+                currentSchema: 'inv',
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory_balance'], Views: [] },
+                    { Name: 'public', Tables: ['inventory_balance'], Views: [] },
+                ],
+                fetchColumns: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (tableName !== 'inventory_balance') return [];
+                    if (schemaName === 'inv') {
+                        return [
+                            { Name: 'inv_only_col', DataType: 'bigint' },
+                        ];
+                    }
+                    if (schemaName === 'public') {
+                        return [
+                            { Name: 'public_only_col', DataType: 'text' },
+                        ];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        const labels = items.map((item) => String(item.label));
+        expect(labels).toContain('inv_only_col');
+        expect(labels).not.toContain('public_only_col');
+    });
+
     it('prioritizes table suggestions in FROM clause', async () => {
         const text = 'SELECT * FROM us';
         const analysis = analyzeSqlText(text, text.length);

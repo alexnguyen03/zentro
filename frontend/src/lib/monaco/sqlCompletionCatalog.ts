@@ -34,6 +34,24 @@ export function findCatalogMatches(schemas: SchemaNode[], objectName: string, sc
     return matches;
 }
 
+export function findPreferredCatalogMatches(
+    schemas: SchemaNode[],
+    objectName: string,
+    schemaName?: string,
+    currentSchema?: string,
+) {
+    const directMatches = findCatalogMatches(schemas, objectName, schemaName);
+    if (schemaName) return directMatches;
+
+    const preferredSchema = normalizeIdentifier(currentSchema || '');
+    if (!preferredSchema) return directMatches;
+
+    const preferred = directMatches.filter(
+        (match) => normalizeIdentifier(match.schemaName) === preferredSchema,
+    );
+    return preferred.length > 0 ? preferred : directMatches;
+}
+
 export function resolveSourcesFromIdentifier(
     identifier: string,
     sources: SqlSourceRef[],
@@ -76,7 +94,12 @@ export async function resolveColumnsForSources(
             continue;
         }
         if (source.kind === 'cte' || source.kind === 'subquery') continue;
-        const matches = findCatalogMatches(env.schemas, source.name, source.schemaName);
+        const matches = findPreferredCatalogMatches(
+            env.schemas,
+            source.name,
+            source.schemaName,
+            env.currentSchema,
+        );
         for (const match of matches) {
             if (shouldAbort()) return [];
             const columns = await env.fetchColumns(match.schemaName, match.name);

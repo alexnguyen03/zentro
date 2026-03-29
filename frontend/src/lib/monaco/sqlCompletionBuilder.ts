@@ -9,7 +9,12 @@ import {
     SQL_OPERATORS,
     TABLE_LIKE_CLAUSES,
 } from './sqlCompletionConstants';
-import { buildCatalogIndex, findCatalogMatches, resolveColumnsForSources, resolveSourcesFromIdentifier } from './sqlCompletionCatalog';
+import {
+    buildCatalogIndex,
+    findPreferredCatalogMatches,
+    resolveColumnsForSources,
+    resolveSourcesFromIdentifier,
+} from './sqlCompletionCatalog';
 import { generateAliasFromObjectName, normalizeDriverKey, normalizeIdentifier, quoteIdentifierForDriver } from './sqlCompletionIdentifiers';
 import {
     buildSelectLikeSuggestions,
@@ -134,7 +139,12 @@ export async function buildSqlCompletionItems(
     const inferSourceSchemaName = (source: SqlSourceRef): string => {
         if (source.schemaName) return normalizeIdentifier(source.schemaName);
         if (!(source.kind === 'table' || source.kind === 'view')) return '';
-        const matches = findCatalogMatches(env.schemas, source.name);
+        const matches = findPreferredCatalogMatches(
+            env.schemas,
+            source.name,
+            undefined,
+            env.currentSchema,
+        );
         if (matches.length === 0) return '';
         const preferredKind = source.kind === 'view' ? 'view' : 'table';
         const preferredMatches = matches.filter((match) => match.kind === preferredKind);
@@ -271,7 +281,12 @@ export async function buildSqlCompletionItems(
             }
 
             if (source.kind === 'cte' || source.kind === 'subquery') continue;
-            const matches = findCatalogMatches(env.schemas, source.name, source.schemaName);
+            const matches = findPreferredCatalogMatches(
+                env.schemas,
+                source.name,
+                source.schemaName,
+                env.currentSchema,
+            );
             for (const match of matches) {
                 if (shouldAbort()) return [];
                 const columns = await env.fetchColumns(match.schemaName, match.name);
