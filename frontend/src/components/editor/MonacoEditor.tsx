@@ -907,7 +907,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     return (
         <div
-            className="zentro-sql-editor flex flex-col h-full overflow-hidden"
+            className="zentro-sql-editor flex h-full overflow-hidden"
             style={
                 {
                     '--zentro-editor-font-size': `${fontSize}px`,
@@ -915,7 +915,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 } as React.CSSProperties
             }
         >
-            <div className="flex-1 min-h-0">
+            <EditorToolbar isActive={isActive} tabId={tabId} readOnly={readOnly} />
+            <div className="flex-1 min-h-0 min-w-0">
                 <Editor
                     height="100%"
                     defaultLanguage="sql"
@@ -949,7 +950,6 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                     }}
                 />
             </div>
-            <EditorToolbar isActive={isActive} tabId={tabId} readOnly={readOnly} />
         </div>
     );
 };

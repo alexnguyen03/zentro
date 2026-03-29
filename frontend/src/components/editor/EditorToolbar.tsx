@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     BookDashed,
     AlignJustify,
-    Plus,
     Play,
     Search,
     Columns2,
@@ -37,7 +36,6 @@ interface EditorToolbarProps {
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, readOnly }) => {
     const { loadTemplates } = useTemplateStore();
     const { isConnected } = useConnectionStore();
-    const addTab = useEditorStore((state) => state.addTab);
     const groups = useEditorStore((state) => state.groups);
     const { transactionStatus } = useStatusStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -103,11 +101,8 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
     };
 
     return (
-        <div className="h-10 flex items-center justify-between shrink-0 select-none px-3">
-            <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" title="New Tab (Ctrl+T)" onClick={() => addTab()} disabled={!isActive}>
-                    <Plus size={16} />
-                </Button>
+        <div className="w-10 h-full shrink-0 select-none border-r border-border px-1 py-2 flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-1">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -116,6 +111,19 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                     onClick={handleRun}
                 >
                     <Play size={16} color={!canRunEditorAction || isRunning ? 'currentColor' : 'var(--status-success)'} />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!isRunning || !isActive}
+                    title="Cancel Execution"
+                    onClick={handleCancel}
+                >
+                    <Square
+                        size={16}
+                        fill={isRunning && isActive ? 'currentColor' : 'none'}
+                        color={isRunning && isActive ? 'var(--status-error)' : 'currentColor'}
+                    />
                 </Button>
                 <Button
                     variant="ghost"
@@ -144,21 +152,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                 >
                     <Columns2 size={14} />
                 </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!isRunning || !isActive}
-                    title="Cancel Execution"
-                    onClick={handleCancel}
-                >
-                    <Square
-                        size={16}
-                        fill={isRunning && isActive ? 'currentColor' : 'none'}
-                        color={isRunning && isActive ? 'var(--status-error)' : 'currentColor'}
-                    />
-                </Button>
+                
 
-                <Divider orientation="vertical" className="h-5" />
+                <Divider orientation="horizontal" className="w-5 my-1" />
 
                 <Button
                     variant="ghost"
@@ -189,7 +185,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                 </Button>
             </div>
 
-            <div className="flex items-center gap-1 pl-4">
+            <Divider orientation="horizontal" className="w-5 my-1" />
+
+            <div className="flex flex-col items-center gap-1">
                 <Button
                     variant="ghost"
                     size="icon"
