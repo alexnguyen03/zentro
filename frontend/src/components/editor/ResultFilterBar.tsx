@@ -47,6 +47,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
     const completionDisposableRef = useRef<{ dispose: () => void } | null>(null);
     const editorInstanceKey = useRef(`result-filter-${Math.random().toString(36).slice(2)}`);
+    const focusContextKey = useRef(`isResultFilterFocused_${Math.random().toString(36).slice(2)}`);
     const onRunRef = useRef(onRun);
     const onClearRef = useRef(onClear);
     const onChangeRef = useRef(onChange);
@@ -95,12 +96,26 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const handleMonacoMount: OnMount = useCallback((editor, monaco) => {
         monacoRef.current = monaco;
         registerCompletion();
+        const filterEditorFocusContext = editor.createContextKey<boolean>(focusContextKey.current, false);
+
+        editor.onDidFocusEditorWidget(() => {
+            filterEditorFocusContext.set(true);
+        });
+
+        editor.onDidBlurEditorWidget(() => {
+            filterEditorFocusContext.set(false);
+        });
+
+        editor.onDidDispose(() => {
+            filterEditorFocusContext.set(false);
+        });
 
         editor.addCommand(
             monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space,
             () => {
                 void editor.trigger('result-filter', 'editor.action.triggerSuggest', {});
             },
+            focusContextKey.current,
         );
         editor.addCommand(
             monaco.KeyCode.Escape,

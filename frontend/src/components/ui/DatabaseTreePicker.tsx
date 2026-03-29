@@ -236,11 +236,15 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 >
                                     {isExpanded ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
                                     <Server size={14} className="shrink-0 text-success" />
-                                    <span className="truncate font-semibold">{name}</span>
-                                    <span className="ml-1 truncate text-[11px] text-text-secondary">
-                                        {node.profile.driver}
-                                        {node.profile.host ? ` / ${node.profile.host}:${node.profile.port}` : ''}
-                                    </span>
+                                    <div className="ml-0.5 flex min-w-0 flex-1 items-center gap-1">
+                                        <span className="truncate font-semibold">{name}</span>
+                                        <span className="shrink-0 text-[11px] text-text-secondary">{node.profile.driver}</span>
+                                        {node.profile.host && (
+                                            <span className="min-w-0 flex-1 truncate text-[11px] text-text-secondary">
+                                                / {node.profile.host}:{node.profile.port}
+                                            </span>
+                                        )}
+                                    </div>
                                     {node.loadingDatabases && <Spinner size={12} className="ml-auto shrink-0" />}
                                 </button>
 

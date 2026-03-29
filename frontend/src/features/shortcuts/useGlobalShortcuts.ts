@@ -23,11 +23,28 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
             });
         };
 
+        const consumeEvent = (e: KeyboardEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
         const handler = (e: KeyboardEvent) => {
             if (isTypingTarget(e.target)) return;
+            const target = e.target as HTMLElement | null;
+            const inSqlMonaco = Boolean(target?.closest('.zentro-sql-editor .monaco-editor'));
+            const isCtrlSpace =
+                (e.ctrlKey || e.metaKey) &&
+                !e.altKey &&
+                !e.shiftKey &&
+                (e.code === 'Space' || e.key === ' ' || e.key.toLowerCase() === 'spacebar');
+
+            // SQL Monaco should keep Ctrl/Cmd+Space for suggest, never global shortcut.
+            if (inSqlMonaco && isCtrlSpace) {
+                return;
+            }
+
             const token = eventToKeyToken(e);
             const now = Date.now();
-            const target = e.target as HTMLElement | null;
             const inFilterMonaco = Boolean(target?.closest('.zentro-filter-monaco .monaco-editor'));
 
             // Filter editor should not trigger global run query on Ctrl/Cmd+Enter.
@@ -40,12 +57,12 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
                 const parts = binding.split(' ');
                 if (parts.length === 2) {
                     if (token === parts[0]) {
-                        e.preventDefault();
+                        consumeEvent(e);
                         setChord(parts[0]);
                         return;
                     }
                     if (chordStart === parts[0] && now <= chordUntil && token === parts[1]) {
-                        e.preventDefault();
+                        consumeEvent(e);
                         setChord(null);
                         execute(entry);
                         return;
@@ -53,7 +70,7 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
                     continue;
                 }
                 if (token === parts[0]) {
-                    e.preventDefault();
+                    consumeEvent(e);
                     execute(entry);
                     return;
                 }

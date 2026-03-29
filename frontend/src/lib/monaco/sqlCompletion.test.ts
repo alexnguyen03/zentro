@@ -222,7 +222,7 @@ describe('sqlCompletion', () => {
         );
 
         const blocks = items.find((item) => String(item.label) === 'blocks');
-        expect(blocks?.insertText).toBe('blocks b');
+        expect(blocks?.insertText).toBe('blocks b;');
     });
 
     it('auto-fills alias initials for snake_case table names', async () => {
@@ -239,7 +239,7 @@ describe('sqlCompletion', () => {
         );
 
         const target = items.find((item) => String(item.label) === 'order_items');
-        expect(target?.insertText).toBe('order_items oi');
+        expect(target?.insertText).toBe('order_items oi;');
     });
 
     it('keeps table insert text unqualified when name is unique across schemas', async () => {
@@ -260,7 +260,7 @@ describe('sqlCompletion', () => {
         );
 
         const target = items.find((item) => String(item.label) === 'inventory_balance');
-        expect(target?.insertText).toBe('inventory_balance ib');
+        expect(target?.insertText).toBe('inventory_balance ib;');
     });
 
     it('auto-qualifies insert text when table name is duplicated across schemas', async () => {
@@ -281,7 +281,7 @@ describe('sqlCompletion', () => {
         );
 
         const target = items.find((item) => String(item.label) === 'inv.users');
-        expect(target?.insertText).toBe('"inv"."users" u');
+        expect(target?.insertText).toBe('"inv"."users" u;');
     });
 
     it('uses persisted current schema as fallback context for duplicate names', async () => {
@@ -303,7 +303,7 @@ describe('sqlCompletion', () => {
         );
 
         const target = items.find((item) => String(item.label) === 'inv.users');
-        expect(target?.insertText).toBe('users u');
+        expect(target?.insertText).toBe('users u;');
     });
 
     it('keeps duplicate table unqualified when current statement schema context matches', async () => {
@@ -373,6 +373,21 @@ describe('sqlCompletion', () => {
         );
 
         expect(String(items[0].label)).toBe('SELECT');
+    });
+
+    it('adds trailing semicolon snippet for statement starter suggestion in unknown clause', async () => {
+        const text = 'se';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'se',
+            { startLineNumber: 1, endLineNumber: 1, startColumn: 1, endColumn: 3 },
+            env,
+        );
+
+        const selectItem = items.find((item) => String(item.label) === 'SELECT');
+        expect(selectItem?.insertText).toBe('SELECT $0;');
+        expect(selectItem?.insertTextRules).toBe(monacoStub.languages.CompletionItemInsertTextRule.InsertAsSnippet);
     });
 
     it('suggests relationship-based INNER JOIN snippets when typing jo', async () => {
@@ -687,6 +702,8 @@ describe('sqlCompletion', () => {
         const labels = items.map((item) => String(item.label));
         expect(labels).toContain('SELECT');
         expect(labels).toContain('sel_all');
+        const selectItem = items.find((item) => String(item.label) === 'SELECT');
+        expect(selectItem?.insertText).toBe('SELECT $0;');
     });
 
     it('adds driver-specific keyword suggestions', async () => {
@@ -710,10 +727,10 @@ describe('sqlCompletion', () => {
         const text = 'SELECT * FROM sal';
         const analysis = analyzeSqlText(text, text.length);
         const drivers: Array<{ driver: string; expected: string }> = [
-            { driver: 'postgres', expected: '"sales order" so' },
-            { driver: 'mysql', expected: '`sales order` so' },
-            { driver: 'sqlserver', expected: '[sales order] so' },
-            { driver: 'sqlite', expected: '"sales order" so' },
+            { driver: 'postgres', expected: '"sales order" so;' },
+            { driver: 'mysql', expected: '`sales order` so;' },
+            { driver: 'sqlserver', expected: '[sales order] so;' },
+            { driver: 'sqlite', expected: '"sales order" so;' },
         ];
 
         for (const { driver, expected } of drivers) {
@@ -751,7 +768,7 @@ describe('sqlCompletion', () => {
         );
 
         const target = items.find((item) => String(item.label) === 'inventory balance');
-        expect(target?.insertText).toBe('"inventory balance" ib');
+        expect(target?.insertText).toBe('"inventory balance" ib;');
     });
 
     it('uses strict db context key when resolving schemas', () => {

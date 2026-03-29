@@ -22,6 +22,22 @@ import { SQL_COMPLETION_TABLE_SELECTED_COMMAND_ID } from './sqlSuggestionSchemaC
 import { TableCompletionItem } from './sqlSuggestionTableDocs';
 import { CompletionKind, SqlAnalysis, SqlCompletionBuildOptions, SqlCompletionEnv, SuggestionRecord, SqlSourceRef } from './sqlCompletionTypes';
 
+const STATEMENT_STARTER_KEYWORDS = new Set([
+    'SELECT',
+    'INSERT INTO',
+    'UPDATE',
+    'DELETE FROM',
+    'CREATE TABLE',
+    'ALTER TABLE',
+    'DROP TABLE',
+    'CREATE VIEW',
+    'DROP VIEW',
+    'CREATE INDEX',
+    'DROP INDEX',
+    'WITH',
+    'EXPLAIN',
+]);
+
 export async function buildSqlCompletionItems(
     analysis: SqlAnalysis,
     currentWord: string,
@@ -64,6 +80,33 @@ export async function buildSqlCompletionItems(
         if (kind === functionKind) return 70;
         return 0;
     };
+    const resolveLabel = (label: languages.CompletionItem['label']): string => {
+        if (typeof label === 'string') return label;
+        return label?.label || '';
+    };
+    const applyStatementTerminatorForUnknownClause = (items: languages.CompletionItem[]): languages.CompletionItem[] => {
+        if (baseClause !== 'unknown') return items;
+
+        return items.map((item) => {
+            const label = resolveLabel(item.label).toUpperCase();
+            if (!STATEMENT_STARTER_KEYWORDS.has(label)) return item;
+
+            const insertText = typeof item.insertText === 'string' ? item.insertText : label;
+            if (!insertText || /;\s*$/.test(insertText)) return item;
+
+            const insertTextWithoutSemicolon = insertText.replace(/\s*;+\s*$/, '').trimEnd();
+            if (!insertTextWithoutSemicolon) return item;
+            const spacedInsertText = `${insertTextWithoutSemicolon} `;
+
+            return {
+                ...item,
+                insertText: `${spacedInsertText}$0;`,
+                insertTextRules: env.monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            };
+        });
+    };
+    const clause = normalizeInsertClause(analysis);
+    const baseClause = clause === 'insertColumns' ? 'select' : clause;
 
     const addSuggestion = (label: string, item: languages.CompletionItem, priority: number) => {
         const key = normalizeIdentifier(label);
@@ -115,7 +158,13 @@ export async function buildSqlCompletionItems(
             ? currentSchemaFromState
             : '';
 
-    const buildTableItems = (options?: { withAlias?: boolean }) => {
+    const shouldAppendTerminatorForInitialSelectFrom = (() => {
+        if (baseClause !== 'from') return false;
+        const normalized = analysis.statementText.trim().replace(/\s+/g, ' ').toLowerCase();
+        return normalized.startsWith('select * from ');
+    })();
+
+    const buildTableItems = (options?: { withAlias?: boolean; appendTerminator?: boolean }) => {
         const catalog = buildCatalogIndex(env.schemas);
         const items: Array<{ item: TableCompletionItem; priority: number }> = [];
         for (const entry of catalog.entries) {
@@ -128,7 +177,8 @@ export async function buildSqlCompletionItems(
                 ? `${quoteIdentifierForDriver(entry.schemaName, env.driver, true)}.${quoteIdentifierForDriver(entry.name, env.driver, true)}`
                 : quoteIdentifierForDriver(entry.name, env.driver);
             const alias = options?.withAlias ? generateAliasFromObjectName(entry.name) : '';
-            const insertText = alias ? `${qualifiedName} ${alias}` : qualifiedName;
+            const insertTextBase = alias ? `${qualifiedName} ${alias}` : qualifiedName;
+            const insertText = options?.appendTerminator ? `${insertTextBase};` : insertTextBase;
             items.push({
                 priority: 100,
                 item: {
@@ -245,11 +295,13 @@ export async function buildSqlCompletionItems(
         return Array.from(unique.values()).sort((a, b) => a.label.localeCompare(b.label));
     };
 
-    const clause = normalizeInsertClause(analysis);
-    const baseClause = clause === 'insertColumns' ? 'select' : clause;
     addBaselineKeywords();
     if (shouldAbort()) return [];
-    if (env.schemas.length === 0) { addTemplates(); return shouldAbort() ? [] : finalizeSuggestions(suggestionMap); }
+    if (env.schemas.length === 0) {
+        addTemplates();
+        if (shouldAbort()) return [];
+        return applyStatementTerminatorForUnknownClause(finalizeSuggestions(suggestionMap));
+    }
 
     if (analysis.afterDot) {
         const dotSources = resolveSourcesFromIdentifier(analysis.dotIdentifier, analysis.sources, analysis.ctes, env.schemas);
@@ -273,7 +325,10 @@ export async function buildSqlCompletionItems(
     }
     if (TABLE_LIKE_CLAUSES.has(baseClause)) {
         const withAlias = baseClause === 'from' || baseClause === 'join';
-        buildTableItems({ withAlias }).forEach((record) => addSuggestion(record.item.label as string, record.item, record.priority));
+        buildTableItems({
+            withAlias,
+            appendTerminator: shouldAppendTerminatorForInitialSelectFrom,
+        }).forEach((record) => addSuggestion(record.item.label as string, record.item, record.priority));
         addKeyword('AS', 'AS ', 130);
         if (baseClause === 'insert') { addKeyword('VALUES', 'VALUES ', 120); addKeyword('DEFAULT VALUES', 'DEFAULT VALUES', 110); }
         if (baseClause === 'delete') addKeyword('WHERE', 'WHERE ', 140);
@@ -314,5 +369,6 @@ export async function buildSqlCompletionItems(
     }
     if (baseClause === 'select' && analysis.sources.length === 0) buildTableItems().forEach((record) => addSuggestion(record.item.label as string, record.item, record.priority + 40));
     if (baseClause === 'unknown') addTemplates();
-    return shouldAbort() ? [] : finalizeSuggestions(suggestionMap);
+    if (shouldAbort()) return [];
+    return applyStatementTerminatorForUnknownClause(finalizeSuggestions(suggestionMap));
 }
