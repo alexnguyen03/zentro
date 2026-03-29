@@ -638,9 +638,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                         : readOnlyMode
                             ? 'Read-only (View Mode)'
                             : 'Read-only (No Primary Key or missing PK in SELECT)'}
-                    className="flex items-center justify-center gap-1 cursor-help opacity-70"
+                    className="flex items-center w-full justify-center gap-1 cursor-help opacity-70"
                 >
-                    <span className="font-mono text-[10px]">#</span>
                     {isEditable
                         ? <Unlock size={10} className="text-success" />
                         : <Lock size={10} className="text-text-muted" />}

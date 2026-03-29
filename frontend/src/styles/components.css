@@ -71,7 +71,7 @@
     font-size: 12px;
     font-family: 'Cascadia Code', 'Fira Code', monospace;
     width: max-content;
-    min-width: 100%;
+    min-width: max-content;
     table-layout: fixed;
 }
 
