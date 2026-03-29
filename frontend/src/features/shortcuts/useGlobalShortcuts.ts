@@ -27,9 +27,11 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
             if (isTypingTarget(e.target)) return;
             const token = eventToKeyToken(e);
             const now = Date.now();
-            const inMonaco = Boolean((e.target as HTMLElement | null)?.closest('.monaco-editor'));
+            const target = e.target as HTMLElement | null;
+            const inFilterMonaco = Boolean(target?.closest('.zentro-filter-monaco .monaco-editor'));
 
-            if (inMonaco && token === 'ctrl+enter') {
+            // Filter editor should not trigger global run query on Ctrl/Cmd+Enter.
+            if (inFilterMonaco && token === 'ctrl+enter') {
                 return;
             }
 
@@ -66,4 +68,3 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
         return () => window.removeEventListener('keydown', handler, true);
     }, [bindings, chordStart, chordUntil, setChord, toast]);
 }
-

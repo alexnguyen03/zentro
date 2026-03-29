@@ -16,6 +16,7 @@ import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { isMutatingSql, resolveQueryPolicy } from '../../features/query/policy';
+import { applyPreExecuteFilterPolicy, resolveExecuteQuery } from '../../features/query/executionRouting';
 import { useToast } from '../layout/Toast';
 
 interface QueryGroupProps {
@@ -25,7 +26,16 @@ interface QueryGroupProps {
 
 export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) => {
     const { id: groupId, tabs, activeTabId } = group;
-    const { removeTab, setActiveTabId, setActiveGroupId, renameTab, updateTabQuery, addTab, splitGroup } = useEditorStore();
+    const {
+        removeTab,
+        setActiveTabId,
+        setActiveGroupId,
+        renameTab,
+        updateTabQuery,
+        updateTabContext,
+        addTab,
+        splitGroup,
+    } = useEditorStore();
     const { isConnected, activeProfile } = useConnectionStore();
     const transactionStatus = useStatusStore((state) => state.transactionStatus);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
@@ -60,13 +70,24 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     // ── Run / Cancel ──────────────────────────────────────────────────────
     const executeQueryNow = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
-        useResultStore.getState().setFilterExpr(activeTab.id, '');
+        const resultStore = useResultStore.getState();
+        applyPreExecuteFilterPolicy({
+            source: 'editor',
+            sourceTabId: activeTab.id,
+            resultTabIds: Object.keys(resultStore.results),
+            clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            updateTabContext,
+        });
+
         try {
-            await ExecuteQuery(activeTab.id, queryToRun);
+            await ExecuteQuery(activeTab.id, resolveExecuteQuery({
+                source: 'editor',
+                editorQuery: queryToRun,
+            }));
         } catch (err: unknown) {
             console.error('ExecuteQuery error:', getErrorMessage(err));
         }
-    }, [activeTab, isConnected]);
+    }, [activeTab, isConnected, updateTabContext]);
 
     const handleRun = useCallback(async (queryToRun: string) => {
         const policy = resolveQueryPolicy(activeEnvironmentKey || undefined);

@@ -112,6 +112,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
 
         editor.onKeyDown((event) => {
             if (event.keyCode !== monaco.KeyCode.Enter) return;
+            if (event.ctrlKey || event.metaKey || event.altKey) {
+                return;
+            }
             const editorDomNode = editor.getDomNode();
             const suggestVisible = Boolean(editorDomNode?.querySelector('.suggest-widget.visible'));
             if (suggestVisible) return;

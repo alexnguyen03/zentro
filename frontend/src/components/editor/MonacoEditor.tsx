@@ -708,14 +708,6 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             clearHoverQuickViewTimer();
         });
 
-        // Bind run query directly on this editor instance for reliable Ctrl/Cmd+Enter behavior.
-        editor.addCommand(
-            monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter,
-            () => {
-                if (runQueryRef.current) runQueryRef.current();
-            }
-        );
-
         editor.onMouseDown((e) => {
             const browserEvent = e?.event?.browserEvent as MouseEvent | undefined;
             const targetType = e?.target?.type;

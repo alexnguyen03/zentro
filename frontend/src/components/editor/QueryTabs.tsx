@@ -22,11 +22,24 @@ import {
     closestCenter
 } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
-import { buildFilterQuery, splitLastQuery } from '../../lib/queryBuilder';
+import { splitLastQuery } from '../../lib/queryBuilder';
 import { getErrorMessage } from '../../lib/errors';
+import { applyPreExecuteFilterPolicy, type QueryExecutionSource, resolveExecuteQuery } from '../../features/query/executionRouting';
 
 export const QueryTabs: React.FC = () => {
-    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, setActiveTabId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
+    const {
+        groups,
+        activeGroupId,
+        addTab,
+        removeTab,
+        closeGroup,
+        moveTab,
+        setActiveGroupId,
+        setActiveTabId,
+        splitGroupFromDrag,
+        updateTabQuery,
+        updateTabContext,
+    } = useEditorStore();
     const { results } = useResultStore();
     const { isConnected } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -39,32 +52,59 @@ export const QueryTabs: React.FC = () => {
     const globalActiveResult = globalActiveTabId ? results[globalActiveTabId] : undefined;
     const activeTabIsQuery = globalActiveTab?.type === TAB_TYPE.QUERY;
 
-    const handleRunGlobal = React.useCallback(async () => {
-        if (!globalActiveTab || !isConnected) return;
-        useResultStore.getState().setFilterExpr(globalActiveTab.id, '');
-        const queryToRun = globalActiveTab.query;
+    const executeActiveTabQuery = React.useCallback(async (
+        source: QueryExecutionSource,
+        options?: { filterExpr?: string; filterBaseQuery?: string },
+    ) => {
+        if (!isConnected) return;
+
+        const editorState = useEditorStore.getState();
+        const latestActiveGroup = editorState.groups.find((group) => group.id === editorState.activeGroupId);
+        const latestActiveTab = latestActiveGroup?.tabs.find((tab) => tab.id === latestActiveGroup.activeTabId);
+        if (!latestActiveTab) return;
+
+        const resultStore = useResultStore.getState();
+        applyPreExecuteFilterPolicy({
+            source,
+            sourceTabId: latestActiveTab.id,
+            resultTabIds: Object.keys(resultStore.results),
+            clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            updateTabContext,
+        });
+
+        const queryToRun = resolveExecuteQuery({
+            source,
+            editorQuery: latestActiveTab.query,
+            filterExpr: options?.filterExpr,
+            filterBaseQuery: options?.filterBaseQuery,
+        });
+
         try {
-            await ExecuteQuery(globalActiveTab.id, queryToRun);
+            await ExecuteQuery(latestActiveTab.id, queryToRun);
         } catch (err: unknown) {
-            console.error('ExecuteQuery error:', getErrorMessage(err));
+            console.error(source === 'filter' ? 'ExecuteQuery (filter) error:' : 'ExecuteQuery error:', getErrorMessage(err));
         }
-    }, [globalActiveTab, isConnected]);
+    }, [isConnected, updateTabContext]);
+
+    const handleRunGlobal = React.useCallback(async () => {
+        await executeActiveTabQuery('editor');
+    }, [executeActiveTabQuery]);
 
     const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
-        if (!globalActiveTab || !isConnected) return;
+        if (!isConnected) return;
+
+        const editorState = useEditorStore.getState();
+        const latestActiveGroup = editorState.groups.find((group) => group.id === editorState.activeGroupId);
+        const latestActiveTab = latestActiveGroup?.tabs.find((tab) => tab.id === latestActiveGroup.activeTabId);
+        if (!latestActiveTab) return;
 
         // Filter should target the current executable statement, not the whole script.
-        const baseForFilter = splitLastQuery(globalActiveTab.query || '').base.trim() || globalActiveTab.query;
-        const queryToRun = filter.trim() !== ''
-            ? buildFilterQuery(baseForFilter, filter)
-            : baseForFilter;
-
-        try {
-            await ExecuteQuery(globalActiveTab.id, queryToRun);
-        } catch (err: unknown) {
-            console.error('ExecuteQuery (filter) error:', getErrorMessage(err));
-        }
-    }, [globalActiveTab, isConnected]);
+        const baseForFilter = splitLastQuery(latestActiveTab.query || '').base.trim() || latestActiveTab.query;
+        await executeActiveTabQuery('filter', {
+            filterExpr: filter,
+            filterBaseQuery: baseForFilter,
+        });
+    }, [executeActiveTabQuery, isConnected]);
 
     const handleAppendToQuery = React.useCallback((fullQuery: string) => {
         if (!globalActiveTabId) return;
