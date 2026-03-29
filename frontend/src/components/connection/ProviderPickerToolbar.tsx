@@ -1,7 +1,8 @@
 import React from 'react';
-import { ArrowLeft, Settings2, X } from 'lucide-react';
+import { ArrowLeft, Settings2, Upload, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import type { ProviderConfig } from '../../lib/providers';
+import { Spinner } from '../ui';
 
 interface ProviderPickerToolbarProps {
     isSelectingProvider: boolean;
@@ -11,6 +12,9 @@ interface ProviderPickerToolbarProps {
     onShowProviderPicker: () => void;
     onProviderFilterChange: (value: string) => void;
     onClearProviderFilter: () => void;
+    onImportConnection?: () => void | Promise<void>;
+    importingConnection?: boolean;
+    importDisabled?: boolean;
     className?: string;
 }
 
@@ -22,6 +26,9 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
     onShowProviderPicker,
     onProviderFilterChange,
     onClearProviderFilter,
+    onImportConnection,
+    importingConnection = false,
+    importDisabled = false,
     className,
 }) => (
     <div className={cn('flex items-center justify-between gap-2 border-b border-border/15 px-1 pb-2', className)}>
@@ -34,14 +41,34 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
             <ArrowLeft size={12} />
         </button>
         {selectedProvider && !isSelectingProvider && (
-            <button
-                type="button"
-                onClick={onShowProviderPicker}
-                className="cursor-pointer inline-flex items-center gap-1 rounded-md border border-border/30 bg-bg-primary/40 p-2 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary"
-                title={`Change provider (${selectedProvider.label})`}
-            >
-                <Settings2 size={12} className="" />
-            </button>
+            <div className="flex items-center gap-1">
+                {onImportConnection && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            void onImportConnection();
+                        }}
+                        disabled={importDisabled || importingConnection}
+                        className={cn(
+                            'inline-flex items-center gap-1 rounded-md border border-border/30 bg-bg-primary/40 p-2 text-[11px] font-semibold text-text-secondary transition-colors',
+                            importDisabled || importingConnection
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer hover:bg-bg-primary hover:text-text-primary',
+                        )}
+                        title="Import connection"
+                    >
+                        {importingConnection ? <Spinner size={12} /> : <Upload size={12} />}
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={onShowProviderPicker}
+                    className="cursor-pointer inline-flex items-center gap-1 rounded-md border border-border/30 bg-bg-primary/40 p-2 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary"
+                    title={`Change provider (${selectedProvider.label})`}
+                >
+                    <Settings2 size={12} className="" />
+                </button>
+            </div>
         )}
 
         {isSelectingProvider && (

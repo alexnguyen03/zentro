@@ -1,8 +1,12 @@
 import React from 'react';
-import { ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown, Upload } from 'lucide-react';
 import type { UseConnectionFormReturn } from '../../hooks/useConnectionForm';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
+import { ImportConnectionPackage } from '../../services/connectionService';
+import type { ConnectionProfile } from '../../types/connection';
+import { Button, Spinner } from '../ui';
+import { useToast } from '../layout/Toast';
 import { ConnectionForm } from './ConnectionForm';
 import { ProviderGrid } from './ProviderGrid';
 
@@ -14,6 +18,8 @@ interface ConnectionEditorPanelProps {
 
 export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ form, onCancel, className }) => {
     const [isSelectingProvider, setIsSelectingProvider] = React.useState(!form.isEditing);
+    const [importing, setImporting] = React.useState(false);
+    const { toast } = useToast();
     const selectedProvider = React.useMemo(
         () => (form.selectedProvider ? getProvider(form.selectedProvider) : null),
         [form.selectedProvider],
@@ -32,6 +38,24 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
         }
     }, [form.isEditing]);
 
+    const handleImportConnection = React.useCallback(async () => {
+        if (form.isEditing) return;
+
+        setImporting(true);
+        try {
+            const imported = await ImportConnectionPackage();
+            if (!imported) return;
+
+            form.setFormFromProfile(imported as ConnectionProfile);
+            setIsSelectingProvider(false);
+            toast.success(`Imported connection "${imported.name}".`);
+        } catch (error) {
+            toast.error(`Could not import connection: ${error}`);
+        } finally {
+            setImporting(false);
+        }
+    }, [form, toast]);
+
     return (
         <div
             className={cn(
@@ -47,30 +71,46 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                     </div>
                 </div>
 
-                {!isSelectingProvider && (
-                    <button
+                <div className="flex items-center gap-2">
+                    <Button
                         type="button"
-                        onClick={handleOpenProviderPicker}
-                        disabled={form.isEditing}
-                        className={cn(
-                            'flex h-9 w-9 items-center justify-center rounded-md border border-border/40 bg-bg-primary/60 transition-colors',
-                            form.isEditing
-                                ? 'cursor-not-allowed opacity-50'
-                                : 'cursor-pointer hover:border-border hover:bg-bg-primary',
-                        )}
-                        title={form.isEditing ? selectedProvider?.label || 'Provider' : 'Change provider'}
+                        variant="solid"
+                        size="icon"
+                        onClick={() => {
+                            void handleImportConnection();
+                        }}
+                        disabled={form.isEditing || importing}
+                        className="h-9 w-9 rounded-md border-border/40 bg-bg-primary/60 text-text-secondary hover:bg-bg-primary hover:text-text-primary"
+                        title={form.isEditing ? 'Import disabled while editing' : 'Import connection package'}
                     >
-                        {selectedProvider ? (
-                            <img
-                                src={selectedProvider.icon}
-                                alt={selectedProvider.label}
-                                className="h-5 w-5 object-contain"
-                            />
-                        ) : (
-                            <ChevronsUpDown size={14} />
-                        )}
-                    </button>
-                )}
+                        {importing ? <Spinner size={13} /> : <Upload size={14} />}
+                    </Button>
+
+                    {!isSelectingProvider && (
+                        <button
+                            type="button"
+                            onClick={handleOpenProviderPicker}
+                            disabled={form.isEditing}
+                            className={cn(
+                                'flex h-9 w-9 items-center justify-center rounded-md border border-border/40 bg-bg-primary/60 transition-colors',
+                                form.isEditing
+                                    ? 'cursor-not-allowed opacity-50'
+                                    : 'cursor-pointer hover:border-border hover:bg-bg-primary',
+                            )}
+                            title={form.isEditing ? selectedProvider?.label || 'Provider' : 'Change provider'}
+                        >
+                            {selectedProvider ? (
+                                <img
+                                    src={selectedProvider.icon}
+                                    alt={selectedProvider.label}
+                                    className="h-5 w-5 object-contain"
+                                />
+                            ) : (
+                                <ChevronsUpDown size={14} />
+                            )}
+                        </button>
+                    )}
+                </div>
 
                 {isSelectingProvider && (
                     <div className="flex h-9 items-center gap-2 rounded-md border border-border/30 bg-bg-primary/50 px-2.5 text-[11px] text-text-secondary">

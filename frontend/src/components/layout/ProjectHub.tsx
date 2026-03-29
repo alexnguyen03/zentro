@@ -139,9 +139,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         <div className={cn(
             'overflow-hidden bg-bg-secondary text-text-primary transition-all duration-200',
             overlay
-                ? surface === 'wizard'
-                    ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-md'
-                    : 'h-[470px] w-[760px] max-w-[calc(100vw-24px)] rounded-md'
+                ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-md'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (
@@ -162,7 +160,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                             <section className="h-full">
                                 <div className="text-[11px] text-text-secondary">Recent Projects</div>
                                 {visibleProjects.length === 0 && !isLoading ? (
-                                    <div className="mt-3 flex h-57.5 items-center justify-center rounded-md border border-dashed border-border/45 bg-bg-secondary/35 px-4 text-center">
+                                    <div className="mt-3 flex items-center justify-center rounded-md border border-dashed border-border/45 bg-bg-secondary/35 px-4 text-center">
                                         <div className="max-w-70">
                                             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-bg-secondary text-text-primary"><Plus size={16} /></div>
                                             <div className="mt-3 text-[14px] font-semibold text-text-primary">No project</div>
@@ -170,7 +168,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="mb-3 h-80 min-h-0 overflow-y-auto pr-1 space-y-1.5">
+                                    <div className="mb-3 h-130 min-h-0 overflow-y-auto pr-1 space-y-1.5">
                                         {visibleProjects.map((project) => (
                                             editingProjectId === project.id ? (
                                                 <ProjectCardEdit
@@ -225,7 +223,6 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                             title="Open project folder"
                                         >
                                             {openingFolder ? <Spinner size={12} /> : <FolderOpen size={14} />}
-                                            Open Folder
                                         </Button>
                                         <Button
                                             variant="primary"

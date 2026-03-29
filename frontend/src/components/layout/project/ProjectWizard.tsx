@@ -99,6 +99,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const [storageParentPath, setStorageParentPath] = React.useState('');
     const [loadingStorageRoot, setLoadingStorageRoot] = React.useState(true);
     const [importingConnection, setImportingConnection] = React.useState(false);
+    const [importingFormConnection, setImportingFormConnection] = React.useState(false);
     const [treeRefreshKey, setTreeRefreshKey] = React.useState(0);
 
     React.useEffect(() => {
@@ -189,6 +190,24 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
             setImportingConnection(false);
         }
     }, [toast]);
+
+    const handleImportConnectionToForm = React.useCallback(async () => {
+        setImportingFormConnection(true);
+        try {
+            const imported = await ImportConnectionPackage();
+            if (!imported) return;
+
+            const importedProfile: ConnectionProfile = { ...(imported as ConnectionProfile) };
+            form.setFormFromProfile(importedProfile);
+            setIsSelectingProvider(false);
+            setProviderFilter('');
+            toast.success(`Imported connection${importedProfile.name ? ` "${importedProfile.name}"` : ''}.`);
+        } catch (error) {
+            toast.error(`Could not import connection: ${error}`);
+        } finally {
+            setImportingFormConnection(false);
+        }
+    }, [form, toast]);
 
     const canGoNext = React.useMemo(() => {
         if (step === 'basics') return Boolean(draft.name.trim());
@@ -314,7 +333,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 </>
             )}
         >
-            <div className="py-4" onKeyDown={handleWizardKeyDown}>
+            <div className="mt-1" onKeyDown={handleWizardKeyDown}>
                 {/* Step: basics */}
                 {step === 'basics' && (
                     <div className="mx-auto flex max-w-190 flex-col gap-4">
@@ -403,10 +422,10 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
 
                 {/* Step: connection */}
                 {step === 'connection' && (
-                    <div className="mx-auto w-full max-w-245">
+                    <div className=" w-full max-w-245">
                         <div className="flex min-h-130 flex-col rounded-md bg-bg-primary/20">
                             {connectionMode === 'existing' ? (
-                                <div className="flex-1 overflow-hidden px-4 py-3">
+                                <div className="flex-1 overflow-hidden">
                                     <DatabaseTreePicker
                                         key={treeRefreshKey}
                                         onSelect={handleSelectFromTree}
@@ -427,13 +446,15 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         onShowProviderPicker={() => setIsSelectingProvider(true)}
                                         onProviderFilterChange={setProviderFilter}
                                         onClearProviderFilter={() => setProviderFilter('')}
+                                        onImportConnection={handleImportConnectionToForm}
+                                        importingConnection={importingFormConnection}
                                     />
                                     {isSelectingProvider ? (
                                         <div className="h-full min-h-0 rounded-md bg-bg-primary/15 p-2">
                                             <ProviderGrid selected={form.selectedProvider} locked={form.isEditing} filterText={providerFilter} onSelect={handleProviderSelect} />
                                         </div>
                                     ) : (
-                                        <div className="h-full overflow-y-auto">
+                                        <div className="h-full overflow-hidden">
                                             <div className="mx-auto flex min-h-full w-full max-w-155 items-start justify-center">
                                                 <div className="w-full">
                                                     <ConnectionForm

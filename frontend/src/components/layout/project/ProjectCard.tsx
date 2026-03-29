@@ -114,14 +114,26 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     const isCurrentProject = activeProjectId === project.id;
     const iconOption = PROJECT_ICON_MAP[getProjectIconKey(project)];
     const ProjectIcon = iconOption.icon;
+    const disabled = isOpening || isDeleting;
 
     return (
-        <button
-            type="button"
-            onClick={() => !isDeleting && onClick()}
-            disabled={isOpening || isDeleting}
+        <div
+            role="button"
+            tabIndex={disabled ? -1 : 0}
+            aria-disabled={disabled}
+            onClick={() => {
+                if (!disabled) onClick();
+            }}
+            onKeyDown={(event) => {
+                if (disabled) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onClick();
+                }
+            }}
             className={cn(
                 'group relative w-full cursor-pointer rounded-md bg-bg-primary/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-bg-primary/60',
+                disabled && 'cursor-not-allowed opacity-70',
                 isCurrentProject && 'border border-accent/45',
             )}
         >
@@ -169,7 +181,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     {isOpening && <Spinner size={14} className="text-text-secondary" />}
                 </div>
             </div>
-        </button>
+        </div>
     );
 };
 

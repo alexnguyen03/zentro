@@ -300,8 +300,10 @@ class InlineObjectQuickViewWidget implements MonacoEditor.IContentWidget {
 
     dispose() {
         this.hide();
-        this.root.unmount();
         this.editor.removeContentWidget(this);
+        queueMicrotask(() => {
+            this.root.unmount();
+        });
     }
 
     private bindDismissListeners() {

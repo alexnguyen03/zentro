@@ -168,7 +168,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     );
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="flex h-[420px] min-h-[420px] max-h-[420px] flex-col overflow-hidden">
             <div className="mb-2 flex items-center gap-2 border-b border-border/20 pb-2">
                 <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <input
@@ -190,19 +190,6 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                     )}
                 </div>
                 <div className="flex items-center gap-1">
-                    {onImport && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void onImport();
-                            }}
-                            disabled={importing || importDisabled}
-                            className="cursor-pointer rounded-md border border-border/30 bg-bg-primary/40 p-1 text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Import connection package"
-                        >
-                            {importing ? <Spinner size={14} /> : <Upload size={14} />}
-                        </button>
-                    )}
                     {onAddNew && (
                         <button
                             type="button"
@@ -216,7 +203,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-1">
+            <div className="flex-1 overflow-hidden p-1">
                 {loading ? (
                     <div className="flex h-48 items-center justify-center gap-2 text-[12px] text-text-secondary">
                         <Spinner size={14} /> Loading connections...

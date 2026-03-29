@@ -37,6 +37,7 @@ export function useWorkspaceLifecycle() {
     const activeEditorProjectId = useEditorStore((state) => state.activeProjectId);
     const switchResultProject = useResultStore((state) => state.switchProject);
     const connectAttemptRef = useRef<string>('');
+    const failedAutoConnectKeysRef = useRef<Set<string>>(new Set());
     const migratedProjectsRef = useRef<Set<string>>(new Set());
     const pendingSessionSaveRef = useRef<{ projectId: string; serialized: string } | null>(null);
     const sessionSaveTimerRef = useRef<number | null>(null);
@@ -183,10 +184,27 @@ export function useWorkspaceLifecycle() {
 
         if (isSameProfile && isSameDatabase && connectionStatus === CONNECTION_STATUS.CONNECTED) {
             connectAttemptRef.current = targetKey;
+            failedAutoConnectKeysRef.current.delete(targetKey);
+            return;
+        }
+
+        // Prevent auto-reconnect loops: after an error for the same target,
+        // stop retrying until the user changes target (project/env/profile/db)
+        // or manually triggers a reconnect flow.
+        if (isSameProfile && isSameDatabase && connectionStatus === CONNECTION_STATUS.ERROR) {
+            failedAutoConnectKeysRef.current.add(targetKey);
+            return;
+        }
+
+        if (isSameProfile && isSameDatabase && connectionStatus === CONNECTION_STATUS.CONNECTING) {
             return;
         }
 
         if (connectionStatus === CONNECTION_STATUS.CONNECTING && connectAttemptRef.current === targetKey) {
+            return;
+        }
+
+        if (failedAutoConnectKeysRef.current.has(targetKey)) {
             return;
         }
 
@@ -197,6 +215,7 @@ export function useWorkspaceLifecycle() {
             try {
                 await ConnectProjectEnvironment(targetEnvironmentKey);
             } catch (error) {
+                failedAutoConnectKeysRef.current.add(targetKey);
                 appLogger.warn('auto reconnect failed', { envKey: targetEnvironmentKey, profileName, error });
             }
         };

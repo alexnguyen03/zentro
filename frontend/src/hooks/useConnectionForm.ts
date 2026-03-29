@@ -37,6 +37,7 @@ export interface UseConnectionFormReturn {
     handleSave: (e: React.FormEvent) => Promise<void>;
     resetFeedback: () => void;
     resetForm: () => void;
+    setFormFromProfile: (profile: ConnectionProfile) => void;
 }
 
 const DEFAULT_CONNECTION_PROFILE: ConnectionProfile = {
@@ -96,6 +97,12 @@ export function useConnectionForm({
 
     const resetForm = () => {
         setFormData(makeDefaultForm());
+        setConnString('');
+        resetFeedback();
+    };
+
+    const setFormFromProfile = (profile: ConnectionProfile) => {
+        setFormData({ ...profile });
         setConnString('');
         resetFeedback();
     };
@@ -204,6 +211,7 @@ export function useConnectionForm({
         handleSave,
         resetFeedback,
         resetForm,
+        setFormFromProfile,
     };
 }
 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { ArrowRight, Check, CircleAlert } from 'lucide-react';
-import { ModalBackdrop, ModalFrame, Button, Tooltip } from '../ui';
+import { ArrowRight, Check, CircleAlert, Download } from 'lucide-react';
+import { ModalBackdrop, ModalFrame, Button, Spinner, Tooltip } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -11,7 +11,7 @@ import { getProvider } from '../../lib/providers';
 import type { ConnectionProfile } from '../../types/connection';
 import type { EnvironmentKey } from '../../types/project';
 import { useToast } from './Toast';
-import { ExportConnectionPackage, LoadConnections } from '../../services/connectionService';
+import { ExportConnectionPackage, ImportConnectionPackage, LoadConnections } from '../../services/connectionService';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
@@ -43,6 +43,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
     const [exporting, setExporting] = React.useState(false);
+    const [importingFormConnection, setImportingFormConnection] = React.useState(false);
 
     React.useEffect(() => {
         if (!activeProject) return;
@@ -125,6 +126,24 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         setSelectedDatabase(database);
     }, []);
 
+    const handleImportConnectionToForm = React.useCallback(async () => {
+        setImportingFormConnection(true);
+        try {
+            const imported = await ImportConnectionPackage();
+            if (!imported) return;
+
+            const importedProfile: ConnectionProfile = { ...(imported as ConnectionProfile) };
+            form.setFormFromProfile(importedProfile);
+            setIsSelectingProvider(false);
+            setProviderFilter('');
+            toast.success(`Imported connection${importedProfile.name ? ` "${importedProfile.name}"` : ''}.`);
+        } catch (error) {
+            toast.error(`Could not import connection: ${error}`);
+        } finally {
+            setImportingFormConnection(false);
+        }
+    }, [form, toast]);
+
     const handleApply = async () => {
         if (!activeProject) return;
 
@@ -190,6 +209,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                     <>
                         <Button
                             variant="ghost"
+                            size="icon"
                             onClick={() => {
                                 void handleExportConnection();
                             }}
@@ -197,7 +217,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             className="rounded-md"
                             title="Export selected environment connection"
                         >
-                            {exporting ? 'Exporting...' : 'Export connection'}
+                            {exporting ? <Spinner size={13} /> : <Download size={14} />}
                         </Button>
                         <Button
                             variant="primary"
@@ -296,6 +316,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                     onShowProviderPicker={() => setIsSelectingProvider(true)}
                                     onProviderFilterChange={setProviderFilter}
                                     onClearProviderFilter={() => setProviderFilter('')}
+                                    onImportConnection={handleImportConnectionToForm}
+                                    importingConnection={importingFormConnection}
                                 />
 
                                 {isSelectingProvider ? (
