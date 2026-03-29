@@ -4,10 +4,12 @@ import { useConnectionStore } from '../stores/connectionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useStatusStore } from '../stores/statusStore';
 import { useEnvironmentStore } from '../stores/environmentStore';
 import { useProjectStore } from '../stores/projectStore';
-import { DOM_EVENT, ENVIRONMENT_KEY, type EnvironmentKey, TAB_TYPE } from './constants';
+import { DOM_EVENT, ENVIRONMENT_KEY, TRANSACTION_STATUS, type EnvironmentKey, TAB_TYPE } from './constants';
 import { emitCommand } from './commandBus';
+import { utils } from '../../wailsjs/go/models';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
 
@@ -25,6 +27,7 @@ export type BuiltInCommandId =
   | 'view.openSettings'
   | 'view.openShortcuts'
   | 'view.commandPalette'
+  | 'view.toggleViewMode'
   | 'layout.toggleSidebar'
   | 'layout.toggleRightSidebar'
   | 'layout.toggleResultPanel'
@@ -63,6 +66,18 @@ async function switchProjectEnvironmentShortcut(environmentKey: EnvironmentKey) 
   }
 
   await projectStore.setProjectEnvironment(environmentKey);
+}
+
+async function toggleViewModeShortcut() {
+  const settings = useSettingsStore.getState();
+  const next = !settings.viewMode;
+  const transactionStatus = useStatusStore.getState().transactionStatus;
+
+  if (next && transactionStatus === TRANSACTION_STATUS.ACTIVE) {
+    return;
+  }
+
+  await settings.save(new utils.Preferences({ view_mode: next }));
 }
 
 function getBaseCommandRegistry(): CommandRegistryEntry[] {
@@ -208,6 +223,15 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     category: 'View',
     defaultBinding: 'Ctrl+Shift+P',
     action: () => { useLayoutStore.getState().toggleCommandPalette(); },
+  },
+  {
+    id: 'view.toggleViewMode',
+    label: 'Toggle View Mode',
+    category: 'View',
+    defaultBinding: 'Alt+Shift+V',
+    action: async () => {
+      await toggleViewModeShortcut();
+    },
   },
   {
     id: 'layout.toggleSidebar',

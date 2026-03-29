@@ -29,7 +29,7 @@ import { cn } from '../../lib/cn';
 import { getEnvironmentMeta, sortEnvironmentKeys } from '../../lib/projects';
 import { Button } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
-import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
+import { DOM_EVENT, CONNECTION_STATUS, ENVIRONMENT_KEY } from '../../lib/constants';
 import { useToast } from './Toast';
 import type { EnvironmentKey } from '../../types/project';
 import { utils } from '../../../wailsjs/go/models';
@@ -73,6 +73,36 @@ export const Toolbar: React.FC = () => {
     const databaseLabel = activeProfile?.db_name || 'No database';
     const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
+    const envToolbarTone = useMemo(() => {
+        if (activeEnvKey === ENVIRONMENT_KEY.PRODUCTION) {
+            return {
+                base: 'bg-red-500/12',
+                active: 'border-red-500/60',
+            };
+        }
+        if (activeEnvKey === ENVIRONMENT_KEY.STAGING) {
+            return {
+                base: 'bg-amber-500/12',
+                active: 'border-amber-500/60',
+            };
+        }
+        if (activeEnvKey === ENVIRONMENT_KEY.DEVELOPMENT) {
+            return {
+                base: 'bg-sky-500/12',
+                active: 'border-sky-500/60',
+            };
+        }
+        if (activeEnvKey === ENVIRONMENT_KEY.TESTING) {
+            return {
+                base: 'bg-fuchsia-500/12',
+                active: 'border-fuchsia-500/60',
+            };
+        }
+        return {
+            base: 'bg-success/10',
+            active: 'border-success/70',
+        };
+    }, [activeEnvKey]);
 
     const quickEnvOptions = useMemo(() => {
         const orderedKeys: EnvironmentKey[] = [];
@@ -263,8 +293,9 @@ export const Toolbar: React.FC = () => {
                     <div
                         ref={quickEnvRef}
                         className={cn(
-                            'relative flex items-stretch w-full rounded-full text-xs font-medium text-text-secondary select-none transition-all duration-200 bg-success/10',
-                            (quickEnvOpen || environmentSwitcherOpen) && 'border-success text-text-primary',
+                            'relative flex items-stretch w-full rounded-full text-xs font-medium text-text-secondary select-none transition-all duration-200',
+                            envToolbarTone.base,
+                            (quickEnvOpen || environmentSwitcherOpen) && cn(envToolbarTone.active, 'text-text-primary'),
                         )}
                         onMouseLeave={scheduleQuickEnvClose}
                         onBlurCapture={(event) => {
