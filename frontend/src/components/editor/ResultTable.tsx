@@ -77,6 +77,12 @@ interface TableMeta {
     handleRevertRow: (rowKey: string) => void;
 }
 
+interface DataColumnMeta {
+    id: string;
+    index: number;
+    name: string;
+}
+
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
 const CELL_ID_SEPARATOR = '|';
 
@@ -93,6 +99,11 @@ const fromDatetimeLocalValue = (val: string): string => val.replace('T', ' ');
 
 function makeCellId(rowKey: string, colIdx: number): string {
     return `${rowKey}${CELL_ID_SEPARATOR}${colIdx}`;
+}
+
+function makeDataColumnId(columnName: string, index: number): string {
+    const safeName = (columnName || `col_${index}`).trim() || `col_${index}`;
+    return `${index}_${safeName}`;
 }
 
 function parseCellId(cellId: string): { rowKey: string; colIdx: number } {
@@ -209,9 +220,21 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const [isDeferredSorting, setIsDeferredSorting] = useState(false);
     const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[]>(displayRows);
     const [isDeferredFiltering, setIsDeferredFiltering] = useState(false);
-    const dataColumnIds = useMemo(
-        () => columns.map((col, index) => col || `col_${index}`),
+    const dataColumns = useMemo<DataColumnMeta[]>(
+        () => columns.map((columnName, index) => ({
+            id: makeDataColumnId(columnName, index),
+            index,
+            name: columnName || `col_${index}`,
+        })),
         [columns],
+    );
+    const dataColumnById = useMemo(
+        () => new Map(dataColumns.map((column) => [column.id, column])),
+        [dataColumns],
+    );
+    const dataColumnIds = useMemo(
+        () => dataColumns.map((column) => column.id),
+        [dataColumns],
     );
     const [columnOrder, setColumnOrder] = useState<string[]>(dataColumnIds);
     const tableColumnOrder = useMemo(() => ['__rownum__', ...columnOrder], [columnOrder]);
@@ -335,7 +358,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             }
 
             const direction = sortRule.desc ? -1 : 1;
-            const columnIndex = columns.findIndex((col) => col === String(sortRule.id));
+            const columnIndex = dataColumnById.get(String(sortRule.id))?.index ?? -1;
             if (columnIndex < 0) {
                 setDeferredSortedRows(deferredFilteredRows);
                 setIsDeferredSorting(false);
@@ -354,7 +377,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         }, 0);
 
         return () => window.clearTimeout(id);
-    }, [columns, deferredFilteredRows, shouldUseDeferredSort, sorting]);
+    }, [dataColumnById, deferredFilteredRows, shouldUseDeferredSort, sorting]);
 
     useEffect(() => {
         const handleMouseUp = () => setDragStart(null);
@@ -573,18 +596,30 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             nextApplied[columnId] = draft;
         }
         setColumnFilterApplied(nextApplied);
-        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextApplied, driver));
+        const nextAppliedByColumnName = Object.fromEntries(
+            Object.entries(nextApplied).map(([columnId, value]) => [
+                dataColumnById.get(columnId)?.name || columnId,
+                value,
+            ]),
+        );
+        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextAppliedByColumnName, driver));
         setActiveFilterPopoverColumn(null);
-    }, [columnFilterApplied, columnFilterDrafts, driver, onHeaderFilterRun]);
+    }, [columnFilterApplied, columnFilterDrafts, dataColumnById, driver, onHeaderFilterRun]);
 
     const clearHeaderFilter = React.useCallback((columnId: string) => {
         const nextApplied = { ...columnFilterApplied };
         delete nextApplied[columnId];
         setColumnFilterApplied(nextApplied);
         setColumnFilterDrafts((prev) => ({ ...prev, [columnId]: '' }));
-        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextApplied, driver));
+        const nextAppliedByColumnName = Object.fromEntries(
+            Object.entries(nextApplied).map(([columnId, value]) => [
+                dataColumnById.get(columnId)?.name || columnId,
+                value,
+            ]),
+        );
+        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextAppliedByColumnName, driver));
         setActiveFilterPopoverColumn(null);
-    }, [columnFilterApplied, driver, onHeaderFilterRun]);
+    }, [columnFilterApplied, dataColumnById, driver, onHeaderFilterRun]);
 
     const handleHeaderDragEnd = React.useCallback((event: DragEndEvent) => {
         const activeId = String(event.active.id || '');
@@ -629,9 +664,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             },
         };
 
-        const dataCols: ColumnDef<DisplayRow>[] = columns.map((col, colIdx) => ({
-            id: col || `col_${colIdx}`,
-            header: col,
+        const dataCols: ColumnDef<DisplayRow>[] = dataColumns.map(({ id, index: colIdx, name }) => ({
+            id,
+            header: name,
             accessorFn: (row) => row.values[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
@@ -704,23 +739,25 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
+    }, [dataColumns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
 
     const filteredRows = quickFilter.trim() ? deferredFilteredRows : displayRows;
     const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;
     const handleAutoFitColumn = React.useCallback((columnId: string) => {
-        const colIdx = columns.findIndex((columnName) => columnName === columnId);
-        if (colIdx < 0) return;
+        const columnMeta = dataColumnById.get(columnId);
+        if (!columnMeta) return;
+        const colIdx = columnMeta.index;
+        const columnName = columnMeta.name;
 
         const sampledRows = tableData.slice(0, 5000);
         const texts = [
-            columnId,
-            dataTypeByColumn.get(columnId) || '',
+            columnName,
+            dataTypeByColumn.get(columnName) || '',
             ...sampledRows.map((row) => row.values[colIdx] ?? ''),
         ];
         const width = computeAutoFitWidth(texts);
         setColumnSizing((prev) => ({ ...prev, [columnId]: width }));
-    }, [columns, dataTypeByColumn, tableData]);
+    }, [dataColumnById, dataTypeByColumn, tableData]);
 
     useEffect(() => {
         const nextStats = {
@@ -870,9 +907,11 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                                 const sorted = header.column.getIsSorted();
                                                 const canSort = header.column.getCanSort();
                                                 const columnId = String(header.column.id);
+                                                const columnMeta = dataColumnById.get(columnId);
+                                                const columnName = columnMeta?.name || columnId;
                                                 const isFilterOpen = activeFilterPopoverColumn === columnId;
                                                 const isFilterActive = Boolean((columnFilterApplied[columnId] || '').trim());
-                                                const dataTypeLabel = dataTypeByColumn.get(columnId) || 'unknown';
+                                                const dataTypeLabel = dataTypeByColumn.get(columnName) || 'unknown';
                                                 return (
                                                     <SortableHeaderCell
                                                         key={header.id}
@@ -921,7 +960,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                                                                     clearHeaderFilter(columnId);
                                                                                 }
                                                                             }}
-                                                                            placeholder={`Contains in ${columnId}`}
+                                                                            placeholder={`Contains in ${columnName}`}
                                                                         />
                                                                         <button
                                                                             type="button"
