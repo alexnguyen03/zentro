@@ -7,8 +7,11 @@ import type { Project } from '../../types/project';
 
 const mocks = vi.hoisted(() => ({
     openProject: vi.fn(),
-    deleteProject: vi.fn(),
     saveProject: vi.fn(),
+    deleteProject: vi.fn(),
+    getDefaultRoot: vi.fn(),
+    pickDirectory: vi.fn(),
+    openProjectFromDirectory: vi.fn(),
     resetRuntime: vi.fn(),
     disconnect: vi.fn(),
     toastError: vi.fn(),
@@ -20,6 +23,9 @@ const projectState = {
     isLoading: false,
     error: null as string | null,
     openProject: mocks.openProject,
+    saveProject: mocks.saveProject,
+    deleteProject: mocks.deleteProject,
+    activeProject: null as Project | null,
 };
 
 function makeProject(id: string, name: string): Project {
@@ -42,6 +48,12 @@ function makeProject(id: string, name: string): Project {
 
 vi.mock('../../services/connectionService', () => ({
     Disconnect: mocks.disconnect,
+}));
+
+vi.mock('../../services/projectService', () => ({
+    GetDefaultProjectStorageRoot: mocks.getDefaultRoot,
+    PickDirectory: mocks.pickDirectory,
+    openProjectFromDirectory: mocks.openProjectFromDirectory,
 }));
 
 vi.mock('../../stores/projectStore', () => ({
@@ -74,6 +86,11 @@ describe('ProjectHub', () => {
         projectState.isLoading = false;
         projectState.error = null;
         mocks.openProject.mockResolvedValue(makeProject('p2', 'Project Two'));
+        mocks.saveProject.mockResolvedValue(makeProject('p2', 'Project Two'));
+        mocks.deleteProject.mockResolvedValue(true);
+        mocks.getDefaultRoot.mockResolvedValue('C:/projects');
+        mocks.pickDirectory.mockResolvedValue('C:/projects/example');
+        mocks.openProjectFromDirectory.mockResolvedValue(makeProject('p2', 'Project Two'));
         mocks.disconnect.mockResolvedValue(undefined);
     });
 
@@ -95,7 +112,7 @@ describe('ProjectHub', () => {
         const onClose = vi.fn();
         render(<ProjectHub overlay onClose={onClose} />);
 
-        fireEvent.click(screen.getByTestId('recent-project-p2'));
+        fireEvent.click(screen.getByText('Project Two'));
 
         await waitFor(() => {
             expect(mocks.openProject).toHaveBeenCalledWith('p2');

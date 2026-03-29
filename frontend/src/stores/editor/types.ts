@@ -46,6 +46,7 @@ export interface EditorState {
     activeGroupId: string | null;
 
     switchProject: (projectId: string | null) => void;
+    hydrateProjectSession: (projectId: string | null, session: Partial<ProjectEditorSession>, activate?: boolean) => void;
     resetProject: (projectId?: string | null) => void;
     addTab: (tabInit?: Partial<Tab>, targetGroupId?: string) => string;
     removeTab: (id: string, groupId?: string) => void;

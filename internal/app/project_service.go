@@ -1,8 +1,11 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -90,4 +93,37 @@ func (s *ProjectService) DeleteProject(projectID string) error {
 		s.logger.Info("deleting project", "project_id", projectID)
 	}
 	return utils.DeleteProject(projectID)
+}
+
+func (s *ProjectService) GetDefaultProjectStorageRoot() (string, error) {
+	return utils.DefaultProjectStorageRoot()
+}
+
+func (s *ProjectService) OpenProjectFromDirectory(directoryPath string) (*models.Project, error) {
+	path := strings.TrimSpace(directoryPath)
+	if path == "" {
+		return nil, fmt.Errorf("project directory is required")
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve project directory: %w", err)
+	}
+
+	manifestPath := filepath.Join(absPath, "project.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("read project manifest: %w", err)
+	}
+
+	var project models.Project
+	if err := json.Unmarshal(data, &project); err != nil {
+		return nil, fmt.Errorf("parse project manifest: %w", err)
+	}
+	project.StoragePath = absPath
+
+	if err := utils.UpsertProject(&project); err != nil {
+		return nil, err
+	}
+	return utils.LoadProject(project.ID)
 }

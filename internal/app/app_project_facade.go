@@ -1,6 +1,12 @@
 package app
 
-import "zentro/internal/models"
+import (
+	"strings"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"zentro/internal/models"
+)
 
 func (a *App) ListProjects() ([]*models.Project, error) { return a.projects.ListProjects() }
 
@@ -53,3 +59,32 @@ func (a *App) OpenProject(projectID string) (*models.Project, error) {
 }
 
 func (a *App) GetActiveProject() *models.Project { return a.project }
+
+func (a *App) GetDefaultProjectStorageRoot() (string, error) {
+	return a.projects.GetDefaultProjectStorageRoot()
+}
+
+func (a *App) PickDirectory(initialPath string) (string, error) {
+	defaultDir := strings.TrimSpace(initialPath)
+	if defaultDir == "" {
+		root, err := a.projects.GetDefaultProjectStorageRoot()
+		if err == nil {
+			defaultDir = root
+		}
+	}
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            "Select directory",
+		DefaultDirectory: defaultDir,
+	})
+}
+
+func (a *App) OpenProjectFromDirectory(directoryPath string) (*models.Project, error) {
+	project, err := a.projects.OpenProjectFromDirectory(directoryPath)
+	if err != nil {
+		return nil, err
+	}
+	a.project = project
+	a.currentEnvironmentKey = project.DefaultEnvironmentKey
+	a.draft = []*models.ConnectionProfile{}
+	return project, nil
+}

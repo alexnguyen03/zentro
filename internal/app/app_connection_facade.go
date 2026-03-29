@@ -2,9 +2,21 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"zentro/internal/models"
 )
+
+type ConnectionPackage struct {
+	Version    string                   `json:"version"`
+	Connection models.ConnectionProfile `json:"connection"`
+}
 
 func (a *App) LoadConnections() ([]*models.ConnectionProfile, error) {
 	if a.project != nil {
@@ -171,4 +183,110 @@ func (a *App) DropTableColumn(schema, table, column string) error {
 
 func (a *App) FetchTableRelationships(schema, table string) ([]models.TableRelationship, error) {
 	return a.conn.FetchTableRelationships(schema, table)
+}
+
+func (a *App) ImportConnectionPackage() (*models.ConnectionProfile, error) {
+	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Import Connection Package",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if filePath == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("import connection package: read file: %w", err)
+	}
+
+	var pkg ConnectionPackage
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil, fmt.Errorf("import connection package: invalid json: %w", err)
+	}
+	if strings.TrimSpace(pkg.Connection.Name) == "" {
+		return nil, fmt.Errorf("import connection package: connection name is required")
+	}
+
+	pkg.Connection.Password = ""
+	pkg.Connection.SavePassword = false
+	pkg.Connection.EncryptPassword = false
+
+	if err := a.SaveConnection(pkg.Connection); err != nil {
+		return nil, err
+	}
+	imported := pkg.Connection
+	return &imported, nil
+}
+
+func (a *App) ExportConnectionPackage(environmentKey string) (string, error) {
+	var profile *models.ConnectionProfile
+
+	if a.project != nil {
+		targetEnvironment := models.EnvironmentKey(strings.TrimSpace(environmentKey))
+		if targetEnvironment == "" {
+			targetEnvironment = a.currentProjectEnvironmentKey()
+		}
+
+		for i := range a.project.Connections {
+			connection := &a.project.Connections[i]
+			if connection.EnvironmentKey == targetEnvironment {
+				profile = projectConnectionToProfile(connection)
+				break
+			}
+		}
+	}
+
+	if profile == nil && a.profile != nil {
+		profile = cloneConnectionProfile(a.profile)
+	}
+
+	if profile == nil {
+		return "", fmt.Errorf("no connection available to export")
+	}
+
+	exportProfile := *profile
+	exportProfile.Password = ""
+	exportProfile.SavePassword = false
+	exportProfile.EncryptPassword = false
+
+	defaultFilename := strings.TrimSpace(exportProfile.Name)
+	if defaultFilename == "" {
+		defaultFilename = "connection"
+	}
+	defaultFilename = strings.ReplaceAll(defaultFilename, " ", "-")
+
+	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Connection Package",
+		DefaultFilename: defaultFilename + ".connection.json",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	if filePath == "" {
+		return "", nil
+	}
+
+	pkg := ConnectionPackage{
+		Version:    "v1",
+		Connection: exportProfile,
+	}
+	content, err := json.MarshalIndent(pkg, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	if filepath.Ext(filePath) == "" {
+		filePath += ".json"
+	}
+	if err := os.WriteFile(filePath, content, 0o644); err != nil {
+		return "", err
+	}
+	return filePath, nil
 }

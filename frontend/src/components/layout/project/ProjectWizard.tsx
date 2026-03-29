@@ -1,6 +1,7 @@
 import React from 'react';
-import { BadgeCheck } from 'lucide-react';
-import { Disconnect } from '../../../services/connectionService';
+import { BadgeCheck, FolderOpen } from 'lucide-react';
+import { Disconnect, ImportConnectionPackage } from '../../../services/connectionService';
+import { GetDefaultProjectStorageRoot, PickDirectory } from '../../../services/projectService';
 import { useProjectStore } from '../../../stores/projectStore';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
@@ -36,6 +37,36 @@ interface WizardDraft {
     starterEnv: EnvironmentKey;
 }
 
+function slugifyProjectName(value: string): string {
+    const input = value.trim().toLowerCase();
+    if (!input) return 'project';
+
+    let result = '';
+    let lastDash = false;
+    for (const char of input) {
+        if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+            result += char;
+            lastDash = false;
+            continue;
+        }
+        if (!lastDash) {
+            result += '-';
+            lastDash = true;
+        }
+    }
+
+    const trimmed = result.replace(/^-+|-+$/g, '');
+    return trimmed || 'project';
+}
+
+function joinPath(parent: string, child: string): string {
+    const base = parent.trim();
+    if (!base) return '';
+    const separator = base.includes('\\') ? '\\' : '/';
+    const normalized = base.replace(/[\\/]+$/, '');
+    return `${normalized}${separator}${child}`;
+}
+
 interface ProjectWizardProps {
     overlay?: boolean;
     onClose?: () => void;
@@ -65,12 +96,51 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const [providerFilter, setProviderFilter] = React.useState('');
     const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [submitting, setSubmitting] = React.useState(false);
+    const [storageParentPath, setStorageParentPath] = React.useState('');
+    const [loadingStorageRoot, setLoadingStorageRoot] = React.useState(true);
+    const [importingConnection, setImportingConnection] = React.useState(false);
+    const [treeRefreshKey, setTreeRefreshKey] = React.useState(0);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        setLoadingStorageRoot(true);
+
+        GetDefaultProjectStorageRoot()
+            .then((root) => {
+                if (!cancelled && root) {
+                    setStorageParentPath(root);
+                }
+            })
+            .catch(() => {
+                // Ignore and allow manual path input.
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoadingStorageRoot(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
         setSelectedProfile(profile);
         setSelectedProfileName(profile.name || null);
         setSelectedDatabase(database);
     }, []);
+
+    const handlePickStorageFolder = React.useCallback(async () => {
+        try {
+            const picked = await PickDirectory(storageParentPath);
+            if (picked) {
+                setStorageParentPath(picked);
+            }
+        } catch (error) {
+            toast.error(`Could not pick folder: ${error}`);
+        }
+    }, [storageParentPath, toast]);
 
     const form = useConnectionForm({
         existingNames: [],
@@ -101,6 +171,25 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         setProviderFilter('');
     }, [form.handleDriverChange]);
 
+    const handleImportConnection = React.useCallback(async () => {
+        setImportingConnection(true);
+        try {
+            const imported = await ImportConnectionPackage();
+            if (!imported) return;
+            const importedProfile = imported as ConnectionProfile;
+            const profileName = importedProfile.name || null;
+            setSelectedProfile(importedProfile);
+            setSelectedProfileName(profileName);
+            setSelectedDatabase(importedProfile.db_name || '');
+            setTreeRefreshKey((key) => key + 1);
+            toast.success(`Imported connection${profileName ? ` "${profileName}"` : ''}.`);
+        } catch (error) {
+            toast.error(`Could not import connection: ${error}`);
+        } finally {
+            setImportingConnection(false);
+        }
+    }, [toast]);
+
     const canGoNext = React.useMemo(() => {
         if (step === 'basics') return Boolean(draft.name.trim());
         if (step === 'environment') return Boolean(draft.starterEnv);
@@ -111,9 +200,20 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const stepIndex = STEP_ORDER.indexOf(step);
     const DraftIcon = PROJECT_ICON_MAP[draft.iconKey].icon;
     const draftIconLabel = PROJECT_ICON_MAP[draft.iconKey].label;
+    const storagePathPreview = React.useMemo(() => {
+        const slug = slugifyProjectName(draft.name);
+        return storageParentPath.trim() ? joinPath(storageParentPath, slug) : '';
+    }, [draft.name, storageParentPath]);
 
-    const goNext = () => { if (!canGoNext) return; const next = STEP_ORDER[stepIndex + 1]; if (next) setStep(next); };
-    const goBack = () => { const prev = STEP_ORDER[stepIndex - 1]; if (prev) setStep(prev); };
+    const goNext = React.useCallback(() => {
+        if (!canGoNext) return;
+        const next = STEP_ORDER[stepIndex + 1];
+        if (next) setStep(next);
+    }, [canGoNext, stepIndex]);
+    const goBack = React.useCallback(() => {
+        const prev = STEP_ORDER[stepIndex - 1];
+        if (prev) setStep(prev);
+    }, [stepIndex]);
 
     const handleCreateAndEnter = async () => {
         if (!selectedProfileName || !selectedProfile) return;
@@ -126,6 +226,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 name: draft.name.trim(),
                 description: draft.description.trim(),
                 tags: buildTagsWithProjectIcon([], draft.iconKey),
+                storage_path: storagePathPreview || undefined,
             });
             if (!project) { toast.error('Could not create project.'); return; }
 
@@ -148,6 +249,29 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
             setSubmitting(false);
         }
     };
+
+    const handleWizardKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== 'Enter') return;
+        if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+        const target = event.target as HTMLElement | null;
+        if (!target) return;
+
+        const tag = target.tagName.toLowerCase();
+        if (tag === 'textarea' || tag === 'button') return;
+        if (step === 'connection' && connectionMode === 'new') return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (step !== 'review') {
+            goNext();
+            return;
+        }
+
+        if (!submitting && selectedProfile && selectedProfileName && selectedDatabase) {
+            void handleCreateAndEnter();
+        }
+    }, [connectionMode, goNext, selectedDatabase, selectedProfile, selectedProfileName, step, submitting]);
 
     return (
         <ModalFrame
@@ -190,7 +314,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 </>
             )}
         >
-            <div className="py-4">
+            <div className="py-4" onKeyDown={handleWizardKeyDown}>
                 {/* Step: basics */}
                 {step === 'basics' && (
                     <div className="mx-auto flex max-w-190 flex-col gap-4">
@@ -220,6 +344,32 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                                 </button>
                                             );
                                         })}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project data location</label>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            value={storageParentPath}
+                                            onChange={(e) => setStorageParentPath(e.target.value)}
+                                            placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
+                                            className="h-11 rounded-md bg-bg-secondary"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="solid"
+                                            className="h-11 rounded-md px-3"
+                                            onClick={() => {
+                                                void handlePickStorageFolder();
+                                            }}
+                                            disabled={loadingStorageRoot}
+                                            title="Browse folder"
+                                        >
+                                            <FolderOpen size={14} />
+                                        </Button>
+                                    </div>
+                                    <div className="mt-1 text-[11px] text-text-secondary truncate" title={storagePathPreview || undefined}>
+                                        {storagePathPreview || 'Project folder will use the app default location.'}
                                     </div>
                                 </div>
                             </div>
@@ -258,9 +408,12 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                             {connectionMode === 'existing' ? (
                                 <div className="flex-1 overflow-hidden px-4 py-3">
                                     <DatabaseTreePicker
+                                        key={treeRefreshKey}
                                         onSelect={handleSelectFromTree}
                                         selectedProfile={selectedProfileName}
                                         selectedDatabase={selectedDatabase}
+                                        onImport={handleImportConnection}
+                                        importing={importingConnection}
                                         onAddNew={() => { form.resetForm(); setConnectionMode('new'); setIsSelectingProvider(true); setProviderFilter(''); }}
                                     />
                                 </div>
@@ -331,6 +484,10 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Connection</div>
                                     <div className="mt-2 text-[16px] font-semibold text-text-primary">{selectedProfileName || 'Missing connection'}</div>
                                     <div className="mt-1 text-[12px] text-text-secondary">{selectedDatabase || 'Pick a database'}</div>
+                                </div>
+                                <div className="rounded-md bg-bg-secondary px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Storage</div>
+                                    <div className="mt-2 text-[12px] text-text-primary break-all">{storagePathPreview || 'App default location'}</div>
                                 </div>
                             </div>
                         </div>

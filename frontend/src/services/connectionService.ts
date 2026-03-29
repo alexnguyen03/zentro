@@ -9,5 +9,7 @@ export const SwitchDatabase = (database: string) => wailsGateway.SwitchDatabase(
 export const LoadConnections = () => wailsGateway.LoadConnections();
 export const LoadDatabasesForProfile = (profileName: string) => wailsGateway.LoadDatabasesForProfile(profileName);
 export const SaveConnection = (profile: models.ConnectionProfile) => wailsGateway.SaveConnection(profile);
+export const ImportConnectionPackage = () => wailsGateway.ImportConnectionPackage();
+export const ExportConnectionPackage = (environmentKey: string) => wailsGateway.ExportConnectionPackage(environmentKey);
 export const TestConnection = (profile: models.ConnectionProfile) => wailsGateway.TestConnection(profile);
 export const GetConnectionStatus = () => wailsGateway.GetConnectionStatus();

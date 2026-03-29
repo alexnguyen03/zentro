@@ -37,6 +37,24 @@ export const useEditorStore = create<EditorState>()(
                 };
             }),
 
+            hydrateProjectSession: (projectId, session, activate = false) => set((state) => {
+                const nextProjectId = getSessionProjectId(projectId);
+                const nextSession = normalizeSession(session);
+                const shouldActivate = activate || nextProjectId === getSessionProjectId(state.activeProjectId);
+
+                return {
+                    projectSessions: {
+                        ...state.projectSessions,
+                        [nextProjectId]: nextSession,
+                    },
+                    ...(shouldActivate ? {
+                        activeProjectId: nextProjectId,
+                        groups: nextSession.groups,
+                        activeGroupId: nextSession.activeGroupId,
+                    } : {}),
+                };
+            }),
+
             resetProject: (projectId) => set((state) => {
                 const nextProjectId = getSessionProjectId(projectId || state.activeProjectId);
                 const nextSession = createEmptySession();

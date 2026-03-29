@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"zentro/internal/models"
@@ -33,6 +35,12 @@ func TestProjectPersistence_RoundTrip(t *testing.T) {
 	if got.ID == "" {
 		t.Fatal("expected project ID to be populated")
 	}
+	if got.StoragePath == "" {
+		t.Fatal("expected project storage path to be populated")
+	}
+	if _, err := os.Stat(filepath.Join(got.StoragePath, "project.json")); err != nil {
+		t.Fatalf("expected project manifest to exist: %v", err)
+	}
 	if got.Slug != "payments-platform" {
 		t.Fatalf("unexpected slug: %s", got.Slug)
 	}
@@ -54,6 +62,7 @@ func TestDeleteProject_RemovesProject(t *testing.T) {
 	if err := UpsertProject(project); err != nil {
 		t.Fatalf("upsert project: %v", err)
 	}
+	manifestPath := filepath.Join(project.StoragePath, "project.json")
 
 	if err := DeleteProject(project.ID); err != nil {
 		t.Fatalf("delete project: %v", err)
@@ -65,5 +74,8 @@ func TestDeleteProject_RemovesProject(t *testing.T) {
 	}
 	if len(projects) != 0 {
 		t.Fatalf("expected no projects after delete, got %d", len(projects))
+	}
+	if _, err := os.Stat(manifestPath); err != nil {
+		t.Fatalf("expected soft delete to keep project manifest: %v", err)
 	}
 }

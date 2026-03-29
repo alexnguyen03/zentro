@@ -56,6 +56,7 @@ type Project struct {
 	Slug                  string               `json:"slug"`
 	Name                  string               `json:"name"`
 	Description           string               `json:"description,omitempty"`
+	StoragePath           string               `json:"storage_path,omitempty"`
 	Tags                  []string             `json:"tags,omitempty"`
 	CreatedAt             string               `json:"created_at"`
 	UpdatedAt             string               `json:"updated_at"`

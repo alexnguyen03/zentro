@@ -1,13 +1,16 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { FolderOpen, Plus } from 'lucide-react';
 import { Disconnect } from '../../services/connectionService';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button, ModalBackdrop, ModalFrame, Spinner } from '../ui';
+import { Button, ConfirmationModal, ModalBackdrop, ModalFrame, Spinner } from '../ui';
 import { cn } from '../../lib/cn';
 import { useToast } from './Toast';
-import { sortProjects } from './projectHubMeta';
+import { sortProjects, getProjectIconKey, buildTagsWithProjectIcon, type ProjectIconKey } from './projectHubMeta';
 import { ProjectWizard } from './project/ProjectWizard';
+import { ProjectCard, ProjectCardEdit, type EditDraft } from './project/ProjectCard';
+import { GetDefaultProjectStorageRoot, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
+import type { Project } from '../../types/project';
 import appIcon from '../../assets/images/appicon.png';
 
 type Surface = 'entry' | 'wizard';
@@ -19,12 +22,22 @@ interface ProjectHubProps {
 }
 
 export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startupMode = false, onClose }) => {
-    const { projects, isLoading, error, openProject } = useProjectStore();
+    const { projects, isLoading, error, openProject, saveProject, deleteProject, activeProject } = useProjectStore();
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const { toast } = useToast();
 
     const [surface, setSurface] = React.useState<Surface>('entry');
     const [openingProjectId, setOpeningProjectId] = React.useState<string | null>(null);
+    const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
+    const [projectToDelete, setProjectToDelete] = React.useState<Project | null>(null);
+    const [editingProjectId, setEditingProjectId] = React.useState<string | null>(null);
+    const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+    const [openingFolder, setOpeningFolder] = React.useState(false);
+    const [editDraft, setEditDraft] = React.useState<EditDraft>({
+        name: '',
+        description: '',
+        iconKey: 'general',
+    });
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
     const visibleProjects = sortedProjects;
@@ -42,6 +55,83 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             toast.error(`Could not open project: ${error}`);
         } finally {
             setOpeningProjectId(null);
+        }
+    };
+
+    const handleOpenProjectFolder = async () => {
+        setOpeningFolder(true);
+        try {
+            const defaultRoot = await GetDefaultProjectStorageRoot();
+            const selectedDirectory = await PickDirectory(defaultRoot || '');
+            if (!selectedDirectory) return;
+
+            try { await Disconnect(); } catch { /* ignore */ }
+            const project = await openProjectFromDirectory(selectedDirectory);
+            if (!project) {
+                toast.error('Could not open project from selected folder.');
+                return;
+            }
+            resetRuntime();
+            onClose?.();
+        } catch (error) {
+            toast.error(`Could not open folder: ${error}`);
+        } finally {
+            setOpeningFolder(false);
+        }
+    };
+
+    const startEditingProject = (project: Project) => {
+        setEditingProjectId(project.id);
+        setEditDraft({
+            name: project.name || '',
+            description: project.description || '',
+            iconKey: getProjectIconKey(project) as ProjectIconKey,
+        });
+    };
+
+    const handleSaveProjectEdit = async (project: Project) => {
+        const nextName = editDraft.name.trim();
+        if (!nextName) return;
+
+        setIsSavingEdit(true);
+        try {
+            const updated = await saveProject({
+                ...project,
+                name: nextName,
+                description: editDraft.description.trim(),
+                tags: buildTagsWithProjectIcon(project.tags, editDraft.iconKey),
+            });
+            if (!updated) {
+                toast.error('Could not save project changes.');
+                return;
+            }
+            setEditingProjectId(null);
+            toast.success('Project updated.');
+        } catch (error) {
+            toast.error(`Could not save project: ${error}`);
+        } finally {
+            setIsSavingEdit(false);
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!projectToDelete) return;
+        setDeletingProjectId(projectToDelete.id);
+        try {
+            const deleted = await deleteProject(projectToDelete.id);
+            if (!deleted) {
+                toast.error('Could not delete project.');
+                return;
+            }
+            toast.success('Project removed from launcher. Data folder is kept on disk.');
+        } catch (error) {
+            toast.error(`Could not delete project: ${error}`);
+        } finally {
+            setDeletingProjectId(null);
+            setProjectToDelete(null);
+            if (editingProjectId === projectToDelete.id) {
+                setEditingProjectId(null);
+            }
         }
     };
 
@@ -82,17 +172,39 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                 ) : (
                                     <div className="mb-3 h-80 min-h-0 overflow-y-auto pr-1 space-y-1.5">
                                         {visibleProjects.map((project) => (
-                                            <button
-                                                key={project.id}
-                                                data-testid={`recent-project-${project.id}`}
-                                                type="button"
-                                                onClick={() => void handleOpenProject(project.id)}
-                                                disabled={openingProjectId !== null}
-                                                className="flex cursor-pointer hover:opacity-80 w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left transition-colors disabled:opacity-60"
-                                            >
-                                                <span className="truncate text-[16px] font-medium text-accent">{project.name}</span>
-                                                {openingProjectId === project.id && <Spinner size={12} className="ml-3 shrink-0 text-accent" />}
-                                            </button>
+                                            editingProjectId === project.id ? (
+                                                <ProjectCardEdit
+                                                    key={project.id}
+                                                    project={project}
+                                                    editDraft={editDraft}
+                                                    setEditDraft={setEditDraft}
+                                                    isSaving={isSavingEdit}
+                                                    onCancel={() => setEditingProjectId(null)}
+                                                    onSave={(targetProject) => {
+                                                        void handleSaveProjectEdit(targetProject);
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div key={project.id} data-testid={`recent-project-${project.id}`}>
+                                                    <ProjectCard
+                                                        project={project}
+                                                        activeProjectId={activeProject?.id}
+                                                        isOpening={openingProjectId === project.id}
+                                                        isDeleting={deletingProjectId === project.id}
+                                                        onClick={() => {
+                                                            void handleOpenProject(project.id);
+                                                        }}
+                                                        onEdit={(event) => {
+                                                            event.stopPropagation();
+                                                            startEditingProject(project);
+                                                        }}
+                                                        onDelete={(event) => {
+                                                            event.stopPropagation();
+                                                            setProjectToDelete(project);
+                                                        }}
+                                                    />
+                                                </div>
+                                            )
                                         ))}
                                         {error && (
                                             <div className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-[12px] text-error">{error}</div>
@@ -101,14 +213,29 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                 )}
                                 <div className="flex justify-between items-center ">
                                     <div className="text-[11px] text-text-secondary">{visibleProjects.length} projects</div>
-                                    <Button
-                                        variant="primary"
-                                        onClick={() => setSurface('wizard')}
-                                        size="sm"
-                                        className="rounded-md px-4"
-                                    >
-                                        Create
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => {
+                                                void handleOpenProjectFolder();
+                                            }}
+                                            size="sm"
+                                            className="rounded-md px-3"
+                                            disabled={openingFolder || openingProjectId !== null}
+                                            title="Open project folder"
+                                        >
+                                            {openingFolder ? <Spinner size={12} /> : <FolderOpen size={14} />}
+                                            Open Folder
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => setSurface('wizard')}
+                                            size="sm"
+                                            className="rounded-md px-4"
+                                        >
+                                            Create
+                                        </Button>
+                                    </div>
                                 </div>
                             </section>
                         </div>
@@ -121,6 +248,18 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                     onDone={() => onClose?.()}
                 />
             )}
+            <ConfirmationModal
+                isOpen={Boolean(projectToDelete)}
+                onClose={() => setProjectToDelete(null)}
+                onConfirm={() => {
+                    void handleConfirmDelete();
+                }}
+                title="Remove Project"
+                message={`Remove "${projectToDelete?.name || 'this project'}" from launcher?`}
+                description="Project data on disk will be kept."
+                confirmLabel="Remove"
+                variant="danger"
+            />
         </div>
     );
 

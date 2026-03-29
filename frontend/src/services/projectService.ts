@@ -14,6 +14,8 @@ import { ENVIRONMENT_KEY } from '../lib/constants';
 
 export const ForceQuit = () => wailsGateway.ForceQuit();
 export const ConnectProjectEnvironment = (environmentKey: string) => wailsGateway.ConnectProjectEnvironment(environmentKey);
+export const GetDefaultProjectStorageRoot = () => wailsGateway.GetDefaultProjectStorageRoot();
+export const PickDirectory = (initialPath = '') => wailsGateway.PickDirectory(initialPath);
 
 function toEnvironmentKey(value: unknown, fallback: EnvironmentKey = ENVIRONMENT_KEY.LOCAL): EnvironmentKey {
     if (typeof value === 'string' && ENVIRONMENT_KEYS.includes(value as EnvironmentKey)) {
@@ -84,6 +86,7 @@ function toProject(raw: models.Project): Project {
         slug: typeof source.slug === 'string' ? source.slug : '',
         name: typeof source.name === 'string' ? source.name : '',
         description: typeof source.description === 'string' ? source.description : undefined,
+        storage_path: typeof source.storage_path === 'string' ? source.storage_path : undefined,
         tags: Array.isArray(source.tags) ? source.tags.filter((tag): tag is string => typeof tag === 'string') : [],
         created_at: typeof source.created_at === 'string' ? source.created_at : '',
         updated_at: typeof source.updated_at === 'string' ? source.updated_at : '',
@@ -142,6 +145,14 @@ export async function deleteProject(projectId: string): Promise<void> {
 export async function openProject(projectId: string): Promise<Project | null> {
     try {
         return toProject(await wailsGateway.OpenProject(projectId));
+    } catch {
+        return null;
+    }
+}
+
+export async function openProjectFromDirectory(directoryPath: string): Promise<Project | null> {
+    try {
+        return toProject(await wailsGateway.OpenProjectFromDirectory(directoryPath));
     } catch {
         return null;
     }

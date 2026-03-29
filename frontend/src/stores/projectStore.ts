@@ -18,7 +18,12 @@ interface ProjectState {
     loadProjects: () => Promise<Project[]>;
     bootstrap: () => Promise<void>;
     openProject: (projectId: string) => Promise<Project | null>;
-    createProject: (input: Pick<Project, 'name' | 'description' | 'tags'>) => Promise<Project | null>;
+    createProject: (input: {
+        name: string;
+        description?: string;
+        tags?: string[];
+        storage_path?: string;
+    }) => Promise<Project | null>;
     saveProject: (project: Project) => Promise<Project | null>;
     deleteProject: (projectId: string) => Promise<boolean>;
     setProjectEnvironment: (environmentKey: EnvironmentKey) => Promise<Project | null>;
@@ -173,6 +178,7 @@ export const useProjectStore = create<ProjectState>()(
                         slug: '',
                         name: input.name,
                         description: input.description || '',
+                        storage_path: input.storage_path || '',
                         tags: input.tags || [],
                         created_at: '',
                         updated_at: '',

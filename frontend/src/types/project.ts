@@ -66,6 +66,7 @@ export interface Project {
     slug: string;
     name: string;
     description?: string;
+    storage_path?: string;
     tags?: string[];
     created_at: string;
     updated_at: string;

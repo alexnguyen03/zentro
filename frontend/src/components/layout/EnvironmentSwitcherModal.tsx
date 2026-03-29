@@ -11,7 +11,7 @@ import { getProvider } from '../../lib/providers';
 import type { ConnectionProfile } from '../../types/connection';
 import type { EnvironmentKey } from '../../types/project';
 import { useToast } from './Toast';
-import { LoadConnections } from '../../services/connectionService';
+import { ExportConnectionPackage, LoadConnections } from '../../services/connectionService';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
@@ -42,6 +42,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const [providerFilter, setProviderFilter] = React.useState('');
     const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [saving, setSaving] = React.useState(false);
+    const [exporting, setExporting] = React.useState(false);
 
     React.useEffect(() => {
         if (!activeProject) return;
@@ -158,6 +159,19 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         }
     };
 
+    const handleExportConnection = async () => {
+        setExporting(true);
+        try {
+            const exportedPath = await ExportConnectionPackage(selectedEnvironmentKey);
+            if (!exportedPath) return;
+            toast.success(`Connection exported: ${exportedPath}`);
+        } catch (error) {
+            toast.error(`Could not export connection: ${error}`);
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (!activeProject) return null;
 
     const applyDisabled = saving || mode === 'add';
@@ -171,22 +185,35 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 className="h-[588px] w-[900px] max-w-[calc(100vw-24px)] rounded-md"
                 titleClassName="text-[20px]"
                 bodyClassName="min-h-0 overflow-hidden"
-                footerClassName="flex items-center justify-end px-3 py-2.5"
+                footerClassName="flex items-center justify-between px-3 py-2.5"
                 footer={(
-                    <Button
-                        variant="primary"
-                        onClick={() => void handleApply()}
-                        disabled={applyDisabled}
-                        className="rounded-md"
-                    >
-                        {saving ? (
-                            'Applying...'
-                        ) : (
-                            <>
-                                Apply <ArrowRight size={14} />
-                            </>
-                        )}
-                    </Button>
+                    <>
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                void handleExportConnection();
+                            }}
+                            disabled={exporting || mode === 'add'}
+                            className="rounded-md"
+                            title="Export selected environment connection"
+                        >
+                            {exporting ? 'Exporting...' : 'Export connection'}
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={() => void handleApply()}
+                            disabled={applyDisabled}
+                            className="rounded-md"
+                        >
+                            {saving ? (
+                                'Applying...'
+                            ) : (
+                                <>
+                                    Apply <ArrowRight size={14} />
+                                </>
+                            )}
+                        </Button>
+                    </>
                 )}
             >
                 <div className="grid h-full min-h-0 md:grid-cols-[228px_1fr]">

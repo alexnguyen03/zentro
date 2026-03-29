@@ -21,6 +21,8 @@ export interface AppApiGateway {
     LoadConnections(): Promise<models.ConnectionProfile[]>;
     LoadDatabasesForProfile(profileName: string): Promise<string[]>;
     SaveConnection(profile: models.ConnectionProfile): Promise<void>;
+    ImportConnectionPackage(): Promise<models.ConnectionProfile | null>;
+    ExportConnectionPackage(environmentKey: string): Promise<string>;
     TestConnection(profile: models.ConnectionProfile): Promise<void>;
     GetConnectionStatus(): Promise<ConnectionRuntimeState>;
 
@@ -87,6 +89,9 @@ export interface AppApiGateway {
     SaveProject(project: models.Project): Promise<models.Project>;
     DeleteProject(projectId: string): Promise<void>;
     OpenProject(projectId: string): Promise<models.Project>;
+    OpenProjectFromDirectory(directoryPath: string): Promise<models.Project>;
+    GetDefaultProjectStorageRoot(): Promise<string>;
+    PickDirectory(initialPath: string): Promise<string>;
     GetActiveProject(): Promise<models.Project>;
 
     // Extensions / license architecture

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, Server, Database, Plus, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, Server, Database, Plus, Upload, X } from 'lucide-react';
 import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { Spinner } from './Spinner';
@@ -10,6 +10,9 @@ interface DatabaseTreePickerProps {
     selectedProfile?: string | null;
     selectedDatabase?: string;
     onAddNew?: () => void;
+    onImport?: () => void | Promise<void>;
+    importing?: boolean;
+    importDisabled?: boolean;
 }
 
 interface ConnectionNode {
@@ -24,6 +27,9 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     selectedProfile,
     selectedDatabase,
     onAddNew,
+    onImport,
+    importing = false,
+    importDisabled = false,
 }) => {
     const [connections, setConnections] = useState<ConnectionNode[]>([]);
     const [loading, setLoading] = useState(true);
@@ -183,16 +189,31 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                         </button>
                     )}
                 </div>
-                {onAddNew && (
-                    <button
-                        type="button"
-                        onClick={onAddNew}
-                        className="cursor-pointer rounded-md border border-border/30 bg-bg-primary/40 p-1 text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary"
-                        title="Add new connection"
-                    >
-                        <Plus size={14} />
-                    </button>
-                )}
+                <div className="flex items-center gap-1">
+                    {onImport && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void onImport();
+                            }}
+                            disabled={importing || importDisabled}
+                            className="cursor-pointer rounded-md border border-border/30 bg-bg-primary/40 p-1 text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Import connection package"
+                        >
+                            {importing ? <Spinner size={14} /> : <Upload size={14} />}
+                        </button>
+                    )}
+                    {onAddNew && (
+                        <button
+                            type="button"
+                            onClick={onAddNew}
+                            className="cursor-pointer rounded-md border border-border/30 bg-bg-primary/40 p-1 text-text-secondary transition-colors hover:bg-bg-primary hover:text-text-primary"
+                            title="Add new connection"
+                        >
+                            <Plus size={14} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="flex-1 overflow-auto p-1">
