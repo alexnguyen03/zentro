@@ -26,7 +26,7 @@ import { UpdateModal } from './UpdateModal';
 import { LicenseModal } from './LicenseModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { cn } from '../../lib/cn';
-import { getEnvironmentMeta } from '../../lib/projects';
+import { getEnvironmentMeta, sortEnvironmentKeys } from '../../lib/projects';
 import { Button } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
 import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
@@ -75,10 +75,28 @@ export const Toolbar: React.FC = () => {
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
 
     const quickEnvOptions = useMemo(() => {
-        if (environments.length > 0) return environments.map((env) => env.key as EnvironmentKey);
-        if (activeProject?.default_environment_key) return [activeProject.default_environment_key as EnvironmentKey];
-        return [] as EnvironmentKey[];
-    }, [activeProject?.default_environment_key, environments]);
+        const orderedKeys: EnvironmentKey[] = [];
+        const seen = new Set<EnvironmentKey>();
+        const pushKey = (key?: EnvironmentKey | null) => {
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            orderedKeys.push(key);
+        };
+
+        (activeProject?.environments || []).forEach((env) => pushKey(env.key as EnvironmentKey));
+        environments.forEach((env) => pushKey(env.key as EnvironmentKey));
+        pushKey(activeProject?.last_active_environment_key as EnvironmentKey | undefined);
+        pushKey(activeProject?.default_environment_key as EnvironmentKey | undefined);
+        pushKey(activeEnvironmentKey as EnvironmentKey | undefined);
+
+        return sortEnvironmentKeys(orderedKeys);
+    }, [
+        activeEnvironmentKey,
+        activeProject?.default_environment_key,
+        activeProject?.last_active_environment_key,
+        activeProject?.environments,
+        environments,
+    ]);
 
     const quickEnvConnectionDetails = useMemo(() => {
         const byKey = new Map<EnvironmentKey, { host: string; database: string }>();
@@ -201,38 +219,45 @@ export const Toolbar: React.FC = () => {
     };
 
     return (
-        <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
-            {/* Left: logo + primary buttons */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-                <AppMenu
-                    trigger={<img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />}
-                    hasUpdate={hasUpdate}
-                    updateInfo={updateInfo}
-                    isChecking={isChecking}
-                    check={check}
-                    dismiss={dismiss}
-                    onOpenAbout={() => setAboutOpen(true)}
-                    onOpenLicense={() => setLicenseOpen(true)}
-                    onOpenUpdateModal={setUpdateModalOpen}
-                />
-
-                <Button
-                    variant="ghost" size="icon"
-                    title={viewMode ? 'View Mode ON (Click to disable)' : 'Enable View Mode (Read-only)'}
-                    aria-pressed={viewMode}
-                    className={cn('relative', viewMode && 'text-warning')}
-                    onClick={() => { void handleToggleViewMode(); }}
+        <div className="h-8 grid grid-cols-10 items-center flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
+            {/* Left: 3/10 */}
+            <div
+                className="col-span-3 min-w-0 flex items-center"
+                style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}
+            >
+                <div
+                    className="flex items-center gap-1.5"
+                    style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
-                    {viewMode ? <Eye size={14} className="drop-shadow-[0_0_4px_rgba(245,158,11,0.55)]" /> : <Lock size={14} />}
-                    {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
-                </Button>
+                    <AppMenu
+                        trigger={<img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />}
+                        hasUpdate={hasUpdate}
+                        updateInfo={updateInfo}
+                        isChecking={isChecking}
+                        check={check}
+                        dismiss={dismiss}
+                        onOpenAbout={() => setAboutOpen(true)}
+                        onOpenLicense={() => setLicenseOpen(true)}
+                        onOpenUpdateModal={setUpdateModalOpen}
+                    />
 
+                    <Button
+                        variant="ghost" size="icon"
+                        title={viewMode ? 'View Mode ON (Click to disable)' : 'Enable View Mode (Read-only)'}
+                        aria-pressed={viewMode}
+                        className={cn('relative', viewMode && 'text-warning')}
+                        onClick={() => { void handleToggleViewMode(); }}
+                    >
+                        {viewMode ? <Eye size={14} className="drop-shadow-[0_0_4px_rgba(245,158,11,0.55)]" /> : <Lock size={14} />}
+                        {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
+                    </Button>
+                </div>
             </div>
 
-            {/* Center: project / connection pill + quick env switcher */}
-            <div className="flex-1 flex items-center justify-center h-full" style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}>
+            {/* Center: 4/10 - project / connection pill + quick env switcher */}
+            <div className="col-span-4 min-w-0 flex items-center justify-center h-full">
                 <div
-                    className="flex justify-center relative h-10/12 my-1"
+                    className="flex flex-1 justify-center relative h-10/12 my-1"
                     style={{ width: 'min(520px, 44vw)', '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
                     <div
@@ -251,7 +276,7 @@ export const Toolbar: React.FC = () => {
                         {/* Project button */}
                         <button
                             type="button"
-                            className={cn('h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-bg-secondary/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
+                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-bg-secondary/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
                             title="Open Project Hub"
                             onClick={() => { setQuickEnvOpen(false); emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); }}
                         >
@@ -269,7 +294,7 @@ export const Toolbar: React.FC = () => {
                         <button
                             type="button"
                             className={cn(
-                                'relative h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
+                                'relative z-[1] h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
                                 connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
                                 !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border',
                             )}
@@ -279,20 +304,22 @@ export const Toolbar: React.FC = () => {
                             disabled={!activeProject}
                             title="Switch environment"
                         >
-                            <div className="min-w-0 flex-1 flex items-center justify-center overflow-hidden text-text-secondary text-[11px] leading-none">
-                                <div className="min-w-0 inline-flex items-center justify-center gap-1.5">
-                                    <span className="truncate max-w-[120px] text-center leading-none">{serverLabel}</span>
-                                    <Server size={13} className="shrink-0 translate-y-[0.5px]" />
-                                    <Database size={13} className="shrink-0 translate-y-[0.5px]" />
-                                    <span className="truncate max-w-[120px] text-center leading-none">{databaseLabel}</span>
-                                </div>
-                            </div>
+                            <span className="sr-only">Switch environment</span>
                         </button>
+
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-[11px] leading-none text-text-secondary">
+                            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-1.5">
+                                <span className="truncate text-end leading-none">{serverLabel}</span>
+                                <Server size={13} className="shrink-0 translate-y-[0.5px]" />
+                                <Database size={13} className="shrink-0 translate-y-[0.5px]" />
+                                <span className="truncate leading-none">{databaseLabel}</span>
+                            </div>
+                        </div>
 
                         {/* Environment config button */}
                         <button
                             type="button"
-                            className="relative h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-bg-secondary/40 transition-colors leading-none"
+                            className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-bg-secondary/40 transition-colors leading-none"
                             title="Configure environment bindings"
                             onClick={() => {
                                 setQuickEnvOpen(false);
@@ -305,7 +332,6 @@ export const Toolbar: React.FC = () => {
                                     {activeEnvironmentKey || activeProject.default_environment_key}
                                 </span>
                             )}
-                            <SlidersHorizontal size={12} className="translate-y-[0.5px]" />
                         </button>
 
                         {/* Quick env dropdown */}
@@ -324,29 +350,33 @@ export const Toolbar: React.FC = () => {
                                             <button
                                                 key={envKey} type="button"
                                                 className={cn(
-                                                    'w-full flex cursor-pointer items-start justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                    'relative w-full cursor-pointer rounded-md px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
                                                     isActive ? 'bg-accent/10 border border-accent/35 text-text-primary' : isHighlighted ? 'bg-bg-primary/60 text-text-primary' : 'hover:bg-bg-primary/50 text-text-secondary',
                                                 )}
                                                 onClick={() => void handleQuickSwitchEnv(envKey)}
                                                 onMouseEnter={() => setQuickEnvHighlightedIndex(index)}
                                             >
-                                                <div className="min-w-0 flex-1">
+                                                <div className="min-w-0">
                                                     <div className="flex items-center gap-2 min-w-0">
                                                         <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
                                                         <span className="truncate font-semibold">{meta.label}</span>
                                                     </div>
-                                                    <div className="mt-1 flex items-center gap-3 text-[10px] text-text-secondary">
-                                                        <span className="inline-flex min-w-0 items-center gap-1">
+                                                    <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-text-secondary">
+                                                        <span className="inline-flex min-w-0 w-full items-center gap-1">
                                                             <Server size={11} className="shrink-0" />
-                                                            <span className="truncate max-w-[140px]">{details?.host || 'No host'}</span>
+                                                            <span className="truncate" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
                                                         </span>
-                                                        <span className="inline-flex min-w-0 items-center gap-1">
+                                                        <span className="inline-flex min-w-0 w-full items-center gap-1">
                                                             <Database size={11} className="shrink-0" />
-                                                            <span className="truncate max-w-[130px]">{details?.database || 'No DB'}</span>
+                                                            <span className="truncate" title={details?.database || 'No DB'}>{details?.database || 'No DB'}</span>
                                                         </span>
                                                     </div>
                                                 </div>
-                                                {isActive && <span className="text-[10px] text-accent font-semibold">Active</span>}
+                                                {isActive && (
+                                                    <span className="pointer-events-none absolute right-2.5 top-2 text-[10px] font-semibold text-accent">
+                                                        Active
+                                                    </span>
+                                                )}
                                             </button>
                                         );
                                     })}
@@ -359,21 +389,29 @@ export const Toolbar: React.FC = () => {
                 {environmentSwitcherOpen && <EnvironmentSwitcherModal onClose={() => setEnvironmentSwitcherOpen(false)} />}
             </div>
 
-            {/* Right: panel toggles + window controls */}
-            <div className="flex items-center shrink-0">
-                <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
-                    <Settings size={14} />
-                </Button>
-                <Button variant="ghost" size="icon" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
-                    <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
-                </Button>
-                <Button variant="ghost" size="icon" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
-                    <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
-                </Button>
-                <Button variant="ghost" size="icon" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
-                    <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
-                </Button>
-                <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />
+            {/* Right: 3/10 */}
+            <div
+                className="col-span-3 min-w-0 flex items-center justify-end"
+                style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}
+            >
+                <div
+                    className="flex items-center"
+                    style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
+                >
+                    <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
+                        <Settings size={14} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
+                        <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
+                        <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
+                        <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
+                    </Button>
+                    <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />
+                </div>
             </div>
 
             {/* Modals */}

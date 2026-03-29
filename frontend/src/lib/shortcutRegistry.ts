@@ -4,7 +4,9 @@ import { useConnectionStore } from '../stores/connectionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import { DOM_EVENT, TAB_TYPE } from './constants';
+import { useEnvironmentStore } from '../stores/environmentStore';
+import { useProjectStore } from '../stores/projectStore';
+import { DOM_EVENT, ENVIRONMENT_KEY, type EnvironmentKey, TAB_TYPE } from './constants';
 import { emitCommand } from './commandBus';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
@@ -27,6 +29,11 @@ export type BuiltInCommandId =
   | 'layout.toggleRightSidebar'
   | 'layout.toggleResultPanel'
   | 'connection.openWorkspaces'
+  | 'connection.switchEnvLocal'
+  | 'connection.switchEnvDevelopment'
+  | 'connection.switchEnvTesting'
+  | 'connection.switchEnvStaging'
+  | 'connection.switchEnvProduction'
   | 'connection.beginTx'
   | 'connection.commitTx'
   | 'connection.rollbackTx'
@@ -44,6 +51,19 @@ export interface CommandRegistryEntry {
 }
 
 export type ShortcutRegistryEntry = CommandRegistryEntry;
+
+async function switchProjectEnvironmentShortcut(environmentKey: EnvironmentKey) {
+  const projectStore = useProjectStore.getState();
+  const environmentStore = useEnvironmentStore.getState();
+  const activeProject = projectStore.activeProject;
+  if (!activeProject) return;
+
+  if (environmentStore.activeEnvironmentKey !== environmentKey) {
+    environmentStore.setActiveEnvironment(environmentKey);
+  }
+
+  await projectStore.setProjectEnvironment(environmentKey);
+}
 
 function getBaseCommandRegistry(): CommandRegistryEntry[] {
   return [
@@ -230,6 +250,51 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+C',
     action: () => { emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER); },
+  },
+  {
+    id: 'connection.switchEnvLocal',
+    label: 'Switch Environment: Local',
+    category: 'Connection',
+    defaultBinding: 'Alt+Shift+L',
+    action: async () => {
+      await switchProjectEnvironmentShortcut(ENVIRONMENT_KEY.LOCAL);
+    },
+  },
+  {
+    id: 'connection.switchEnvDevelopment',
+    label: 'Switch Environment: Development',
+    category: 'Connection',
+    defaultBinding: 'Alt+Shift+D',
+    action: async () => {
+      await switchProjectEnvironmentShortcut(ENVIRONMENT_KEY.DEVELOPMENT);
+    },
+  },
+  {
+    id: 'connection.switchEnvTesting',
+    label: 'Switch Environment: Testing',
+    category: 'Connection',
+    defaultBinding: 'Alt+Shift+T',
+    action: async () => {
+      await switchProjectEnvironmentShortcut(ENVIRONMENT_KEY.TESTING);
+    },
+  },
+  {
+    id: 'connection.switchEnvStaging',
+    label: 'Switch Environment: Staging',
+    category: 'Connection',
+    defaultBinding: 'Alt+Shift+G',
+    action: async () => {
+      await switchProjectEnvironmentShortcut(ENVIRONMENT_KEY.STAGING);
+    },
+  },
+  {
+    id: 'connection.switchEnvProduction',
+    label: 'Switch Environment: Production',
+    category: 'Connection',
+    defaultBinding: 'Alt+Shift+P',
+    action: async () => {
+      await switchProjectEnvironmentShortcut(ENVIRONMENT_KEY.PRODUCTION);
+    },
   },
   {
     id: 'connection.beginTx',

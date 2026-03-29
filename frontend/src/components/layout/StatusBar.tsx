@@ -98,16 +98,39 @@ export const StatusBar: React.FC = () => {
                 />
             )}
             <div className="flex items-center gap-3 font-medium text-[11px] text-white min-w-0">
-                <span className="uppercase text-[10px] opacity-80 shrink-0">{txLabel}</span>
-                <span className="uppercase text-[10px] opacity-80 shrink-0">Q: {queryExecutionState}</span>
+                <span
+                    className="uppercase text-[10px] opacity-80 shrink-0 cursor-help"
+                    title="Transaction status (none/active/error)"
+                >
+                    {txLabel}
+                </span>
+                <span
+                    className="uppercase text-[10px] opacity-80 shrink-0 cursor-help"
+                    title="Query execution state (queued/running/streaming/done/cancelled/failed)"
+                >
+                    Q: {queryExecutionState}
+                </span>
                 {firstRowLatencyMs !== null && (
-                    <span className="uppercase text-[10px] opacity-80 shrink-0">FROW: {firstRowLatencyMs}ms</span>
+                    <span
+                        className="uppercase text-[10px] opacity-80 shrink-0 cursor-help"
+                        title="First row latency: time from query start to first row received"
+                    >
+                        FROW: {firstRowLatencyMs}ms
+                    </span>
                 )}
                 {queryFailureCode !== 'none' && (
-                    <span className="uppercase text-[10px] opacity-90 shrink-0 text-red-100">ERR: {queryFailureCode}</span>
+                    <span
+                        className="uppercase text-[10px] opacity-90 shrink-0 text-red-100 cursor-help"
+                        title="Latest query failure category"
+                    >
+                        ERR: {queryFailureCode}
+                    </span>
                 )}
                 {message && (
-                    <span className="bg-white/10 px-2 py-0.5 rounded-md animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0">
+                    <span
+                        className="bg-white/10 px-2 py-0.5 rounded-md animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0 cursor-help"
+                        title={message}
+                    >
                         {message}
                     </span>
                 )}

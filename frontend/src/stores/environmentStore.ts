@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { withStoreLogger } from './logger';
 import type { EnvironmentKey, Project, ProjectEnvironment } from '../types/project';
-import { getEnvironmentLabel } from '../lib/projects';
+import { getEnvironmentLabel, getEnvironmentOrderIndex } from '../lib/projects';
 import { ENVIRONMENT_KEY } from '../lib/constants';
 
 interface EnvironmentState {
@@ -37,9 +37,10 @@ export const useEnvironmentStore = create<EnvironmentState>()(
                 return;
             }
 
-            const environments = project.environments?.length
+            const environments = (project.environments?.length
                 ? project.environments
-                : [buildFallbackEnvironment(project)];
+                : [buildFallbackEnvironment(project)]
+            ).slice().sort((a, b) => getEnvironmentOrderIndex(a.key) - getEnvironmentOrderIndex(b.key));
 
             const requestedKey = project.last_active_environment_key || project.default_environment_key || environments[0]?.key || ENVIRONMENT_KEY.LOCAL;
             const activeEnvironmentKey = environments.some((environment) => environment.key === requestedKey)

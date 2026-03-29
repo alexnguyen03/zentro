@@ -3,11 +3,16 @@ import type { EnvironmentKey } from '../types/project';
 
 export const ENVIRONMENT_KEYS: EnvironmentKey[] = [
     ENVIRONMENT_KEY.LOCAL,
-    ENVIRONMENT_KEY.TESTING,
     ENVIRONMENT_KEY.DEVELOPMENT,
+    ENVIRONMENT_KEY.TESTING,
     ENVIRONMENT_KEY.STAGING,
     ENVIRONMENT_KEY.PRODUCTION,
 ];
+
+const ENVIRONMENT_ORDER_INDEX = ENVIRONMENT_KEYS.reduce<Record<EnvironmentKey, number>>((acc, key, index) => {
+    acc[key] = index;
+    return acc;
+}, {} as Record<EnvironmentKey, number>);
 
 const ENVIRONMENT_META: Record<EnvironmentKey, { label: string; description: string; colorClass: string }> = {
     [ENVIRONMENT_KEY.LOCAL]: {
@@ -28,7 +33,7 @@ const ENVIRONMENT_META: Record<EnvironmentKey, { label: string; description: str
     [ENVIRONMENT_KEY.STAGING]: {
         label: 'Staging',
         description: 'Pre-production validation with more caution and cleaner parity expectations.',
-        colorClass: 'text-amber-400 border-amber-400/40 bg-amber-400/10',
+        colorClass: 'text-amber-600 border-amber-500/70 bg-amber-500/18',
     },
     [ENVIRONMENT_KEY.PRODUCTION]: {
         label: 'Production',
@@ -54,4 +59,13 @@ export function getEnvironmentMeta(key?: string | null) {
 
 export function getEnvironmentLabel(key?: string | null) {
     return getEnvironmentMeta(key).label;
+}
+
+export function getEnvironmentOrderIndex(key?: EnvironmentKey | null): number {
+    if (!key) return Number.MAX_SAFE_INTEGER;
+    return ENVIRONMENT_ORDER_INDEX[key] ?? Number.MAX_SAFE_INTEGER;
+}
+
+export function sortEnvironmentKeys(keys: EnvironmentKey[]): EnvironmentKey[] {
+    return [...keys].sort((a, b) => getEnvironmentOrderIndex(a) - getEnvironmentOrderIndex(b));
 }

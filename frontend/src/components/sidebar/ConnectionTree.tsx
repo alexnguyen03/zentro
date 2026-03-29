@@ -364,7 +364,7 @@ export const ConnectionTree: React.FC = () => {
             </div>
 
             <div className="flex-1 min-h-0 flex flex-col p-1.5 gap-1.5 overflow-hidden">
-                <div className="shrink-0 rounded-md bg-bg-secondary/60 p-0.5">
+                <div className="shrink-0 pb-1 border-b border-border/70 ">
                     {categories.map((category) => (
                         <button
                             key={category.id}
