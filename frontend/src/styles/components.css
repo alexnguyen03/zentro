@@ -170,13 +170,19 @@
 }
 
 .rt-row-deleted td {
-    opacity: 0.4;
-    background: color-mix(in srgb, var(--status-error) 5%, transparent) !important;
-    text-decoration: line-through;
+    background: color-mix(in srgb, var(--status-error) 6%, var(--surface-app)) !important;
+}
+
+.result-table-tanstack tr.rt-row-alt.rt-row-deleted td {
+    background: color-mix(in srgb, var(--status-error) 6%, var(--surface-panel)) !important;
 }
 
 .result-table-tanstack tr.rt-row-selected td {
     background: color-mix(in srgb, var(--interactive-primary) 8%, transparent);
+}
+
+.result-table-tanstack tr.rt-row-selected td.rt-index-sticky {
+    background: color-mix(in srgb, var(--interactive-primary) 8%, var(--surface-panel)) !important;
 }
 
 .rt-index-sticky {
@@ -188,6 +194,8 @@
 
 .result-table-tanstack td.rt-index-sticky {
     z-index: calc(var(--layer-table-sticky) + 1);
+    background: var(--surface-panel) !important;
+    box-shadow: 1px 0 0 var(--border-default);
 }
 
 .result-table-tanstack th.rt-index-sticky {
@@ -361,10 +369,6 @@
     background: color-mix(in srgb, var(--interactive-primary) 40%, transparent);
 }
 
-.result-table-tanstack tr.rt-row-selected td:first-child {
-    border-left: 2px solid var(--interactive-primary);
-}
-
 .result-table-tanstack tr.rt-row-draft td {
     background: color-mix(in srgb, var(--status-success) 10%, var(--surface-app)) !important;
 }
@@ -379,14 +383,6 @@
 
 .result-table-tanstack tr.rt-row-draft.rt-row-selected td {
     background: color-mix(in srgb, var(--status-success) 16%, var(--surface-app)) !important;
-}
-
-.result-table-tanstack tr.rt-row-draft td:first-child {
-    border-left: 2px solid var(--status-success) !important;
-}
-
-.result-table-tanstack tr.rt-row-draft.rt-row-selected td:first-child {
-    border-left: 3px solid var(--status-success) !important;
 }
 
 /* ── Skeleton shimmer animation ────────────────────────── */

@@ -574,6 +574,20 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (!executionStartedAt) return '';
         return `Execution started at ${new Date(executionStartedAt).toLocaleString()}`;
     })();
+    const pendingChangeCounts = (() => {
+        const updatedRowIndices = new Set<number>();
+        editedCells.forEach((_, cellId) => {
+            const [rowIndexRaw] = cellId.split(':');
+            const rowIndex = Number(rowIndexRaw);
+            if (!Number.isFinite(rowIndex) || deletedRows.has(rowIndex)) return;
+            updatedRowIndices.add(rowIndex);
+        });
+        return {
+            add: draftRows.length,
+            update: updatedRowIndices.size,
+            del: deletedRows.size,
+        };
+    })();
 
     // ── Main render ───────────────────────────────────────────────────────────
     return (
@@ -675,15 +689,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     )}
                 </div>
 
-                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
-                    {hasPendingChanges && (
-                        <span className="text-[11px] text-warning flex items-center">
-                            {editedCells.size + deletedRows.size + draftRows.length} pending change(s)
-                        </span>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-3">
                     {exportJob?.status === 'running' && (
                         <div className="flex items-center gap-2 text-[11px] border border-border rounded-md px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
@@ -693,6 +699,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 {exportJob.queuedCount ? ` +${exportJob.queuedCount} queued` : ''}
                             </span>
                         </div>
+                    )}
+                    {hasPendingChanges && (
+                        <span className="text-[11px] text-warning">
+                            Add: {pendingChangeCounts.add} | Update: {pendingChangeCounts.update} | Del: {pendingChangeCounts.del}
+                        </span>
                     )}
                 </div>
             </div>
