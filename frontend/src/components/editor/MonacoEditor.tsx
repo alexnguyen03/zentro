@@ -9,6 +9,7 @@ import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
 import { registerSqlFolding } from '../../lib/monaco/sqlFolding';
+import { registerSqlCompletionSchemaContextCommand } from '../../lib/monaco/sqlSuggestionSchemaContext';
 import { getSchemasForActiveDatabase } from '../../lib/monaco/sqlCompletionIdentifiers';
 import { resolveSqlObjectNavigationAtPosition, resolveTableNavigationAtPosition, type SchemaObjectKind, type TableNavigationMatch } from '../../lib/monaco/sqlTableNavigation';
 import { runCtrlClickTableNavigation } from './monacoTableNavigation';
@@ -660,6 +661,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         };
 
         // Register SQL completion provider
+        registerSqlCompletionSchemaContextCommand(monacoInstance);
         registerContextAwareSQLCompletion(monacoInstance);
         registerSqlFolding(monacoInstance);
 

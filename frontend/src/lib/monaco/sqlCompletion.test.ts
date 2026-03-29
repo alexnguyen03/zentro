@@ -242,7 +242,7 @@ describe('sqlCompletion', () => {
         expect(target?.insertText).toBe('order_items oi');
     });
 
-    it('always inserts schema-qualified table names when active db has multiple schemas', async () => {
+    it('keeps table insert text unqualified when name is unique across schemas', async () => {
         const text = 'SELECT * FROM inventory_bal';
         const analysis = analyzeSqlText(text, text.length);
         const items = await buildSqlCompletionItems(
@@ -260,7 +260,93 @@ describe('sqlCompletion', () => {
         );
 
         const target = items.find((item) => String(item.label) === 'inventory_balance');
-        expect(target?.insertText).toBe('"inv"."inventory_balance" ib');
+        expect(target?.insertText).toBe('inventory_balance ib');
+    });
+
+    it('auto-qualifies insert text when table name is duplicated across schemas', async () => {
+        const text = 'SELECT * FROM us';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'us',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [
+                    { Name: 'inv', Tables: ['users'], Views: [] },
+                    { Name: 'public', Tables: ['users'], Views: [] },
+                ],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'inv.users');
+        expect(target?.insertText).toBe('"inv"."users" u');
+    });
+
+    it('uses persisted current schema as fallback context for duplicate names', async () => {
+        const text = 'SELECT * FROM us';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'us',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                currentSchema: 'inv',
+                schemas: [
+                    { Name: 'inv', Tables: ['users'], Views: [] },
+                    { Name: 'public', Tables: ['users'], Views: [] },
+                ],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'inv.users');
+        expect(target?.insertText).toBe('users u');
+    });
+
+    it('keeps duplicate table unqualified when current statement schema context matches', async () => {
+        const text = 'SELECT * FROM inventory_balance ib JOIN us';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'us',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory_balance', 'users'], Views: [] },
+                    { Name: 'public', Tables: ['users'], Views: [] },
+                ],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'inv.users');
+        expect(target?.insertText).toBe('users u');
+    });
+
+    it('keeps duplicate table qualified when selected schema differs from current context schema', async () => {
+        const text = 'SELECT * FROM inventory_balance ib JOIN us';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'us',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory_balance'], Views: [] },
+                    { Name: 'public', Tables: ['users'] as string[], Views: [] },
+                    { Name: 'ops', Tables: ['users'] as string[], Views: [] },
+                ],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'public.users');
+        expect(target?.insertText).toBe('"public"."users" u');
     });
 
     it('prioritizes tables over keywords for matching prefixes', async () => {
@@ -548,6 +634,40 @@ describe('sqlCompletion', () => {
         expect(String(joinSnippet?.insertText)).toContain('INNER JOIN inv.inventory_document_header idh ON ich.document_id = idh.document_id');
     });
 
+    it('does not infer schema for join snippets when unqualified source is ambiguous', async () => {
+        const text = 'SELECT * FROM inventory_balance ib jo';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'jo',
+            createRange(text.length),
+            {
+                ...env,
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory_balance', 'inventory_lot_balance'], Views: [] },
+                    { Name: 'public', Tables: ['inventory_balance'], Views: [] },
+                ],
+                fetchRelationships: vi.fn(async (schemaName: string, tableName: string) => {
+                    if (schemaName === 'inv' && tableName === 'inventory_balance') {
+                        return [{
+                            ConstraintName: 'fk_inventory_balance_lot_balance',
+                            SourceSchema: 'inv',
+                            SourceTable: 'inventory_balance',
+                            SourceColumn: 'balance_id',
+                            TargetSchema: 'inv',
+                            TargetTable: 'inventory_lot_balance',
+                            TargetColumn: 'balance_id',
+                        }];
+                    }
+                    return [];
+                }),
+            },
+        );
+
+        expect(items.some((item) => String(item.label).startsWith('JOIN inv.inventory_lot_balance'))).toBe(false);
+        expect(items.some((item) => String(item.label) === 'JOIN')).toBe(true);
+    });
+
     it('always includes keyword suggestions when active db schema is missing', async () => {
         const text = 'sel';
         const analysis = analyzeSqlText(text, text.length);
@@ -611,6 +731,27 @@ describe('sqlCompletion', () => {
             const target = items.find((item) => String(item.label) === 'sales order');
             expect(target?.insertText).toBe(expected);
         }
+    });
+
+    it('keeps spaced table names unqualified when unique across schemas', async () => {
+        const text = 'SELECT * FROM inv';
+        const analysis = analyzeSqlText(text, text.length);
+        const items = await buildSqlCompletionItems(
+            analysis,
+            'inv',
+            createRange(text.length),
+            {
+                ...env,
+                driver: 'postgres',
+                schemas: [
+                    { Name: 'inv', Tables: ['inventory balance'], Views: [] },
+                    { Name: 'public', Tables: ['users'], Views: [] },
+                ],
+            },
+        );
+
+        const target = items.find((item) => String(item.label) === 'inventory balance');
+        expect(target?.insertText).toBe('"inventory balance" ib');
     });
 
     it('uses strict db context key when resolving schemas', () => {

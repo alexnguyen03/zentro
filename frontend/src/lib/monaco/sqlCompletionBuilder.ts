@@ -18,6 +18,7 @@ import {
     normalizeInsertClause,
 } from './sqlCompletionBuilderUtils';
 import { buildJoinSuggestionItems } from './sqlCompletionJoinSuggestions';
+import { SQL_COMPLETION_TABLE_SELECTED_COMMAND_ID } from './sqlSuggestionSchemaContext';
 import { TableCompletionItem } from './sqlSuggestionTableDocs';
 import { CompletionKind, SqlAnalysis, SqlCompletionBuildOptions, SqlCompletionEnv, SuggestionRecord, SqlSourceRef } from './sqlCompletionTypes';
 
@@ -87,13 +88,42 @@ export async function buildSqlCompletionItems(
         (DRIVER_SQL_KEYWORDS[driverKey] || []).forEach((keyword) => addKeyword(keyword, keyword, 255));
     };
 
+    const inferSourceSchemaName = (source: SqlSourceRef): string => {
+        if (source.schemaName) return normalizeIdentifier(source.schemaName);
+        if (!(source.kind === 'table' || source.kind === 'view')) return '';
+        const matches = findCatalogMatches(env.schemas, source.name);
+        if (matches.length === 0) return '';
+        const preferredKind = source.kind === 'view' ? 'view' : 'table';
+        const preferredMatches = matches.filter((match) => match.kind === preferredKind);
+        if (preferredMatches.length === 1) return normalizeIdentifier(preferredMatches[0].schemaName);
+        if (preferredMatches.length === 0 && matches.length === 1) return normalizeIdentifier(matches[0].schemaName);
+        return '';
+    };
+
+    const statementSchemaContext = (() => {
+        const schemas = new Set<string>();
+        analysis.sources.forEach((source) => {
+            const inferred = inferSourceSchemaName(source);
+            if (inferred) schemas.add(inferred);
+        });
+        return schemas;
+    })();
+    const currentSchemaFromState = normalizeIdentifier(env.currentSchema || '');
+    const effectiveContextSchema = statementSchemaContext.size === 1
+        ? Array.from(statementSchemaContext)[0]
+        : statementSchemaContext.size === 0
+            ? currentSchemaFromState
+            : '';
+
     const buildTableItems = (options?: { withAlias?: boolean }) => {
         const catalog = buildCatalogIndex(env.schemas);
         const items: Array<{ item: TableCompletionItem; priority: number }> = [];
         for (const entry of catalog.entries) {
             const label = entry.duplicateCount > 1 ? `${entry.schemaName}.${entry.name}` : entry.name;
             const detail = `${entry.kind === 'view' ? 'View' : 'Table'} - ${entry.schemaName}`;
-            const forceQualifiedBySchema = env.schemas.length > 1 || entry.duplicateCount > 1;
+            const entrySchema = normalizeIdentifier(entry.schemaName);
+            const forceQualifiedBySchema = entry.duplicateCount > 1
+                && (!effectiveContextSchema || effectiveContextSchema !== entrySchema);
             const qualifiedName = forceQualifiedBySchema
                 ? `${quoteIdentifierForDriver(entry.schemaName, env.driver, true)}.${quoteIdentifierForDriver(entry.name, env.driver, true)}`
                 : quoteIdentifierForDriver(entry.name, env.driver);
@@ -107,6 +137,13 @@ export async function buildSqlCompletionItems(
                     detail,
                     insertText,
                     range,
+                    command: {
+                        id: SQL_COMPLETION_TABLE_SELECTED_COMMAND_ID,
+                        title: 'set sql schema context',
+                        arguments: [{
+                            schemaName: entry.schemaName,
+                        }],
+                    },
                     __zentroTableMeta: {
                         schemaName: entry.schemaName,
                         tableName: entry.name,

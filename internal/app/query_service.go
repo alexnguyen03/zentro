@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,14 +43,15 @@ type queryStatement struct {
 }
 
 type QueryService struct {
-	ctx           context.Context
-	logger        *slog.Logger
-	getPrefs      func() utils.Preferences
-	getDB         func() *sql.DB
-	getExecutor   func() sqlExecutor
-	getDriver     func() string
-	appendHistory func(query string, rowCount int64, dur time.Duration, err error)
-	emitter       EventEmitter
+	ctx              context.Context
+	logger           *slog.Logger
+	getPrefs         func() utils.Preferences
+	getDB            func() *sql.DB
+	getExecutor      func() sqlExecutor
+	getDriver        func() string
+	getCurrentSchema func() string
+	appendHistory    func(query string, rowCount int64, dur time.Duration, err error)
+	emitter          EventEmitter
 
 	sessions   map[string]*QuerySession
 	sessionsMu sync.Mutex
@@ -64,22 +66,87 @@ type QueryService struct {
 func NewQueryService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
 	getDB func() *sql.DB, getExecutor func() sqlExecutor, getDriver func() string,
+	getCurrentSchema func() string,
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error),
 	emitter EventEmitter,
 ) *QueryService {
 	return &QueryService{
-		ctx:           ctx,
-		logger:        logger,
-		getPrefs:      getPrefs,
-		getDB:         getDB,
-		getExecutor:   getExecutor,
-		getDriver:     getDriver,
-		appendHistory: appendHistory,
-		emitter:       emitter,
-		sessions:      make(map[string]*QuerySession),
-		activeQueries: make(map[string]string),
-		cancelledTabs: make(map[string]struct{}),
+		ctx:              ctx,
+		logger:           logger,
+		getPrefs:         getPrefs,
+		getDB:            getDB,
+		getExecutor:      getExecutor,
+		getDriver:        getDriver,
+		getCurrentSchema: getCurrentSchema,
+		appendHistory:    appendHistory,
+		emitter:          emitter,
+		sessions:         make(map[string]*QuerySession),
+		activeQueries:    make(map[string]string),
+		cancelledTabs:    make(map[string]struct{}),
 	}
+}
+
+func quotePostgresIdentifier(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
+
+func (s *QueryService) currentSchema() string {
+	if s.getCurrentSchema == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.getCurrentSchema())
+}
+
+func (s *QueryService) applySessionContext(ctx context.Context, executor sqlExecutor) error {
+	if strings.ToLower(s.getDriver()) != constant.DriverPostgres {
+		return nil
+	}
+	schema := s.currentSchema()
+	if schema == "" {
+		return nil
+	}
+
+	searchPath := quotePostgresIdentifier(schema)
+	if !strings.EqualFold(schema, "public") {
+		searchPath += ", public"
+	}
+
+	if _, err := executor.ExecContext(ctx, "SET search_path TO "+searchPath); err != nil {
+		return fmt.Errorf("set search_path: %w", err)
+	}
+	return nil
+}
+
+func (s *QueryService) prepareExecutor(ctx context.Context, executor sqlExecutor) (sqlExecutor, func(), error) {
+	if strings.ToLower(s.getDriver()) != constant.DriverPostgres {
+		return executor, func() {}, nil
+	}
+	schema := s.currentSchema()
+	if schema == "" {
+		return executor, func() {}, nil
+	}
+
+	if dbExecutor, ok := executor.(*sql.DB); ok {
+		conn, err := dbExecutor.Conn(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := s.applySessionContext(ctx, conn); err != nil {
+			_ = conn.Close()
+			return nil, nil, err
+		}
+		return conn, func() {
+			resetCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, _ = conn.ExecContext(resetCtx, "RESET search_path")
+			_ = conn.Close()
+		}, nil
+	}
+
+	if err := s.applySessionContext(ctx, executor); err != nil {
+		return nil, nil, err
+	}
+	return executor, func() {}, nil
 }
 
 func (s *QueryService) SetContext(ctx context.Context) {
@@ -230,12 +297,20 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 			}
 
 			start := time.Now()
+			statementExecutor, releaseExecutor, prepErr := s.prepareExecutor(ctx, executor)
+			if prepErr != nil {
+				wrappedErr := fmt.Errorf("prepare query context: %w", prepErr)
+				s.emitDoneWithMore(statement, 0, time.Since(start), dbpkg.IsSelectQuery(statement.Text), false, wrappedErr)
+				return
+			}
+
 			var err error
 			if dbpkg.IsSelectQuery(statement.Text) {
-				err = s.streamSelect(ctx, executor, statement, 0, start)
+				err = s.streamSelect(ctx, statementExecutor, statement, 0, start)
 			} else {
-				err = s.execNonSelect(ctx, executor, statement, start)
+				err = s.execNonSelect(ctx, statementExecutor, statement, start)
 			}
+			releaseExecutor()
 			if err != nil || ctx.Err() != nil {
 				return
 			}

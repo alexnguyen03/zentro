@@ -2,6 +2,8 @@ import { languages } from 'monaco-editor';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useTemplateStore } from '../../stores/templateStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { analyzeSqlText } from './sqlCompletionAnalysis';
 import { buildSqlCompletionItems } from './sqlCompletionBuilder';
 import { getSchemasForActiveDatabase } from './sqlCompletionIdentifiers';
@@ -43,6 +45,9 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
             const profile = useConnectionStore.getState().activeProfile;
             const profileKey = profile?.name ?? '';
             const dbName = profile?.db_name ?? '';
+            const activeProject = useProjectStore.getState().activeProject;
+            const activeEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey || activeProject?.default_environment_key;
+            const currentSchema = activeProject?.environments?.find((environment) => environment.key === activeEnvironmentKey)?.last_schema || '';
             const schemas = getSchemasForActiveDatabase(useSchemaStore.getState().trees, profileKey, dbName);
             const fetchColumns = async (schemaName: string, tableName: string) => {
                 if (shouldAbort()) return [];
@@ -57,7 +62,7 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
                 analysis,
                 word.word || '',
                 range,
-                { monaco, schemas, driver: profile?.driver || '', profileKey, dbName, fetchColumns, fetchRelationships, templates },
+                { monaco, schemas, driver: profile?.driver || '', profileKey, dbName, currentSchema, fetchColumns, fetchRelationships, templates },
                 { shouldAbort },
             );
             if (shouldAbort()) return { suggestions: [] };

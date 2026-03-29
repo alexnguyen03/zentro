@@ -1,4 +1,4 @@
-﻿package app
+package app
 
 import (
 	"context"
@@ -24,13 +24,14 @@ type QuerySession struct {
 
 // App is the Wails application struct.
 type App struct {
-	ctx     context.Context
-	logger  *slog.Logger
-	db      *sql.DB
-	profile *models.ConnectionProfile
-	project *models.Project
-	draft   []*models.ConnectionProfile
-	prefs   utils.Preferences
+	ctx                   context.Context
+	logger                *slog.Logger
+	db                    *sql.DB
+	profile               *models.ConnectionProfile
+	project               *models.Project
+	currentEnvironmentKey models.EnvironmentKey
+	draft                 []*models.ConnectionProfile
+	prefs                 utils.Preferences
 
 	forceQuit bool
 	emitter   EventEmitter
@@ -94,6 +95,7 @@ func NewApp() *App {
 			}
 			return ""
 		},
+		func() string { return a.currentProjectSchema() },
 		a.history.AppendEntry,
 		a.emitter,
 	)
@@ -156,7 +158,6 @@ func (a *App) Shutdown() {
 	}
 	a.profile = nil
 	a.project = nil
+	a.currentEnvironmentKey = ""
 	a.logger.Info("zentro shutdown complete")
 }
-
-

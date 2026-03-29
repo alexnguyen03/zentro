@@ -38,8 +38,19 @@ function resolveAnchorTable(source: SqlSourceRef, env: SqlCompletionEnv): Resolv
     const matches = findCatalogMatches(env.schemas, source.name);
     if (matches.length === 0) return null;
     const preferredKind = source.kind === 'view' ? 'view' : 'table';
-    const preferred = matches.find((match) => match.kind === preferredKind) || matches[0];
-    return { schemaName: preferred.schemaName, tableName: preferred.name, source };
+    const preferredMatches = matches.filter((match) => match.kind === preferredKind);
+    if (preferredMatches.length === 1) {
+        const preferred = preferredMatches[0];
+        return { schemaName: preferred.schemaName, tableName: preferred.name, source };
+    }
+    if (preferredMatches.length > 1) {
+        return null;
+    }
+    if (matches.length === 1) {
+        const fallback = matches[0];
+        return { schemaName: fallback.schemaName, tableName: fallback.name, source };
+    }
+    return null;
 }
 
 function resolveAnchorCandidates(analysis: SqlAnalysis, env: SqlCompletionEnv, currentWord: string): ResolvedAnchor[] {

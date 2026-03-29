@@ -22,6 +22,7 @@ interface ProjectState {
     saveProject: (project: Project) => Promise<Project | null>;
     deleteProject: (projectId: string) => Promise<boolean>;
     setProjectEnvironment: (environmentKey: EnvironmentKey) => Promise<Project | null>;
+    setEnvironmentLastSchema: (environmentKey: EnvironmentKey, schemaName: string) => Promise<Project | null>;
     bindEnvironmentConnection: (environmentKey: EnvironmentKey, profile: ConnectionProfile) => Promise<Project | null>;
     setActiveProject: (project: Project | null) => void;
     clearActiveProject: () => void;
@@ -248,6 +249,29 @@ export const useProjectStore = create<ProjectState>()(
                     ...activeProject,
                     default_environment_key: environmentKey,
                     last_active_environment_key: environmentKey,
+                    environments,
+                });
+            },
+
+            setEnvironmentLastSchema: async (environmentKey: EnvironmentKey, schemaName: string) => {
+                const activeProject = get().activeProject;
+                if (!activeProject) return null;
+                const nextSchema = schemaName.trim();
+                if (!nextSchema) return activeProject;
+
+                const environments = activeProject.environments?.some((environment) => environment.key === environmentKey)
+                    ? (activeProject.environments || []).map((environment) => (
+                        environment.key === environmentKey
+                            ? { ...environment, last_schema: nextSchema }
+                            : environment
+                    ))
+                    : [
+                        ...(activeProject.environments || []),
+                        { ...buildProjectEnvironment(activeProject.id, environmentKey), last_schema: nextSchema },
+                    ];
+
+                return get().saveProject({
+                    ...activeProject,
                     environments,
                 });
             },

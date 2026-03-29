@@ -14,6 +14,7 @@ func (a *App) CreateProject(p models.Project) (*models.Project, error) {
 		return nil, err
 	}
 	a.project = project
+	a.currentEnvironmentKey = project.DefaultEnvironmentKey
 	a.draft = []*models.ConnectionProfile{}
 	return project, nil
 }
@@ -25,6 +26,9 @@ func (a *App) SaveProject(p models.Project) (*models.Project, error) {
 	}
 	if a.project == nil || a.project.ID == project.ID {
 		a.project = project
+		if a.currentEnvironmentKey == "" {
+			a.currentEnvironmentKey = project.DefaultEnvironmentKey
+		}
 	}
 	return project, nil
 }
@@ -32,6 +36,7 @@ func (a *App) SaveProject(p models.Project) (*models.Project, error) {
 func (a *App) DeleteProject(projectID string) error {
 	if a.project != nil && a.project.ID == projectID {
 		a.project = nil
+		a.currentEnvironmentKey = ""
 	}
 	return a.projects.DeleteProject(projectID)
 }
@@ -42,6 +47,7 @@ func (a *App) OpenProject(projectID string) (*models.Project, error) {
 		return nil, err
 	}
 	a.project = project
+	a.currentEnvironmentKey = project.DefaultEnvironmentKey
 	a.draft = []*models.ConnectionProfile{}
 	return project, nil
 }

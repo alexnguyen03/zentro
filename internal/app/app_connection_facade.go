@@ -90,7 +90,13 @@ func (a *App) TestConnection(p models.ConnectionProfile) error { return a.conn.T
 
 func (a *App) Connect(name string) error {
 	if pc := a.findProjectConnectionByProfileName(name); pc != nil {
-		return a.conn.ConnectWithProfile(projectConnectionToProfile(pc))
+		if err := a.conn.ConnectWithProfile(projectConnectionToProfile(pc)); err != nil {
+			return err
+		}
+		if pc.EnvironmentKey != "" {
+			a.currentEnvironmentKey = pc.EnvironmentKey
+		}
+		return nil
 	}
 	if draft := a.findDraftConnectionByName(name); draft != nil {
 		return a.conn.ConnectWithProfile(draft)
@@ -109,7 +115,11 @@ func (a *App) ConnectProjectEnvironment(envKey string) error {
 
 	for i := range a.project.Connections {
 		if a.project.Connections[i].EnvironmentKey == targetKey {
-			return a.conn.ConnectWithProfile(projectConnectionToProfile(&a.project.Connections[i]))
+			if err := a.conn.ConnectWithProfile(projectConnectionToProfile(&a.project.Connections[i])); err != nil {
+				return err
+			}
+			a.currentEnvironmentKey = targetKey
+			return nil
 		}
 	}
 	return sql.ErrNoRows

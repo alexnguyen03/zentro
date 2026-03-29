@@ -46,10 +46,24 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 			} else {
 				trySchemas := []string{parsedSchema}
 				if parsedSchema == "" {
+					trySchemas = []string{}
+					if currentSchema := s.currentSchema(); currentSchema != "" {
+						trySchemas = append(trySchemas, currentSchema)
+					}
 					if d, ok := getDriver(driver); ok {
-						trySchemas = []string{d.DefaultSchema()}
+						defaultSchema := d.DefaultSchema()
+						hasDefault := false
+						for _, schema := range trySchemas {
+							if strings.EqualFold(schema, defaultSchema) {
+								hasDefault = true
+								break
+							}
+						}
+						if !hasDefault {
+							trySchemas = append(trySchemas, defaultSchema)
+						}
 					} else {
-						trySchemas = []string{""}
+						trySchemas = append(trySchemas, "")
 					}
 				} else {
 					trySchemas = []string{parsedSchema}
@@ -190,8 +204,14 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		}
 
 		start := time.Now()
+		queryExecutor, releaseExecutor, prepErr := s.prepareExecutor(ctx, executor)
+		if prepErr != nil {
+			s.emitDone(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("fetch more: prepare query context failed: %w", prepErr))
+			return
+		}
+		defer releaseExecutor()
 
-		rows, err := executor.QueryContext(ctx, paginatedQuery)
+		rows, err := queryExecutor.QueryContext(ctx, paginatedQuery)
 		if err != nil {
 			s.emitDone(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, 0, 0, true, fmt.Errorf("fetch more: query failed: %w", err))
 			return
@@ -277,8 +297,13 @@ func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
 	var count int64
 	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
 	defer cancel()
+	queryExecutor, releaseExecutor, prepErr := s.prepareExecutor(ctx, executor)
+	if prepErr != nil {
+		return 0, fmt.Errorf("prepare query context failed: %w", prepErr)
+	}
+	defer releaseExecutor()
 
-	err := executor.QueryRowContext(ctx, countQuery).Scan(&count)
+	err := queryExecutor.QueryRowContext(ctx, countQuery).Scan(&count)
 	if err != nil {
 		return 0, err
 	}
@@ -306,8 +331,13 @@ func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	if !isExecutorReady(executor) {
 		return 0, fmt.Errorf("no active connection")
 	}
+	queryExecutor, releaseExecutor, prepErr := s.prepareExecutor(s.ctx, executor)
+	if prepErr != nil {
+		return 0, fmt.Errorf("prepare query context failed: %w", prepErr)
+	}
+	defer releaseExecutor()
 
-	res, err := executor.ExecContext(s.ctx, query)
+	res, err := queryExecutor.ExecContext(s.ctx, query)
 	if err != nil {
 		return 0, err
 	}

@@ -11,6 +11,30 @@ import (
 	"zentro/internal/utils"
 )
 
+type stubSQLResult struct {
+	rowsAffected int64
+}
+
+func (r stubSQLResult) LastInsertId() (int64, error) { return 0, nil }
+func (r stubSQLResult) RowsAffected() (int64, error) { return r.rowsAffected, nil }
+
+type recordingExecutor struct {
+	execStatements []string
+}
+
+func (e *recordingExecutor) QueryContext(_ context.Context, _ string, _ ...any) (*sql.Rows, error) {
+	return nil, nil
+}
+
+func (e *recordingExecutor) QueryRowContext(_ context.Context, _ string, _ ...any) *sql.Row {
+	return &sql.Row{}
+}
+
+func (e *recordingExecutor) ExecContext(_ context.Context, query string, _ ...any) (sql.Result, error) {
+	e.execStatements = append(e.execStatements, query)
+	return stubSQLResult{rowsAffected: 1}, nil
+}
+
 func TestBuildExplainQuery(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -75,6 +99,7 @@ func TestExecuteQuery_ViewModeBlocksMutatingBatch(t *testing.T) {
 		func() *sql.DB { return nil },
 		func() sqlExecutor { return nil },
 		func() string { return constant.DriverSQLite },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -113,6 +138,7 @@ func TestExecuteQuery_ViewModeAllowsReadOnlyBatch(t *testing.T) {
 		func() *sql.DB { return nil },
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -149,6 +175,7 @@ func TestExecuteUpdateSync_ViewModeBlocked(t *testing.T) {
 		func() *sql.DB { return db },
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{},
 	)
@@ -207,6 +234,7 @@ func TestStreamSelect_SkipsPrimaryKeyLookupWhenDBIsNil(t *testing.T) {
 		func() *sql.DB { return nil },
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -246,5 +274,37 @@ func TestStreamSelect_SkipsPrimaryKeyLookupWhenDBIsNil(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for done event")
+	}
+}
+
+func TestExecuteUpdateSync_PostgresUsesCurrentSchemaSearchPath(t *testing.T) {
+	executor := &recordingExecutor{}
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences { return utils.Preferences{} },
+		func() *sql.DB { return nil },
+		func() sqlExecutor { return executor },
+		func() string { return constant.DriverPostgres },
+		func() string { return "inv" },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{},
+	)
+
+	affected, err := svc.ExecuteUpdateSync("UPDATE inventory_balance SET qty = qty + 1")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if affected != 1 {
+		t.Fatalf("expected affected=1, got %d", affected)
+	}
+	if len(executor.execStatements) != 2 {
+		t.Fatalf("expected 2 exec statements, got %d", len(executor.execStatements))
+	}
+	if executor.execStatements[0] != `SET search_path TO "inv", public` {
+		t.Fatalf("unexpected search_path statement: %q", executor.execStatements[0])
+	}
+	if executor.execStatements[1] != "UPDATE inventory_balance SET qty = qty + 1" {
+		t.Fatalf("unexpected update statement: %q", executor.execStatements[1])
 	}
 }

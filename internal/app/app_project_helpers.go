@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"zentro/internal/models"
 )
@@ -13,6 +14,36 @@ func (a *App) ensureWritable(op string) error {
 		return fmt.Errorf("view mode is enabled: %s is blocked", op)
 	}
 	return nil
+}
+
+func (a *App) currentProjectEnvironmentKey() models.EnvironmentKey {
+	if a.project == nil {
+		return ""
+	}
+	if a.currentEnvironmentKey != "" {
+		return a.currentEnvironmentKey
+	}
+	if a.project.DefaultEnvironmentKey != "" {
+		return a.project.DefaultEnvironmentKey
+	}
+	if len(a.project.Environments) > 0 {
+		return a.project.Environments[0].Key
+	}
+	return ""
+}
+
+func (a *App) currentProjectSchema() string {
+	if a.project == nil {
+		return ""
+	}
+	activeKey := a.currentProjectEnvironmentKey()
+	for i := range a.project.Environments {
+		environment := a.project.Environments[i]
+		if environment.Key == activeKey {
+			return strings.TrimSpace(environment.LastSchema)
+		}
+	}
+	return ""
 }
 
 func (a *App) findProjectConnectionByProfileName(profileName string) *models.ProjectConnection {

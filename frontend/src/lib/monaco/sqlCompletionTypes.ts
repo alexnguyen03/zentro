@@ -113,6 +113,7 @@ export interface SqlCompletionEnv {
     driver: string;
     profileKey?: string;
     dbName?: string;
+    currentSchema?: string;
     fetchColumns: (schemaName: string, tableName: string) => Promise<SqlColumnLike[]>;
     fetchRelationships: (schemaName: string, tableName: string) => Promise<SqlTableRelationshipLike[]>;
     templates: SqlTemplateLike[];
