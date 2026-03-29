@@ -108,8 +108,6 @@ export function useResultEditing({ tabId, result }: UseResultEditingOptions) {
     const canManageDraftRows = Boolean(
         isEditable &&
         result?.columns.length &&
-        columnDefs.length > 0 &&
-        result.columns.every((col) => columnDefsByName.has(col)) &&
         qualifiedTableName,
     );
     const hasLegacyChanges = editedCells.size > 0 || deletedRows.size > 0;

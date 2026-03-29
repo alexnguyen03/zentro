@@ -6,6 +6,7 @@ import {
     Download,
     FilePlus,
     Loader,
+    Trash2,
     Play,
     Plus,
     Maximize2,
@@ -286,9 +287,39 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
     const panelActions = React.useMemo(() => {
         const actions: ResultPanelAction[] = [];
-        if (canManageDraftRows) {
-            actions.push({ id: 'add-row', icon: <Plus size={11} />, label: 'Add Row', title: 'Add Row', onClick: handleAddRow, disabled: isSavingDraftRows });
-            actions.push({ id: 'duplicate-rows', icon: <Copy size={11} />, label: 'Duplicate', title: 'Duplicate Selected Rows', onClick: handleDuplicateRows, disabled: selectedPersistedRowIndices.length === 0 || isSavingDraftRows });
+        const shouldAlwaysShowRowActions = !onActionsChange;
+        const showRowActions = canManageDraftRows || shouldAlwaysShowRowActions;
+        const rowActionsBlocked = !canManageDraftRows || isSavingDraftRows;
+        const rowActionDisabledReason = !canManageDraftRows
+            ? 'Row actions require editable table result with primary keys.'
+            : undefined;
+
+        if (showRowActions) {
+            actions.push({
+                id: 'add-row',
+                icon: <Plus size={11} />,
+                label: 'Add Row',
+                title: rowActionDisabledReason || 'Add Row',
+                onClick: handleAddRow,
+                disabled: rowActionsBlocked,
+            });
+            actions.push({
+                id: 'duplicate-rows',
+                icon: <Copy size={11} />,
+                label: 'Duplicate',
+                title: rowActionDisabledReason || 'Duplicate Selected Rows',
+                onClick: handleDuplicateRows,
+                disabled: rowActionsBlocked || selectedPersistedRowIndices.length === 0,
+            });
+            actions.push({
+                id: 'delete-rows',
+                icon: <Trash2 size={11} />,
+                label: 'Delete',
+                title: rowActionDisabledReason || 'Delete Selected Rows',
+                danger: true,
+                onClick: requestDeleteSelectedRows,
+                disabled: rowActionsBlocked || (selectedPersistedRowIndices.length === 0 && selectedDraftIds.length === 0),
+            });
         }
         if (hasPendingChanges) {
             actions.push({
@@ -398,6 +429,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         result?.columns.length,
         result?.rows.length,
         selectedPersistedRowIndices.length,
+        selectedDraftIds.length,
         setSelectedCells,
         tabId,
         viewMode,
@@ -412,6 +444,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         exportJob?.status,
         exportJob?.progressPct,
         cancelExport,
+        requestDeleteSelectedRows,
+        onActionsChange,
     ]);
 
     React.useEffect(() => {
