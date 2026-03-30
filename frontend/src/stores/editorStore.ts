@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { STORAGE_KEY } from '../lib/constants';
 import { withStoreLogger } from './logger';
-import { EditorState, LegacyEditorState, ProjectEditorSession } from './editor/types';
+import { EditorState, ProjectEditorSession } from './editor/types';
 import { 
     DEFAULT_WORKSPACE_ID, 
     createEmptySession, 
@@ -100,12 +100,10 @@ export const useEditorStore = create<EditorState>()(
 
                 if (!state) return;
 
-                const legacyState = state as EditorState & LegacyEditorState;
-                const legacySessions = legacyState.workspaceSessions;
                 const rawProjectSessions: Record<string, Partial<ProjectEditorSession> | null | undefined> | undefined =
                     state.projectSessions && Object.keys(state.projectSessions).length > 0
                     ? state.projectSessions
-                    : legacySessions;
+                    : undefined;
 
                 const projectSessions = rawProjectSessions && Object.keys(rawProjectSessions).length > 0
                     ? Object.fromEntries(
@@ -116,8 +114,7 @@ export const useEditorStore = create<EditorState>()(
                     )
                     : { [DEFAULT_WORKSPACE_ID]: createEmptySession() };
 
-                const legacyActiveProjectId = legacyState.activeWorkspaceId;
-                const rawActiveProjectId = state.activeProjectId || legacyActiveProjectId;
+                const rawActiveProjectId = state.activeProjectId;
                 const activeProjectId = rawActiveProjectId && projectSessions[rawActiveProjectId]
                     ? rawActiveProjectId
                     : DEFAULT_WORKSPACE_ID;

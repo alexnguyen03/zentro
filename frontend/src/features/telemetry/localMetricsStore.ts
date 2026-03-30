@@ -1,3 +1,4 @@
+import { STORAGE_KEY } from '../../lib/constants';
 import type {
     QueryPerformanceSnapshot,
     TelemetryAnalyticsEnvelope,
@@ -7,9 +8,6 @@ import type {
     TelemetryPipelineExportBundle,
 } from './contracts';
 
-const QUERY_SNAPSHOT_KEY = 'zentro:query-performance-snapshots:v1';
-const TELEMETRY_EVENTS_KEY = 'zentro:telemetry-events:v1';
-const TELEMETRY_ANALYTICS_OUTBOX_KEY = 'zentro:telemetry-analytics-outbox:v1';
 const MAX_SNAPSHOTS = 200;
 const MAX_EVENTS = 500;
 
@@ -17,7 +15,7 @@ export function saveQuerySnapshot(snapshot: QueryPerformanceSnapshot) {
     try {
         const current = loadQuerySnapshots();
         const next = [snapshot, ...current].slice(0, MAX_SNAPSHOTS);
-        localStorage.setItem(QUERY_SNAPSHOT_KEY, JSON.stringify(next));
+        localStorage.setItem(STORAGE_KEY.QUERY_PERFORMANCE_SNAPSHOTS, JSON.stringify(next));
     } catch {
         // best-effort only
     }
@@ -25,7 +23,7 @@ export function saveQuerySnapshot(snapshot: QueryPerformanceSnapshot) {
 
 export function loadQuerySnapshots(): QueryPerformanceSnapshot[] {
     try {
-        const raw = localStorage.getItem(QUERY_SNAPSHOT_KEY);
+        const raw = localStorage.getItem(STORAGE_KEY.QUERY_PERFORMANCE_SNAPSHOTS);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as QueryPerformanceSnapshot[];
         return Array.isArray(parsed) ? parsed : [];
@@ -43,7 +41,7 @@ export function toTelemetryEvent(event: string, payload: Record<string, unknown>
     try {
         const current = loadTelemetryEvents();
         const next = [envelope, ...current].slice(0, MAX_EVENTS);
-        localStorage.setItem(TELEMETRY_EVENTS_KEY, JSON.stringify(next));
+        localStorage.setItem(STORAGE_KEY.TELEMETRY_EVENTS, JSON.stringify(next));
     } catch {
         // best-effort only
     }
@@ -96,7 +94,7 @@ export function queueTelemetryAnalytics(
     try {
         const current = loadTelemetryAnalyticsOutbox();
         const next = [envelope, ...current].slice(0, MAX_EVENTS);
-        localStorage.setItem(TELEMETRY_ANALYTICS_OUTBOX_KEY, JSON.stringify(next));
+        localStorage.setItem(STORAGE_KEY.TELEMETRY_ANALYTICS_OUTBOX, JSON.stringify(next));
     } catch {
         // best-effort only
     }
@@ -105,7 +103,7 @@ export function queueTelemetryAnalytics(
 
 export function loadTelemetryEvents(): TelemetryEventEnvelope[] {
     try {
-        const raw = localStorage.getItem(TELEMETRY_EVENTS_KEY);
+        const raw = localStorage.getItem(STORAGE_KEY.TELEMETRY_EVENTS);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as TelemetryEventEnvelope[];
         return Array.isArray(parsed) ? parsed : [];
@@ -116,7 +114,7 @@ export function loadTelemetryEvents(): TelemetryEventEnvelope[] {
 
 export function loadTelemetryAnalyticsOutbox(): TelemetryAnalyticsEnvelope[] {
     try {
-        const raw = localStorage.getItem(TELEMETRY_ANALYTICS_OUTBOX_KEY);
+        const raw = localStorage.getItem(STORAGE_KEY.TELEMETRY_ANALYTICS_OUTBOX);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as TelemetryAnalyticsEnvelope[];
         return Array.isArray(parsed) ? parsed : [];

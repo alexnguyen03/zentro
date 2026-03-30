@@ -1,8 +1,5 @@
-import { ENVIRONMENT_KEY } from '../../lib/constants';
+import { ENVIRONMENT_KEY, STORAGE_KEY } from '../../lib/constants';
 import type { ExecutionPolicy } from './runtime';
-
-const EXECUTION_POLICY_PROFILES_KEY = 'zentro:execution-policy-profiles:v1';
-const EXECUTION_POLICY_ASSIGNMENTS_KEY = 'zentro:execution-policy-assignments:v1';
 
 export interface ExecutionPolicyProfile extends ExecutionPolicy {
     id: string;
@@ -59,7 +56,7 @@ function writeJson<T>(key: string, value: T) {
 }
 
 export function listExecutionPolicyProfiles(): ExecutionPolicyProfile[] {
-    const saved = readJson<Record<string, ExecutionPolicyProfile>>(EXECUTION_POLICY_PROFILES_KEY, {});
+    const saved = readJson<Record<string, ExecutionPolicyProfile>>(STORAGE_KEY.EXECUTION_POLICY_PROFILES, {});
     const merged = {
         ...DEFAULT_PROFILES,
         ...saved,
@@ -68,16 +65,16 @@ export function listExecutionPolicyProfiles(): ExecutionPolicyProfile[] {
 }
 
 export function saveExecutionPolicyProfile(profile: ExecutionPolicyProfile) {
-    const current = readJson<Record<string, ExecutionPolicyProfile>>(EXECUTION_POLICY_PROFILES_KEY, {});
-    writeJson(EXECUTION_POLICY_PROFILES_KEY, {
+    const current = readJson<Record<string, ExecutionPolicyProfile>>(STORAGE_KEY.EXECUTION_POLICY_PROFILES, {});
+    writeJson(STORAGE_KEY.EXECUTION_POLICY_PROFILES, {
         ...current,
         [profile.id]: profile,
     });
 }
 
 export function assignExecutionPolicyProfile(environmentKey: string, profileId: string) {
-    const current = readJson<ExecutionPolicyAssignments>(EXECUTION_POLICY_ASSIGNMENTS_KEY, DEFAULT_ASSIGNMENTS);
-    writeJson(EXECUTION_POLICY_ASSIGNMENTS_KEY, {
+    const current = readJson<ExecutionPolicyAssignments>(STORAGE_KEY.EXECUTION_POLICY_ASSIGNMENTS, DEFAULT_ASSIGNMENTS);
+    writeJson(STORAGE_KEY.EXECUTION_POLICY_ASSIGNMENTS, {
         ...current,
         [environmentKey]: profileId,
     });
@@ -86,8 +83,7 @@ export function assignExecutionPolicyProfile(environmentKey: string, profileId: 
 export function resolveExecutionPolicyProfile(environmentKey?: string): ExecutionPolicyProfile {
     const profiles = listExecutionPolicyProfiles();
     const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
-    const assignments = readJson<ExecutionPolicyAssignments>(EXECUTION_POLICY_ASSIGNMENTS_KEY, DEFAULT_ASSIGNMENTS);
+    const assignments = readJson<ExecutionPolicyAssignments>(STORAGE_KEY.EXECUTION_POLICY_ASSIGNMENTS, DEFAULT_ASSIGNMENTS);
     const assignedProfileId = environmentKey ? assignments[environmentKey] : undefined;
     return (assignedProfileId ? profileById.get(assignedProfileId) : undefined) || DEFAULT_PROFILES.balanced;
 }
-

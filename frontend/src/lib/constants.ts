@@ -4,11 +4,16 @@
 
 export const STORAGE_KEY = {
     EDITOR_SESSION: 'zentro:editor-session-v4',
-    CONNECTION_STORE: 'zentro:connection-store-v2',
     PROJECT_STORE: 'zentro:project-store-v2',
     LAYOUT_STORE: 'zentro:layout-store-v2',
     CONNECTION_TREE_UI: 'zentro:connection-tree-ui-v1',
     DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version-v2',
+    TELEMETRY_CONSENT: 'zentro:telemetry-consent:v2',
+    QUERY_PERFORMANCE_SNAPSHOTS: 'zentro:query-performance-snapshots:v1',
+    TELEMETRY_EVENTS: 'zentro:telemetry-events:v1',
+    TELEMETRY_ANALYTICS_OUTBOX: 'zentro:telemetry-analytics-outbox:v1',
+    EXECUTION_POLICY_PROFILES: 'zentro:execution-policy-profiles:v1',
+    EXECUTION_POLICY_ASSIGNMENTS: 'zentro:execution-policy-assignments:v1',
 } as const;
 
 export const DOM_EVENT = {

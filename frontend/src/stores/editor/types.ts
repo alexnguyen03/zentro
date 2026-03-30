@@ -37,11 +37,6 @@ export interface ProjectEditorSession {
     activeGroupId: string | null;
 }
 
-export interface LegacyEditorState {
-    workspaceSessions?: Record<string, Partial<ProjectEditorSession> | null | undefined>;
-    activeWorkspaceId?: string | null;
-}
-
 export interface EditorState {
     projectSessions: Record<string, ProjectEditorSession>;
     activeProjectId: string | null;
