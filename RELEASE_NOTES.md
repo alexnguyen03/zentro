@@ -1,36 +1,76 @@
-# Zentro Beta 2 Release Notes (v0.2.0-beta)
+# Zentro Early Access Release Notes (v0.2.0-beta)
+
+## Release Scope
+This Early Access cut includes work from commit `1e7db18e28ec96d4de27342aebb4102c801bfb3d` up to `1c16b10`.
+
+## Summary
+`v0.2.0-beta` is a major product and platform step focused on:
+- Project-first workflow and workspace isolation
+- Faster, safer query execution and result exploration
+- Stronger editor productivity and SQL assist
+- Reliable script persistence and tab recovery
+- Architecture hardening and test coverage expansion
 
 ## Highlights
-- Password storage is now hardened with AES-GCM encrypted config + OS keyring secrets.
-- Backend event emission was refactored to dependency injection for better unit testability.
-- Frontend now has centralized state/error logging middleware and a global React error boundary.
-- Unit-test foundation was added for backend (`executor`, `query_service`, driver contracts) and frontend (stores + error boundary).
-- Query execution hot paths were optimized (reduced allocations during row scanning and pagination string generation).
-- `connectionStore` no longer depends on generated Wails model types.
+- Added full project hub workflow with multi-project sessions, project-aware connection flows, and environment switching stabilization.
+- Upgraded query execution with guarded runtime state, deterministic compare behavior, incremental result handling, and export reliability improvements.
+- Expanded SQL editor productivity with richer completion metadata, FK join snippets, alias-aware suggestions, scoped format/folding, and keyboard workflow upgrades.
+- Improved result panel/table UX with virtualization-focused refinements, stable DnD column identity, sticky index behavior, and clearer edit/action gating.
+- Delivered project-scoped Saved Scripts with autosave hardening, reopen-by-id, duplicate prevention, and improved New Query numbering logic.
+- Added history-to-editor append behavior, plus shortcut and toolbar refinements across daily workflows.
 
-## Security Improvements
-- Removed insecure password persistence path (base64-only storage is now migration-only).
-- Legacy plaintext/base64 config data is auto-migrated when loaded.
-- New connection option: `Encrypt password` (enabled by default when `Save password` is on).
+## What Is New in This Beta
 
-## Performance
-- Reduced per-row allocations in query scanning with reusable buffers.
-- Replaced hot `fmt.Sprintf` path in pagination fallback with builder-based construction.
-- Added benchmark coverage for query scanning and SQL statement splitting paths.
+### Project and Workspace
+- Introduced project foundation and project hub flows across multiple phases.
+- Added project-aware state, session restore, and startup recovery behavior.
+- Refactored connection setup to a project-centric model and compact provider-first flows.
+- Added project deletion and improved project card/setup status behavior.
+- Stabilized environment switch and reconnect behaviors in workspace transitions.
 
-## Packaging and Build
-- Version metadata updated to `v0.2.0-beta`.
-- Added release matrix script for `windows/amd64`, `darwin/universal`, and `linux/amd64`.
-- Added build-time Wails model existence check for frontend builds.
+### Query Execution and Results
+- Introduced a query runtime state machine with guarded execution paths.
+- Added incremental result strategy and result virtualization-focused improvements.
+- Added deterministic compare behavior and persistent tab query context.
+- Improved export reliability and native save dialog behavior.
+- Refined result exploration UX, result panel toolbar controls, and filter interactions.
 
-## Known Limitations
-- Frontend and backend coverage targets are currently soft-gated (reported, not enforced as hard CI blocker).
-- Multi-platform installer verification is limited by available local runner environments.
+### Editor and SQL Productivity
+- Added SQL completion context optimization and stale cancellation handling.
+- Added auto-alias table suggestions with driver-safe quoting.
+- Added column data-type display in dot suggestions.
+- Added FK-based join snippet suggestions.
+- Added styled table suggestion docs and inline picker improvements.
+- Added scoped format and SQL clause folding support.
+- Added MRU `Ctrl/Cmd+Tab` switcher and `Ctrl+E` context quick open.
+- Refined execution shortcuts (`Ctrl/Cmd+Enter`) and execute behavior consistency.
 
-## Migration from Beta 1
-- Existing saved profiles are auto-migrated on first load.
-- If a password was stored using legacy base64 format, it is moved to OS keyring on save/migration.
-- Build/test scripts were expanded:
-  - `npm run smoke` (root)
-  - `npm run test` (frontend via Vitest)
-  - `go test ./...` (backend)
+### Saved Scripts and History
+- Saved Scripts are now scoped by `project + connection`.
+- Reopen behavior now uses `savedScriptId` and focuses existing open tabs instead of duplicating.
+- Close flows (`x`, `Ctrl+W`) now autosave before tab removal.
+- `Ctrl+S` now triggers save for the current query script tab.
+- New query naming now resolves from the max index across open query tabs plus saved scripts in current scope.
+- Saved Script deletion now uses a one-click confirmation modal flow.
+- Clicking history now appends SQL to the current editor instead of replacing content.
+
+### UI and Interaction Refinements
+- Refined toolbar alignment, environment visuals, and status bar simplification.
+- Moved editor toolbar to a vertical layout and simplified related actions.
+- Improved connection picker, project hub visuals, and modal transitions.
+- Refined result-table sizing and sticky index presentation.
+
+## Engineering and Quality
+- Large frontend modularization split monolithic stores/components into feature-focused slices.
+- Standardized modal system, design tokens, and command boundaries.
+- Reduced legacy `any` usage and improved platform boundaries.
+- Large backend decomposition split app/query/schema/driver services into modular units.
+- Added typed v2 events and stronger backend guardrails.
+- Improved cancellation and lifecycle coverage.
+- Added and expanded tests across backend query/connection lifecycles and frontend store/session utilities.
+- Added telemetry and policy/contribution groundwork for phase completion and release readiness.
+
+## Behavior Changes
+- Script visibility is now scoped; scripts outside the active project scope are hidden from the Saved Scripts list.
+- New Query naming is monotonic in scope (max index + 1), rather than filling the first missing gap.
+- History insertion now appends to the active editor content by default.
