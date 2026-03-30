@@ -4,6 +4,7 @@ import { GetHistory, ClearHistory } from '../../services/historyService';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { cn } from '../../lib/cn';
+import { TAB_TYPE } from '../../lib/constants';
 
 interface HistoryEntry {
     id: string;
@@ -48,9 +49,14 @@ export const HistoryPanel: React.FC = () => {
     const pasteQuery = (query: string) => {
         const activeGroup = groups.find(g => g.id === activeGroupId);
         const activeTabId = activeGroup?.activeTabId;
+        const activeTab = activeGroup?.tabs.find((tab) => tab.id === activeTabId);
 
-        if (activeTabId && activeGroupId) {
-            setTabQuery(activeTabId, query);
+        if (activeTabId && activeGroupId && activeTab?.type === TAB_TYPE.QUERY) {
+            const currentQuery = activeTab.query || '';
+            const suffix = query.trim();
+            if (!suffix) return;
+            const separator = currentQuery.trimEnd() ? '\n\n' : '';
+            setTabQuery(activeTabId, `${currentQuery.trimEnd()}${separator}${suffix}`);
         } else {
             addTab({ query });
         }
