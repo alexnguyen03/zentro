@@ -15,6 +15,7 @@ export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App
 
 export type BuiltInCommandId =
   | 'editor.newTab'
+  | 'editor.saveTab'
   | 'editor.closeTab'
   | 'editor.contextSearch'
   | 'editor.runQuery'
@@ -88,6 +89,19 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     category: 'Editor',
     defaultBinding: 'Ctrl+T',
     action: () => { useEditorStore.getState().addTab(); },
+  },
+  {
+    id: 'editor.saveTab',
+    label: 'Save Current Tab',
+    category: 'Editor',
+    defaultBinding: 'Ctrl+S',
+    action: () => {
+      const state = useEditorStore.getState();
+      const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
+      if (activeGroup?.activeTabId) {
+        emitCommand(DOM_EVENT.SAVE_TAB_ACTION, activeGroup.activeTabId);
+      }
+    },
   },
   {
     id: 'editor.closeTab',

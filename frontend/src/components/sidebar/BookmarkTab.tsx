@@ -4,6 +4,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { bookmarkKeyFromTabName, useBookmarkStore } from '../../stores/bookmarkStore';
 import { useScriptStore } from '../../stores/scriptStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
 import { cn } from '../../lib/cn';
@@ -24,8 +25,9 @@ type BookmarkGroup = {
 export const BookmarkTab: React.FC = () => {
     const { groups, activeGroupId, setActiveTabId, setActiveGroupId, addTab } = useEditorStore();
     const { activeProfile } = useConnectionStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
     const { byTab, byKey, labelByKey, loadBookmarks, hydrateTabFromKey } = useBookmarkStore();
-    const { activeConnection: activeScriptConnection, loadScripts, getContent } = useScriptStore();
+    const { activeConnection: activeScriptConnection, activeProjectId: activeScriptProjectId, loadScripts, getContent } = useScriptStore();
     const [scope, setScope] = React.useState<'current' | 'global'>('current');
     const [collapsedKeys, setCollapsedKeys] = React.useState<Record<string, boolean>>({});
 
@@ -127,12 +129,13 @@ export const BookmarkTab: React.FC = () => {
             }
 
             const connectionName = activeProfile?.name;
+            const projectId = activeProject?.id;
             let restoredQuery = '\n'.repeat(Math.max(0, Math.max(1, item.line) - 1));
 
-            if (connectionName) {
+            if (projectId && connectionName) {
                 try {
-                    if (activeScriptConnection !== connectionName) {
-                        await loadScripts(connectionName);
+                    if (activeScriptProjectId !== projectId || activeScriptConnection !== connectionName) {
+                        await loadScripts(projectId, connectionName);
                     }
 
                     const currentScripts = useScriptStore.getState().scripts;
@@ -146,7 +149,7 @@ export const BookmarkTab: React.FC = () => {
                         })[0];
 
                     if (matchedScript?.id) {
-                        const savedContent = await getContent(connectionName, matchedScript.id);
+                        const savedContent = await getContent(projectId, connectionName, matchedScript.id);
                         if (typeof savedContent === 'string' && savedContent.length > 0) {
                             restoredQuery = savedContent;
                         }
@@ -185,7 +188,9 @@ export const BookmarkTab: React.FC = () => {
         },
         [
             activeProfile?.name,
+            activeProject?.id,
             activeScriptConnection,
+            activeScriptProjectId,
             addTab,
             dispatchJumpWithRetry,
             getContent,

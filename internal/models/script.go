@@ -3,6 +3,7 @@ package models
 // SavedScript represents a user-saved SQL script linked to a connection.
 type SavedScript struct {
 	ID             string `json:"id"`
+	ProjectID      string `json:"project_id"`
 	ConnectionName string `json:"connection_name"`
 	Name           string `json:"name"`
 	CreatedAt      string `json:"created_at"`

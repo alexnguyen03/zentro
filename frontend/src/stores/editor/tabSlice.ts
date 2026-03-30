@@ -2,6 +2,10 @@ import { StateCreator } from 'zustand';
 import { TAB_TYPE } from '../../lib/constants';
 import { EditorState, Tab, TabQueryContext } from './types';
 import { getNextTabName, updateActiveSession } from './sessionUtils';
+import { useScriptStore } from '../scriptStore';
+import { useProjectStore } from '../projectStore';
+import { useConnectionStore } from '../connectionStore';
+import { useEnvironmentStore } from '../environmentStore';
 
 export interface TabSlice {
     addTab: (tabInit?: Partial<Tab>, targetGroupId?: string) => string;
@@ -84,16 +88,40 @@ export const createTabSlice: StateCreator<EditorState, [], [], TabSlice> = (set)
                 }
             }
 
+            const activeProjectId = useProjectStore.getState().activeProject?.id || null;
+            const activeProject = useProjectStore.getState().activeProject;
+            const activeEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey
+                || activeProject?.last_active_environment_key
+                || activeProject?.default_environment_key;
+            const boundConnection = activeProject?.connections?.find((item) => item.environment_key === activeEnvironmentKey);
+            const boundConnectionName = boundConnection?.advanced_meta?.profile_name || boundConnection?.name || null;
+            const activeConnectionName = useConnectionStore.getState().activeProfile?.name || boundConnectionName;
+            const scriptState = useScriptStore.getState();
+            const reservedScriptNames =
+                scriptState.activeProjectId === activeProjectId &&
+                    scriptState.activeConnection === activeConnectionName
+                    ? scriptState.scripts.map((script) => script.name)
+                    : [];
+
             const name = tabInit?.name || (tabInit?.type === TAB_TYPE.TABLE
                 ? tabInit.content || 'Table'
-                : getNextTabName(session.groups));
+                : getNextTabName(session.groups, 'New Query', reservedScriptNames));
+            const nextTabType = tabInit?.type || TAB_TYPE.QUERY;
+            const mergedContext: TabQueryContext | undefined = nextTabType === TAB_TYPE.QUERY
+                ? {
+                    scriptProjectId: activeProjectId || undefined,
+                    scriptConnectionName: activeConnectionName || undefined,
+                    ...(tabInit?.context || {}),
+                }
+                : tabInit?.context;
             const newTab: Tab = {
                 id,
                 name,
                 query: tabInit?.query || '',
                 isRunning: false,
-                type: tabInit?.type || TAB_TYPE.QUERY,
+                type: nextTabType,
                 content: tabInit?.content,
+                context: mergedContext,
                 ...tabInit,
             };
 

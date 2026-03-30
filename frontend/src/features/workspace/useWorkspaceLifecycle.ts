@@ -7,6 +7,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
+import { useScriptStore } from '../../stores/scriptStore';
 import { createEmptySession, normalizeSession } from '../../stores/editor/sessionUtils';
 import { CONNECTION_STATUS } from '../../lib/constants';
 import { ConnectProjectEnvironment } from '../../services/projectService';
@@ -36,6 +37,8 @@ export function useWorkspaceLifecycle() {
     const activeGroupId = useEditorStore((state) => state.activeGroupId);
     const activeEditorProjectId = useEditorStore((state) => state.activeProjectId);
     const switchResultProject = useResultStore((state) => state.switchProject);
+    const loadScripts = useScriptStore((state) => state.loadScripts);
+    const clearScriptScope = useScriptStore((state) => state.clearScope);
     const connectAttemptRef = useRef<string>('');
     const failedAutoConnectKeysRef = useRef<Set<string>>(new Set());
     const migratedProjectsRef = useRef<Set<string>>(new Set());
@@ -89,11 +92,13 @@ export function useWorkspaceLifecycle() {
             clearEnvironment();
             switchEditorProject(null);
             switchResultProject(null);
+            clearScriptScope();
             return;
         }
 
         switchEditorProject(activeProject.id);
         switchResultProject(activeProject.id);
+        clearScriptScope();
 
         const workspace = pickActiveWorkspace(activeProject);
         const sessionFromProject = parseProjectEditorSession(workspace?.layout_state);
@@ -122,7 +127,7 @@ export function useWorkspaceLifecycle() {
         }
 
         bootstrapEnvironment(activeProject);
-    }, [activeProject?.id, addTab, bootstrapEnvironment, clearEnvironment, hydrateProjectSession, saveProject, switchEditorProject, switchResultProject]);
+    }, [activeProject?.id, addTab, bootstrapEnvironment, clearEnvironment, clearScriptScope, hydrateProjectSession, saveProject, switchEditorProject, switchResultProject]);
 
     useEffect(() => {
         const projectId = activeProject?.id;
@@ -222,6 +227,15 @@ export function useWorkspaceLifecycle() {
 
         void doConnect();
     }, [activeEnvironmentKey, activeProfile?.db_name, activeProfile?.name, activeProject, connectionStatus]);
+
+    useEffect(() => {
+        const projectId = activeProject?.id;
+        const connectionName = activeProfile?.name;
+        if (!projectId || !connectionName) return;
+        loadScripts(projectId, connectionName).catch((error) => {
+            appLogger.warn('preload scripts failed', { projectId, connectionName, error });
+        });
+    }, [activeProfile?.name, activeProject?.id, loadScripts]);
 }
 
 export function useSidebarResize(initialWidth = 250) {

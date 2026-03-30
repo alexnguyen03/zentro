@@ -5,17 +5,17 @@ import (
 	"zentro/internal/utils"
 )
 
-func (a *App) GetScripts(connectionName string) ([]models.SavedScript, error) {
-	return a.scripts.GetScripts(connectionName)
+func (a *App) GetScripts(projectID, connectionName string) ([]models.SavedScript, error) {
+	return a.scripts.GetScripts(projectID, connectionName)
 }
-func (a *App) GetScriptContent(connectionName, scriptID string) (string, error) {
-	return a.scripts.GetScriptContent(connectionName, scriptID)
+func (a *App) GetScriptContent(projectID, connectionName, scriptID string) (string, error) {
+	return a.scripts.GetScriptContent(projectID, connectionName, scriptID)
 }
 func (a *App) SaveScript(script models.SavedScript, content string) error {
 	return a.scripts.SaveScript(script, content)
 }
-func (a *App) DeleteScript(connectionName, scriptID string) error {
-	return a.scripts.DeleteScript(connectionName, scriptID)
+func (a *App) DeleteScript(projectID, connectionName, scriptID string) error {
+	return a.scripts.DeleteScript(projectID, connectionName, scriptID)
 }
 
 func (a *App) GetHistory() []models.HistoryEntry { return a.history.GetHistory() }

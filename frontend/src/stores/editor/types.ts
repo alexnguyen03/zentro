@@ -1,6 +1,9 @@
 import { TabType, TAB_TYPE, GENERATED_KIND } from '../../lib/constants';
 
 export interface TabQueryContext {
+    savedScriptId?: string;
+    scriptProjectId?: string;
+    scriptConnectionName?: string;
     resultFilterExpr?: string;
     resultQuickFilter?: string;
     compareLeftTabId?: string;

@@ -6,6 +6,9 @@ import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../services/queryService';
@@ -41,7 +44,7 @@ export const QueryTabs: React.FC = () => {
         updateTabContext,
     } = useEditorStore();
     const { results } = useResultStore();
-    const { isConnected } = useConnectionStore();
+    const { isConnected, activeProfile } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
     const { showResultPanel } = useLayoutStore();
 
@@ -152,18 +155,63 @@ export const QueryTabs: React.FC = () => {
         })
     );
 
+    const closeActiveTabWithSave = React.useCallback(async () => {
+        const editorState = useEditorStore.getState();
+        const groupId = editorState.activeGroupId;
+        const activeGroup = editorState.groups.find(g => g.id === groupId);
+        const activeTabId = activeGroup?.activeTabId;
+        const activeTab = activeGroup?.tabs.find((tab) => tab.id === activeTabId);
+        if (!groupId || !activeTabId || !activeTab) return;
+
+        if (activeTab.type === TAB_TYPE.QUERY && activeTab.query?.trim()) {
+            const activeProject = useProjectStore.getState().activeProject;
+            const activeEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey
+                || activeProject?.last_active_environment_key
+                || activeProject?.default_environment_key;
+            const envConnection = activeProject?.connections?.find((item) => item.environment_key === activeEnvironmentKey);
+            const envConnectionName = envConnection?.advanced_meta?.profile_name || envConnection?.name || null;
+
+            const projectId =
+                activeProject?.id ||
+                activeTab.context?.scriptProjectId ||
+                null;
+            const profileName =
+                activeProfile?.name ||
+                useConnectionStore.getState().activeProfile?.name ||
+                activeTab.context?.scriptConnectionName ||
+                envConnectionName ||
+                null;
+
+            if (projectId && profileName) {
+                try {
+                    const savedScriptId = await useScriptStore.getState().saveScript(
+                        projectId,
+                        profileName,
+                        activeTab.name,
+                        activeTab.query,
+                        activeTab.context?.savedScriptId,
+                    );
+                    updateTabContext(activeTabId, {
+                        savedScriptId,
+                        scriptProjectId: projectId,
+                        scriptConnectionName: profileName,
+                    });
+                } catch (error) {
+                    console.error('Shortcut close autosave failed', error);
+                }
+            }
+        }
+
+        removeTab(activeTabId, groupId);
+    }, [activeProfile?.name, removeTab, updateTabContext]);
+
     // Global event listener for command palette's 'close-active-tab'
     useEffect(() => {
         const off = onCommand(DOM_EVENT.CLOSE_ACTIVE_TAB, () => {
-            if (activeGroupId) {
-                const activeGroup = groups.find(g => g.id === activeGroupId);
-                if (activeGroup && activeGroup.activeTabId) {
-                    removeTab(activeGroup.activeTabId, activeGroupId);
-                }
-            }
+            void closeActiveTabWithSave();
         });
         return off;
-    }, [activeGroupId, groups, removeTab]);
+    }, [closeActiveTabWithSave]);
 
     useEffect(() => {
         const alive = new Set(allTabs.map((item) => item.tab.id));

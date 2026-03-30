@@ -70,10 +70,10 @@ export interface AppApiGateway {
     LoadTemplates(): Promise<models.Template[]>;
     SaveTemplate(template: models.Template): Promise<void>;
     DeleteTemplate(templateId: string): Promise<void>;
-    GetScripts(connectionName: string): Promise<models.SavedScript[]>;
-    GetScriptContent(connectionName: string, scriptId: string): Promise<string>;
+    GetScripts(projectId: string, connectionName: string): Promise<models.SavedScript[]>;
+    GetScriptContent(projectId: string, connectionName: string, scriptId: string): Promise<string>;
     SaveScript(script: models.SavedScript, content: string): Promise<void>;
-    DeleteScript(connectionName: string, scriptId: string): Promise<void>;
+    DeleteScript(projectId: string, connectionName: string, scriptId: string): Promise<void>;
     GetBookmarks(profileName: string, dbName: string): Promise<models.Bookmark[]>;
     SaveBookmark(profileName: string, dbName: string, bookmark: models.Bookmark): Promise<void>;
     DeleteBookmark(profileName: string, dbName: string, lineNumber: number): Promise<void>;

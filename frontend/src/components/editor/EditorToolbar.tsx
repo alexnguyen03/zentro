@@ -98,7 +98,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
     };
 
     return (
-        <div className="w-10 h-full shrink-0 select-none border-r border-border px-1 py-2 flex flex-col items-center gap-1">
+        <div className="w-10 h-full shrink-0 select-none py-2 flex flex-col items-center">
             <div className="flex flex-col items-center gap-1">
                 <Button
                     variant="ghost"

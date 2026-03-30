@@ -16,20 +16,20 @@ func NewScriptService(logger *slog.Logger) *ScriptService {
 	}
 }
 
-func (s *ScriptService) GetScripts(connectionName string) ([]models.SavedScript, error) {
-	return utils.LoadScripts(connectionName)
+func (s *ScriptService) GetScripts(projectID, connectionName string) ([]models.SavedScript, error) {
+	return utils.LoadScripts(projectID, connectionName)
 }
 
-func (s *ScriptService) GetScriptContent(connectionName, scriptID string) (string, error) {
-	return utils.GetScriptContent(connectionName, scriptID)
+func (s *ScriptService) GetScriptContent(projectID, connectionName, scriptID string) (string, error) {
+	return utils.GetScriptContent(projectID, connectionName, scriptID)
 }
 
 func (s *ScriptService) SaveScript(script models.SavedScript, content string) error {
-	s.logger.Info("saving script", "connection", script.ConnectionName, "name", script.Name, "id", script.ID)
+	s.logger.Info("saving script", "project", script.ProjectID, "connection", script.ConnectionName, "name", script.Name, "id", script.ID)
 	return utils.SaveScript(script, content)
 }
 
-func (s *ScriptService) DeleteScript(connectionName, scriptID string) error {
-	s.logger.Info("deleting script", "connection", connectionName, "id", scriptID)
-	return utils.DeleteScript(connectionName, scriptID)
+func (s *ScriptService) DeleteScript(projectID, connectionName, scriptID string) error {
+	s.logger.Info("deleting script", "project", projectID, "connection", connectionName, "id", scriptID)
+	return utils.DeleteScript(projectID, connectionName, scriptID)
 }

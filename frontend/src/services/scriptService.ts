@@ -1,7 +1,7 @@
 import type { models } from '../../wailsjs/go/models';
 import { wailsGateway } from '../platform/app-api/wailsGateway';
 
-export const GetScripts = (connectionName: string) => wailsGateway.GetScripts(connectionName);
-export const GetScriptContent = (connectionName: string, scriptId: string) => wailsGateway.GetScriptContent(connectionName, scriptId);
+export const GetScripts = (projectId: string, connectionName: string) => wailsGateway.GetScripts(projectId, connectionName);
+export const GetScriptContent = (projectId: string, connectionName: string, scriptId: string) => wailsGateway.GetScriptContent(projectId, connectionName, scriptId);
 export const SaveScript = (script: models.SavedScript, content: string) => wailsGateway.SaveScript(script, content);
-export const DeleteScript = (connectionName: string, scriptId: string) => wailsGateway.DeleteScript(connectionName, scriptId);
+export const DeleteScript = (projectId: string, connectionName: string, scriptId: string) => wailsGateway.DeleteScript(projectId, connectionName, scriptId);

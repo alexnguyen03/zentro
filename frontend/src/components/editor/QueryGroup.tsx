@@ -5,6 +5,7 @@ import { useScriptStore } from '../../stores/scriptStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useStatusStore } from '../../stores/statusStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
@@ -14,6 +15,8 @@ import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../services/querySer
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';
+import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { isMutatingSql, resolveQueryPolicy } from '../../features/query/policy';
 import { applyPreExecuteFilterPolicy, resolveExecuteQuery } from '../../features/query/executionRouting';
@@ -39,6 +42,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const { isConnected, activeProfile } = useConnectionStore();
     const transactionStatus = useStatusStore((state) => state.transactionStatus);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const activeProject = useProjectStore((state) => state.activeProject);
     const { saveScript } = useScriptStore();
     const [pendingRunQuery, setPendingRunQuery] = useState<string | null>(null);
     const [showWriteConfirm, setShowWriteConfirm] = useState(false);
@@ -58,16 +62,102 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
 
     const isDraggingTab = dragActive?.data.current?.type === 'Tab';
 
-    // ── Tab open/close ────────────────────────────────────────────────────
-    const handleClose = useCallback((id: string) => {
-        const tab = tabs.find(t => t.id === id);
-        if (tab?.type === 'query' && tab.query?.trim() && activeProfile?.name) {
-            saveScript(activeProfile.name, tab.name, tab.query).catch(e => console.error('Auto save failed', e));
+    const getLatestQueryTab = useCallback((tabId: string) => {
+        const state = useEditorStore.getState();
+        const activeGroupTab = state.groups.find((g) => g.id === groupId)?.tabs.find((t) => t.id === tabId);
+        if (activeGroupTab?.type === TAB_TYPE.QUERY) {
+            return activeGroupTab;
         }
-        removeTab(id, groupId);
-    }, [tabs, removeTab, groupId, activeProfile, saveScript]);
+        for (const groupItem of state.groups) {
+            const candidate = groupItem.tabs.find((t) => t.id === tabId);
+            if (candidate?.type === TAB_TYPE.QUERY) {
+                return candidate;
+            }
+        }
+        return null;
+    }, [groupId]);
 
-    // ── Run / Cancel ──────────────────────────────────────────────────────
+    const autoSaveQueryTab = useCallback(async (tabId: string) => {
+        const tab = getLatestQueryTab(tabId);
+        if (!tab || !tab.query?.trim()) return;
+
+        const fallbackProject = useProjectStore.getState().activeProject;
+        const fallbackEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey
+            || fallbackProject?.last_active_environment_key
+            || fallbackProject?.default_environment_key;
+        const fallbackConnection = fallbackProject?.connections?.find((item) => item.environment_key === fallbackEnvironmentKey);
+        const fallbackConnectionName = fallbackConnection?.advanced_meta?.profile_name || fallbackConnection?.name || null;
+        const projectId =
+            activeProject?.id ||
+            useProjectStore.getState().activeProject?.id ||
+            tab.context?.scriptProjectId ||
+            null;
+        const profileName =
+            activeProfile?.name ||
+            useConnectionStore.getState().activeProfile?.name ||
+            tab.context?.scriptConnectionName ||
+            fallbackConnectionName ||
+            null;
+
+        if (projectId && profileName) {
+            try {
+                const savedScriptId = await saveScript(projectId, profileName, tab.name, tab.query, tab.context?.savedScriptId);
+                const latestTab = getLatestQueryTab(tabId);
+                if (latestTab) {
+                    updateTabContext(tabId, {
+                        savedScriptId,
+                        scriptProjectId: projectId,
+                        scriptConnectionName: profileName,
+                    });
+                }
+            } catch (e) {
+                console.error('Auto save failed', e);
+            }
+        } else {
+            console.warn('Auto save skipped: missing project/profile context', {
+                tabId,
+                projectId,
+                profileName,
+            });
+        }
+    }, [activeProfile?.name, activeProject?.id, getLatestQueryTab, saveScript, updateTabContext]);
+
+    useEffect(() => {
+        if (!activeProject?.id || !activeProfile?.name) return;
+        for (const tab of tabs) {
+            if (tab.type !== TAB_TYPE.QUERY) continue;
+            if (
+                tab.context?.scriptProjectId === activeProject.id &&
+                tab.context?.scriptConnectionName === activeProfile.name
+            ) {
+                continue;
+            }
+            updateTabContext(tab.id, {
+                scriptProjectId: activeProject.id,
+                scriptConnectionName: activeProfile.name,
+            });
+        }
+    }, [activeProfile?.name, activeProject?.id, tabs, updateTabContext]);
+
+    const handleClose = useCallback(async (id: string) => {
+        const tab = tabs.find(t => t.id === id);
+        try {
+            if (tab?.type === TAB_TYPE.QUERY) {
+                await autoSaveQueryTab(tab.id);
+            }
+        } finally {
+            removeTab(id, groupId);
+        }
+    }, [autoSaveQueryTab, tabs, removeTab, groupId]);
+
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {
+            if (!detail) return;
+            autoSaveQueryTab(detail);
+        });
+        return off;
+    }, [autoSaveQueryTab]);
+
     const executeQueryNow = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
         const resultStore = useResultStore.getState();
@@ -225,4 +315,3 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         </div>
     );
 };
-

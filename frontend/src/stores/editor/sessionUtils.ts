@@ -31,17 +31,40 @@ export const normalizeSession = (session?: Partial<ProjectEditorSession> | null)
 
 export const getSessionProjectId = (projectId?: string | null) => projectId || DEFAULT_WORKSPACE_ID;
 
-export const getNextTabName = (groups: TabGroup[], baseName = 'New Query'): string => {
-    let name = baseName;
-    let count = 1;
-    let checkName = name;
+function resolveMaxSuffixFromName(rawName: string, baseName: string, numberedPattern: RegExp): number {
+    const normalized = rawName.trim();
+    if (!normalized) return 0;
 
-    while (groups.some((group) => group.tabs.some((tab) => tab.name === checkName))) {
-        count += 1;
-        checkName = `${name} ${count}`;
+    if (normalized.toLowerCase() === baseName.toLowerCase()) {
+        return 1;
     }
 
-    return checkName;
+    const match = normalized.match(numberedPattern);
+    if (!match) return 0;
+
+    const parsed = parseInt(match[1], 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+export const getNextTabName = (groups: TabGroup[], baseName = 'New Query', reservedNames: string[] = []): string => {
+    const escapedBase = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const numberedPattern = new RegExp(`^${escapedBase}\\s+(\\d+)$`, 'i');
+
+    let maxSuffix = 0;
+    for (const group of groups) {
+        for (const tab of group.tabs) {
+            maxSuffix = Math.max(maxSuffix, resolveMaxSuffixFromName(String(tab.name || ''), baseName, numberedPattern));
+        }
+    }
+
+    for (const savedName of reservedNames) {
+        maxSuffix = Math.max(maxSuffix, resolveMaxSuffixFromName(String(savedName || ''), baseName, numberedPattern));
+    }
+
+    if (maxSuffix === 0) {
+        return baseName;
+    }
+    return `${baseName} ${maxSuffix + 1}`;
 };
 
 export function getActiveSession(state: Pick<EditorState, 'projectSessions' | 'activeProjectId'>) {
