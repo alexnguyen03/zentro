@@ -17,6 +17,7 @@ func TestProjectPersistence_RoundTrip(t *testing.T) {
 	project := models.NewProject("Payments Platform")
 	project.Description = "Primary analytics and operational data project"
 	project.Tags = []string{"payments", "analytics"}
+	project.LayoutState = `{"version":1,"session":{"groups":[],"activeGroupId":null}}`
 	project.Environments = append(project.Environments, models.NewProjectEnvironment(project.ID, models.EnvironmentDevelopment))
 
 	if err := UpsertProject(project); err != nil {
@@ -44,11 +45,8 @@ func TestProjectPersistence_RoundTrip(t *testing.T) {
 	if got.Slug != "payments-platform" {
 		t.Fatalf("unexpected slug: %s", got.Slug)
 	}
-	if len(got.Workspaces) == 0 {
-		t.Fatal("expected default workspace to be created")
-	}
-	if got.LastWorkspaceID == "" {
-		t.Fatal("expected last workspace ID")
+	if got.LayoutState == "" {
+		t.Fatal("expected project layout state to round-trip")
 	}
 }
 

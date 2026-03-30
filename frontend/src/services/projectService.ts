@@ -6,7 +6,6 @@ import type {
     ProjectAsset,
     ProjectConnection,
     ProjectEnvironment,
-    Workspace,
 } from '../types/project';
 import { ENVIRONMENT_KEYS } from '../lib/projects';
 
@@ -92,7 +91,7 @@ function toProject(raw: models.Project): Project {
         updated_at: typeof source.updated_at === 'string' ? source.updated_at : '',
         default_environment_key: defaultEnvironmentKey,
         last_active_environment_key: lastActiveEnvironmentKey,
-        last_workspace_id: typeof source.last_workspace_id === 'string' ? source.last_workspace_id : undefined,
+        layout_state: typeof source.layout_state === 'string' ? source.layout_state : undefined,
         environments: Array.isArray(source.environments)
             ? source.environments.map((environment) => normalizeProjectEnvironment(
                 typeof source.id === 'string' ? source.id : '',
@@ -104,9 +103,6 @@ function toProject(raw: models.Project): Project {
                 typeof source.id === 'string' ? source.id : '',
                 connection,
             ))
-            : [],
-        workspaces: Array.isArray(source.workspaces)
-            ? source.workspaces.filter((workspace): workspace is Workspace => !!workspace && typeof workspace === 'object')
             : [],
         assets: Array.isArray(source.assets)
             ? source.assets.filter((asset): asset is ProjectAsset => !!asset && typeof asset === 'object')

@@ -184,10 +184,9 @@ export const useProjectStore = create<ProjectState>()(
                         updated_at: '',
                         default_environment_key: ENVIRONMENT_KEY.LOCAL,
                         last_active_environment_key: ENVIRONMENT_KEY.LOCAL,
-                        last_workspace_id: '',
+                        layout_state: '',
                         environments: [],
                         connections: [],
-                        workspaces: [],
                         assets: [],
                     });
                     const projects = await listProjects();

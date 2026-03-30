@@ -15,12 +15,11 @@ import { recoverStartupState } from './startupRecovery';
 import {
     isSessionEmpty,
     parseProjectEditorSession,
-    pickActiveWorkspace,
     serializeProjectEditorSession,
-    withWorkspaceLayoutState,
+    withProjectLayoutState,
 } from './projectSessionCodec';
 
-export function useWorkspaceLifecycle() {
+export function useProjectLifecycle() {
     const bootstrapProjects = useProjectStore((state) => state.bootstrap);
     const activeProject = useProjectStore((state) => state.activeProject);
     const saveProject = useProjectStore((state) => state.saveProject);
@@ -64,7 +63,7 @@ export function useWorkspaceLifecycle() {
             return;
         }
 
-        const nextProject = withWorkspaceLayoutState(sourceProject, pending.serialized);
+        const nextProject = withProjectLayoutState(sourceProject, pending.serialized);
         void state.saveProject(nextProject).then((saved) => {
             if (!saved) return;
             lastPersistedLayoutRef.current[pending.projectId] = pending.serialized;
@@ -100,8 +99,7 @@ export function useWorkspaceLifecycle() {
         switchResultProject(activeProject.id);
         clearScriptScope();
 
-        const workspace = pickActiveWorkspace(activeProject);
-        const sessionFromProject = parseProjectEditorSession(workspace?.layout_state);
+        const sessionFromProject = parseProjectEditorSession(activeProject.layout_state);
         const editorState = useEditorStore.getState();
         const fallbackSession = normalizeSession(editorState.projectSessions[activeProject.id]);
 
@@ -115,7 +113,7 @@ export function useWorkspaceLifecycle() {
 
             if (!migratedProjectsRef.current.has(activeProject.id)) {
                 migratedProjectsRef.current.add(activeProject.id);
-                void saveProject(withWorkspaceLayoutState(activeProject, serialized));
+                void saveProject(withProjectLayoutState(activeProject, serialized));
             }
         } else {
             hydrateProjectSession(activeProject.id, createEmptySession(), true);
@@ -193,9 +191,6 @@ export function useWorkspaceLifecycle() {
             return;
         }
 
-        // Prevent auto-reconnect loops: after an error for the same target,
-        // stop retrying until the user changes target (project/env/profile/db)
-        // or manually triggers a reconnect flow.
         if (isSameProfile && isSameDatabase && connectionStatus === CONNECTION_STATUS.ERROR) {
             failedAutoConnectKeysRef.current.add(targetKey);
             return;

@@ -19,7 +19,7 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
                     <h2 className={SettingsClasses.sectionTitle}>Appearance</h2>
                 </div>
                 <p className={SettingsClasses.sectionDescription}>
-                    Customize the visual personality of your workspace.
+                    Customize the visual personality of your project context.
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>

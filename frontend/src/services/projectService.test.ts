@@ -36,10 +36,9 @@ function makeRawProject(overrides: Partial<Record<string, unknown>> = {}): model
         created_at: '2026-01-01T00:00:00Z',
         updated_at: '2026-01-01T00:00:00Z',
         default_environment_key: ENVIRONMENT_KEY.DEVELOPMENT,
-        last_workspace_id: '',
+        layout_state: '',
         environments: [],
         connections: [],
-        workspaces: [],
         assets: [],
         ...overrides,
     });
@@ -56,9 +55,9 @@ function makeProjectInput(): Project {
         updated_at: '',
         default_environment_key: ENVIRONMENT_KEY.LOCAL,
         last_active_environment_key: ENVIRONMENT_KEY.LOCAL,
+        layout_state: '',
         environments: [],
         connections: [],
-        workspaces: [],
         assets: [],
     };
 }

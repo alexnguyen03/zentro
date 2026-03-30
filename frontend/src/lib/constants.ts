@@ -1,5 +1,5 @@
 /**
- * constants.ts — Global constants for the frontend application.
+ * Global constants for the frontend application.
  */
 
 export const STORAGE_KEY = {
@@ -17,7 +17,6 @@ export const STORAGE_KEY = {
 } as const;
 
 export const DOM_EVENT = {
-    OPEN_WORKSPACE_MODAL: 'open-workspace-modal',
     OPEN_PROJECT_HUB: 'open-project-hub',
     OPEN_CONTEXT_SEARCH: 'open-context-search',
     OPEN_ENVIRONMENT_SWITCHER: 'open-environment-switcher',
@@ -58,8 +57,6 @@ export const DRIVER = {
 } as const;
 export type DriverType = typeof DRIVER[keyof typeof DRIVER];
 
-// ── Environment ───────────────────────────────────────────────────────────────
-
 export const ENVIRONMENT_KEY = {
     LOCAL: 'loc',
     TESTING: 'tes',
@@ -69,8 +66,6 @@ export const ENVIRONMENT_KEY = {
 } as const;
 export type EnvironmentKey = typeof ENVIRONMENT_KEY[keyof typeof ENVIRONMENT_KEY];
 
-// ── Transaction ───────────────────────────────────────────────────────────────
-
 export const TRANSACTION_STATUS = {
     NONE: 'none',
     ACTIVE: 'active',
@@ -78,30 +73,16 @@ export const TRANSACTION_STATUS = {
 } as const;
 export type TransactionStatus = typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
 
-// ── Result/Tab generated kind ─────────────────────────────────────────────────
-
 export const GENERATED_KIND = {
     RESULT: 'result',
     EXPLAIN: 'explain',
 } as const;
 export type GeneratedKind = typeof GENERATED_KIND[keyof typeof GENERATED_KIND];
 
-// ── Project asset types ───────────────────────────────────────────────────────
-
 export const ASSET_TYPE = {
     SAVED_QUERY: 'saved_query',
-    SAVED_WORKSPACE: 'saved_workspace',
     TEMPLATE: 'template',
     FAVORITE_OBJECT: 'favorite_object',
     RESULT_SNAPSHOT: 'result_snapshot',
 } as const;
 export type AssetType = typeof ASSET_TYPE[keyof typeof ASSET_TYPE];
-
-// ── Workspace types ───────────────────────────────────────────────────────────
-
-export const WORKSPACE_TYPE = {
-    SCRATCH: 'scratch',
-    ANALYSIS: 'analysis',
-    INSPECTION: 'inspection',
-} as const;
-export type WorkspaceType = typeof WORKSPACE_TYPE[keyof typeof WORKSPACE_TYPE];

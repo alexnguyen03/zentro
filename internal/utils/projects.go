@@ -516,38 +516,6 @@ func normalizeProject(project *models.Project) {
 		}
 	}
 
-	if project.Workspaces == nil {
-		project.Workspaces = []models.Workspace{}
-	}
-	if len(project.Workspaces) == 0 {
-		workspace := models.NewWorkspace(project.ID, project.DefaultEnvironmentKey, "Workspace", models.WorkspaceScratch)
-		project.Workspaces = []models.Workspace{workspace}
-		project.LastWorkspaceID = workspace.ID
-	}
-	for i := range project.Workspaces {
-		workspace := &project.Workspaces[i]
-		if workspace.ID == "" {
-			workspace.ID = models.NewWorkspace(project.ID, workspace.EnvironmentKey, workspace.Name, workspace.Type).ID
-		}
-		workspace.ProjectID = project.ID
-		if workspace.EnvironmentKey == "" {
-			workspace.EnvironmentKey = project.DefaultEnvironmentKey
-		}
-		if workspace.Name == "" {
-			workspace.Name = "Workspace"
-		}
-		if workspace.Type == "" {
-			workspace.Type = models.WorkspaceScratch
-		}
-		if workspace.LastOpenedAt == "" {
-			workspace.LastOpenedAt = now
-		}
-	}
-
-	if project.LastWorkspaceID == "" && len(project.Workspaces) > 0 {
-		project.LastWorkspaceID = project.Workspaces[0].ID
-	}
-
 	if project.Assets == nil {
 		project.Assets = []models.ProjectAsset{}
 	}

@@ -32,7 +32,7 @@ export type BuiltInCommandId =
   | 'layout.toggleSidebar'
   | 'layout.toggleRightSidebar'
   | 'layout.toggleResultPanel'
-  | 'connection.openWorkspaces'
+  | 'connection.openEnvironmentSwitcher'
   | 'connection.switchEnvLocal'
   | 'connection.switchEnvDevelopment'
   | 'connection.switchEnvTesting'
@@ -283,7 +283,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     },
   },
   {
-    id: 'connection.openWorkspaces',
+    id: 'connection.openEnvironmentSwitcher',
     label: 'Switch Environment / Connection',
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+C',

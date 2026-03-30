@@ -39,9 +39,9 @@ function makeProject(id: string, name: string): Project {
         updated_at: '2026-01-01T00:00:00Z',
         default_environment_key: ENVIRONMENT_KEY.LOCAL,
         last_active_environment_key: ENVIRONMENT_KEY.LOCAL,
+        layout_state: '',
         environments: [],
         connections: [],
-        workspaces: [],
         assets: [],
     };
 }

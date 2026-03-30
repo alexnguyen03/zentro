@@ -1,5 +1,5 @@
-import type { EnvironmentKey, AssetType, WorkspaceType } from '../lib/constants';
-export type { EnvironmentKey, AssetType, WorkspaceType };
+import type { EnvironmentKey, AssetType } from '../lib/constants';
+export type { EnvironmentKey, AssetType };
 
 export interface ProjectEnvironment {
     id: string;
@@ -37,22 +37,9 @@ export interface ProjectConnection {
     advanced_meta?: Record<string, string>;
 }
 
-export interface Workspace {
-    id: string;
-    project_id: string;
-    environment_key: EnvironmentKey;
-    name: string;
-    type: WorkspaceType;
-    description?: string;
-    layout_state?: string;
-    active_group_id?: string;
-    last_opened_at: string;
-}
-
 export interface ProjectAsset {
     id: string;
     project_id: string;
-    workspace_id?: string;
     type: AssetType;
     name: string;
     description?: string;
@@ -72,11 +59,9 @@ export interface Project {
     updated_at: string;
     default_environment_key: EnvironmentKey;
     last_active_environment_key?: EnvironmentKey;
-    // Deprecated compatibility fields. Frontend runtime should no longer depend on them.
-    last_workspace_id?: string;
+    layout_state?: string;
     environments?: ProjectEnvironment[];
     connections?: ProjectConnection[];
-    workspaces?: Workspace[];
     assets?: ProjectAsset[];
 }
 

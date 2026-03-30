@@ -33,19 +33,10 @@ var defaultEnvironmentColors = map[EnvironmentKey]string{
 	EnvironmentProduction:  "red",
 }
 
-type WorkspaceType string
-
-const (
-	WorkspaceScratch    WorkspaceType = "scratch"
-	WorkspaceAnalysis   WorkspaceType = "analysis"
-	WorkspaceInspection WorkspaceType = "inspection"
-)
-
 type AssetType string
 
 const (
 	AssetSavedQuery     AssetType = "saved_query"
-	AssetSavedWorkspace AssetType = "saved_workspace"
 	AssetTemplate       AssetType = "template"
 	AssetFavoriteObject AssetType = "favorite_object"
 	AssetResultSnapshot AssetType = "result_snapshot"
@@ -61,10 +52,9 @@ type Project struct {
 	CreatedAt             string               `json:"created_at"`
 	UpdatedAt             string               `json:"updated_at"`
 	DefaultEnvironmentKey EnvironmentKey       `json:"default_environment_key"`
-	LastWorkspaceID       string               `json:"last_workspace_id,omitempty"`
+	LayoutState           string               `json:"layout_state,omitempty"`
 	Environments          []ProjectEnvironment `json:"environments,omitempty"`
 	Connections           []ProjectConnection  `json:"connections,omitempty"`
-	Workspaces            []Workspace          `json:"workspaces,omitempty"`
 	Assets                []ProjectAsset       `json:"assets,omitempty"`
 }
 
@@ -104,22 +94,9 @@ type ProjectConnection struct {
 	AdvancedMeta   map[string]string `json:"advanced_meta,omitempty"`
 }
 
-type Workspace struct {
-	ID             string         `json:"id"`
-	ProjectID      string         `json:"project_id"`
-	EnvironmentKey EnvironmentKey `json:"environment_key"`
-	Name           string         `json:"name"`
-	Type           WorkspaceType  `json:"type"`
-	Description    string         `json:"description,omitempty"`
-	LayoutState    string         `json:"layout_state,omitempty"`
-	ActiveGroupID  string         `json:"active_group_id,omitempty"`
-	LastOpenedAt   string         `json:"last_opened_at"`
-}
-
 type ProjectAsset struct {
 	ID          string    `json:"id"`
 	ProjectID   string    `json:"project_id"`
-	WorkspaceID string    `json:"workspace_id,omitempty"`
 	Type        AssetType `json:"type"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
@@ -131,7 +108,6 @@ type ProjectAsset struct {
 type ExecutionContext struct {
 	ProjectID      string `json:"project_id"`
 	EnvironmentKey string `json:"environment_key"`
-	WorkspaceID    string `json:"workspace_id"`
 	ConnectionID   string `json:"connection_id"`
 	Database       string `json:"database,omitempty"`
 	Schema         string `json:"schema,omitempty"`
@@ -176,10 +152,6 @@ func NewProject(name string) *Project {
 	project.Environments = []ProjectEnvironment{
 		NewProjectEnvironment(projectID, EnvironmentLocal),
 	}
-	project.Workspaces = []Workspace{
-		NewWorkspace(projectID, EnvironmentLocal, "Workspace", WorkspaceScratch),
-	}
-	project.LastWorkspaceID = project.Workspaces[0].ID
 	return project
 }
 
@@ -192,17 +164,6 @@ func NewProjectEnvironment(projectID string, key EnvironmentKey) ProjectEnvironm
 		BadgeColor:  DefaultEnvironmentColor(key),
 		IsProtected: key == EnvironmentProduction,
 		IsReadOnly:  false,
-	}
-}
-
-func NewWorkspace(projectID string, environmentKey EnvironmentKey, name string, workspaceType WorkspaceType) Workspace {
-	return Workspace{
-		ID:             uuid.NewString(),
-		ProjectID:      projectID,
-		EnvironmentKey: environmentKey,
-		Name:           strings.TrimSpace(name),
-		Type:           workspaceType,
-		LastOpenedAt:   time.Now().UTC().Format(time.RFC3339),
 	}
 }
 

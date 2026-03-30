@@ -299,7 +299,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                     {step === 'basics' && 'Create the project shell'}
                     {step === 'environment' && 'Pick the starter environment'}
                     {step === 'connection' && 'Bind one database'}
-                    {step === 'review' && 'Review and enter workspace'}
+                    {step === 'review' && 'Review and enter project'}
                 </>
             }
             subtitle={`${stepIndex + 1} of ${STEP_ORDER.length}`}
@@ -499,7 +499,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>{draft.starterEnv}</span>
                                         <span className="text-[16px] font-semibold text-text-primary">{getEnvironmentMeta(draft.starterEnv).label}</span>
                                     </div>
-                                    <div className="mt-1 text-[12px] text-text-secondary">First workspace will open in this context.</div>
+                                    <div className="mt-1 text-[12px] text-text-secondary">The first project session will open in this context.</div>
                                 </div>
                                 <div className="rounded-md bg-bg-secondary px-4 py-4">
                                     <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Connection</div>

@@ -20,7 +20,7 @@ import { Disconnect } from './services/connectionService';
 import { useGlobalShortcuts } from './features/shortcuts/useGlobalShortcuts';
 import { useAppEventBridge } from './features/app-runtime/useAppEventBridge';
 import { useBeforeCloseGuard } from './features/app-runtime/useBeforeCloseGuard';
-import { useSidebarResize, useWorkspaceLifecycle } from './features/workspace/useWorkspaceLifecycle';
+import { useSidebarResize, useProjectLifecycle } from './features/project/useProjectLifecycle';
 import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge';
 
 function App() {
@@ -40,7 +40,7 @@ function App() {
     const { sidebarWidth, startResizing } = useSidebarResize();
 
     useBeforeCloseGuard(() => setShowForceQuitConfirm(true));
-    useWorkspaceLifecycle();
+    useProjectLifecycle();
     useAppEventBridge(toast);
     useGlobalShortcuts(toast);
     usePluginCommandBridge();

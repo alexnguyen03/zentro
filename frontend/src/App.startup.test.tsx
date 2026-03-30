@@ -67,8 +67,8 @@ vi.mock('./components/layout/ProjectHub', () => ({
 vi.mock('./features/shortcuts/useGlobalShortcuts', () => ({ useGlobalShortcuts: () => undefined }));
 vi.mock('./features/app-runtime/useAppEventBridge', () => ({ useAppEventBridge: () => undefined }));
 vi.mock('./features/app-runtime/useBeforeCloseGuard', () => ({ useBeforeCloseGuard: () => undefined }));
-vi.mock('./features/workspace/useWorkspaceLifecycle', () => ({
-    useWorkspaceLifecycle: () => undefined,
+vi.mock('./features/project/useProjectLifecycle', () => ({
+    useProjectLifecycle: () => undefined,
     useSidebarResize: () => ({ sidebarWidth: 250, startResizing: vi.fn() }),
 }));
 vi.mock('./features/plugin/usePluginCommandBridge', () => ({ usePluginCommandBridge: () => undefined }));
