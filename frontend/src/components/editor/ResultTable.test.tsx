@@ -55,7 +55,8 @@ describe('ResultTable', () => {
         );
 
         expect(screen.getByText('varchar')).toBeInTheDocument();
-        const indexHeader = screen.getByText('#').closest('th');
+        const readonlyIndicator = screen.getByTitle('Read-only (No Primary Key or missing PK in SELECT)');
+        const indexHeader = readonlyIndicator.closest('th');
         expect(indexHeader?.className).toContain('rt-index-sticky');
 
         const filterButtons = screen.getAllByTitle('Filter this column');

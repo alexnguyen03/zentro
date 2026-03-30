@@ -130,13 +130,17 @@ vi.mock('../../hooks/useUpdateCheck', () => ({
     useUpdateCheck: () => updateCheckState,
 }));
 
-vi.mock('../../lib/projects', () => ({
-    getEnvironmentMeta: () => ({
-        label: 'Local',
-        description: 'Local env',
-        colorClass: 'border-success/30 text-success',
-    }),
-}));
+vi.mock('../../lib/projects', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../lib/projects')>();
+    return {
+        ...actual,
+        getEnvironmentMeta: () => ({
+            label: 'Local',
+            description: 'Local env',
+            colorClass: 'border-success/30 text-success',
+        }),
+    };
+});
 
 vi.mock('./Toast', () => ({
     useToast: () => ({
