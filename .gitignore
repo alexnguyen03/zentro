@@ -19,5 +19,3 @@ frontend/node_modules/
 .DS_Store
 Thumbs.db
 
-# Wails dev temp
-frontend/wailsjs/
