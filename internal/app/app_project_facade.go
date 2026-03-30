@@ -3,8 +3,6 @@ package app
 import (
 	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"zentro/internal/models"
 )
 
@@ -72,10 +70,7 @@ func (a *App) PickDirectory(initialPath string) (string, error) {
 			defaultDir = root
 		}
 	}
-	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:            "Select directory",
-		DefaultDirectory: defaultDir,
-	})
+	return a.openDirectoryDialog("Select directory", defaultDir)
 }
 
 func (a *App) OpenProjectFromDirectory(directoryPath string) (*models.Project, error) {

@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"zentro/internal/models"
 )
 
@@ -186,12 +184,7 @@ func (a *App) FetchTableRelationships(schema, table string) ([]models.TableRelat
 }
 
 func (a *App) ImportConnectionPackage() (*models.ConnectionProfile, error) {
-	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "Import Connection Package",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
-		},
-	})
+	filePath, err := a.openJSONFileDialog("Import Connection Package")
 	if err != nil {
 		return nil, err
 	}
@@ -260,13 +253,7 @@ func (a *App) ExportConnectionPackage(environmentKey string) (string, error) {
 	}
 	defaultFilename = strings.ReplaceAll(defaultFilename, " ", "-")
 
-	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "Export Connection Package",
-		DefaultFilename: defaultFilename + ".connection.json",
-		Filters: []runtime.FileFilter{
-			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
-		},
-	})
+	filePath, err := a.saveJSONFileDialog("Export Connection Package", defaultFilename+".connection.json")
 	if err != nil {
 		return "", err
 	}

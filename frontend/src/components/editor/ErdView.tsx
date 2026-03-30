@@ -20,7 +20,6 @@ import '@xyflow/react/dist/style.css';
 import { FetchTableRelationships, FetchTableColumns } from '../../services/schemaService';
 import { Loader } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { models } from '../../../wailsjs/go/models';
 import { getErrorMessage } from '../../lib/errors';
 
 interface ErdEdgeData extends Record<string, unknown> {
@@ -51,7 +50,17 @@ interface NodeLookupState {
     nodeInternals?: Map<string, MeasuredNodeLike>;
 }
 
-interface ConstraintGroup extends models.TableRelationship {
+interface TableRelationship {
+    ConstraintName: string;
+    SourceSchema: string;
+    SourceTable: string;
+    SourceColumn: string;
+    TargetSchema: string;
+    TargetTable: string;
+    TargetColumn: string;
+}
+
+interface ConstraintGroup extends TableRelationship {
     columns: string[];
     targets: string[];
 }
@@ -299,7 +308,7 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                 relatedTables.add(relation.TargetTable);
             });
 
-            const allRelsMap = new Map<string, models.TableRelationship>();
+            const allRelsMap = new Map<string, TableRelationship>();
             (initialRels || []).forEach((relation) => allRelsMap.set(relation.ConstraintName, relation));
 
             for (const currentTable of Array.from(relatedTables)) {

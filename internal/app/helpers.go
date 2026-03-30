@@ -14,6 +14,32 @@ import (
 	"zentro/internal/driver"
 )
 
+func (a *App) openJSONFileDialog(title string) (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: title,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
+		},
+	})
+}
+
+func (a *App) saveJSONFileDialog(title string, defaultFilename string) (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           title,
+		DefaultFilename: defaultFilename,
+		Filters: []runtime.FileFilter{
+			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
+		},
+	})
+}
+
+func (a *App) openDirectoryDialog(title string, defaultDir string) (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:            title,
+		DefaultDirectory: defaultDir,
+	})
+}
+
 // exportCSV opens an OS save dialog and writes CSV to the chosen file.
 func exportCSV(ctx context.Context, columns []string, rows [][]string) (string, error) {
 	filePath, err := runtime.SaveFileDialog(ctx, runtime.SaveDialogOptions{
