@@ -34,7 +34,7 @@ depends_on: S2
   - `"DELETE ..."` → false
   - `""` → false
 
-**Done khi**: unit test pass.
+**Done when**: unit test pass.
 
 ---
 
@@ -52,7 +52,7 @@ depends_on: S2
   - Query có TOP → không inject thêm
   - Query không có → inject đúng
 
-**Done khi**: unit test pass.
+**Done when**: unit test pass.
 
 ---
 
@@ -71,7 +71,7 @@ depends_on: S2
   - Return result
 - [x] Không close `rows` trong hàm này (caller close bằng defer)
 
-**Done khi**: `go build ./internal/db/...` pass. ✅
+**Done when**: `go build ./internal/db/...` pass. ✅
 
 ---
 
@@ -90,7 +90,7 @@ depends_on: S2
   - `result.Duration = time.Since(start)`
 - [x] Edge cases: empty query, nil db
 
-**Done khi**: `go build ./internal/db/...` pass. ✅
+**Done when**: `go build ./internal/db/...` pass. ✅
 
 ---
 
@@ -102,7 +102,7 @@ depends_on: S2
 - [x] Định nghĩa `TabState` struct (ID, Title, QueryText, LastResult, DB, ProfileName, CancelFunc, Modified, resultContainer)
 - [x] Helper `generateTabID() string`: dùng `fmt.Sprintf("tab-%d", time.Now().UnixNano())`
 
-**Done khi**: `go build ./internal/ui/editor/...` pass. ✅
+**Done when**: `go build ./internal/ui/editor/...` pass. ✅
 
 ---
 
@@ -118,7 +118,7 @@ depends_on: S2
   - `container.NewVSplit(editor, resultArea)` với offset 0.4
 - [x] Pre-fill editor text nếu `state.QueryText != ""`
 
-**Done khi**: compile pass. ✅
+**Done when**: compile pass. ✅
 
 ---
 
@@ -136,7 +136,7 @@ depends_on: S2
 - [x] `SetResult(tab, result)` với `fyne.Do` cho canvas mutation
 - [x] `Widget() fyne.CanvasObject`
 
-**Done khi**: `go build ./internal/ui/editor/...` pass. ✅
+**Done when**: `go build ./internal/ui/editor/...` pass. ✅
 
 ---
 
@@ -154,7 +154,7 @@ depends_on: S2
   ```
 - [x] Implement `AppState.triggerRunQuery()` với guard nil state/db/empty text
 
-**Done khi**: `Ctrl+Enter` khi editor focused trigger run. ✅
+**Done when**: `Ctrl+Enter` khi editor focused trigger run. ✅
 
 ---
 
@@ -168,7 +168,7 @@ depends_on: S2
 - [x] "Run" button action → `triggerRunQuery()`
 - [x] "Cancel" button action → `state.CancelFunc()`
 
-**Done khi**: full run/cancel flow hoạt động. ✅
+**Done when**: full run/cancel flow hoạt động. ✅
 
 ---
 
@@ -181,7 +181,7 @@ depends_on: S2
 - [x] "New Query" button action → `AddTab(state.ActiveProfile, state.CurrentDB)`
 - [x] `OnConnectionChanged`: auto-open tab đầu tiên sau khi connect
 
-**Done khi**: editor hiện trong center của main window. ✅
+**Done when**: editor hiện trong center của main window. ✅
 
 ---
 

@@ -1,17 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Database, Clock, BookMarked, Terminal, Zap, Hash } from 'lucide-react';
+import { Plus, Clock, BookMarked, Zap, Hash } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { ConnectionTree } from './ConnectionTree';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
-import { LoadConnections, Connect, SwitchDatabase, GetConnectionStatus } from '../../../wailsjs/go/app/App';
+import { LoadConnections, GetConnectionStatus } from '../../services/connectionService';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
+import { useProjectStore } from '../../stores/projectStore';
+import { getEnvironmentLabel } from '../../lib/projects';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { emitCommand } from '../../lib/commandBus';
+import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
+import { getErrorMessage } from '../../lib/errors';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts';
 
 export const Sidebar: React.FC = () => {
-    const { setConnections, connections, isConnected } = useConnectionStore();
+    const { setConnections, isConnected } = useConnectionStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const [activeTab, setActiveTab] = useState<SidebarTab>('explorer');
     const [isCompact, setIsCompact] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -40,32 +48,17 @@ export const Sidebar: React.FC = () => {
             if (isInitial) {
                 const store = useConnectionStore.getState();
                 const status = await GetConnectionStatus();
-                if (status && status.status === 'connected' && status.profile) {
+                if (status && status.status === CONNECTION_STATUS.CONNECTED && status.profile) {
                     store.setActiveProfile(status.profile);
                     store.setIsConnected(true);
-                    store.setConnectionStatus('connected');
+                    store.setConnectionStatus(CONNECTION_STATUS.CONNECTED);
                     return;
-                } else {
-                    store.setIsConnected(false);
                 }
-
-                if (store.lastProfileName) {
-                    const profile = data?.find(p => p.name === store.lastProfileName);
-                    if (profile) {
-                        try {
-                            await Connect(profile.name);
-                            if (store.lastDatabaseName && store.lastDatabaseName !== profile.db_name) {
-                                await SwitchDatabase(store.lastDatabaseName);
-                            }
-                        } catch (err) {
-                            toast.error(`Auto-connect to ${profile.name} failed: ${err}`);
-                            useConnectionStore.setState({ lastProfileName: null, lastDatabaseName: null });
-                        }
-                    }
-                }
+                store.resetRuntime();
             }
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error('Failed to load connections:', e);
+            toast.error(`Failed to load connections: ${getErrorMessage(e)}`);
         }
     };
 
@@ -76,6 +69,7 @@ export const Sidebar: React.FC = () => {
         { id: 'history', label: 'History', icon: <Clock size={14} /> },
         { id: 'scripts', label: 'Scripts', icon: <BookMarked size={14} /> },
     ];
+    const lockExplorerScroll = activeTab === 'explorer' && isConnected;
 
     return (
         <div ref={sidebarRef} className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary select-none">
@@ -108,7 +102,12 @@ export const Sidebar: React.FC = () => {
             </div>
 
             {/* Content Area - Flush with top */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden border-t border-border/40">
+            <div
+                className={cn(
+                    'flex-1 border-t border-border/40',
+                    lockExplorerScroll ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden',
+                )}
+            >
                 {activeTab === 'explorer' ? (
                     !isConnected ? (
                         <div className={cn(
@@ -117,19 +116,25 @@ export const Sidebar: React.FC = () => {
                         )}>
                              <div className={cn("mb-8", isCompact && "text-center")}>
                                 <h3 className="text-[15px] font-bold text-text-primary tracking-tight">Explorer</h3>
-                                {!isCompact && <p className="text-[12px] text-text-muted mt-1">Connect to a workspace</p>}
+                                {!isCompact && (
+                                    <p className="text-[12px] text-text-muted mt-1">
+                                        {activeProject
+                                            ? `${activeProject.name} / ${getEnvironmentLabel(activeEnvironmentKey || activeProject.default_environment_key)}`
+                                            : 'Project foundation loaded'}
+                                    </p>
+                                )}
                              </div>
 
                              <div className="space-y-6 w-full">
                                 <button 
-                                    onClick={() => (window as any).dispatchEvent(new KeyboardEvent('keydown', { key: 'C', ctrlKey: true, shiftKey: true }))}
+                                    onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
                                     className={cn(
                                         "flex items-center group cursor-pointer",
                                         isCompact ? "justify-center" : "gap-4"
                                     )}
                                     title="New Connection"
                                 >
-                                    <div className="p-2.5 rounded-lg bg-accent text-white group-hover:scale-110 transition-transform">
+                                    <div className="p-2.5 rounded-md bg-accent text-white group-hover:scale-110 transition-transform">
                                         <Plus size={16} />
                                     </div>
                                     {!isCompact && (
@@ -150,8 +155,8 @@ export const Sidebar: React.FC = () => {
                                             <li className="flex items-start gap-3">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5" />
                                                 <div>
-                                                    <div className="text-[12px] text-text-secondary">Open Workspaces</div>
-                                                    <div className="text-[10px] text-text-muted">Manage your saved profiles</div>
+                                                    <div className="text-[12px] text-text-secondary">Bind Environments</div>
+                                                    <div className="text-[10px] text-text-muted">Attach saved profiles to each target once</div>
                                                 </div>
                                             </li>
                                         </ul>
@@ -171,3 +176,4 @@ export const Sidebar: React.FC = () => {
         </div>
     );
 };
+

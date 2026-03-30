@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Clock, Trash2, Search, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
-import { GetHistory, ClearHistory } from '../../../wailsjs/go/app/App';
+import { GetHistory, ClearHistory } from '../../services/historyService';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { cn } from '../../lib/cn';
+import { TAB_TYPE } from '../../lib/constants';
 
 interface HistoryEntry {
     id: string;
@@ -48,9 +49,14 @@ export const HistoryPanel: React.FC = () => {
     const pasteQuery = (query: string) => {
         const activeGroup = groups.find(g => g.id === activeGroupId);
         const activeTabId = activeGroup?.activeTabId;
+        const activeTab = activeGroup?.tabs.find((tab) => tab.id === activeTabId);
 
-        if (activeTabId && activeGroupId) {
-            setTabQuery(activeTabId, query);
+        if (activeTabId && activeGroupId && activeTab?.type === TAB_TYPE.QUERY) {
+            const currentQuery = activeTab.query || '';
+            const suffix = query.trim();
+            if (!suffix) return;
+            const separator = currentQuery.trimEnd() ? '\n\n' : '';
+            setTabQuery(activeTabId, `${currentQuery.trimEnd()}${separator}${suffix}`);
         } else {
             addTab({ query });
         }
@@ -74,7 +80,7 @@ export const HistoryPanel: React.FC = () => {
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
                         placeholder="Filter history…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -84,7 +90,7 @@ export const HistoryPanel: React.FC = () => {
                 {entries.length > 0 && (
                     <button
                         className={cn(
-                            "bg-transparent border border-transparent text-text-secondary cursor-pointer flex items-center gap-1 px-1.5 py-1 rounded-[3px] text-[11px] transition-all hover:text-error hover:border-error hover:bg-[#f48771]/10 shrink-0",
+                            "bg-transparent border border-transparent text-text-secondary cursor-pointer flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-all hover:text-error hover:border-error hover:bg-[#f48771]/10 shrink-0",
                             confirmClear && "text-error border-error bg-[#f48771]/10"
                         )}
                         onClick={handleClear}
@@ -139,3 +145,4 @@ export const HistoryPanel: React.FC = () => {
         </div>
     );
 };
+

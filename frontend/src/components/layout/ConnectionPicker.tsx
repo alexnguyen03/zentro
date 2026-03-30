@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Connect, SwitchDatabase } from '../../../wailsjs/go/app/App';
+import { Connect, SwitchDatabase } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
+import { getErrorMessage } from '../../lib/errors';
 import { Spinner } from '../ui';
 
 interface ConnectionPickerProps {
@@ -32,9 +33,9 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
         try {
             await Connect(name);
             // After connect the store will update activeProfile + databases via event
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('ConnectionPicker: connect failed:', err);
-            setError(typeof err === 'string' ? err : err?.message || String(err));
+            setError(getErrorMessage(err));
         } finally {
             setConnecting(false);
         }
@@ -72,11 +73,11 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
     return (
         <>
             {/* Overlay */}
-            <div className="fixed inset-0 bg-black/45 z-[1100] backdrop-blur-[2px]" onClick={onClose} />
+            <div className="fixed inset-0 z-overlay bg-overlay backdrop-blur-[2px]" onClick={onClose} />
 
             {/* Panel */}
             <div
-                className="fixed z-[1101] flex bg-bg-secondary border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.7)] overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
+                className="fixed z-modal flex bg-bg-secondary border border-border rounded-md shadow-elevation-lg overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
                 style={{ top, left, transform: 'translateX(-50%)' }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -93,7 +94,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                     className={cn(
                                         itemBaseClass,
                                         isSelected && "bg-white/5",
-                                        isActive && "border-l-2 border-l-success bg-[#89d185]/10 text-success font-medium hover:bg-[#89d185]/10"
+                                        isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
                                     )}
                                     onClick={() => handleSelectConn(conn.name)}
                                 >
@@ -130,7 +131,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                         key={db}
                                         className={cn(
                                             itemBaseClass,
-                                            isActive && "border-l-2 border-l-success bg-[#89d185]/10 text-success font-medium hover:bg-[#89d185]/10"
+                                            isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
                                         )}
                                         onClick={() => handleSelectDb(db)}
                                     >
@@ -145,3 +146,4 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
         </>
     );
 };
+

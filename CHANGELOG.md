@@ -4,6 +4,60 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 
 ---
 
+## v0.2.0-beta (2026-03-30)
+
+### Scope
+* Release scope includes commits from `1e7db18e28ec96d4de27342aebb4102c801bfb3d` to `1c16b10`.
+* This beta is the public Early Access milestone for the current product phase.
+
+### Project & Workspace
+* Introduced project foundation and project hub flows across multiple delivery phases.
+* Added project-aware workspace state, per-project session restore, and hardened startup recovery.
+* Refactored connection flows to a project-centric model with compact provider-first setup.
+* Added project delete flow and refined project setup/status visuals.
+* Stabilized environment switching and reconnect behavior during project transitions.
+
+### Query Engine & Result Experience
+* Added guarded query runtime state flow and stronger execution lifecycle handling.
+* Added deterministic compare behavior and persistent query tab context.
+* Improved incremental result strategy and result virtualization path for large datasets.
+* Refined result panel and table interactions: sticky index behavior, stable header DnD identity, and clearer row action/editability gating.
+* Improved export reliability and switched export save flow to native dialog.
+
+### SQL Editor Productivity
+* Upgraded SQL completion with better context handling and stale request cancellation.
+* Added FK-based join snippet suggestions and auto-alias table suggestions with driver-safe quoting.
+* Added column data type rendering in completion hints and richer table suggestion docs.
+* Added scoped formatting and SQL clause folding support.
+* Added MRU tab switcher (`Ctrl/Cmd+Tab`) and context quick open (`Ctrl+E`).
+* Unified execute behavior and aligned `Ctrl/Cmd+Enter` with run action semantics.
+
+### Saved Scripts & History
+* Saved scripts are now scoped by `project + connection`.
+* Reopen behavior now uses `savedScriptId` and focuses existing open tabs instead of creating duplicates.
+* Autosave is hardened across close flows (`x`, `Ctrl+W`) and now saves before tab removal.
+* Added `Ctrl+S` for explicit save on the active query script tab.
+* Improved New Query default naming to use max suffix across open query tabs plus scoped saved scripts.
+* Changed delete UX to one-click confirm modal flow.
+* Clicking a history item now appends SQL to the current editor instead of replacing content.
+
+### UI & UX Refinements
+* Refined toolbar alignment, connection picker behavior, and status bar simplification.
+* Moved editor toolbar to a vertical layout and removed redundant new-tab action in that surface.
+* Improved project hub polish, reconnect feedback, and modal transition quality.
+* Refined environment picker tone/hover details and shortcuts/settings presentation.
+
+### Architecture & Quality
+* Continued frontend decomposition: split large stores/components into focused modules and tightened command/platform boundaries.
+* Continued backend decomposition: modularized app/query/schema/driver services with typed v2 event flow and guardrails.
+* Added and expanded tests for query/connection lifecycles, store/session logic, and script scope behavior.
+* Added telemetry/export policy foundations and release-readiness hardening.
+
+### Known Limitation
+* Packaging may fail if `build/bin/zentro-dev.exe` is locked by another process, even when compile and test stages pass.
+
+---
+
 ## v0.0.1 (2026-03-15)
 
 ### 🔌 Connection & Workspace Management
@@ -52,3 +106,4 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 *   **Tech Stack Migration**: Successfully migrated from Fyne (Go UI) to Wails v2 + React + TypeScript stack ([c13e5f6](https://github.com/alexnguyen03/zentro/commit/c13e5f666ce12fc56d54f3893acdedf39d8510c6))
 *   **Design System**: Integrated Tailwind v4 with a unified Super-Flat design system and Title-case rules ([2fd4b5d](https://github.com/alexnguyen03/zentro/commit/2fd4b5d082ec0574ea12a4c21a365d23c7154cdb))
 *   **Driver Support**: Enhanced MSSQL support with TLS 1.0 compatibility and Postgres database discovery improvements ([7e1e89f](https://github.com/alexnguyen03/zentro/commit/7e1e89f583aca20515942a8f1ccdd77216077f96), [00b0fc4](https://github.com/alexnguyen03/zentro/commit/00b0fc4e6abaadfb1518cff4ce12a32bce222600))
+

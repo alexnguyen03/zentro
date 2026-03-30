@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, X, BookMarked, SplitSquareHorizontal, Table2 } from 'lucide-react';
 import { Tab } from '../../stores/editorStore';
 import { DOM_EVENT } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
@@ -23,6 +24,8 @@ interface ContextMenu {
     y: number;
     tabId: string;
 }
+
+const canRenameTab = (tab: Tab): boolean => tab.type === 'query';
 
 // ── Sortable Tab Item ──────────────────────────────────────────────────
 interface SortableTabItemProps {
@@ -58,7 +61,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        zIndex: isDragging ? 100 : undefined,
+        zIndex: isDragging ? 'var(--layer-drag)' : undefined,
     };
 
     return (
@@ -94,7 +97,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             )}
             {tab.isRunning && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0 animate-pulse" title="Running" />}
             <button
-                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-sm opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
+                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-md opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent drag start when clicking close
                 title="Close tab"
@@ -161,36 +164,16 @@ export const TabBar: React.FC<TabBarProps> = ({
         return () => el.removeEventListener('wheel', onWheel);
     }, []);
 
-    // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs in this group
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => {
-            if (!e.ctrlKey || e.key !== 'Tab') return;
-            if (tabs.length < 2) return;
-            e.preventDefault();
-            const idx = tabs.findIndex(t => t.id === activeTabId);
-            const next = e.shiftKey
-                ? (idx - 1 + tabs.length) % tabs.length
-                : (idx + 1) % tabs.length;
-            onActivate(tabs[next].id);
-        };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [tabs, activeTabId, onActivate]);
-
-
-
     // Listen to F2 rename custom hook
     useEffect(() => {
-        const handler = (e: Event) => {
-            const tabId = (e as CustomEvent<string>).detail;
+        const off = onCommand(DOM_EVENT.RENAME_TAB, (tabId) => {
             const tab = tabs.find(t => t.id === tabId);
-            if (tab) {
+            if (tab && canRenameTab(tab)) {
                 setRenamingId(tab.id);
                 setRenameValue(tab.name);
             }
-        };
-        window.addEventListener(DOM_EVENT.RENAME_TAB, handler as EventListener);
-        return () => window.removeEventListener(DOM_EVENT.RENAME_TAB, handler as EventListener);
+        });
+        return off;
     }, [tabs]);
 
     // Close context menu on outside click
@@ -201,6 +184,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     }, []);
 
     const startRename = useCallback((tab: Tab) => {
+        if (!canRenameTab(tab)) return;
         setRenamingId(tab.id);
         setRenameValue(tab.name);
     }, []);
@@ -235,7 +219,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     return (
         <div className="flex items-center bg-bg-secondary border-b border-border h-9 shrink-0 overflow-hidden">
             <div
-                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border"
+                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-md [&:hover::-webkit-scrollbar-thumb]:bg-border"
                 ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
             >
                 <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
@@ -267,16 +251,22 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {contextMenu && (
                 <div
-                    className="fixed bg-bg-secondary border border-border shadow-[0_2px_8px_rgba(0,0,0,0.3)] py-1 rounded-md z-1000 min-w-[150px]"
+                    className="fixed z-popover min-w-[150px] rounded-md border border-border bg-bg-secondary py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div
-                        className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white"
-                        onClick={() => { const t = tabs.find(t => t.id === contextMenu!.tabId); if (t) startRename(t); setContextMenu(null); }}
-                    >
-                        Rename
-                    </div>
+                    {(() => {
+                        const contextTab = tabs.find((tab) => tab.id === contextMenu.tabId);
+                        if (!contextTab || !canRenameTab(contextTab)) return null;
+                        return (
+                            <div
+                                className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white"
+                                onClick={() => { startRename(contextTab); setContextMenu(null); }}
+                            >
+                                Rename
+                            </div>
+                        );
+                    })()}
 
                     {onSplit && (
                         <div

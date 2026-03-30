@@ -3,14 +3,24 @@ import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useResultStore } from '../../stores/resultStore';
+import { useStatusStore } from '../../stores/statusStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
 import { SettingsView } from '../layout/SettingsView';
 import { ShortcutsView } from '../layout/ShortcutsView';
-import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../services/queryService';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
+import { getErrorMessage } from '../../lib/errors';
+import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { isMutatingSql, resolveQueryPolicy } from '../../features/query/policy';
+import { applyPreExecuteFilterPolicy, resolveExecuteQuery } from '../../features/query/executionRouting';
+import { useToast } from '../layout/Toast';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -19,9 +29,24 @@ interface QueryGroupProps {
 
 export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) => {
     const { id: groupId, tabs, activeTabId } = group;
-    const { removeTab, setActiveTabId, setActiveGroupId, renameTab, updateTabQuery, addTab, splitGroup } = useEditorStore();
+    const {
+        removeTab,
+        setActiveTabId,
+        setActiveGroupId,
+        renameTab,
+        updateTabQuery,
+        updateTabContext,
+        addTab,
+        splitGroup,
+    } = useEditorStore();
     const { isConnected, activeProfile } = useConnectionStore();
+    const transactionStatus = useStatusStore((state) => state.transactionStatus);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const activeProject = useProjectStore((state) => state.activeProject);
     const { saveScript } = useScriptStore();
+    const [pendingRunQuery, setPendingRunQuery] = useState<string | null>(null);
+    const [showWriteConfirm, setShowWriteConfirm] = useState(false);
+    const { toast } = useToast();
 
     const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -37,23 +62,160 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
 
     const isDraggingTab = dragActive?.data.current?.type === 'Tab';
 
-    // ── Tab open/close ────────────────────────────────────────────────────
-    const handleClose = useCallback((id: string) => {
-        const tab = tabs.find(t => t.id === id);
-        if (tab?.type === 'query' && tab.query?.trim() && activeProfile?.name) {
-            saveScript(activeProfile.name, tab.name, tab.query).catch(e => console.error('Auto save failed', e));
+    const getLatestQueryTab = useCallback((tabId: string) => {
+        const state = useEditorStore.getState();
+        const activeGroupTab = state.groups.find((g) => g.id === groupId)?.tabs.find((t) => t.id === tabId);
+        if (activeGroupTab?.type === TAB_TYPE.QUERY) {
+            return activeGroupTab;
         }
-        removeTab(id, groupId);
-    }, [tabs, removeTab, groupId, activeProfile, saveScript]);
+        for (const groupItem of state.groups) {
+            const candidate = groupItem.tabs.find((t) => t.id === tabId);
+            if (candidate?.type === TAB_TYPE.QUERY) {
+                return candidate;
+            }
+        }
+        return null;
+    }, [groupId]);
 
-    // ── Run / Cancel ──────────────────────────────────────────────────────
-    const handleRun = useCallback(async (queryToRun: string) => {
-        if (!activeTab || !isConnected) return;
-        useResultStore.getState().setFilterExpr(activeTab.id, '');
+    const autoSaveQueryTab = useCallback(async (tabId: string) => {
+        const tab = getLatestQueryTab(tabId);
+        if (!tab || !tab.query?.trim()) return;
+
+        const fallbackProject = useProjectStore.getState().activeProject;
+        const fallbackEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey
+            || fallbackProject?.last_active_environment_key
+            || fallbackProject?.default_environment_key;
+        const fallbackConnection = fallbackProject?.connections?.find((item) => item.environment_key === fallbackEnvironmentKey);
+        const fallbackConnectionName = fallbackConnection?.advanced_meta?.profile_name || fallbackConnection?.name || null;
+        const projectId =
+            activeProject?.id ||
+            useProjectStore.getState().activeProject?.id ||
+            tab.context?.scriptProjectId ||
+            null;
+        const profileName =
+            activeProfile?.name ||
+            useConnectionStore.getState().activeProfile?.name ||
+            tab.context?.scriptConnectionName ||
+            fallbackConnectionName ||
+            null;
+
+        if (projectId && profileName) {
+            try {
+                const savedScriptId = await saveScript(projectId, profileName, tab.name, tab.query, tab.context?.savedScriptId);
+                const latestTab = getLatestQueryTab(tabId);
+                if (latestTab) {
+                    updateTabContext(tabId, {
+                        savedScriptId,
+                        scriptProjectId: projectId,
+                        scriptConnectionName: profileName,
+                    });
+                }
+            } catch (e) {
+                console.error('Auto save failed', e);
+            }
+        } else {
+            console.warn('Auto save skipped: missing project/profile context', {
+                tabId,
+                projectId,
+                profileName,
+            });
+        }
+    }, [activeProfile?.name, activeProject?.id, getLatestQueryTab, saveScript, updateTabContext]);
+
+    useEffect(() => {
+        if (!activeProject?.id || !activeProfile?.name) return;
+        for (const tab of tabs) {
+            if (tab.type !== TAB_TYPE.QUERY) continue;
+            if (
+                tab.context?.scriptProjectId === activeProject.id &&
+                tab.context?.scriptConnectionName === activeProfile.name
+            ) {
+                continue;
+            }
+            updateTabContext(tab.id, {
+                scriptProjectId: activeProject.id,
+                scriptConnectionName: activeProfile.name,
+            });
+        }
+    }, [activeProfile?.name, activeProject?.id, tabs, updateTabContext]);
+
+    const handleClose = useCallback(async (id: string) => {
+        const tab = tabs.find(t => t.id === id);
         try {
-            await ExecuteQuery(activeTab.id, queryToRun);
-        } catch (err: any) {
-            console.error('ExecuteQuery error:', err);
+            if (tab?.type === TAB_TYPE.QUERY) {
+                await autoSaveQueryTab(tab.id);
+            }
+        } finally {
+            removeTab(id, groupId);
+        }
+    }, [autoSaveQueryTab, tabs, removeTab, groupId]);
+
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {
+            if (!detail) return;
+            autoSaveQueryTab(detail);
+        });
+        return off;
+    }, [autoSaveQueryTab]);
+
+    const executeQueryNow = useCallback(async (queryToRun: string) => {
+        if (!activeTab || !isConnected || activeTab.readOnly) return;
+        const resultStore = useResultStore.getState();
+        applyPreExecuteFilterPolicy({
+            source: 'editor',
+            sourceTabId: activeTab.id,
+            resultTabIds: Object.keys(resultStore.results),
+            clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            updateTabContext,
+        });
+
+        try {
+            await ExecuteQuery(activeTab.id, resolveExecuteQuery({
+                source: 'editor',
+                editorQuery: queryToRun,
+            }));
+        } catch (err: unknown) {
+            console.error('ExecuteQuery error:', getErrorMessage(err));
+        }
+    }, [activeTab, isConnected, updateTabContext]);
+
+    const handleRun = useCallback(async (queryToRun: string) => {
+        const policy = resolveQueryPolicy(activeEnvironmentKey || undefined);
+        const mutating = isMutatingSql(queryToRun);
+        const shouldPrompt =
+            mutating &&
+            policy.requireWriteConfirm &&
+            policy.environmentStrictness === 'strict' &&
+            policy.destructiveRules === 'prompt' &&
+            transactionStatus !== 'active';
+
+        if (
+            mutating &&
+            policy.requireWriteConfirm &&
+            policy.environmentStrictness === 'strict' &&
+            policy.destructiveRules === 'block'
+        ) {
+            toast.error('Blocked by execution policy: destructive SQL is disabled for this environment.');
+            return;
+        }
+
+        if (shouldPrompt) {
+            setPendingRunQuery(queryToRun);
+            setShowWriteConfirm(true);
+            return;
+        }
+
+        await executeQueryNow(queryToRun);
+    }, [activeEnvironmentKey, executeQueryNow, toast, transactionStatus]);
+
+    const handleExplain = useCallback(async (queryToExplain: string, analyze: boolean) => {
+        if (!activeTab || !isConnected || activeTab.readOnly) return;
+
+        const explainTabId = `${activeTab.id}::explain:${analyze ? 'analyze' : 'plan'}`;
+        try {
+            await ExplainQuery(explainTabId, queryToExplain, analyze);
+        } catch (err: unknown) {
+            console.error('ExplainQuery error:', getErrorMessage(err));
         }
     }, [activeTab, isConnected]);
 
@@ -91,8 +253,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             <div className={cn('flex-1 relative flex flex-col overflow-hidden', isActiveGroup && 'active-group-body')}>
                 {isDraggingTab && (
                     <>
-                        <div ref={setLeftNodeRef} className="absolute top-0 bottom-0 left-0 w-1/4 z-[1000]" />
-                        <div ref={setRightNodeRef} className="absolute top-0 bottom-0 right-0 w-1/4 z-[1000]" />
+                        <div ref={setLeftNodeRef} className="absolute top-0 bottom-0 left-0 z-popover w-1/4" />
+                        <div ref={setRightNodeRef} className="absolute top-0 bottom-0 right-0 z-popover w-1/4" />
                     </>
                 )}
                 {isLeftOver && <div className="split-snap-preview left" />}
@@ -121,8 +283,10 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                                         value={tab.query}
                                         onChange={(v) => updateTabQuery(tab.id, v)}
                                         onRun={handleRun}
+                                        onExplain={handleExplain}
                                         isActive={isActiveGroup && tab.id === activeTabId}
-                                        onFocus={handleGroupClick}
+                                        onFocus={() => setActiveTabId(tab.id, groupId)}
+                                        readOnly={tab.readOnly}
                                     />
                                 )}
                             </div>
@@ -130,6 +294,24 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                     </div>
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={showWriteConfirm}
+                onClose={() => {
+                    setShowWriteConfirm(false);
+                    setPendingRunQuery(null);
+                }}
+                onConfirm={() => {
+                    const sql = pendingRunQuery;
+                    setPendingRunQuery(null);
+                    if (!sql) return;
+                    void executeQueryNow(sql);
+                }}
+                title="Confirm Write Query"
+                message="Mutating SQL detected on a strict environment."
+                description="Run this query only if you are sure. Tip: start a transaction for safer control."
+                confirmLabel="Run Query"
+                variant="danger"
+            />
         </div>
     );
 };

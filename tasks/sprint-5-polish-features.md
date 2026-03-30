@@ -49,7 +49,7 @@ depends_on: S4
   - Export thường (không có edits)
   - Export với edited cells → verify edited values trong CSV
 
-**Done khi**: unit test pass, CSV file đọc được bằng Excel/LibreOffice.
+**Done when**: unit test pass, CSV file đọc được bằng Excel/LibreOffice.
 
 ---
 
@@ -89,7 +89,7 @@ depends_on: S4
 
 - [ ] "Export CSV" button action: `func() { exportCurrentResult(state) }`
 
-**Done khi**: click Export → file dialog → chọn path → file CSV tạo ra đúng.
+**Done when**: click Export → file dialog → chọn path → file CSV tạo ra đúng.
 
 ---
 
@@ -115,7 +115,7 @@ depends_on: S4
   - Thêm 205 entries → verify chỉ còn 200 (newest first)
   - Entry đầu tiên phải là entry mới nhất
 
-**Done khi**: unit test pass.
+**Done when**: unit test pass.
 
 ---
 
@@ -144,7 +144,7 @@ depends_on: S4
   }()
   ```
 
-**Done khi**: sau mỗi query run, entry xuất hiện trong history.
+**Done when**: sau mỗi query run, entry xuất hiện trong history.
 
 ---
 
@@ -197,7 +197,7 @@ depends_on: S4
 - [ ] `Widget() fyne.CanvasObject`:
   - `container.NewBorder(widget.NewLabel("Query History"), clearBtn, nil, nil, p.list)`
 
-**Done khi**: history panel hiển thị entries, click paste query vào editor active.
+**Done when**: history panel hiển thị entries, click paste query vào editor active.
 
 ---
 
@@ -220,7 +220,7 @@ depends_on: S4
 
 > MVP approach: dùng `container.NewHSplit(editorArea, historyPanel.Widget())` với Offset=0.75, hoặc đặt history panel như một tab riêng trong AppTabs bên ngoài.
 
-**Done khi**: history panel visible, click entry → paste vào editor.
+**Done when**: history panel visible, click entry → paste vào editor.
 
 ---
 
@@ -258,7 +258,7 @@ depends_on: S4
   }
   ```
 
-**Done khi**: settings dialog mở được, theme apply ngay, limit persist qua restart.
+**Done when**: settings dialog mở được, theme apply ngay, limit persist qua restart.
 
 ---
 
@@ -288,7 +288,7 @@ depends_on: S4
 - [ ] Verify `ExecuteQuery` signature có `defaultLimit int` parameter
 - [ ] Verify caller trong `mainwindow.go` đọc từ `utils.GetDefaultLimit(state.App)` thay vì hardcode
 
-**Done khi**: thay đổi Default Row Limit trong settings → query tiếp theo áp dụng limit mới.
+**Done when**: thay đổi Default Row Limit trong settings → query tiếp theo áp dụng limit mới.
 
 ---
 

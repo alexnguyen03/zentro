@@ -1,0 +1,27 @@
+- Company A
+    - Budget Ctrl
+        - Dev env (dev connection)
+        - Staging env (Staging connection)
+        - Prod env (Prod connection)
+    - E-Invoice
+        - Dev env (dev connection)
+        - Staging env (Staging connection)
+        - Prod env (Prod connection)
+- Company B
+    - PO
+        - Dev env (dev connection)
+        - Staging env (Staging connection)
+        - Prod env (Prod connection)
+    - POS
+        - Dev env (dev connection)
+        - Staging env (Staging connection)
+        - Prod env (Prod connection)
+- Persional
+    - Mizu
+        - Dev env (dev connection)
+        - Staging env (Staging connection)
+        - Prod env (Prod connection)
+    - VNO
+        - Dev env (dev connection)
+        - Staging env (Staging connection)
+        - Prod env (Prod connection)

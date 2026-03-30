@@ -1,25 +1,42 @@
-/**
- * Detects the shape of a SQL SELECT query and merges a filter condition correctly.
- *
- * Patterns:
- *  1. Bare   — `SELECT … FROM table`             → `<query> AS _zentro_filter\nWHERE <filter>`
- *  2. HasWhere — `SELECT … FROM table WHERE …`   → `SELECT … FROM table WHERE (<existing>) AND (<filter>)`
- *  3. Complex — JOIN, subquery, GROUP BY, etc.   → `SELECT * FROM (\n<query>\n) AS _zentro_filter\nWHERE <filter>`
- */
+type QueryShape = 'has-where' | 'no-where';
 
-type QueryShape = 'bare' | 'has-where' | 'complex';
-
-const COMPLEX_KEYWORDS = /\bjoin\b|\bgroup\s+by\b|\bhaving\b|\border\s+by\b|\blimit\b|\bwith\b|\(select\b/i;
+const TAIL_CLAUSE_RE = /\b(group\s+by|having|order\s+by|limit|offset|fetch|union|intersect|except)\b/i;
+const LEGACY_FILTER_WRAPPER_RE = /^\s*select\s+\*\s+from\s*\(\s*([\s\S]+?)\s*\)\s+as\s+_zentro_filter(?:\s+where\s+[\s\S]+)?\s*$/i;
+const LEGACY_FILTER_SUFFIX_RE = /^\s*([\s\S]+?)\s*\)\s+as\s+_zentro_filter(?:\s+where\s+[\s\S]+)?\s*$/i;
 
 function getQueryShape(q: string): QueryShape {
-    // Must be a single SELECT … FROM <identifier> statement
-    const bare = /^select\s+.+?\s+from\s+[\w"[\].`]+\s*$/i;
-    const hasWhere = /^select\s+.+?\s+from\s+[\w"[\].`]+\s+where\s+.+$/i;
+    return /\bwhere\b/i.test(q) ? 'has-where' : 'no-where';
+}
 
-    if (COMPLEX_KEYWORDS.test(q)) return 'complex';
-    if (hasWhere.test(q)) return 'has-where';
-    if (bare.test(q)) return 'bare';
-    return 'complex';
+function splitFilterTail(q: string): { head: string; tail: string } {
+    const match = TAIL_CLAUSE_RE.exec(q);
+    if (!match || match.index < 0) return { head: q.trim(), tail: '' };
+    return {
+        head: q.slice(0, match.index).trimEnd(),
+        tail: q.slice(match.index).trim(),
+    };
+}
+
+function stripLegacyFilterWrapper(q: string): string {
+    const trimmed = q.trim();
+    const wrapped = LEGACY_FILTER_WRAPPER_RE.exec(trimmed);
+    if (wrapped) {
+        return (wrapped[1] || '').trim();
+    }
+
+    // splitLastQuery() can return "<inner-select> ) AS _zentro_filter WHERE ..."
+    // when the legacy wrapper contains nested SELECT; unwrap that suffix too.
+    const suffixWrapped = LEGACY_FILTER_SUFFIX_RE.exec(trimmed);
+    if (suffixWrapped) {
+        let candidate = (suffixWrapped[1] || '').trim();
+        const legacyOuterPrefix = /^\s*select\s+\*\s+from\s*\(\s*([\s\S]+)$/i.exec(candidate);
+        if (legacyOuterPrefix) {
+            candidate = (legacyOuterPrefix[1] || '').trim();
+        }
+        if (/^select\b/i.test(candidate)) return candidate;
+    }
+
+    return q;
 }
 
 export function splitLastQuery(rawQuery: string): { prefix: string, base: string } {
@@ -57,23 +74,35 @@ export function splitLastQuery(rawQuery: string): { prefix: string, base: string
 }
 
 export function buildFilterQuery(rawQuery: string, condition: string): string {
-    const { prefix, base } = splitLastQuery(rawQuery);
-    const q = base.replace(/;\s*$/, '').trim();
-    const shape = getQueryShape(q);
-    
-    let filtered: string;
-    if (shape === 'bare') {
-        filtered = `${q} AS _zentro_filter\nWHERE ${condition}`;
-    } else if (shape === 'has-where') {
-        // Extract the WHERE clause and wrap both conditions
-        const whereIdx = q.search(/\bwhere\b/i);
-        const beforeWhere = q.slice(0, whereIdx).trimEnd();
-        const existingCondition = q.slice(whereIdx + 5).trim(); // skip 'where '
-        filtered = `${beforeWhere} WHERE (${existingCondition}) AND (${condition})`;
-    } else {
-        // Complex: wrap in subquery
-        filtered = `SELECT * FROM (\n${q}\n) AS _zentro_filter\nWHERE ${condition}`;
+    const normalizedRawQuery = stripLegacyFilterWrapper(rawQuery.trim().replace(/;\s*$/, ''));
+    const { prefix, base } = splitLastQuery(normalizedRawQuery);
+    const q = stripLegacyFilterWrapper(base.replace(/;\s*$/, '').trim());
+    const trimmedCondition = condition.trim();
+    if (!trimmedCondition) {
+        return prefix ? `${prefix}${q}` : q;
     }
+
+    const { head, tail } = splitFilterTail(q);
+    const whereMatch = /\bwhere\b/i.exec(head);
+    let main: string;
+
+    if (!whereMatch || whereMatch.index < 0) {
+        main = `${head} where ${trimmedCondition}`;
+    } else {
+        const beforeWhere = head.slice(0, whereMatch.index).trimEnd();
+        const existingWhere = head.slice(whereMatch.index + whereMatch[0].length).trim();
+        const endsWithLogical = /\b(and|or)\s*$/i.test(existingWhere);
+
+        const mergedWhere = !existingWhere
+            ? trimmedCondition
+            : endsWithLogical
+                ? `${existingWhere} (${trimmedCondition})`
+                : `${existingWhere} AND (${trimmedCondition})`;
+
+        main = `${beforeWhere} where ${mergedWhere}`;
+    }
+
+    const filtered = tail ? `${main} ${tail}` : main;
 
     return prefix ? `${prefix}${filtered}` : filtered;
 }

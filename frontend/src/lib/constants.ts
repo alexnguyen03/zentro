@@ -1,17 +1,34 @@
 /**
- * constants.ts — Global constants for the frontend application.
+ * Global constants for the frontend application.
  */
 
 export const STORAGE_KEY = {
-    EDITOR_SESSION: 'zentro:editor-session-v2',
-    CONNECTION_STORE: 'zentro:connection-store',
-    DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version',
+    EDITOR_SESSION: 'zentro:editor-session-v4',
+    PROJECT_STORE: 'zentro:project-store-v2',
+    LAYOUT_STORE: 'zentro:layout-store-v2',
+    CONNECTION_TREE_UI: 'zentro:connection-tree-ui-v1',
+    DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version-v2',
+    TELEMETRY_CONSENT: 'zentro:telemetry-consent:v2',
+    QUERY_PERFORMANCE_SNAPSHOTS: 'zentro:query-performance-snapshots:v1',
+    TELEMETRY_EVENTS: 'zentro:telemetry-events:v1',
+    TELEMETRY_ANALYTICS_OUTBOX: 'zentro:telemetry-analytics-outbox:v1',
+    EXECUTION_POLICY_PROFILES: 'zentro:execution-policy-profiles:v1',
+    EXECUTION_POLICY_ASSIGNMENTS: 'zentro:execution-policy-assignments:v1',
 } as const;
 
 export const DOM_EVENT = {
-    OPEN_WORKSPACE_MODAL: 'open-workspace-modal',
+    OPEN_PROJECT_HUB: 'open-project-hub',
+    OPEN_CONTEXT_SEARCH: 'open-context-search',
+    OPEN_ENVIRONMENT_SWITCHER: 'open-environment-switcher',
     CLOSE_ACTIVE_TAB: 'close-active-tab',
     RUN_QUERY_ACTION: 'run-query-action',
+    RUN_EXPLAIN_ACTION: 'run-explain-action',
+    FORMAT_QUERY_ACTION: 'format-query-action',
+    TOGGLE_BOOKMARK_ACTION: 'toggle-bookmark-action',
+    NEXT_BOOKMARK_ACTION: 'next-bookmark-action',
+    OPEN_QUERY_COMPARE: 'open-query-compare',
+    JUMP_TO_LINE_ACTION: 'jump-to-line-action',
+    SAVE_TAB_ACTION: 'zentro:save-script',
     RENAME_TAB: 'zentro:rename-tab',
 } as const;
 
@@ -39,3 +56,33 @@ export const DRIVER = {
     SQLITE: 'sqlite',
 } as const;
 export type DriverType = typeof DRIVER[keyof typeof DRIVER];
+
+export const ENVIRONMENT_KEY = {
+    LOCAL: 'loc',
+    TESTING: 'tes',
+    DEVELOPMENT: 'dev',
+    STAGING: 'sta',
+    PRODUCTION: 'pro',
+} as const;
+export type EnvironmentKey = typeof ENVIRONMENT_KEY[keyof typeof ENVIRONMENT_KEY];
+
+export const TRANSACTION_STATUS = {
+    NONE: 'none',
+    ACTIVE: 'active',
+    ERROR: 'error',
+} as const;
+export type TransactionStatus = typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
+
+export const GENERATED_KIND = {
+    RESULT: 'result',
+    EXPLAIN: 'explain',
+} as const;
+export type GeneratedKind = typeof GENERATED_KIND[keyof typeof GENERATED_KIND];
+
+export const ASSET_TYPE = {
+    SAVED_QUERY: 'saved_query',
+    TEMPLATE: 'template',
+    FAVORITE_OBJECT: 'favorite_object',
+    RESULT_SNAPSHOT: 'result_snapshot',
+} as const;
+export type AssetType = typeof ASSET_TYPE[keyof typeof ASSET_TYPE];

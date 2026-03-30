@@ -1,56 +1,301 @@
-/* ─── Tailwind v4 entry point ────────────────────────── */
 @import "tailwindcss";
 
-/* ─── Design-token → Tailwind theme mapping ──────────── */
 @theme {
-  /* ── Colors ─────────────────────────────────────────── */
-  --color-bg-primary: var(--bg-primary);
-  --color-bg-secondary: var(--bg-secondary);
-  --color-bg-tertiary: var(--bg-tertiary);
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-secondary);
-  --color-border: var(--border-color);
-  --color-error: var(--error-color);
-  --color-success: var(--success-color);
-  --color-accent: var(--accent-color);
-  --color-accent-hover: var(--accent-hover);
+  /* Color tokens */
+  --color-bg-primary: var(--surface-app);
+  --color-bg-secondary: var(--surface-panel);
+  --color-bg-tertiary: var(--surface-elevated);
+  --color-surface-overlay: var(--surface-overlay-card);
 
-  /* ── Typography ──────────────────────────────────────── */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: 'Cascadia Code', 'Fira Code', monospace;
+  --color-text-primary: var(--content-primary);
+  --color-text-secondary: var(--content-secondary);
+  --color-text-muted: var(--content-muted);
+  --color-text-inverse: var(--content-inverse);
 
-  /* ── Border radius ───────────────────────────────────── */
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
+  --color-border: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
 
-  /* ── Transitions ─────────────────────────────────────── */
-  --transition-fast: 0.1s ease;
-  --transition-base: 0.15s ease;
+  --color-accent: var(--interactive-primary);
+  --color-accent-hover: var(--interactive-primary-hover);
+  --color-focus: var(--focus-ring);
 
-  /* ── Z-index scale ───────────────────────────────────── */
-  --z-dropdown: 1000;
-  --z-overlay: 2000;
-  --z-modal: 3000;
-  --z-modal-confirm: 10000;
-  --z-9999: 9999;
-  --z-tooltip: 11000;
+  --color-success: var(--status-success);
+  --color-error: var(--status-error);
+  --color-warning: var(--status-warning);
+  --color-overlay: var(--overlay-backdrop);
+  --color-overlay-strong: var(--overlay-backdrop-strong);
+
+  /* Typography */
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+
+  /* Radius */
+  --radius-sm: var(--radius-scale-sm);
+  --radius-md: var(--radius-scale-md);
+  --radius-lg: var(--radius-scale-lg);
+  --radius-xl: var(--radius-scale-xl);
+
+  /* Elevation */
+  --shadow-elevation-sm: var(--elevation-sm);
+  --shadow-elevation-md: var(--elevation-md);
+  --shadow-elevation-lg: var(--elevation-lg);
+
+  /* Motion */
+  --transition-fast: var(--motion-fast) var(--ease-standard);
+  --transition-base: var(--motion-base) var(--ease-standard);
+
+  /* Layer scale */
+  --z-table-sticky: var(--layer-table-sticky);
+  --z-sticky: var(--layer-sticky);
+  --z-panel-overlay: var(--layer-panel-overlay);
+  --z-drag: var(--layer-drag);
+  --z-split-preview: var(--layer-split-preview);
+  --z-popover: var(--layer-popover);
+  --z-dropdown: var(--layer-dropdown);
+  --z-toolbar: var(--layer-toolbar);
+  --z-overlay: var(--layer-overlay);
+  --z-modal: var(--layer-modal);
+  --z-modal-confirm: var(--layer-modal-confirm);
+  --z-toast: var(--layer-toast);
+  --z-tooltip: var(--layer-tooltip);
+  --z-topmost: var(--layer-topmost);
 }
 
-/* ─── Utility layer ──────────────────────────────────── */
 @layer utilities {
-
-  /* Truncate text with ellipsis in table cells */
   .truncate-cell {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  .z-sticky {
+    z-index: var(--layer-sticky);
+  }
+
+  .z-panel-overlay {
+    z-index: var(--layer-panel-overlay);
+  }
+
+  .z-drag {
+    z-index: var(--layer-drag);
+  }
+
+  .z-popover {
+    z-index: var(--layer-popover);
+  }
+
+  .z-dropdown {
+    z-index: var(--layer-dropdown);
+  }
+
+  .z-toolbar {
+    z-index: var(--layer-toolbar);
+  }
+
+  .z-overlay {
+    z-index: var(--layer-overlay);
+  }
+
+  .z-modal {
+    z-index: var(--layer-modal);
+  }
+
+  .z-modal-confirm {
+    z-index: var(--layer-modal-confirm);
+  }
+
+  .z-toast {
+    z-index: var(--layer-toast);
+  }
+
+  .z-tooltip {
+    z-index: var(--layer-tooltip);
+  }
+
+  .z-topmost {
+    z-index: var(--layer-topmost);
+  }
 }
 
-/* ─── Foundation ──────────────────────────────────────── */
+@import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./styles/animations.css";
 @import "./styles/components.css";
+
+.zentro-sql-editor {
+  --zentro-bookmark-dot-size: clamp(6px, calc(var(--zentro-editor-font-size, 14px) * 0.52), 12px);
+}
+
+.zentro-bookmark-glyph {
+  background: var(--status-success);
+  border-radius: 999px;
+  width: var(--zentro-bookmark-dot-size) !important;
+  height: var(--zentro-bookmark-dot-size) !important;
+  margin-left: 2px;
+  margin-top: calc((var(--zentro-editor-line-height, 21px) - var(--zentro-bookmark-dot-size)) / 2);
+}
+
+.zentro-bookmark-line {
+  background: color-mix(in srgb, var(--status-success) 14%, transparent);
+  border-radius: 4px;
+}
+
+.zentro-sql-editor .monaco-editor .margin .line-numbers {
+  font-size: inherit !important;
+  line-height: inherit !important;
+  opacity: 0.82;
+}
+
+.zentro-sql-editor .monaco-editor .view-overlays .current-line {
+  border: none !important;
+  background: color-mix(in srgb, var(--interactive-primary) 12%, transparent) !important;
+}
+
+.zentro-sql-editor .monaco-editor .margin .current-line-margin {
+  border: none !important;
+  background: color-mix(in srgb, var(--interactive-primary) 12%, transparent) !important;
+}
+
+.zentro-filter-monaco .monaco-editor,
+.zentro-filter-monaco .monaco-editor-background,
+.zentro-filter-monaco .inputarea.ime-input {
+  background: transparent !important;
+}
+
+.zentro-filter-monaco .monaco-editor .view-line {
+  font-family: var(--font-family-mono);
+}
+
+/* Monaco suggest documentation table styling (enterprise compact) */
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--content-primary);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__title {
+  margin: 0 0 8px 0;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--content-primary);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table th,
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table th {
+  background: var(--surface-elevated);
+  color: var(--content-secondary);
+  font-weight: 700;
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Fallback selectors if Monaco sanitizer strips class attributes */
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+}
+
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc table th,
+.zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.zentro-table-nav-widget {
+  min-width: 220px;
+  max-width: 360px;
+  border: 1px solid color-mix(in srgb, var(--border-primary) 85%, transparent);
+  background: color-mix(in srgb, var(--surface-panel) 94%, black 6%);
+  color: var(--content-primary);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.zentro-table-nav-widget.hidden {
+  display: none;
+}
+
+.zentro-table-nav-widget--hint {
+  min-width: 140px;
+  max-width: 280px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--status-error);
+}
+
+.zentro-table-nav-widget__header {
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 80%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--content-secondary);
+}
+
+.zentro-table-nav-widget__list {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.zentro-table-nav-widget__item {
+  width: 100%;
+  border: 0;
+  margin: 0;
+  padding: 7px 8px;
+  background: transparent;
+  color: var(--content-primary);
+  text-align: left;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.zentro-table-nav-widget__item:hover,
+.zentro-table-nav-widget__item.is-active {
+  background: color-mix(in srgb, var(--interactive-primary) 18%, transparent);
+}
+
+.zentro-table-nav-hover {
+  cursor: pointer;
+  font-weight: 700;
+  opacity: 0.8;
+  text-decoration: underline;
+  text-decoration-thickness: 1.4px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--interactive-primary) 78%, transparent);
+  transition:
+    color 140ms ease,
+    opacity 140ms ease,
+    text-decoration-color 140ms ease,
+}

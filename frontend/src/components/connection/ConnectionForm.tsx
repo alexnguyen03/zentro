@@ -4,13 +4,11 @@ import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import { DRIVER } from '../../lib/constants';
 import { TestResult } from '../../hooks/useConnectionForm';
-import { models } from '../../../wailsjs/go/models';
 import { Button, Spinner } from '../ui';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../../types/connection';
 
 // ── Style tokens (shared, defined once) ──────────────────────────────────────
-export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded text-[12px] outline-none focus:border-success transition-colors w-full';
+export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded-md text-[12px] outline-none focus:border-success transition-colors w-full';
 export const lbl = 'text-[11px] text-text-secondary block mb-0.5';
 
 interface ConnectionFormProps {
@@ -50,9 +48,17 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
     // Derive capabilities from provider registry — no hardcoded strings in JSX
     const provider = getProvider(formData.driver ?? DRIVER.POSTGRES);
     const { requiresHost, requiresAuth, extraFields = [] } = provider;
+    const providerLogo = formData.driver ? provider.icon : null;
 
     return (
-        <form onSubmit={onSave} className="flex-1 overflow-y-auto flex flex-col gap-2.5 px-4 py-3">
+        <form onSubmit={onSave} className="relative flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+            {providerLogo && (
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-4 right-4 h-72 w-72 bg-contain bg-center bg-no-repeat opacity-[0.15]"
+                    style={{ backgroundImage: `url(${providerLogo})` }}
+                />
+            )}
 
             {/* URI — new connections only */}
             {showUriField && (
@@ -86,8 +92,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {/* Host + Port */}
-            <div className="flex gap-2">
-                <div className="flex-1" style={{ flex: 3 }}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 sm:basis-3/4">
                     <label className={lbl}>Host {requiresHost && <span className="text-error">*</span>}</label>
                     <input
                         name="host"
@@ -98,7 +104,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         className={cn(fi, !requiresHost && 'opacity-40')}
                     />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="sm:basis-1/4">
                     <label className={lbl}>Port {requiresHost && <span className="text-error">*</span>}</label>
                     <input
                         type="number"
@@ -115,7 +121,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {/* Username + Password */}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1">
                     <label className={lbl}>Username {requiresAuth && <span className="text-error">*</span>}</label>
                     <input
@@ -143,8 +149,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {/* Database + SSL */}
-            <div className="flex gap-2">
-                <div className="flex-1" style={{ flex: 2 }}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 sm:basis-2/3">
                     <label className={lbl}>Database <span className="text-error">*</span></label>
                     <input
                         name="db_name"
@@ -155,7 +161,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     />
                 </div>
                 {requiresHost && (
-                    <div style={{ flex: 1 }}>
+                    <div className="sm:basis-1/3">
                         <label className={lbl}>SSL</label>
                         <select name="ssl_mode" value={formData.ssl_mode || 'disable'} onChange={onChange} className={fi}>
                             <option value="disable">Disable</option>
@@ -204,24 +210,35 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     />
                     Save password
                 </label>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
+                    <input
+                        type="checkbox"
+                        name="encrypt_password"
+                        checked={formData.encrypt_password ?? true}
+                        onChange={onChange}
+                        disabled={!(formData.save_password ?? true)}
+                        className="w-3 h-3 cursor-pointer accent-success"
+                    />
+                    Encrypt password
+                </label>
             </div>
 
             {/* Feedback */}
             {errorMsg && (
-                <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded text-[11px] text-error bg-[#f48771]/10 border border-[#f48771]/20">
+                <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] text-error bg-[#f48771]/10 border border-[#f48771]/20">
                     <AlertCircle size={12} className="shrink-0 mt-px" />
                     <span className="wrap-break-word flex-1">{errorMsg}</span>
                 </div>
             )}
             {successMsg && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] text-success bg-[#89d185]/10 border border-[#89d185]/20">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] text-success bg-[#89d185]/10 border border-[#89d185]/20">
                     <CheckCircle size={12} className="shrink-0" />
                     <span className="flex-1">{successMsg}</span>
                 </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-1.5 mt-auto pt-2.5">
+            <div className="mt-auto flex gap-1.5 pt-2.5">
                 <Button
                     type="button"
                     variant="solid"
@@ -240,7 +257,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                             : 'Test'}
                 </Button>
                 <div className="flex-1" />
-                <Button type="submit" variant="success" className="w-6/12" disabled={saving}>
+                <Button type="submit" variant="success" className="w-6/12 min-w-[120px] sm:min-w-0" disabled={saving}>
                     {saving ? <><Spinner size={11} className="text-white mr-1" /> Saving…</> : 'Save'}
                 </Button>
             </div>

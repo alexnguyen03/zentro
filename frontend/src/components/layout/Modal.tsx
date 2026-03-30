@@ -1,9 +1,7 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
-import { Button } from '../ui';
+import { ModalBackdrop, ModalFrame } from '../ui';
 
 interface ModalProps {
     isOpen: boolean;
@@ -13,6 +11,7 @@ interface ModalProps {
     footer?: React.ReactNode;
     width?: string | number;
     className?: string;
+    layer?: 'modal' | 'confirm';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -22,36 +21,33 @@ export const Modal: React.FC<ModalProps> = ({
     children,
     footer,
     width = 600,
-    className
+    className,
+    layer = 'modal',
 }) => {
     if (!isOpen) return null;
 
-    return createPortal(
-        <div
-            className={cn("fixed inset-0 bg-black/60 flex items-center justify-center animate-in fade-in duration-150", className || "z-modal")}
-            onClick={onClose}
+    return (
+        <ModalBackdrop
+            onClose={onClose}
+            layer={layer}
+            contentClassName="flex w-full items-center justify-center p-3"
         >
-            <div
-                className="bg-bg-secondary border border-border rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col max-h-[90vh] overflow-hidden"
+            <ModalFrame
+                title={title}
+                onClose={onClose}
+                footer={footer}
                 style={{ width, maxWidth: '90vw' }}
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0 bg-bg-secondary">
-                    <h2 className="m-0 text-base font-semibold text-text-primary">{title}</h2>
-                    <Button variant="ghost" size="icon" onClick={onClose} title="Close">
-                        <X size={18} />
-                    </Button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-5 text-[13px] text-text-secondary" style={{ paddingBottom: footer ? 0 : undefined }}>
-                    {children}
-                </div>
-                {footer && (
-                    <div className="shrink-0 px-5 py-4 border-t border-border bg-bg-secondary flex justify-end gap-3 mt-4">
-                        {footer}
-                    </div>
+                className={cn(
+                    'w-full max-h-[90vh] rounded-md border border-border/30 shadow-elevation-lg',
+                    className,
                 )}
-            </div>
-        </div>,
-        document.body
+                headerClassName="shrink-0 border-b border-border/25 bg-bg-secondary px-5 py-4"
+                titleClassName="m-0 text-base font-semibold text-text-primary"
+                bodyClassName="flex-1 overflow-y-auto p-5 text-[13px] text-text-secondary"
+                footerClassName="shrink-0 border-t border-border/25 bg-bg-secondary px-5 py-4 flex justify-end gap-3"
+            >
+                {children}
+            </ModalFrame>
+        </ModalBackdrop>
     );
 };

@@ -22,11 +22,12 @@ interface SchemaInfoViewProps {
     filterText: string;
     onFilterChange: (text: string) => void;
     filterInputRef: React.RefObject<HTMLInputElement>;
+    readOnlyMode?: boolean;
 }
 
 export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
     rows, displayIds, types, editCell, setEditCell, onUpdate, onDiscard, rowErrors, selectedRows,
-    onRowMouseDown, onRowMouseEnter, sortCol, sortDir, onSort
+    onRowMouseDown, onRowMouseEnter, sortCol, sortDir, onSort, readOnlyMode = false
 }) => {
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,10 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                     ref={tableContainerRef}
                     className="flex-1 overflow-auto scrollbar-thin"
                 >
-                    <table className="result-table-tanstack w-full border-collapse table-fixed select-none">
+                    <table
+                        className="result-table-tanstack border-collapse table-fixed select-none"
+                        style={{ width: '100%', minWidth: '100%' }}
+                    >
                         <thead>
                             <tr className="border-b-2 border-border">
                                 <th className="rt-th w-10 text-center font-mono text-[10px] text-text-muted">#</th>
@@ -110,6 +114,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                                         isSelected={selectedRows.has(rowIdx)}
                                         onRowMouseDown={onRowMouseDown}
                                         onRowMouseEnter={onRowMouseEnter}
+                                        readOnlyMode={readOnlyMode}
                                     />
                                 );
                             })}
@@ -127,4 +132,3 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
         </div>
     );
 };
-

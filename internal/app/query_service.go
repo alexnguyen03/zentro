@@ -9,41 +9,144 @@ import (
 	"sync"
 	"time"
 
-	dbpkg "zentro/internal/db"
 	"zentro/internal/constant"
+	dbpkg "zentro/internal/db"
 	"zentro/internal/utils"
 )
 
+func isExecutorReady(executor sqlExecutor) bool {
+	switch exec := executor.(type) {
+	case nil:
+		return false
+	case *sql.DB:
+		return exec != nil
+	case *sql.Tx:
+		return exec != nil
+	default:
+		return true
+	}
+}
+
+type sqlExecutor interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+type queryStatement struct {
+	SourceTabID      string
+	TabID            string
+	Text             string
+	Index            int
+	Count            int
+	SkipEditableMeta bool
+}
+
 type QueryService struct {
-	ctx           context.Context
-	logger        *slog.Logger
-	getPrefs      func() utils.Preferences
-	getDB         func() *sql.DB
-	getDriver     func() string
-	appendHistory func(query string, rowCount int64, dur time.Duration, err error)
+	ctx              context.Context
+	logger           *slog.Logger
+	getPrefs         func() utils.Preferences
+	getDB            func() *sql.DB
+	getExecutor      func() sqlExecutor
+	getDriver        func() string
+	getCurrentSchema func() string
+	appendHistory    func(query string, rowCount int64, dur time.Duration, err error)
+	emitter          EventEmitter
 
 	sessions   map[string]*QuerySession
 	sessionsMu sync.Mutex
 
 	activeQueries   map[string]string
 	activeQueriesMu sync.RWMutex
+
+	cancelledTabs   map[string]struct{}
+	cancelledTabsMu sync.RWMutex
 }
 
 func NewQueryService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
-	getDB func() *sql.DB, getDriver func() string,
+	getDB func() *sql.DB, getExecutor func() sqlExecutor, getDriver func() string,
+	getCurrentSchema func() string,
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error),
+	emitter EventEmitter,
 ) *QueryService {
 	return &QueryService{
-		ctx:           ctx,
-		logger:        logger,
-		getPrefs:      getPrefs,
-		getDB:         getDB,
-		getDriver:     getDriver,
-		appendHistory: appendHistory,
-		sessions:      make(map[string]*QuerySession),
-		activeQueries: make(map[string]string),
+		ctx:              ctx,
+		logger:           logger,
+		getPrefs:         getPrefs,
+		getDB:            getDB,
+		getExecutor:      getExecutor,
+		getDriver:        getDriver,
+		getCurrentSchema: getCurrentSchema,
+		appendHistory:    appendHistory,
+		emitter:          emitter,
+		sessions:         make(map[string]*QuerySession),
+		activeQueries:    make(map[string]string),
+		cancelledTabs:    make(map[string]struct{}),
 	}
+}
+
+func quotePostgresIdentifier(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
+}
+
+func (s *QueryService) currentSchema() string {
+	if s.getCurrentSchema == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.getCurrentSchema())
+}
+
+func (s *QueryService) applySessionContext(ctx context.Context, executor sqlExecutor) error {
+	if strings.ToLower(s.getDriver()) != constant.DriverPostgres {
+		return nil
+	}
+	schema := s.currentSchema()
+	if schema == "" {
+		return nil
+	}
+
+	searchPath := quotePostgresIdentifier(schema)
+	if !strings.EqualFold(schema, "public") {
+		searchPath += ", public"
+	}
+
+	if _, err := executor.ExecContext(ctx, "SET search_path TO "+searchPath); err != nil {
+		return fmt.Errorf("set search_path: %w", err)
+	}
+	return nil
+}
+
+func (s *QueryService) prepareExecutor(ctx context.Context, executor sqlExecutor) (sqlExecutor, func(), error) {
+	if strings.ToLower(s.getDriver()) != constant.DriverPostgres {
+		return executor, func() {}, nil
+	}
+	schema := s.currentSchema()
+	if schema == "" {
+		return executor, func() {}, nil
+	}
+
+	if dbExecutor, ok := executor.(*sql.DB); ok {
+		conn, err := dbExecutor.Conn(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := s.applySessionContext(ctx, conn); err != nil {
+			_ = conn.Close()
+			return nil, nil, err
+		}
+		return conn, func() {
+			resetCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, _ = conn.ExecContext(resetCtx, "RESET search_path")
+			_ = conn.Close()
+		}, nil
+	}
+
+	if err := s.applySessionContext(ctx, executor); err != nil {
+		return nil, nil, err
+	}
+	return executor, func() {}, nil
 }
 
 func (s *QueryService) SetContext(ctx context.Context) {
@@ -59,15 +162,77 @@ func (s *QueryService) Shutdown() {
 		}
 	}
 	s.sessions = make(map[string]*QuerySession)
+	s.cancelledTabsMu.Lock()
+	s.cancelledTabs = make(map[string]struct{})
+	s.cancelledTabsMu.Unlock()
 }
 
 func (s *QueryService) ExecuteQuery(tabID, query string) {
+	s.executeQueryWithOptions(tabID, query, false)
+}
+
+func (s *QueryService) ExplainQuery(tabID, query string, analyze bool) error {
+	driver := s.getDriver()
+	explainSQL, err := buildExplainQuery(driver, query, analyze)
+	if err != nil {
+		return err
+	}
+
+	s.executeQueryWithOptions(tabID, explainSQL, true)
+	return nil
+}
+
+func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditableMeta bool) {
+	s.clearCancelled(tabID)
+
+	statements := dbpkg.SplitStatements(query)
+	if len(statements) == 0 {
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+			TabID:          tabID,
+			SourceTabID:    tabID,
+			Query:          query,
+			StatementText:  query,
+			StatementIndex: 0,
+			StatementCount: 1,
+		})
+		s.emitDoneWithMore(queryStatement{
+			SourceTabID:      tabID,
+			TabID:            tabID,
+			Text:             query,
+			Index:            0,
+			Count:            1,
+			SkipEditableMeta: skipEditableMeta,
+		}, 0, 0, false, false, fmt.Errorf("no executable SQL statement found"))
+		return
+	}
+
+	prefs := s.getPrefs()
+	if prefs.ViewMode && dbpkg.BatchHasMutatingStatements(statements) {
+		err := fmt.Errorf("view mode is enabled: write statements are blocked")
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+			TabID:          tabID,
+			SourceTabID:    tabID,
+			Query:          query,
+			StatementText:  query,
+			StatementIndex: 0,
+			StatementCount: len(statements),
+		})
+		s.emitDoneWithMore(queryStatement{
+			SourceTabID:      tabID,
+			TabID:            tabID,
+			Text:             query,
+			Index:            0,
+			Count:            len(statements),
+			SkipEditableMeta: skipEditableMeta,
+		}, 0, 0, false, false, err)
+		return
+	}
+
 	s.sessionsMu.Lock()
 	if old, ok := s.sessions[tabID]; ok {
 		old.CancelFunc()
 		delete(s.sessions, tabID)
 	}
-	prefs := s.getPrefs()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.QueryTimeout)*time.Second)
 	session := &QuerySession{
 		TabID:      tabID,
@@ -77,19 +242,6 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 	s.sessions[tabID] = session
 	s.sessionsMu.Unlock()
 
-	emitEvent(s.ctx, constant.EventQueryStarted, map[string]any{"tabID": tabID, "query": query})
-	s.logger.Info("executing query", "tab", tabID)
-
-	if dbpkg.IsSelectQuery(query) {
-		s.activeQueriesMu.Lock()
-		s.activeQueries[tabID] = query
-		s.activeQueriesMu.Unlock()
-	} else {
-		s.activeQueriesMu.Lock()
-		delete(s.activeQueries, tabID)
-		s.activeQueriesMu.Unlock()
-	}
-
 	go func() {
 		defer func() {
 			s.sessionsMu.Lock()
@@ -100,366 +252,87 @@ func (s *QueryService) ExecuteQuery(tabID, query string) {
 			s.sessionsMu.Unlock()
 		}()
 
-		db := s.getDB()
-		if db == nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("no active connection"))
+		executor := s.getExecutor()
+		if !isExecutorReady(executor) {
+			s.emitDoneWithMore(queryStatement{
+				SourceTabID:      tabID,
+				TabID:            tabID,
+				Text:             query,
+				Index:            0,
+				Count:            len(statements),
+				SkipEditableMeta: skipEditableMeta,
+			}, 0, 0, true, false, fmt.Errorf("no active connection"))
 			return
 		}
 
-		start := time.Now()
-		if dbpkg.IsSelectQuery(query) {
-			s.streamSelect(ctx, tabID, query, 0, start)
-		} else {
-			s.execNonSelect(ctx, tabID, query, start)
+		for index, statementText := range statements {
+			statement := queryStatement{
+				SourceTabID:      tabID,
+				TabID:            resultTabID(tabID, index),
+				Text:             statementText,
+				Index:            index,
+				Count:            len(statements),
+				SkipEditableMeta: skipEditableMeta,
+			}
+
+			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+				TabID:          statement.TabID,
+				SourceTabID:    statement.SourceTabID,
+				Query:          statement.Text,
+				StatementText:  statement.Text,
+				StatementIndex: statement.Index,
+				StatementCount: statement.Count,
+			})
+
+			s.logger.Info("executing query statement", "tab", statement.TabID, "sourceTab", tabID, "statementIndex", index)
+
+			if dbpkg.IsSelectQuery(statement.Text) {
+				s.activeQueriesMu.Lock()
+				s.activeQueries[statement.TabID] = statement.Text
+				s.activeQueriesMu.Unlock()
+			} else {
+				s.activeQueriesMu.Lock()
+				delete(s.activeQueries, statement.TabID)
+				s.activeQueriesMu.Unlock()
+			}
+
+			start := time.Now()
+			statementExecutor, releaseExecutor, prepErr := s.prepareExecutor(ctx, executor)
+			if prepErr != nil {
+				wrappedErr := fmt.Errorf("prepare query context: %w", prepErr)
+				s.emitDoneWithMore(statement, 0, time.Since(start), dbpkg.IsSelectQuery(statement.Text), false, wrappedErr)
+				return
+			}
+
+			var err error
+			if dbpkg.IsSelectQuery(statement.Text) {
+				err = s.streamSelect(ctx, statementExecutor, statement, 0, start)
+			} else {
+				err = s.execNonSelect(ctx, statementExecutor, statement, start)
+			}
+			releaseExecutor()
+			if err != nil || ctx.Err() != nil {
+				return
+			}
 		}
 	}()
 }
 
-func (s *QueryService) streamSelect(ctx context.Context, tabID, query string, offset int, start time.Time) {
-	driver := s.getDriver()
-	db := s.getDB()
-	prefs := s.getPrefs()
-	fetchLimit := prefs.DefaultLimit
-
-	checkLimit := fetchLimit + 1
-	normalized := dbpkg.InjectPageClause(driver, query, checkLimit, offset)
-
-	if normalized == query && offset > 0 {
-		s.emitDoneWithMore(tabID, 0, time.Since(start), true, false, nil)
-		return
-	}
-
-	rows, err := db.QueryContext(ctx, normalized)
-	if err != nil {
-		s.emitDoneWithMore(tabID, 0, time.Since(start), true, false, fmt.Errorf("query: %w", err))
-		return
-	}
-	defer rows.Close()
-
-	cols, _ := rows.Columns()
-	colCount := len(cols)
-
-	var tableName string
-	var pks []string
-	if offset == 0 {
-		parsedSchema, table := dbpkg.ExtractTableFromQuery(query)
-		if table != "" {
-			tableName = table
-			trySchemas := []string{parsedSchema}
-			if parsedSchema == "" {
-				if d, ok := getDriver(driver); ok {
-					trySchemas = []string{d.DefaultSchema()}
-				} else {
-					trySchemas = []string{""}
-				}
-			}
-			for _, sch := range trySchemas {
-				keys, err := dbpkg.FetchTablePrimaryKeys(db, driver, sch, table)
-				if err == nil && len(keys) > 0 {
-					pks = keys
-					s.logger.Info("pk fetch ok", "table", table, "schema", sch, "pks", keys)
-					break
-				}
-				s.logger.Warn("pk fetch failed", "table", table, "schema", sch, "err", err)
-			}
-		}
-	}
-
-	chunkSize := prefs.ChunkSize
-	if chunkSize == 0 {
-		chunkSize = 500
-	}
-
-	seq := 0
-	buf := make([][]string, 0, chunkSize)
-	sentCols := false
-	totalRowsFetched := 0
-
-	for rows.Next() {
-		if ctx.Err() != nil {
-			break
-		}
-		row := scanRowAsStrings(rows, colCount)
-		buf = append(buf, row)
-		totalRowsFetched++
-
-		if len(buf) == chunkSize {
-			var chunkCols []string
-			if !sentCols {
-				chunkCols = cols
-				sentCols = true
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
-			} else {
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, "", nil))
-			}
-			buf = nil
-			seq++
-		}
-	}
-
-	if len(buf) > 0 || !sentCols {
-		var chunkCols []string
-		if !sentCols {
-			chunkCols = cols
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, tableName, pks))
-		} else {
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, chunkCols, buf, seq, "", nil))
-		}
-	}
-
-	hasMore := totalRowsFetched > fetchLimit
-
-	if hasMore {
-		totalRowsFetched = fetchLimit
-	}
-
-	totalRows := int64(seq*chunkSize + len(buf))
-	if offset == 0 {
-		s.appendHistory(query, totalRows, time.Since(start), rows.Err())
-	}
-	s.emitDoneWithMore(tabID, int64(totalRowsFetched), time.Since(start), true, hasMore, rows.Err())
+func (s *QueryService) markCancelled(tabID string) {
+	s.cancelledTabsMu.Lock()
+	defer s.cancelledTabsMu.Unlock()
+	s.cancelledTabs[tabID] = struct{}{}
 }
 
-func (s *QueryService) FetchMoreRows(tabID string, offset int) {
-	s.activeQueriesMu.Lock()
-	query, ok := s.activeQueries[tabID]
-	s.activeQueriesMu.Unlock()
-
-	if !ok || query == "" {
-		s.emitDone(tabID, 0, 0, true, fmt.Errorf("no active query found for pagination"))
-		return
-	}
-
-	driver := s.getDriver()
-	db := s.getDB()
-	prefs := s.getPrefs()
-	limit := prefs.DefaultLimit
-
-	checkLimit := limit + 1
-	paginatedQuery := dbpkg.InjectPageClause(driver, query, checkLimit, offset)
-
-	if paginatedQuery == query && offset > 0 {
-		s.emitDoneWithMore(tabID, 0, 0, true, false, nil)
-		return
-	}
-
-	s.sessionsMu.Lock()
-	if old, ok := s.sessions[tabID]; ok {
-		old.CancelFunc()
-		delete(s.sessions, tabID)
-	}
-
-	ctx, cancel := context.WithCancel(s.ctx)
-	session := &QuerySession{
-		TabID:      tabID,
-		StartedAt:  time.Now(),
-		CancelFunc: cancel,
-	}
-	s.sessions[tabID] = session
-	s.sessionsMu.Unlock()
-
-	go func() {
-		defer func() {
-			s.sessionsMu.Lock()
-			cancel()
-			if s.sessions[tabID] == session {
-				delete(s.sessions, tabID)
-			}
-			s.sessionsMu.Unlock()
-		}()
-
-		if db == nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("no active connection"))
-			return
-		}
-
-		start := time.Now()
-
-		rows, err := db.QueryContext(ctx, paginatedQuery)
-		if err != nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("fetch more: query failed: %w", err))
-			return
-		}
-		defer rows.Close()
-
-		cols, err := rows.Columns()
-		if err != nil {
-			s.emitDone(tabID, 0, 0, true, fmt.Errorf("fetch more: columns error: %w", err))
-			return
-		}
-
-		var chunk [][]string
-		seq := 0
-		rowCount := 0
-
-		for rows.Next() {
-			if ctx.Err() != nil {
-				break
-			}
-			row := scanRowAsStrings(rows, len(cols))
-			chunk = append(chunk, row)
-			rowCount++
-
-			if len(chunk) >= 500 {
-				emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, cols, chunk, seq, "", nil))
-				chunk = nil
-				seq++
-			}
-		}
-
-		if len(chunk) > 0 {
-			emitEvent(s.ctx, constant.EventQueryChunk, buildChunk(tabID, cols, chunk, seq, "", nil))
-		}
-
-		duration := time.Since(start)
-		hasMore := rowCount > limit
-
-		if hasMore {
-			rowCount = limit
-		}
-
-		s.emitDoneWithMore(tabID, int64(rowCount), duration, true, hasMore, nil)
-	}()
+func (s *QueryService) clearCancelled(tabID string) {
+	s.cancelledTabsMu.Lock()
+	defer s.cancelledTabsMu.Unlock()
+	delete(s.cancelledTabs, tabID)
 }
 
-func (s *QueryService) execNonSelect(ctx context.Context, tabID, query string, start time.Time) {
-	db := s.getDB()
-	res, err := db.ExecContext(ctx, query)
-	dur := time.Since(start)
-	if err != nil {
-		wrappedErr := fmt.Errorf("exec: %w", err)
-		s.appendHistory(query, 0, dur, wrappedErr)
-		s.emitDone(tabID, 0, dur, false, wrappedErr)
-		return
-	}
-	affected, _ := res.RowsAffected()
-	s.appendHistory(query, affected, dur, nil)
-	s.emitDone(tabID, affected, dur, false, nil)
-}
-
-func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
-	s.activeQueriesMu.Lock()
-	query, ok := s.activeQueries[tabID]
-	s.activeQueriesMu.Unlock()
-
-	if !ok || query == "" {
-		return 0, fmt.Errorf("no active query found for count")
-	}
-
-	db := s.getDB()
-	if db == nil {
-		return 0, fmt.Errorf("no active connection")
-	}
-
-	cleanQuery := strings.TrimRight(strings.TrimSpace(query), ";")
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s\n) AS zentro_count", cleanQuery)
-
-	var count int64
-	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
-	defer cancel()
-
-	err := db.QueryRowContext(ctx, countQuery).Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func (s *QueryService) CancelQuery(tabID string) {
-	s.sessionsMu.Lock()
-	defer s.sessionsMu.Unlock()
-	if session, ok := s.sessions[tabID]; ok {
-		s.logger.Info("cancelling query", "tab", tabID)
-		session.CancelFunc()
-		delete(s.sessions, tabID)
-	}
-}
-
-func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
-	db := s.getDB()
-	if db == nil {
-		return 0, fmt.Errorf("no active connection")
-	}
-
-	res, err := db.ExecContext(s.ctx, query)
-	if err != nil {
-		return 0, err
-	}
-
-	return res.RowsAffected()
-}
-
-func (s *QueryService) emitDone(tabID string, affected int64, duration time.Duration, isSelect bool, err error) {
-	s.emitDoneWithMore(tabID, affected, duration, isSelect, false, err)
-}
-
-func (s *QueryService) emitDoneWithMore(tabID string, affected int64, duration time.Duration, isSelect bool, hasMore bool, err error) {
-	payload := map[string]any{
-		"tabID":    tabID,
-		"affected": affected,
-		"duration": duration.Milliseconds(),
-		"isSelect": isSelect,
-		"hasMore":  hasMore,
-	}
-	if err != nil {
-		payload["error"] = err.Error()
-	}
-	emitEvent(s.ctx, constant.EventQueryDone, payload)
-}
-
-func buildChunk(tabID string, cols []string, rows [][]string, seq int, tableName string, pks []string) map[string]any {
-	chunk := map[string]any{
-		"tabID": tabID,
-		"rows":  rows,
-		"seq":   seq,
-	}
-	if cols != nil {
-		chunk["columns"] = cols
-	}
-	if tableName != "" {
-		chunk["tableName"] = tableName
-	}
-	if len(pks) > 0 {
-		chunk["primaryKeys"] = pks
-	}
-	return chunk
-}
-
-func scanRowAsStrings(rows *sql.Rows, colCount int) []string {
-	raw := make([]interface{}, colCount)
-	ptrs := make([]interface{}, colCount)
-	for i := range raw {
-		ptrs[i] = &raw[i]
-	}
-	_ = rows.Scan(ptrs...)
-
-	result := make([]string, colCount)
-	for i, v := range raw {
-		if v == nil {
-			result[i] = ""
-		} else if b, ok := v.([]byte); ok {
-			// MSSQL uniqueidentifier is returned as 16 raw bytes in mixed-endian order.
-			// Format: Data1(4LE) Data2(2LE) Data3(2LE) Data4(8BE)
-			if len(b) == 16 {
-				result[i] = fmt.Sprintf(
-					"%08x-%04x-%04x-%04x-%012x",
-					// Data1: bytes 0-3 little-endian
-					uint32(b[3])<<24|uint32(b[2])<<16|uint32(b[1])<<8|uint32(b[0]),
-					// Data2: bytes 4-5 little-endian
-					uint16(b[5])<<8|uint16(b[4]),
-					// Data3: bytes 6-7 little-endian
-					uint16(b[7])<<8|uint16(b[6]),
-					// Data4a: bytes 8-9 big-endian
-					[]byte{b[8], b[9]},
-					// Data4b: bytes 10-15 big-endian
-					[]byte{b[10], b[11], b[12], b[13], b[14], b[15]},
-				)
-			} else {
-				result[i] = string(b)
-			}
-		} else {
-			result[i] = fmt.Sprintf("%v", v)
-		}
-	}
-	return result
+func (s *QueryService) isCancelled(tabID string) bool {
+	s.cancelledTabsMu.RLock()
+	defer s.cancelledTabsMu.RUnlock()
+	_, ok := s.cancelledTabs[tabID]
+	return ok
 }

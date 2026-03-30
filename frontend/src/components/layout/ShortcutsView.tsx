@@ -1,17 +1,23 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Command, Layout, Edit3, Globe, Zap } from 'lucide-react';
-import { cn } from '../../lib/cn';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Search, RotateCcw, Edit3, PanelsTopLeft, Plug, Eye, AppWindow } from 'lucide-react';
+import { getCommandRegistry, type CommandId, type CommandCategory } from '../../lib/shortcutRegistry';
+import { useShortcutStore } from '../../stores/shortcutStore';
+import { AlertModal, Button, PromptModal, SearchField } from '../ui';
 
-interface ShortcutItem {
-    command: string;
-    binding: string[];
-    when: string;
-    category: 'General' | 'Editor' | 'Navigation' | 'View';
-}
+const CATEGORY_ORDER: CommandCategory[] = ['Editor', 'Layout', 'Connection', 'View', 'App'];
 
 export const ShortcutsView: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [editing, setEditing] = useState<CommandId | null>(null);
+    const [rebindTarget, setRebindTarget] = useState<{ id: CommandId; current: string } | null>(null);
+    const [conflictMessage, setConflictMessage] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
+
+    const bindings = useShortcutStore((s) => s.bindings);
+    const setBinding = useShortcutStore((s) => s.setBinding);
+    const restoreBinding = useShortcutStore((s) => s.restoreBinding);
+    const resetDefaults = useShortcutStore((s) => s.resetDefaults);
+    const commandRegistry = getCommandRegistry();
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -19,138 +25,197 @@ export const ShortcutsView: React.FC = () => {
                 e.preventDefault();
                 searchInputRef.current?.focus();
             } else if (e.key === 'Escape') {
-                if (document.activeElement === searchInputRef.current) {
-                    setSearchQuery('');
-                    searchInputRef.current?.blur();
-                }
+                setSearchQuery('');
+                searchInputRef.current?.blur();
             }
         };
-
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    const shortcuts: ShortcutItem[] = [
-        { command: 'Run Query', binding: ['Ctrl', 'Enter'], when: 'In Editor', category: 'Editor' },
-        { command: 'New Query Tab', binding: ['Ctrl', 'T'], when: 'Global', category: 'General' },
-        { command: 'Open Keyboard Shortcuts', binding: ['Ctrl', 'K', 'Ctrl', 'B'], when: 'Global', category: 'General' },
-        { command: 'Open Settings', binding: ['Ctrl', ','], when: 'Global', category: 'General' },
-        { command: 'Reload App', binding: ['Ctrl', 'Shift', 'R'], when: 'Global', category: 'General' },
-        { command: 'Close Current Tab', binding: ['Ctrl', 'W'], when: 'Global', category: 'General' },
-        { command: 'Open Workspaces', binding: ['Ctrl', 'Shift', 'C'], when: 'Global', category: 'Navigation' },
-        { command: 'Toggle Left Sidebar', binding: ['Ctrl', 'B'], when: 'Global', category: 'Navigation' },
-        { command: 'Toggle Right Sidebar', binding: ['Ctrl', 'Alt', 'B'], when: 'Global', category: 'Navigation' },
-        { command: 'Toggle Result Panel', binding: ['Ctrl', 'J'], when: 'Global', category: 'Navigation' },
-        { command: 'Zoom In/Out', binding: ['Ctrl', 'Wheel'], when: 'In Editor', category: 'Editor' },
-        { command: 'Search in Editor', binding: ['Ctrl', 'F'], when: 'In Editor', category: 'Editor' },
-        { command: 'Focus Search', binding: ['Ctrl', 'F'], when: 'Shortcuts/Settings', category: 'General' },
-        { command: 'Find & Replace', binding: ['Ctrl', 'H'], when: 'In Editor', category: 'Editor' },
-        { command: 'Comment Line', binding: ['Ctrl', '/'], when: 'In Editor', category: 'Editor' },
-        { command: 'Reload View', binding: ['F5'], when: 'In Table View', category: 'View' },
-    ];
+    const filtered = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return commandRegistry;
+        return commandRegistry.filter((item) => {
+            const currentBinding = bindings[item.id] || item.defaultBinding;
+            return (
+                item.label.toLowerCase().includes(q) ||
+                item.category.toLowerCase().includes(q) ||
+                currentBinding.toLowerCase().includes(q) ||
+                item.defaultBinding.toLowerCase().includes(q)
+            );
+        });
+    }, [bindings, commandRegistry, searchQuery]);
 
-    const filteredShortcuts = useMemo(() => {
-        return shortcuts.filter(s =>
-            s.command.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.binding.some(b => b.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            s.category.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [searchQuery]);
+    const grouped = useMemo(() => {
+        const map = new Map<CommandCategory, typeof commandRegistry>();
+        CATEGORY_ORDER.forEach((cat) => {
+            const items = filtered.filter((item) => item.category === cat);
+            if (items.length) {
+                map.set(cat, items);
+            }
+        });
+        return map;
+    }, [filtered]);
 
-    const categories = ['General', 'Editor', 'Navigation', 'View'] as const;
+    const openRebindPrompt = (id: CommandId) => {
+        const current = bindings[id] || commandRegistry.find((x) => x.id === id)?.defaultBinding || '';
+        setEditing(id);
+        setRebindTarget({ id, current });
+    };
+
+    const handleRebindConfirm = async (nextBinding: string) => {
+        if (!rebindTarget) return;
+        const next = nextBinding.trim();
+        if (!next) {
+            setEditing(null);
+            setRebindTarget(null);
+            return;
+        }
+        const result = await setBinding(rebindTarget.id, next);
+        if (!result.ok) {
+            const conflictLabel = commandRegistry.find((x) => x.id === result.conflictWith)?.label || result.conflictWith;
+            setConflictMessage(`Shortcut conflict with "${conflictLabel}".`);
+        }
+        setEditing(null);
+        setRebindTarget(null);
+    };
+
+    const sectionClass = 'mt-4 rounded-lg bg-bg-secondary/18 px-5 py-5 first:mt-0';
+    const sectionInfoClass = 'flex flex-col gap-1.5';
+    const sectionContentClass = 'mt-3 flex flex-col gap-2.5';
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary select-none overflow-hidden text-[13px]">
-            {/* Minimal Flat Header */}
-            <div className="flex items-center justify-between px-10 h-16 border-b border-border/10 bg-bg-primary z-10 transition-all">
+        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
+            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
                 <div className="flex items-center gap-3 text-text-primary">
-                    <div className="p-2 rounded-xl bg-accent/5 text-accent">
-                        <Command size={18} />
+                    <div className="p-2 rounded-md bg-accent/5 text-accent">
+                        <Keyboard size={18} />
                     </div>
-                    <h1 className="text-[15px] font-bold tracking-tight">Command Center</h1>
+                    <h1 className="text-[15px] font-bold tracking-tight">Keyboard Shortcuts</h1>
                 </div>
 
-                {/* Centered Flush Search Bar */}
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
-                    <div className="relative group w-full max-w-md">
-                        <div className="flex items-center bg-bg-tertiary/30 px-4 py-2 rounded-2xl border border-transparent focus-within:border-accent/30 focus-within:bg-bg-tertiary/50 transition-all h-10">
-                            <Search size={14} className="text-text-muted/50 group-focus-within:text-accent" />
-                            <input
-                                type="text"
-                                placeholder="Search shortcuts..."
-                                ref={searchInputRef}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-transparent border-none text-[13px] text-text-primary pl-3 outline-none placeholder:text-text-muted/40"
-                            />
-                        </div>
-                    </div>
+                    <SearchField
+                        ref={searchInputRef}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search shortcuts..."
+                        wrapperClassName="max-w-md"
+                    />
                 </div>
 
-                {/* Right Spacer for Balance */}
-                <div className="w-10 xl:w-40" />
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="md"
+                        className="gap-2 font-bold text-[11px] tracking-widest uppercase"
+                        onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
+                        title="Reset all shortcuts to default"
+                    >
+                        <RotateCcw size={14} />
+                        <span className="hidden xl:inline">Reset All</span>
+                    </Button>
+                </div>
             </div>
 
-            {/* Content Area */}
-            <main className="flex-1 overflow-y-auto px-12 py-10 scroll-smooth">
-                <div className="max-w-5xl mx-auto space-y-14 animate-in fade-in duration-700">
-
-                    {categories.map(cat => {
-                        const items = filteredShortcuts.filter(s => s.category === cat);
-                        if (items.length === 0) return null;
-
-                        return (
-                            <section key={cat} className="space-y-6">
-                                <div className="flex items-center gap-3 px-2">
-                                    <div className={cn(
-                                        "p-1.5 rounded-lg bg-bg-tertiary/40",
-                                        cat === 'General' && "text-yellow-500",
-                                        cat === 'Editor' && "text-blue-500",
-                                        cat === 'Navigation' && "text-purple-500",
-                                        cat === 'View' && "text-green-500"
-                                    )}>
-                                        {cat === 'General' && <Zap size={14} strokeWidth={2.5} />}
-                                        {cat === 'Editor' && <Edit3 size={14} strokeWidth={2.5} />}
-                                        {cat === 'Navigation' && <Layout size={14} strokeWidth={2.5} />}
-                                        {cat === 'View' && <Globe size={14} strokeWidth={2.5} />}
-                                    </div>
-                                    <h2 className="text-[16px] font-bold tracking-tight text-text-primary">{cat}</h2>
-                                    <div className="flex-1 h-px bg-border/5 ml-2" />
+            <main className="flex-1 overflow-y-auto scroll-smooth">
+                <div className="max-w-4xl mx-auto px-5 py-6 animate-in fade-in duration-300">
+                    {Array.from(grouped.entries()).map(([category, items]) => (
+                        <section key={category} className={sectionClass}>
+                            <div className={sectionInfoClass}>
+                                <div className="flex items-center gap-2.5 text-accent mb-1">
+                                    {category === 'Editor' && <Edit3 size={18} strokeWidth={2.5} />}
+                                    {category === 'Layout' && <PanelsTopLeft size={18} strokeWidth={2.5} />}
+                                    {category === 'Connection' && <Plug size={18} strokeWidth={2.5} />}
+                                    {category === 'View' && <Eye size={18} strokeWidth={2.5} />}
+                                    {category === 'App' && <AppWindow size={18} strokeWidth={2.5} />}
+                                    <h2 className="text-[16px] font-semibold tracking-tight text-text-primary">{category}</h2>
                                 </div>
+                            </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
-                                    {items.map((s, i) => (
-                                        <div key={i} className="flex items-center justify-between group px-4 py-3 rounded-2xl hover:bg-bg-secondary/40 transition-all border border-transparent hover:border-border/5">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[14px] font-medium text-text-secondary group-hover:text-text-primary transition-colors">{s.command}</span>
-                                                <span className="text-[11px] text-text-muted/60 font-semibold tracking-tight">{s.when}</span>
+                            <div className={sectionContentClass}>
+                                {items.map((item) => {
+                                    const currentBinding = bindings[item.id] || item.defaultBinding;
+                                    const isCustomized = currentBinding !== item.defaultBinding;
+
+                                    return (
+                                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-md border border-border/20 bg-bg-primary/70 px-3 py-2">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="truncate text-[12px] font-semibold text-text-primary">{item.label}</div>
+                                                <div className="mt-1 flex items-center gap-2 text-[11px] text-text-muted">
+                                                    <span>Default:</span>
+                                                    <kbd className="rounded border border-border bg-bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-text-secondary">
+                                                        {item.defaultBinding}
+                                                    </kbd>
+                                                    {isCustomized && (
+                                                        <span className="text-warning font-semibold">Customized</span>
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            <div className="flex gap-1.5 items-center">
-                                                {s.binding.map((key, ki) => (
-                                                    <React.Fragment key={ki}>
-                                                        <kbd className="inline-flex items-center justify-center min-w-[24px] px-2 h-7 bg-bg-tertiary/40 border border-border/20 rounded-lg text-[11px] font-mono font-bold text-text-primary group-hover:border-accent/20 transition-all">
-                                                            {key}
-                                                        </kbd>
-                                                        {ki < s.binding.length - 1 && <span className="text-text-muted/30 text-[11px] font-bold">/</span>}
-                                                    </React.Fragment>
-                                                ))}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <kbd className="min-w-[86px] rounded border border-border bg-bg-secondary px-2 py-1 text-center text-[11px] font-mono text-text-primary">
+                                                    {currentBinding}
+                                                </kbd>
+                                                <Button
+                                                    size="sm"
+                                                    variant="solid"
+                                                    className="text-[11px]"
+                                                    onClick={() => {
+                                                        openRebindPrompt(item.id);
+                                                    }}
+                                                >
+                                                    {editing === item.id ? 'Editing...' : 'Rebind'}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="solid"
+                                                    className="text-[11px]"
+                                                    disabled={!isCustomized}
+                                                    onClick={() => restoreBinding(item.id).catch((err) => console.error('restore shortcut failed', err))}
+                                                    title={`Restore default: ${item.defaultBinding}`}
+                                                >
+                                                    Restore
+                                                </Button>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </section>
-                        );
-                    })}
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    ))}
 
-                    {filteredShortcuts.length === 0 && (
+                    {filtered.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-32 text-text-muted/40">
                             <Search size={48} strokeWidth={1} className="mb-6 opacity-20" />
-                            <p className="text-[15px] font-medium">No commands match "{searchQuery}"</p>
+                            <p className="text-[15px] font-medium">No shortcuts match "{searchQuery}"</p>
                         </div>
                     )}
                 </div>
             </main>
+
+            <PromptModal
+                isOpen={Boolean(rebindTarget)}
+                title="Rebind Shortcut"
+                message="Enter shortcut (example: Ctrl+Shift+F or Ctrl+K Ctrl+B)"
+                defaultValue={rebindTarget?.current || ''}
+                confirmLabel="Apply"
+                onCancel={() => {
+                    setEditing(null);
+                    setRebindTarget(null);
+                }}
+                onConfirm={(value) => {
+                    handleRebindConfirm(value).catch((err) => console.error('rebind failed', err));
+                }}
+            />
+
+            <AlertModal
+                isOpen={Boolean(conflictMessage)}
+                title="Shortcut Conflict"
+                message={conflictMessage}
+                onClose={() => setConflictMessage('')}
+            />
         </div>
     );
 };

@@ -1,9 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { models } from '../../wailsjs/go/models';
-import { STORAGE_KEY, ConnectionStatus, CONNECTION_STATUS } from '../lib/constants';
-
-type ConnectionProfile = models.ConnectionProfile;
+import { ConnectionStatus, CONNECTION_STATUS } from '../lib/constants';
+import type { ConnectionProfile } from '../types/connection';
+import { withStoreLogger } from './logger';
 
 interface ConnectionState {
     connections: ConnectionProfile[];
@@ -11,47 +9,33 @@ interface ConnectionState {
     isConnected: boolean;
     connectionStatus: ConnectionStatus;
     databases: string[];
-    lastProfileName: string | null;
-    lastDatabaseName: string | null;
 
     setConnections: (conns: ConnectionProfile[]) => void;
     setActiveProfile: (profile: ConnectionProfile | null) => void;
     setIsConnected: (connected: boolean) => void;
     setConnectionStatus: (status: ConnectionStatus) => void;
     setDatabases: (dbs: string[]) => void;
+    resetRuntime: () => void;
 }
 
 export const useConnectionStore = create<ConnectionState>()(
-    persist(
-        (set) => ({
-            connections: [],
+    withStoreLogger('connectionStore', (set) => ({
+        connections: [],
+        activeProfile: null,
+        isConnected: false,
+        connectionStatus: CONNECTION_STATUS.DISCONNECTED,
+        databases: [],
+
+        setConnections: (connections) => set({ connections }),
+        setActiveProfile: (activeProfile) => set({ activeProfile }),
+        setIsConnected: (isConnected) => set({ isConnected }),
+        setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
+        setDatabases: (databases) => set({ databases }),
+        resetRuntime: () => set({
             activeProfile: null,
             isConnected: false,
             connectionStatus: CONNECTION_STATUS.DISCONNECTED,
             databases: [],
-            lastProfileName: null,
-            lastDatabaseName: null,
-
-            setConnections: (conns) => set({ connections: conns }),
-            setActiveProfile: (profile) => set((state) => ({
-                activeProfile: profile,
-                lastProfileName: profile ? profile.name : state.lastProfileName,
-                lastDatabaseName: profile ? profile.db_name : state.lastDatabaseName
-            })),
-            setIsConnected: (connected) => set({ isConnected: connected }),
-            setConnectionStatus: (status) => set({ connectionStatus: status }),
-            setDatabases: (dbs) => set({ databases: dbs })
         }),
-        {
-            name: STORAGE_KEY.CONNECTION_STORE,
-            partialize: (state) => ({
-                activeProfile: state.activeProfile,
-                isConnected: state.isConnected,
-                connectionStatus: state.connectionStatus,
-                lastProfileName: state.lastProfileName,
-                lastDatabaseName: state.lastDatabaseName,
-                databases: state.databases
-            })
-        }
-    )
+    }))
 );

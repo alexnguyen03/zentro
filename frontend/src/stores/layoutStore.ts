@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { STORAGE_KEY } from '../lib/constants';
 
 interface LayoutState {
     showSidebar: boolean;
@@ -37,7 +38,7 @@ export const useLayoutStore = create<LayoutState>()(
             setShowCommandPalette: (show) => set({ showCommandPalette: show }),
         }),
         {
-            name: 'zentro-layout-storage',
+            name: STORAGE_KEY.LAYOUT_STORE,
             partialize: (state) => ({
                 showSidebar: state.showSidebar,
                 showResultPanel: state.showResultPanel,

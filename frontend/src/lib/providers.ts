@@ -1,11 +1,9 @@
-import { models } from '../../wailsjs/go/models';
 import PostgresLogo from '../assets/images/postgresql-logo-svgrepo-com.svg';
 import SqlServerLogo from '../assets/images/microsoft-sql-server-logo-svgrepo-com.svg';
 import MySqlLogo from '../assets/images/mysql-logo-svgrepo-com.svg';
 import SqliteLogo from '../assets/images/sqlite-svgrepo-com.svg';
 import { DRIVER } from './constants';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../types/connection';
 
 // ── Extra field descriptor ────────────────────────────────────────────────────
 export interface ExtraField {
@@ -85,15 +83,16 @@ export const PROVIDERS: ProviderConfig[] = [
 export const getProvider = (key: string): ProviderConfig =>
     PROVIDERS.find(p => p.key === key) ?? PROVIDERS[0];
 
-export const makeDefaultForm = (driver = DRIVER.POSTGRES): Partial<ConnectionProfile> => {
-    const p = getProvider(driver);
+export const makeDefaultForm = (driver = ''): Partial<ConnectionProfile> => {
+    const p = driver ? getProvider(driver) : null;
     return {
         driver,
         host: 'localhost',
-        port: p.defaultPort ?? 5432,
-        ssl_mode: p.defaultSsl,
+        port: p?.defaultPort ?? 5432,
+        ssl_mode: p?.defaultSsl ?? 'disable',
         connect_timeout: 30,
         save_password: true,
+        encrypt_password: true,
         name: '',
         username: '',
         password: '',
@@ -136,12 +135,14 @@ export const validateConnectionForm = (
     isEditing: boolean,
     existingNames: string[]
 ): string | null => {
+    if (!form.driver?.trim()) return 'Please select a provider';
     if (!form.name?.trim()) return 'Profile name is required';
     if (!isEditing && existingNames.includes(form.name.trim()))
         return `"${form.name.trim()}" already exists`;
     const p = getProvider(form.driver ?? DRIVER.POSTGRES);
     if (p.requiresHost && !form.host?.trim()) return 'Host is required';
     if (p.requiresAuth && !form.username?.trim()) return 'Username is required';
+    if (form.save_password && !form.encrypt_password) return 'Encrypt password must be enabled when saving password';
     if (!form.db_name?.trim()) return 'Database name is required';
     if (p.requiresHost && (!form.port || form.port <= 0)) return 'Port must be a positive number';
     return null;

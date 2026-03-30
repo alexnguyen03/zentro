@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FileCode, Search, Trash2, BookMarked } from 'lucide-react';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { cn } from '../../lib/cn';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 
 function formatDate(iso: string): string {
     try {
@@ -16,47 +18,66 @@ function formatDate(iso: string): string {
 export const SavedScriptsPanel: React.FC = () => {
     const { scripts, loadScripts, deleteScript, getContent } = useScriptStore();
     const { activeProfile } = useConnectionStore();
-    const { addTab } = useEditorStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
+    const { addTab, groups, setActiveGroupId, setActiveTabId } = useEditorStore();
     const [search, setSearch] = useState('');
-    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+    const [pendingDeleteScript, setPendingDeleteScript] = useState<{ id: string; name: string } | null>(null);
 
+    const projectId = activeProject?.id ?? '';
     const connectionName = activeProfile?.name ?? '';
 
     // Load scripts whenever active connection changes
     useEffect(() => {
-        if (connectionName) {
-            loadScripts(connectionName);
+        if (projectId && connectionName) {
+            loadScripts(projectId, connectionName);
         }
-    }, [connectionName, loadScripts]);
+    }, [connectionName, loadScripts, projectId]);
 
     const handleOpen = useCallback(async (scriptId: string, scriptName: string) => {
-        if (!connectionName) return;
+        if (!projectId || !connectionName) return;
+        const existing = groups.find((group) =>
+            group.tabs.some((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId)
+        );
+        if (existing) {
+            const existingTab = existing.tabs.find((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId);
+            if (existingTab) {
+                setActiveGroupId(existing.id);
+                setActiveTabId(existingTab.id, existing.id);
+                return;
+            }
+        }
+
         try {
-            const content = await getContent(connectionName, scriptId);
-            addTab({ name: scriptName, query: content });
+            const content = await getContent(projectId, connectionName, scriptId);
+            addTab({
+                name: scriptName,
+                query: content,
+                context: {
+                    savedScriptId: scriptId,
+                    scriptProjectId: projectId,
+                    scriptConnectionName: connectionName,
+                },
+            });
         } catch (e) {
             console.error('Failed to load script content', e);
         }
-    }, [connectionName, getContent, addTab]);
+    }, [addTab, connectionName, getContent, groups, projectId, setActiveGroupId, setActiveTabId]);
 
     const handleDelete = useCallback(async (scriptId: string) => {
-        if (confirmDelete !== scriptId) {
-            setConfirmDelete(scriptId);
-            return;
-        }
         try {
-            await deleteScript(connectionName, scriptId);
+            if (!projectId || !connectionName) return;
+            await deleteScript(projectId, connectionName, scriptId);
         } catch (e) {
             console.error('Failed to delete script', e);
         }
-        setConfirmDelete(null);
-    }, [confirmDelete, connectionName, deleteScript]);
+        setPendingDeleteScript(null);
+    }, [connectionName, deleteScript, projectId]);
 
     const filtered = scripts.filter(s =>
         s.name.toLowerCase().includes(search.toLowerCase())
     );
 
-    if (!connectionName) {
+    if (!projectId || !connectionName) {
         return (
             <div className="flex flex-col h-full overflow-hidden">
                 <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs text-center">
@@ -74,7 +95,7 @@ export const SavedScriptsPanel: React.FC = () => {
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
                     <input
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
+                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
                         placeholder="Filter scripts…"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
@@ -100,22 +121,21 @@ export const SavedScriptsPanel: React.FC = () => {
                             className="group flex items-center px-2.5 py-1.5 border-b border-white/5 cursor-pointer transition-colors duration-100 gap-1.5 hover:bg-bg-tertiary"
                             onClick={() => handleOpen(script.id, script.name)}
                             title={`Open "${script.name}" in new tab`}
-                            onMouseLeave={() => setConfirmDelete(null)}
                         >
                             <FileCode size={13} className="text-success shrink-0 opacity-70" />
                             <div className="flex-1 overflow-hidden">
                                 <div className="text-xs text-text-primary whitespace-nowrap overflow-hidden text-ellipsis font-medium">{script.name}</div>
-                                <div className="text-[10px] text-text-secondary mt-0.5">{formatDate(script.updated_at as any)}</div>
+                                <div className="text-[10px] text-text-secondary mt-0.5">{formatDate(String(script.updated_at ?? ''))}</div>
                             </div>
                             <button
                                 className={cn(
-                                    "bg-transparent border-none text-text-secondary cursor-pointer p-[3px] rounded-[3px] flex items-center shrink-0 transition-all duration-100 hover:text-error hover:bg-[#f48771]/10",
-                                    confirmDelete === script.id ? "opacity-100 text-error" : "opacity-0 group-hover:opacity-100"
+                                    "bg-transparent border-none text-text-secondary cursor-pointer p-[3px] rounded-md flex items-center shrink-0 transition-all duration-100 hover:text-error hover:bg-[#f48771]/10",
+                                    "opacity-0 group-hover:opacity-100"
                                 )}
-                                title={confirmDelete === script.id ? 'Click again to confirm' : 'Delete script'}
+                                title='Delete script'
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDelete(script.id);
+                                    setPendingDeleteScript({ id: script.id, name: script.name });
                                 }}
                             >
                                 <Trash2 size={12} />
@@ -124,6 +144,19 @@ export const SavedScriptsPanel: React.FC = () => {
                     ))
                 )}
             </div>
+            <ConfirmationModal
+                isOpen={Boolean(pendingDeleteScript)}
+                onClose={() => setPendingDeleteScript(null)}
+                onConfirm={() => {
+                    if (!pendingDeleteScript?.id) return;
+                    void handleDelete(pendingDeleteScript.id);
+                }}
+                title="Delete Saved Script"
+                message={`Delete "${pendingDeleteScript?.name || 'this script'}"?`}
+                description="This action permanently removes the saved SQL script."
+                confirmLabel="Delete"
+                variant="danger"
+            />
         </div>
     );
 };

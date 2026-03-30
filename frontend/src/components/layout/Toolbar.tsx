@@ -1,273 +1,460 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Plus, Play, Square, Settings, ChevronDown, Search, RefreshCw, Lock, Minus, X, PanelLeft, PanelBottom, PanelRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import {
+    Settings,
+    Lock,
+    Eye,
+    PanelLeft,
+    PanelBottom,
+    PanelRight,
+    Layers3,
+    SlidersHorizontal,
+    Server,
+    Database,
+} from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { useResultStore } from '../../stores/resultStore';
-import { ExecuteQuery, CancelQuery, Connect, Reconnect } from '../../../wailsjs/go/app/App';
+import { useStatusStore } from '../../stores/statusStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
-import { WorkspaceModal } from './WorkspaceModal';
+
+import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
 import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
+import { LicenseModal } from './LicenseModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
-import { getProvider } from '../../lib/providers';
 import { cn } from '../../lib/cn';
-import { Button, Divider } from '../ui';
+import { getEnvironmentMeta, sortEnvironmentKeys } from '../../lib/projects';
+import { Button } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
-import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
+import { DOM_EVENT, CONNECTION_STATUS, ENVIRONMENT_KEY } from '../../lib/constants';
+import { useToast } from './Toast';
+import type { EnvironmentKey } from '../../types/project';
+import { utils } from '../../../wailsjs/go/models';
+import { emitCommand, onCommand } from '../../lib/commandBus';
+import { WindowControls } from './toolbar/WindowControls';
+import { AppMenu } from './toolbar/AppMenu';
 
 export const Toolbar: React.FC = () => {
-    const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
-    const { groups, activeGroupId, addTab } = useEditorStore();
-    const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar, setShowCommandPalette } = useLayoutStore();
+    const { activeProfile, connectionStatus } = useConnectionStore();
+    const activeProject = useProjectStore((s) => s.activeProject);
+    const setProjectEnvironment = useProjectStore((s) => s.setProjectEnvironment);
+    const activeEnvironmentKey = useEnvironmentStore((s) => s.activeEnvironmentKey);
+    const environments = useEnvironmentStore((s) => s.environments);
+    const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
+    const { addTab } = useEditorStore();
+    const { showSidebar, showResultPanel, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
+    const { toast } = useToast();
+    const transactionStatus = useStatusStore((s) => s.transactionStatus);
+    const viewMode = useSettingsStore((s) => s.viewMode);
+    const savePrefs = useSettingsStore((s) => s.save);
 
-    const [pickerOpen, setPickerOpen] = useState(false);
+    const { hasUpdate, updateInfo, dismiss, check, isChecking } = useUpdateCheck();
+
     const [aboutOpen, setAboutOpen] = useState(false);
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
+    const [licenseOpen, setLicenseOpen] = useState(false);
+    const [environmentSwitcherOpen, setEnvironmentSwitcherOpen] = useState(false);
+    const [quickEnvOpen, setQuickEnvOpen] = useState(false);
+    const [quickEnvKeyboardMode, setQuickEnvKeyboardMode] = useState(false);
+    const [quickEnvHighlightedIndex, setQuickEnvHighlightedIndex] = useState(0);
+    const quickEnvRef = useRef<HTMLDivElement | null>(null);
+    const quickEnvCloseTimerRef = useRef<number | null>(null);
 
-    const { hasUpdate, updateInfo, dismiss } = useUpdateCheck();
-
-    const activeGroup = groups.find(g => g.id === activeGroupId);
-    const activeTab = activeGroup?.tabs.find(t => t.id === activeGroup.activeTabId);
-    const activeTabId = activeGroup?.activeTabId;
-    const isRunning = activeTab?.isRunning ?? false;
+    // Active tab detection for menu
+    const { groups, activeGroupId } = useEditorStore();
+    const activeGroup = groups.find((g) => g.id === activeGroupId);
+    const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
     const isQueryTab = activeTab?.type === 'query';
 
+    const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
+    const databaseLabel = activeProfile?.db_name || 'No database';
+    const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
+    const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
+    const envToolbarTone = useMemo(() => {
+        if (activeEnvKey === ENVIRONMENT_KEY.PRODUCTION) {
+            return {
+                base: 'bg-red-500/12',
+                active: 'border-red-500/60',
+            };
+        }
+        if (activeEnvKey === ENVIRONMENT_KEY.STAGING) {
+            return {
+                base: 'bg-amber-500/12',
+                active: 'border-amber-500/60',
+            };
+        }
+        if (activeEnvKey === ENVIRONMENT_KEY.DEVELOPMENT) {
+            return {
+                base: 'bg-sky-500/12',
+                active: 'border-sky-500/60',
+            };
+        }
+        if (activeEnvKey === ENVIRONMENT_KEY.TESTING) {
+            return {
+                base: 'bg-fuchsia-500/12',
+                active: 'border-fuchsia-500/60',
+            };
+        }
+        return {
+            base: 'bg-success/10',
+            active: 'border-success/70',
+        };
+    }, [activeEnvKey]);
+
+    const quickEnvOptions = useMemo(() => {
+        const orderedKeys: EnvironmentKey[] = [];
+        const seen = new Set<EnvironmentKey>();
+        const pushKey = (key?: EnvironmentKey | null) => {
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            orderedKeys.push(key);
+        };
+
+        (activeProject?.environments || []).forEach((env) => pushKey(env.key as EnvironmentKey));
+        environments.forEach((env) => pushKey(env.key as EnvironmentKey));
+        pushKey(activeProject?.last_active_environment_key as EnvironmentKey | undefined);
+        pushKey(activeProject?.default_environment_key as EnvironmentKey | undefined);
+        pushKey(activeEnvironmentKey as EnvironmentKey | undefined);
+
+        return sortEnvironmentKeys(orderedKeys);
+    }, [
+        activeEnvironmentKey,
+        activeProject?.default_environment_key,
+        activeProject?.last_active_environment_key,
+        activeProject?.environments,
+        environments,
+    ]);
+
+    const quickEnvConnectionDetails = useMemo(() => {
+        const byKey = new Map<EnvironmentKey, { host: string; database: string }>();
+        quickEnvOptions.forEach((envKey) => {
+            const envConnection = activeProject?.connections?.find((connection) => connection.environment_key === envKey);
+            const envModel = activeProject?.environments?.find((env) => env.key === envKey);
+            const isActive = envKey === activeEnvKey;
+
+            const host = (isActive ? (activeProfile?.host || activeProfile?.name) : undefined)
+                || envConnection?.host
+                || envConnection?.name
+                || 'No host';
+            const database = (isActive ? activeProfile?.db_name : undefined)
+                || envConnection?.database
+                || envModel?.last_database
+                || 'No DB';
+
+            byKey.set(envKey, { host, database });
+        });
+        return byKey;
+    }, [activeEnvKey, activeProfile?.db_name, activeProfile?.host, activeProfile?.name, activeProject?.connections, activeProject?.environments, quickEnvOptions]);
+
+    const clearQuickEnvCloseTimer = useCallback(() => {
+        if (quickEnvCloseTimerRef.current === null) return;
+        window.clearTimeout(quickEnvCloseTimerRef.current);
+        quickEnvCloseTimerRef.current = null;
+    }, []);
+
+    const openQuickEnv = useCallback((keyboardMode = false) => {
+        clearQuickEnvCloseTimer();
+        setQuickEnvOpen(true);
+        setQuickEnvKeyboardMode(keyboardMode);
+    }, [clearQuickEnvCloseTimer]);
+
+    const scheduleQuickEnvClose = useCallback(() => {
+        clearQuickEnvCloseTimer();
+        quickEnvCloseTimerRef.current = window.setTimeout(() => {
+            setQuickEnvOpen(false);
+            setQuickEnvKeyboardMode(false);
+            quickEnvCloseTimerRef.current = null;
+        }, 120);
+    }, [clearQuickEnvCloseTimer]);
+
+    // ── Environment switcher command ──────────────────────────────────────────
     useEffect(() => {
-        const handleKd = (e: KeyboardEvent) => {
-            if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
+        const off = onCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, () => {
+            setQuickEnvOpen(false);
+            setQuickEnvKeyboardMode(false);
+            setEnvironmentSwitcherOpen(true);
+        });
+        return off;
+    }, []);
+
+    useEffect(() => () => clearQuickEnvCloseTimer(), [clearQuickEnvCloseTimer]);
+
+    // ── Quick env dropdown: close on outside click ────────────────────────────
+    useEffect(() => {
+        if (!quickEnvOpen) return;
+        const onDown = (e: MouseEvent) => {
+            if (quickEnvRef.current?.contains(e.target as Node)) return;
+            setQuickEnvOpen(false);
+            setQuickEnvKeyboardMode(false);
+        };
+        window.addEventListener('mousedown', onDown);
+        return () => window.removeEventListener('mousedown', onDown);
+    }, [quickEnvOpen]);
+
+    // ── Quick env keyboard ────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!quickEnvOpen) return;
+        const activeKey = activeEnvKey;
+        const idx = activeKey ? quickEnvOptions.findIndex((k) => k === activeKey) : -1;
+        setQuickEnvHighlightedIndex(idx >= 0 ? idx : 0);
+    }, [activeEnvKey, quickEnvOpen, quickEnvOptions]);
+
+    useEffect(() => {
+        if (!quickEnvOpen || !quickEnvKeyboardMode) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (quickEnvOptions.length === 0) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); setQuickEnvHighlightedIndex((c) => (c + 1) % quickEnvOptions.length); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); setQuickEnvHighlightedIndex((c) => (c - 1 + quickEnvOptions.length) % quickEnvOptions.length); return; }
+            if (e.key === 'Enter') {
                 e.preventDefault();
-                setPickerOpen(true);
+                const target = quickEnvOptions[Math.max(0, quickEnvHighlightedIndex)];
+                if (target) void handleQuickSwitchEnv(target);
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setQuickEnvOpen(false);
+                setQuickEnvKeyboardMode(false);
             }
         };
-        window.addEventListener('keydown', handleKd);
-        return () => window.removeEventListener('keydown', handleKd);
-    }, []);
+        window.addEventListener('keydown', onKeyDown, true);
+        return () => window.removeEventListener('keydown', onKeyDown, true);
+    }, [quickEnvHighlightedIndex, quickEnvKeyboardMode, quickEnvOpen, quickEnvOptions]);
 
-    // Listen for command palette's "open-workspace-modal" event
-    useEffect(() => {
-        const handler = () => setPickerOpen(true);
-        window.addEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
-        return () => window.removeEventListener(DOM_EVENT.OPEN_WORKSPACE_MODAL, handler);
-    }, []);
-
-    const handleRun = async () => {
-        if (!activeTab || !isConnected) return;
-        window.dispatchEvent(new CustomEvent(DOM_EVENT.RUN_QUERY_ACTION, { detail: { tabId: activeTab.id } }));
+    const handleQuickSwitchEnv = async (envKey: EnvironmentKey) => {
+        setQuickEnvOpen(false);
+        setQuickEnvKeyboardMode(false);
+        if (!activeProject || envKey === activeEnvironmentKey) return;
+        try {
+            setActiveEnvironment(envKey);
+            const updated = await setProjectEnvironment(envKey);
+            if (updated) return;
+            toast.error('Could not switch environment.');
+        } catch (error) {
+            toast.error(`Could not switch environment: ${error}`);
+        }
     };
 
-    const handleCancel = async () => {
-        if (!activeTabId) return;
-        try { await CancelQuery(activeTabId); } catch { /* swallow */ }
+    const handleToggleViewMode = async () => {
+        const next = !viewMode;
+        if (next && transactionStatus === 'active') {
+            toast.error('Cannot enable View Mode while a transaction is active. Please commit or rollback first.');
+            return;
+        }
+        await savePrefs(new utils.Preferences({ view_mode: next }));
+        toast.success(next ? 'View Mode enabled (read-only).' : 'View Mode disabled.');
     };
-
-    let breadcrumbLabel = 'No Connection';
-    if (activeProfile) {
-        breadcrumbLabel = `${activeProfile.name}  ·  ${activeProfile.db_name} `;
-    }
 
     return (
-        <div className="h-8 flex items-center justify-between flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
-            {/* Left */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div
-                    className="flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative"
-                    title={hasUpdate ? "New version available!" : "About Zentro"}
-                    onClick={() => hasUpdate ? setUpdateModalOpen(true) : setAboutOpen(true)}
-                >
-                    <img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />
-                    {hasUpdate && (
-                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success rounded-full border border-bg-secondary animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                    )}
-                </div>
-                <Button variant="ghost" size="icon" title="Toggle Safe Mode">
-                    <Lock size={14} />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Reload Connection"
-                    onClick={() => activeProfile && Reconnect().catch(() => {})}
-                    disabled={!activeProfile || connectionStatus === 'connecting'}
-                >
-                    <RefreshCw size={14} className={cn(connectionStatus === 'connecting' && "animate-spin")} />
-                </Button>
-
-                <Divider orientation="vertical" className="h-5" />
-
-                <Button variant="ghost" size="icon" title="New Tab (Ctrl+T)" onClick={() => addTab()}>
-                    <Plus size={16} />
-                </Button>
-                <Button
-                    variant="ghost" size="icon"
-                    disabled={!isConnected || !activeTab || isRunning}
-                    title="Run Query (Ctrl+Enter)"
-                    onClick={handleRun}
-                >
-                    <Play
-                        size={16}
-                        color={!isConnected || isRunning ? 'currentColor' : 'var(--success-color)'}
-                    />
-                </Button>
-                <Button
-                    variant="ghost" size="icon"
-                    disabled={!isRunning}
-                    title="Cancel Execution"
-                    onClick={handleCancel}
-                >
-                    <Square
-                        size={16}
-                        fill={isRunning ? 'currentColor' : 'none'}
-                        color={isRunning ? 'var(--error-color)' : 'currentColor'}
-                    />
-                </Button>
-            </div>
-
-            {/* Center drag region */}
+        <div className="h-8 grid grid-cols-10 items-center flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
+            {/* Left: 3/10 */}
             <div
-                className="flex-1 flex items-center justify-center h-full"
+                className="col-span-3 min-w-0 flex items-center"
                 style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}
             >
                 <div
-                    className="flex justify-center relative h-10/12 my-1"
-                    style={{ width: 'min(400px, 33vw)', ['--wails-draggable' as any]: 'no-drag' }}
+                    className="flex items-center gap-1.5"
+                    style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
+                >
+                    <AppMenu
+                        trigger={<img src={zentroLogo} alt="Zentro" className="w-5 h-5 object-contain" />}
+                        hasUpdate={hasUpdate}
+                        updateInfo={updateInfo}
+                        isChecking={isChecking}
+                        check={check}
+                        dismiss={dismiss}
+                        onOpenAbout={() => setAboutOpen(true)}
+                        onOpenLicense={() => setLicenseOpen(true)}
+                        onOpenUpdateModal={setUpdateModalOpen}
+                    />
+
+                    <Button
+                        variant="ghost" size="icon"
+                        title={viewMode ? 'View Mode ON (Click to disable)' : 'Enable View Mode (Read-only)'}
+                        aria-pressed={viewMode}
+                        className={cn('relative', viewMode && 'text-warning')}
+                        onClick={() => { void handleToggleViewMode(); }}
+                    >
+                        {viewMode ? <Eye size={14} className="drop-shadow-[0_0_4px_rgba(245,158,11,0.55)]" /> : <Lock size={14} />}
+                        {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
+                    </Button>
+                </div>
+            </div>
+
+            {/* Center: 4/10 - project / connection pill + quick env switcher */}
+            <div className="col-span-4 min-w-0 flex items-center justify-center h-full">
+                <div
+                    className="flex flex-1 justify-center relative h-10/12 my-1"
+                    style={{ width: 'min(520px, 44vw)', '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
                     <div
+                        ref={quickEnvRef}
                         className={cn(
-                            'flex items-center gap-2 w-full px-3 rounded-full text-xs font-medium text-text-secondary cursor-pointer select-none transition-all duration-200',
-                            'bg-success/10',
-                            pickerOpen && 'border-success text-text-primary',
-                            !pickerOpen && 'hover:text-text-primary hover:border-border',
+                            'relative flex items-stretch w-full rounded-full text-xs font-medium text-text-secondary select-none transition-all duration-200',
+                            envToolbarTone.base,
+                            (quickEnvOpen || environmentSwitcherOpen) && cn(envToolbarTone.active, 'text-text-primary'),
                         )}
-                        onClick={() => setPickerOpen(true)}
+                        onMouseLeave={scheduleQuickEnvClose}
+                        onBlurCapture={(event) => {
+                            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                            setQuickEnvOpen(false);
+                            setQuickEnvKeyboardMode(false);
+                        }}
                     >
-                        <span
-                            className={cn(
-                                'w-2 h-2 rounded-full shrink-0 transition-all duration-300',
-                                connectionStatus === 'connected' ? 'bg-success shadow-[0_0_6px_rgba(34,197,94,0.5)]' :
-                                    connectionStatus === 'error' ? 'bg-red-500 shadow-[0_0_6px_rgba(255,95,87,0.5)] animate-pulse' :
-                                        'bg-text-secondary'
-                            )}
-                            title={connectionStatus === 'error' ? 'Connection lost, reconnecting...' : ''}
-                        />
-                        <span className="flex-1 text-center truncate">{breadcrumbLabel}</span>
-                        {/* {activeProfile ? (
-                            <button
+                        {/* Project button */}
+                        <button
+                            type="button"
+                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-bg-secondary/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
+                            title="Open Project Hub"
+                            onClick={() => { setQuickEnvOpen(false); emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); }}
+                        >
+                            <Layers3
+                                size={14}
                                 className={cn(
-                                    "w-5 h-5 flex items-center justify-center rounded-sm transition-colors opacity-100 hover:opacity-80",
-                                    connectionStatus !== 'connected' ? 'bg-bg-tertiary hover:bg-bg-primary' : 'hover:bg-bg-primary'
+                                    'shrink-0 translate-y-[0.5px]',
+                                    connectionStatus === CONNECTION_STATUS.CONNECTED ? 'text-success' : connectionStatus === CONNECTION_STATUS.ERROR ? 'text-red-500 animate-pulse' : 'text-text-secondary',
                                 )}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPickerOpen(true);
-                                }}
-                                title="Connection details"
+                            />
+                            <span className="truncate max-w-[170px] text-text-primary font-semibold leading-none">{activeProject?.name || 'No Project'}</span>
+                        </button>
+
+                        {/* Connection info / env switcher trigger */}
+                        <button
+                            type="button"
+                            className={cn(
+                                'relative z-[1] h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
+                                connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
+                                !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border',
+                            )}
+                            onClick={() => openQuickEnv(true)}
+                            onMouseEnter={() => openQuickEnv(false)}
+                            onFocus={() => openQuickEnv(true)}
+                            disabled={!activeProject}
+                            title="Switch environment"
+                        >
+                            <span className="sr-only">Switch environment</span>
+                        </button>
+
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-[11px] leading-none text-text-secondary">
+                            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-1.5">
+                                <span className="truncate text-end leading-none">{serverLabel}</span>
+                                <Server size={13} className="shrink-0 translate-y-[0.5px]" />
+                                <Database size={13} className="shrink-0 translate-y-[0.5px]" />
+                                <span className="truncate leading-none">{databaseLabel}</span>
+                            </div>
+                        </div>
+
+                        {/* Environment config button */}
+                        <button
+                            type="button"
+                            className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-bg-secondary/40 transition-colors leading-none"
+                            title="Configure environment bindings"
+                            onClick={() => {
+                                setQuickEnvOpen(false);
+                                setQuickEnvKeyboardMode(false);
+                                setEnvironmentSwitcherOpen(true);
+                            }}
+                        >
+                            {activeProject && (
+                                <span className={cn('shrink-0 px-1.5 py-0.5 rounded-full border font-bold uppercase tracking-wider leading-none text-[10px]', envMeta.colorClass)}>
+                                    {activeEnvironmentKey || activeProject.default_environment_key}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Quick env dropdown */}
+                        {quickEnvOpen && activeProject && (
+                            <div
+                                className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-bg-secondary shadow-xl p-2"
+                                onMouseEnter={clearQuickEnvCloseTimer}
                             >
-                                <img
-                                    src={getProvider(activeProfile.driver).icon}
-                                    alt={activeProfile.driver}
-                                    className={cn('w-[20px] h-[20px] shrink-0 transition-all duration-300', connectionStatus === 'connected' ? 'grayscale-0' : 'grayscale')}
-                                />
-                            </button>
-                        ) : (
-                        )} */}
-                        <ChevronDown
-                            size={14}
-                            strokeWidth={pickerOpen ? 2.5 : 2}
-                            className={cn('opacity-50 transition-transform duration-200', pickerOpen && 'rotate-180 opacity-100 text-accent')}
-                        />
+                                <div className="space-y-1">
+                                    {quickEnvOptions.map((envKey, index) => {
+                                        const meta = getEnvironmentMeta(envKey);
+                                        const isActive = envKey === (activeEnvironmentKey || activeProject.default_environment_key);
+                                        const isHighlighted = index === quickEnvHighlightedIndex;
+                                        const details = quickEnvConnectionDetails.get(envKey);
+                                        return (
+                                            <button
+                                                key={envKey} type="button"
+                                                className={cn(
+                                                    'relative w-full cursor-pointer rounded-md px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
+                                                    isActive ? 'bg-accent/10 border border-accent/35 text-text-primary' : isHighlighted ? 'bg-bg-primary/60 text-text-primary' : 'hover:bg-bg-primary/50 text-text-secondary',
+                                                )}
+                                                onClick={() => void handleQuickSwitchEnv(envKey)}
+                                                onMouseEnter={() => setQuickEnvHighlightedIndex(index)}
+                                            >
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
+                                                        <span className="truncate font-semibold">{meta.label}</span>
+                                                    </div>
+                                                    <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-text-secondary">
+                                                        <span className="inline-flex min-w-0 w-full items-center gap-1">
+                                                            <Server size={11} className="shrink-0" />
+                                                            <span className="truncate" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
+                                                        </span>
+                                                        <span className="inline-flex min-w-0 w-full items-center gap-1">
+                                                            <Database size={11} className="shrink-0" />
+                                                            <span className="truncate" title={details?.database || 'No DB'}>{details?.database || 'No DB'}</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {isActive && (
+                                                    <span className="pointer-events-none absolute right-2.5 top-2 text-[10px] font-semibold text-accent">
+                                                        Active
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {pickerOpen && (
-                    <WorkspaceModal onClose={() => setPickerOpen(false)} />
-                )}
+                {environmentSwitcherOpen && <EnvironmentSwitcherModal onClose={() => setEnvironmentSwitcherOpen(false)} />}
             </div>
 
-            {/* Right */}
-            <div className="flex items-center shrink-0">
-                <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
-                    <Settings size={14} />
-                </Button>
-
-                {/* <Divider orientation="vertical" className="h-5" /> */}
-
-                {/* Layout toggles */}
-                <Button
-                    variant="ghost" size="icon"
-                    className={cn(showSidebar && "text-accent")}
-                    title="Toggle Sidebar (Ctrl+B)"
-                    onClick={toggleSidebar}
+            {/* Right: 3/10 */}
+            <div
+                className="col-span-3 min-w-0 flex items-center justify-end"
+                style={{ '--wails-draggable': 'drag', cursor: 'default' } as React.CSSProperties}
+            >
+                <div
+                    className="flex items-center"
+                    style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
-                    <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
-                </Button>
-                <Button
-                    variant="ghost" size="icon"
-                    className={cn(showResultPanel && "text-accent")}
-                    disabled={!isQueryTab}
-                    title="Toggle Result Panel (Ctrl+J)"
-                    onClick={toggleResultPanel}
-                >
-                    <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
-                </Button>
-                <Button
-                    variant="ghost" size="icon"
-                    className={cn(showRightSidebar && "text-accent")}
-                    title="Toggle Right Sidebar (Ctrl+Alt+B)"
-                    onClick={toggleRightSidebar}
-                >
-                    <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
-                </Button>
-
-
-                {/* Window controls */}
-                <div className="flex items-center gap-0.5 ml-0.5">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-[rgba(255,189,46,0.2)] hover:text-[#ffbd2e]"
-                        title="Minimize"
-                        onClick={WindowMinimise}
-                    >
-                        <Minus size={12} />
+                    <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
+                        <Settings size={14} />
                     </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-[rgba(40,201,98,0.2)] hover:text-[#28c962]"
-                        title="Maximize / Restore"
-                        onClick={WindowToggleMaximise}
-                    >
-                        <span className="block w-2.5 h-2.5 border-[1.5px] border-current rounded-[1px]" />
+                    <Button variant="ghost" size="icon" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
+                        <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
                     </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="hover:bg-[rgba(255,95,87,0.2)] hover:text-[#ff5f57]"
-                        title="Close"
-                        onClick={Quit}
-                    >
-                        <X size={13} />
+                    <Button variant="ghost" size="icon" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
+                        <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
                     </Button>
+                    <Button variant="ghost" size="icon" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
+                        <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
+                    </Button>
+                    <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />
                 </div>
             </div>
 
-            {/* Overlays */}
-            {aboutOpen && (
-                <AboutModal onClose={() => setAboutOpen(false)} />
-            )}
-            
+            {/* Modals */}
+            {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+            {licenseOpen && <LicenseModal onClose={() => setLicenseOpen(false)} />}
             {updateModalOpen && updateInfo && (
-                <UpdateModal 
+                <UpdateModal
                     latestVersion={updateInfo.latest_version}
                     changelog={updateInfo.changelog}
                     releaseUrl={updateInfo.release_url}
                     onClose={() => setUpdateModalOpen(false)}
-                    onDismiss={() => {
-                        dismiss();
-                        setUpdateModalOpen(false);
-                    }}
+                    onDismiss={() => { dismiss(); setUpdateModalOpen(false); }}
                 />
             )}
         </div>

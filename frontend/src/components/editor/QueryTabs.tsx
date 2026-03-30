@@ -1,15 +1,19 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
-import { useEditorStore } from '../../stores/editorStore';
+import { Tab, useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
-import { ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery } from '../../services/queryService';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
+import { onCommand } from '../../lib/commandBus';
 import {
     DndContext,
     DragEndEvent,
@@ -21,14 +25,28 @@ import {
     closestCenter
 } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
-import { buildFilterQuery } from '../../lib/queryBuilder';
+import { splitLastQuery } from '../../lib/queryBuilder';
+import { getErrorMessage } from '../../lib/errors';
+import { applyPreExecuteFilterPolicy, type QueryExecutionSource, resolveExecuteQuery } from '../../features/query/executionRouting';
 
 export const QueryTabs: React.FC = () => {
-    const { groups, activeGroupId, addTab, removeTab, closeGroup, moveTab, setActiveGroupId, splitGroupFromDrag, updateTabQuery } = useEditorStore();
+    const {
+        groups,
+        activeGroupId,
+        addTab,
+        removeTab,
+        closeGroup,
+        moveTab,
+        setActiveGroupId,
+        setActiveTabId,
+        splitGroupFromDrag,
+        updateTabQuery,
+        updateTabContext,
+    } = useEditorStore();
     const { results } = useResultStore();
     const { isConnected, activeProfile } = useConnectionStore();
+    const viewMode = useSettingsStore((state) => state.viewMode);
     const { showResultPanel } = useLayoutStore();
-    const { saveScript } = useScriptStore();
 
     // Global active tab for the shared result panel
     const globalActiveGroup = groups.find(g => g.id === activeGroupId);
@@ -37,31 +55,59 @@ export const QueryTabs: React.FC = () => {
     const globalActiveResult = globalActiveTabId ? results[globalActiveTabId] : undefined;
     const activeTabIsQuery = globalActiveTab?.type === TAB_TYPE.QUERY;
 
-    const handleRunGlobal = React.useCallback(async () => {
-        if (!globalActiveTab || !isConnected) return;
-        useResultStore.getState().setFilterExpr(globalActiveTab.id, '');
+    const executeActiveTabQuery = React.useCallback(async (
+        source: QueryExecutionSource,
+        options?: { filterExpr?: string; filterBaseQuery?: string },
+    ) => {
+        if (!isConnected) return;
+
+        const editorState = useEditorStore.getState();
+        const latestActiveGroup = editorState.groups.find((group) => group.id === editorState.activeGroupId);
+        const latestActiveTab = latestActiveGroup?.tabs.find((tab) => tab.id === latestActiveGroup.activeTabId);
+        if (!latestActiveTab) return;
+
+        const resultStore = useResultStore.getState();
+        applyPreExecuteFilterPolicy({
+            source,
+            sourceTabId: latestActiveTab.id,
+            resultTabIds: Object.keys(resultStore.results),
+            clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            updateTabContext,
+        });
+
+        const queryToRun = resolveExecuteQuery({
+            source,
+            editorQuery: latestActiveTab.query,
+            filterExpr: options?.filterExpr,
+            filterBaseQuery: options?.filterBaseQuery,
+        });
+
         try {
-            await ExecuteQuery(globalActiveTab.id, globalActiveTab.query);
-        } catch (err: any) {
-            console.error('ExecuteQuery error:', err);
+            await ExecuteQuery(latestActiveTab.id, queryToRun);
+        } catch (err: unknown) {
+            console.error(source === 'filter' ? 'ExecuteQuery (filter) error:' : 'ExecuteQuery error:', getErrorMessage(err));
         }
-    }, [globalActiveTab, isConnected]);
+    }, [isConnected, updateTabContext]);
+
+    const handleRunGlobal = React.useCallback(async () => {
+        await executeActiveTabQuery('editor');
+    }, [executeActiveTabQuery]);
 
     const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
-        if (!globalActiveTab || !isConnected) return;
+        if (!isConnected) return;
 
-        // Use lastExecutedQuery (= the query the backend actually ran) as filter base
-        const baseForFilter = globalActiveResult?.lastExecutedQuery || globalActiveTab.query;
-        const queryToRun = filter.trim() !== ''
-            ? buildFilterQuery(baseForFilter, filter)
-            : baseForFilter;
+        const editorState = useEditorStore.getState();
+        const latestActiveGroup = editorState.groups.find((group) => group.id === editorState.activeGroupId);
+        const latestActiveTab = latestActiveGroup?.tabs.find((tab) => tab.id === latestActiveGroup.activeTabId);
+        if (!latestActiveTab) return;
 
-        try {
-            await ExecuteQuery(globalActiveTab.id, queryToRun);
-        } catch (err: any) {
-            console.error('ExecuteQuery (filter) error:', err);
-        }
-    }, [globalActiveTab, isConnected, globalActiveResult]);
+        // Filter should target the current executable statement, not the whole script.
+        const baseForFilter = splitLastQuery(latestActiveTab.query || '').base.trim() || latestActiveTab.query;
+        await executeActiveTabQuery('filter', {
+            filterExpr: filter,
+            filterBaseQuery: baseForFilter,
+        });
+    }, [executeActiveTabQuery, isConnected]);
 
     const handleAppendToQuery = React.useCallback((fullQuery: string) => {
         if (!globalActiveTabId) return;
@@ -75,7 +121,31 @@ export const QueryTabs: React.FC = () => {
     }, [addTab]);
 
     // Drag overlay state
-    const [activeDragTab, setActiveDragTab] = useState<any>(null);
+    const [activeDragTab, setActiveDragTab] = useState<Tab | null>(null);
+    const [activeSubTabId, setActiveSubTabId] = useState<string | null>(null);
+    const [isResultMaximized, setIsResultMaximized] = useState(false);
+    const recentTabIdsRef = useRef<string[]>([]);
+    const [tabSwitcher, setTabSwitcher] = useState<{ open: boolean; orderedIds: string[]; index: number }>({
+        open: false,
+        orderedIds: [],
+        index: 0,
+    });
+
+    const allTabs = useMemo(
+        () => groups.flatMap((group) => group.tabs.map((tab) => ({ tab, groupId: group.id }))),
+        [groups],
+    );
+    const tabMetaById = useMemo(
+        () => new Map(allTabs.map((item) => [item.tab.id, item])),
+        [allTabs],
+    );
+
+    const activateTabById = React.useCallback((tabId: string) => {
+        const meta = tabMetaById.get(tabId);
+        if (!meta) return;
+        setActiveGroupId(meta.groupId);
+        setActiveTabId(tabId, meta.groupId);
+    }, [setActiveGroupId, setActiveTabId, tabMetaById]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -85,59 +155,138 @@ export const QueryTabs: React.FC = () => {
         })
     );
 
-    // ── Keyboard shortcuts ────────────────────────────────────────────────
-    useEffect(() => {
-        const handleKey = (e: KeyboardEvent) => {
-            const mod = e.ctrlKey || e.metaKey;
-            if (mod && e.key === 't') { e.preventDefault(); addTab(undefined, activeGroupId || undefined); }
-            if (mod && e.key === 'w') {
-                e.preventDefault();
-                if (activeGroupId) {
-                    const activeGroup = groups.find(g => g.id === activeGroupId);
-                    if (activeGroup && activeGroup.activeTabId) {
-                        const tab = activeGroup.tabs.find(t => t.id === activeGroup.activeTabId);
-                        if (tab?.type === 'query' && tab.query?.trim() && activeProfile?.name) {
-                            saveScript(activeProfile.name, tab.name, tab.query).catch(err => console.error('Auto save failed', err));
-                        }
-                        removeTab(activeGroup.activeTabId, activeGroupId);
-                    }
-                }
-            }
-            if (mod && e.key === 's') {
-                e.preventDefault();
-                if (activeGroupId) {
-                    const activeGroup = groups.find(g => g.id === activeGroupId);
-                    if (activeGroup && activeGroup.activeTabId) {
-                        window.dispatchEvent(new CustomEvent('zentro:save-script', { detail: activeGroup.activeTabId }));
-                    }
-                }
-            }
-            if (e.key === 'F2' && activeGroupId) {
-                e.preventDefault();
-                const activeGroup = groups.find(g => g.id === activeGroupId);
-                if (activeGroup && activeGroup.activeTabId) {
-                    window.dispatchEvent(new CustomEvent(DOM_EVENT.RENAME_TAB, { detail: activeGroup.activeTabId }));
-                }
-            }
+    const closeActiveTabWithSave = React.useCallback(async () => {
+        const editorState = useEditorStore.getState();
+        const groupId = editorState.activeGroupId;
+        const activeGroup = editorState.groups.find(g => g.id === groupId);
+        const activeTabId = activeGroup?.activeTabId;
+        const activeTab = activeGroup?.tabs.find((tab) => tab.id === activeTabId);
+        if (!groupId || !activeTabId || !activeTab) return;
 
-            };
-        window.addEventListener('keydown', handleKey);
-        return () => window.removeEventListener('keydown', handleKey);
-    }, [activeGroupId, addTab, groups, removeTab, activeProfile, saveScript]);
+        if (activeTab.type === TAB_TYPE.QUERY && activeTab.query?.trim()) {
+            const activeProject = useProjectStore.getState().activeProject;
+            const activeEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey
+                || activeProject?.last_active_environment_key
+                || activeProject?.default_environment_key;
+            const envConnection = activeProject?.connections?.find((item) => item.environment_key === activeEnvironmentKey);
+            const envConnectionName = envConnection?.advanced_meta?.profile_name || envConnection?.name || null;
+
+            const projectId =
+                activeProject?.id ||
+                activeTab.context?.scriptProjectId ||
+                null;
+            const profileName =
+                activeProfile?.name ||
+                useConnectionStore.getState().activeProfile?.name ||
+                activeTab.context?.scriptConnectionName ||
+                envConnectionName ||
+                null;
+
+            if (projectId && profileName) {
+                try {
+                    const savedScriptId = await useScriptStore.getState().saveScript(
+                        projectId,
+                        profileName,
+                        activeTab.name,
+                        activeTab.query,
+                        activeTab.context?.savedScriptId,
+                    );
+                    updateTabContext(activeTabId, {
+                        savedScriptId,
+                        scriptProjectId: projectId,
+                        scriptConnectionName: profileName,
+                    });
+                } catch (error) {
+                    console.error('Shortcut close autosave failed', error);
+                }
+            }
+        }
+
+        removeTab(activeTabId, groupId);
+    }, [activeProfile?.name, removeTab, updateTabContext]);
 
     // Global event listener for command palette's 'close-active-tab'
     useEffect(() => {
-        const handler = () => {
-            if (activeGroupId) {
-                const activeGroup = groups.find(g => g.id === activeGroupId);
-                if (activeGroup && activeGroup.activeTabId) {
-                    removeTab(activeGroup.activeTabId, activeGroupId);
+        const off = onCommand(DOM_EVENT.CLOSE_ACTIVE_TAB, () => {
+            void closeActiveTabWithSave();
+        });
+        return off;
+    }, [closeActiveTabWithSave]);
+
+    useEffect(() => {
+        const alive = new Set(allTabs.map((item) => item.tab.id));
+        recentTabIdsRef.current = recentTabIdsRef.current.filter((id) => alive.has(id));
+    }, [allTabs]);
+
+    useEffect(() => {
+        if (!globalActiveTabId) return;
+        recentTabIdsRef.current = [
+            globalActiveTabId,
+            ...recentTabIdsRef.current.filter((id) => id !== globalActiveTabId),
+        ];
+    }, [globalActiveTabId]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!e.ctrlKey || e.key !== 'Tab') return;
+            if (e.repeat) return;
+
+            const availableIds = recentTabIdsRef.current.filter((id) => tabMetaById.has(id));
+            if (availableIds.length < 2) return;
+            e.preventDefault();
+
+            setTabSwitcher((prev) => {
+                if (!prev.open) {
+                    const current = globalActiveTabId || availableIds[0];
+                    const ordered = [current, ...availableIds.filter((id) => id !== current)];
+                    const direction = e.shiftKey ? -1 : 1;
+                    const nextIndex = (direction + ordered.length) % ordered.length;
+                    return { open: true, orderedIds: ordered, index: nextIndex };
                 }
+
+                const direction = e.shiftKey ? -1 : 1;
+                const nextIndex = (prev.index + direction + prev.orderedIds.length) % prev.orderedIds.length;
+                return { ...prev, index: nextIndex };
+            });
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 'Control') {
+                setTabSwitcher((prev) => {
+                    if (prev.open && prev.orderedIds.length > 0) {
+                        const targetTabId = prev.orderedIds[prev.index];
+                        if (targetTabId) {
+                            activateTabById(targetTabId);
+                        }
+                    }
+                    return { ...prev, open: false };
+                });
+                return;
+            }
+            if (!e.ctrlKey) {
+                setTabSwitcher((prev) => ({ ...prev, open: false }));
             }
         };
-        window.addEventListener(DOM_EVENT.CLOSE_ACTIVE_TAB, handler);
-        return () => window.removeEventListener(DOM_EVENT.CLOSE_ACTIVE_TAB, handler);
-    }, [activeGroupId, groups, removeTab]);
+
+        const handleWindowBlur = () => {
+            setTabSwitcher((prev) => ({ ...prev, open: false }));
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('blur', handleWindowBlur);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('blur', handleWindowBlur);
+        };
+    }, [activateTabById, globalActiveTabId, tabMetaById]);
+
+    useEffect(() => {
+        if (!showResultPanel || !activeTabIsQuery) {
+            setIsResultMaximized(false);
+        }
+    }, [activeTabIsQuery, showResultPanel]);
 
     // Handle automatically closing groups when they are empty
     useEffect(() => {
@@ -199,17 +348,46 @@ export const QueryTabs: React.FC = () => {
     };
 
     // ── Empty state ───────────────────────────────────────────────────────
+    // Reset sub-tab selection when the main tab changes
+    useEffect(() => {
+        setActiveSubTabId(null);
+    }, [globalActiveTabId]);
+
+    const globalActiveResultKeys = React.useMemo(() => {
+        if (!globalActiveTabId) return [];
+        return Object.keys(results)
+            .filter((k) => k === globalActiveTabId || k.startsWith(`${globalActiveTabId}::result:`) || k.startsWith(`${globalActiveTabId}::explain:`))
+            .sort((a, b) => {
+                if (a === globalActiveTabId) return -1;
+                if (b === globalActiveTabId) return 1;
+                return a.localeCompare(b);
+            });
+    }, [globalActiveTabId, results]);
+
+    const currentResultTabId =
+        activeSubTabId && globalActiveResultKeys.includes(activeSubTabId)
+            ? activeSubTabId
+            : globalActiveResultKeys.length > 0
+            ? globalActiveResultKeys[0]
+            : globalActiveTabId;
+
+    const currentResult = currentResultTabId ? results[currentResultTabId] : undefined;
+    const isMainResult = currentResultTabId === globalActiveTabId;
+    const isExplainResult = currentResultTabId?.includes('::explain:');
+    const isReadOnlySubTab = !isMainResult;
+    const generatedKind = isExplainResult ? 'explain' : (isMainResult ? undefined : 'result');
+
     if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
         return (
             <div className="flex items-center justify-center h-full text-text-secondary">
                 <div className="text-center max-w-[320px]">
                     <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-md px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
                         <p className="text-xs">Connect to a database using the sidebar first.</p>
                     )}
                     <button
-                        className="mt-4 bg-success text-white px-3 py-1.5 rounded text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
+                        className="mt-4 bg-success text-white px-3 py-1.5 rounded-md text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
                         onClick={() => addTab()}
                     >
                         New Query
@@ -227,8 +405,31 @@ export const QueryTabs: React.FC = () => {
             onDragEnd={handleDragEnd}
         >
             <div className="flex flex-col h-full w-full overflow-hidden">
+                {tabSwitcher.open && tabSwitcher.orderedIds.length > 0 && (
+                    <div className="fixed left-1/2 top-40 z-topmost -translate-x-1/2 pointer-events-none">
+                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-md border border-border/60 bg-bg-secondary/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
+                            {tabSwitcher.orderedIds.map((id, index) => {
+                                const meta = tabMetaById.get(id);
+                                if (!meta) return null;
+                                const isSelected = index === tabSwitcher.index;
+                                return (
+                                    <div
+                                        key={id}
+                                        className={cn(
+                                            'flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px]',
+                                            isSelected ? 'bg-accent/25 text-text-primary' : 'text-text-secondary',
+                                        )}
+                                    >
+                                        <span className="truncate flex-1">{meta.tab.name}</span>
+                                        <span className="text-[10px] text-text-muted">{meta.tab.type || 'query'}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
                 <Allotment vertical>
-                    <Allotment.Pane>
+                    <Allotment.Pane visible={!isResultMaximized}>
                         <Allotment separator={false}>
                             {groups.map((group, index) => (
                                 <Allotment.Pane key={group.id} minSize={300}>
@@ -247,20 +448,59 @@ export const QueryTabs: React.FC = () => {
                     </Allotment.Pane>
 
                     <Allotment.Pane 
-                        preferredSize="35%" 
+                        preferredSize={isResultMaximized ? '100%' : '35%'} 
                         minSize={100} 
                         visible={showResultPanel && activeTabIsQuery}
                     >
-                        <div className="h-full border-t border-border">
-                            <ResultPanel
-                                tabId={globalActiveTabId ?? ''}
-                                result={globalActiveResult}
-                                onRun={handleRunGlobal}
-                                onFilterRun={handleFilterRunGlobal}
-                                baseQuery={globalActiveResult?.lastExecutedQuery || globalActiveTab?.query}
-                                onAppendToQuery={handleAppendToQuery}
-                                onOpenInNewTab={handleOpenFilterInNewTab}
-                            />
+                        <div className="h-full border-t border-border flex flex-col">
+                            {globalActiveResultKeys.length > 1 && (
+                                <div className="flex bg-bg-secondary border-b border-border overflow-x-auto">
+                                    {globalActiveResultKeys.map((subTabId) => {
+                                        let label = 'Result 1';
+                                        if (subTabId !== globalActiveTabId) {
+                                            if (subTabId.includes('::explain:analyze')) label = 'Explain Analyze';
+                                            else if (subTabId.includes('::explain:plan')) label = 'Explain Plan';
+                                            else {
+                                                const match = subTabId.match(/::result:(\d+)/);
+                                                if (match) label = `Result ${parseInt(match[1], 10) + 1}`;
+                                            }
+                                        }
+
+                                        const isActive = subTabId === currentResultTabId;
+                                        return (
+                                            <button
+                                                key={subTabId}
+                                                onClick={() => setActiveSubTabId(subTabId)}
+                                                className={cn(
+                                                    "px-3 py-1.5 text-[11px] whitespace-nowrap border-r border-border truncate max-w-[150px] transition-colors focus:outline-none",
+                                                    isActive 
+                                                        ? "bg-bg-primary text-text-primary border-t-[3px] border-t-success font-medium" 
+                                                        : "bg-bg-tertiary text-text-secondary hover:bg-bg-primary hover:text-text-primary border-t-[3px] border-t-transparent"
+                                                )}
+                                                title={label}
+                                            >
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <div className="flex-1 overflow-hidden relative">
+                                <ResultPanel
+                                    tabId={currentResultTabId ?? ''}
+                                    contextTabId={globalActiveTabId || undefined}
+                                    result={currentResult}
+                                    onRun={handleRunGlobal}
+                                    onFilterRun={handleFilterRunGlobal}
+                                    baseQuery={(splitLastQuery(globalActiveTab?.query || '').base.trim() || globalActiveTab?.query)}
+                                    onAppendToQuery={handleAppendToQuery}
+                                    onOpenInNewTab={handleOpenFilterInNewTab}
+                                    isReadOnlyTab={isReadOnlySubTab || viewMode}
+                                    generatedKind={generatedKind}
+                                    isMaximized={isResultMaximized}
+                                    onToggleMaximize={() => setIsResultMaximized((prev) => !prev)}
+                                />
+                            </div>
                         </div>
                     </Allotment.Pane>
                 </Allotment>
@@ -277,3 +517,4 @@ export const QueryTabs: React.FC = () => {
         </DndContext>
     );
 };
+

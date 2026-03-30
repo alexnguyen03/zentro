@@ -1,37 +1,44 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    useReactTable,
+    flexRender,
     getCoreRowModel,
     getSortedRowModel,
-    flexRender,
     type ColumnDef,
+    type Header,
     type SortingState,
+    useReactTable,
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { FetchMoreRows } from '../../../wailsjs/go/app/App';
+import { ArrowDown, ArrowUp, GripVertical, Lock, Search, Unlock, X } from 'lucide-react';
+import {
+    DndContext,
+    DragEndEvent,
+    PointerSensor,
+    closestCenter,
+    useSensor,
+    useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { FetchMoreRows } from '../../services/queryService';
+import { models } from '../../../wailsjs/go/models';
+import { DraftRow, DisplayRow, buildDisplayRows } from '../../lib/dataEditing';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
+import { useConnectionStore } from '../../stores/connectionStore';
 import { useToast } from '../layout/Toast';
-import { ArrowUp, ArrowDown, Lock, Unlock } from 'lucide-react';
+import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
+import {
+    buildHeaderColumnFilterExpr,
+    computeAutoFitWidth,
+    normalizeDataTypeLabel,
+    reorderDataColumnIds,
+} from './resultTableUtils';
 
-// ── Datetime helpers ──────────────────────────────────────────────────────────
-// Matches: 2025-12-07 12:35:59, 2025-12-07T12:35:59.193..., with optional tz.
-const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
-
-const isDatetimeLike = (val: string): boolean => DATETIME_RE.test(val.trim());
-
-/** Strip timezone suffix (+0700 +07, +07:00, Z, etc.) and convert separator to 'T' for datetime-local input. */
-const toDatetimeLocalValue = (val: string): string => {
-    // Normalise separator
-    let s = val.trim().replace(' ', 'T');
-    // Trim timezone: everything from the first +/- after seconds, or trailing Z
-    s = s.replace(/[+-]\d{2}:?\d{2}(\s+\S+)?$/, '').replace(/Z$/, '').trim();
-    // Ensure precision max 3 decimal places (datetime-local limit)
-    s = s.replace(/(\d{2}:\d{2}:\d{2}\.)(\d{3})\d*/, '$1$2');
-    return s;
-};
-
-/** Convert datetime-local value back to DB-compatible format (with space separator). */
-const fromDatetimeLocalValue = (val: string): string => val.replace('T', ' ');
+export interface FocusCellRequest {
+    rowKey: string;
+    colIdx: number;
+    nonce: number;
+}
 
 interface ResultTableProps {
     tabId: string;
@@ -44,6 +51,17 @@ interface ResultTableProps {
     setSelectedCells: React.Dispatch<React.SetStateAction<Set<string>>>;
     deletedRows?: Set<number>;
     setDeletedRows?: React.Dispatch<React.SetStateAction<Set<number>>>;
+    draftRows: DraftRow[];
+    setDraftRows: React.Dispatch<React.SetStateAction<DraftRow[]>>;
+    columnDefs: models.ColumnDef[];
+    focusCellRequest: FocusCellRequest | null;
+    onFocusCellRequestHandled: () => void;
+    onRemoveDraftRows: (draftIds: string[]) => void;
+    readOnlyMode?: boolean;
+    quickFilter?: string;
+    filterExpr?: string;
+    onHeaderFilterRun?: (filterExpr: string) => void;
+    onViewStatsChange?: (stats: { visibleRows: number; totalRows: number }) => void;
 }
 
 interface TableMeta {
@@ -51,46 +69,221 @@ interface TableMeta {
     editedCells: Map<string, string>;
     editingCell: string | null;
     editValue: string;
-    handleCellMouseDown: (e: React.MouseEvent, rIdx: number, cIdx: number) => void;
-    handleCellMouseEnter: (rIdx: number, cIdx: number) => void;
-    handleCellDoubleClick: (rIdx: number, cIdx: number, val: string) => void;
-    setEditValue: (val: string) => void;
-    handleCommitEdit: () => void;
+    handleCellMouseDown: (event: React.MouseEvent, rowKey: string, colIdx: number) => void;
+    handleCellMouseEnter: (rowKey: string, colIdx: number) => void;
+    handleCellDoubleClick: (rowKey: string, colIdx: number, val: string) => void;
+    setEditValue: (value: string) => void;
     setEditingCell: (cellId: string | null) => void;
-    handleRevertRow: (rIdx: number) => void;
+    handleRevertRow: (rowKey: string) => void;
 }
 
-export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, isDone, editedCells, setEditedCells, selectedCells, setSelectedCells, deletedRows, setDeletedRows }) => {
+interface DataColumnMeta {
+    id: string;
+    index: number;
+    name: string;
+}
+
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
+const CELL_ID_SEPARATOR = '|';
+
+const isDatetimeLike = (val: string): boolean => DATETIME_RE.test(val.trim());
+
+const toDatetimeLocalValue = (val: string): string => {
+    let s = val.trim().replace(' ', 'T');
+    s = s.replace(/[+-]\d{2}:?\d{2}(\s+\S+)?$/, '').replace(/Z$/, '').trim();
+    s = s.replace(/(\d{2}:\d{2}:\d{2}\.)(\d{3})\d*/, '$1$2');
+    return s;
+};
+
+const fromDatetimeLocalValue = (val: string): string => val.replace('T', ' ');
+
+function makeCellId(rowKey: string, colIdx: number): string {
+    return `${rowKey}${CELL_ID_SEPARATOR}${colIdx}`;
+}
+
+function makeDataColumnId(columnName: string, index: number): string {
+    const safeName = (columnName || `col_${index}`).trim() || `col_${index}`;
+    return `${index}_${safeName}`;
+}
+
+function parseCellId(cellId: string): { rowKey: string; colIdx: number } {
+    const separatorIndex = cellId.lastIndexOf(CELL_ID_SEPARATOR);
+    return {
+        rowKey: cellId.slice(0, separatorIndex),
+        colIdx: Number(cellId.slice(separatorIndex + 1)),
+    };
+}
+
+interface SortableHeaderCellProps {
+    header: Header<DisplayRow, unknown>;
+    className: string;
+    title?: string;
+    onSortToggle?: React.MouseEventHandler<HTMLTableHeaderCellElement>;
+    onAutoFit?: () => void;
+    children: React.ReactNode;
+}
+
+const SortableHeaderCell: React.FC<SortableHeaderCellProps> = ({
+    header,
+    className,
+    title,
+    onSortToggle,
+    onAutoFit,
+    children,
+}) => {
+    const sortable = useSortable({ id: header.column.id });
+    const style: React.CSSProperties = {
+        width: header.getSize(),
+        minWidth: header.getSize(),
+        maxWidth: header.getSize(),
+        transform: CSS.Transform.toString(sortable.transform),
+        transition: sortable.transition,
+        zIndex: sortable.isDragging ? 2 : 1,
+    };
+
+    return (
+        <th
+            ref={sortable.setNodeRef}
+            style={style}
+            className={className}
+            onClick={onSortToggle}
+            title={title}
+        >
+            {children}
+            <span
+                className="rt-th-drag-handle"
+                title="Drag to reorder column"
+                onClick={(event) => event.stopPropagation()}
+                {...sortable.attributes}
+                {...sortable.listeners}
+            >
+                <GripVertical size={11} />
+            </span>
+            <div
+                className="rt-col-resizer"
+                onMouseDown={header.getResizeHandler()}
+                onTouchStart={header.getResizeHandler()}
+                onClick={(event) => event.stopPropagation()}
+                onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    onAutoFit?.();
+                }}
+            />
+        </th>
+    );
+};
+
+export const ResultTable: React.FC<ResultTableProps> = ({
+    tabId,
+    columns,
+    rows,
+    isDone,
+    editedCells,
+    setEditedCells,
+    selectedCells,
+    setSelectedCells,
+    deletedRows,
+    setDeletedRows,
+    draftRows,
+    setDraftRows,
+    columnDefs,
+    focusCellRequest,
+    onFocusCellRequestHandled,
+    onRemoveDraftRows,
+    readOnlyMode = false,
+    quickFilter = '',
+    filterExpr = '',
+    onHeaderFilterRun,
+    onViewStatsChange,
+}) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
+    const driver = useConnectionStore((state) => state.activeProfile?.driver);
+    const displayRows = useMemo(() => buildDisplayRows(rows, draftRows), [rows, draftRows]);
+    const displayRowsByKey = useMemo(() => new Map(displayRows.map((row) => [row.key, row])), [displayRows]);
+    const rowOrder = useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
 
     const isEditable = useMemo(() => {
+        if (readOnlyMode) return false;
         if (!resultState?.tableName || !resultState?.primaryKeys?.length) return false;
         if (!columns.length) return false;
-        return resultState.primaryKeys.every(pk => columns.includes(pk));
-    }, [resultState?.tableName, resultState?.primaryKeys, columns]);
+        return resultState.primaryKeys.every((primaryKey) => columns.includes(primaryKey));
+    }, [columns, readOnlyMode, resultState?.primaryKeys, resultState?.tableName]);
 
-    // Disable sorting locally if we haven't loaded everything yet (true infinite scroll limitation)
+    const viewportState = resolveResultFetchStrategy(displayRows.length, Boolean(resultState?.hasMore), isDone);
     const canSortClientSide = isDone && !resultState?.hasMore;
+    const shouldUseDeferredSort = canSortClientSide && viewportState.strategy === 'incremental_client';
     const [sorting, setSorting] = useState<SortingState>([]);
+    const [deferredSortedRows, setDeferredSortedRows] = useState<DisplayRow[]>(displayRows);
+    const [isDeferredSorting, setIsDeferredSorting] = useState(false);
+    const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[]>(displayRows);
+    const [isDeferredFiltering, setIsDeferredFiltering] = useState(false);
+    const dataColumns = useMemo<DataColumnMeta[]>(
+        () => columns.map((columnName, index) => ({
+            id: makeDataColumnId(columnName, index),
+            index,
+            name: columnName || `col_${index}`,
+        })),
+        [columns],
+    );
+    const dataColumnById = useMemo(
+        () => new Map(dataColumns.map((column) => [column.id, column])),
+        [dataColumns],
+    );
+    const dataColumnIds = useMemo(
+        () => dataColumns.map((column) => column.id),
+        [dataColumns],
+    );
+    const [columnOrder, setColumnOrder] = useState<string[]>(dataColumnIds);
+    const tableColumnOrder = useMemo(() => ['__rownum__', ...columnOrder], [columnOrder]);
+    const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+    const [columnFilterDrafts, setColumnFilterDrafts] = useState<Record<string, string>>({});
+    const [columnFilterApplied, setColumnFilterApplied] = useState<Record<string, string>>({});
+    const [activeFilterPopoverColumn, setActiveFilterPopoverColumn] = useState<string | null>(null);
     const parentRef = React.useRef<HTMLDivElement>(null);
-
-    // Batch Edit States
     const [editingCell, setEditingCell] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
     const [lastSelected, setLastSelected] = useState<string | null>(null);
-    const [dragStart, setDragStart] = useState<{ r: number, c: number, active: boolean, append: boolean, initialSelected: Set<string> } | null>(null);
+    const [dragStart, setDragStart] = useState<{ rowKey: string; colIdx: number; active: boolean; initialSelected: Set<string> } | null>(null);
+    const pendingSelectionRef = React.useRef<{ cellId: string; rowKey: string; colIdx: number } | null>(null);
+    const onViewStatsChangeRef = React.useRef(onViewStatsChange);
+    const lastViewStatsRef = React.useRef<{ visibleRows: number; totalRows: number } | null>(null);
+    const dndSensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 5 },
+        }),
+    );
 
-    // Stable ref so closures inside useMemo can always read fresh editValue
     const editValueRef = React.useRef(editValue);
     useEffect(() => { editValueRef.current = editValue; }, [editValue]);
 
-    const selectedCellsRef = React.useRef(selectedCells);
-    useEffect(() => { selectedCellsRef.current = selectedCells; }, [selectedCells]);
-
     const editingCellRef = React.useRef(editingCell);
     useEffect(() => { editingCellRef.current = editingCell; }, [editingCell]);
+
+    const displayRowsRef = React.useRef(displayRows);
+    useEffect(() => { displayRowsRef.current = displayRows; }, [displayRows]);
+    useEffect(() => { onViewStatsChangeRef.current = onViewStatsChange; }, [onViewStatsChange]);
+
+    useEffect(() => {
+        setColumnOrder((prev) => {
+            const alive = new Set(dataColumnIds);
+            const kept = prev.filter((id) => alive.has(id));
+            const missing = dataColumnIds.filter((id) => !kept.includes(id));
+            return [...kept, ...missing];
+        });
+        setColumnSizing((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => key === '__rownum__' || dataColumnIds.includes(key))));
+        setColumnFilterDrafts((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => dataColumnIds.includes(key))));
+        setColumnFilterApplied((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => dataColumnIds.includes(key))));
+    }, [dataColumnIds]);
+
+    useEffect(() => {
+        if (filterExpr.trim()) return;
+        setColumnFilterApplied({});
+        setColumnFilterDrafts({});
+        setActiveFilterPopoverColumn(null);
+    }, [filterExpr]);
 
     useEffect(() => {
         if (!isDone) {
@@ -98,164 +291,403 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             setLastSelected(null);
             setDragStart(null);
         }
-    }, [isDone, rows]); // Reset on new query
+    }, [isDone, rows]);
 
-    // Global mouse up
+    useEffect(() => {
+        const query = quickFilter.trim().toLowerCase();
+        if (!query) {
+            setDeferredFilteredRows(displayRows);
+            setIsDeferredFiltering(false);
+            return;
+        }
+
+        const useIncrementalFilter = viewportState.strategy !== 'client_full' || displayRows.length >= 15000;
+        if (!useIncrementalFilter) {
+            setDeferredFilteredRows(
+                displayRows.filter((row) => row.values.some((cell) => (cell || '').toLowerCase().includes(query))),
+            );
+            setIsDeferredFiltering(false);
+            return;
+        }
+
+        let cancelled = false;
+        setIsDeferredFiltering(true);
+        const next: DisplayRow[] = [];
+
+        const pump = (startIndex: number) => {
+            if (cancelled) return;
+            const chunkEnd = Math.min(startIndex + 1500, displayRows.length);
+            for (let i = startIndex; i < chunkEnd; i += 1) {
+                const row = displayRows[i];
+                if (row.values.some((cell) => (cell || '').toLowerCase().includes(query))) {
+                    next.push(row);
+                }
+            }
+
+            if (chunkEnd < displayRows.length) {
+                window.setTimeout(() => pump(chunkEnd), 0);
+                return;
+            }
+
+            if (!cancelled) {
+                setDeferredFilteredRows(next);
+                setIsDeferredFiltering(false);
+            }
+        };
+
+        pump(0);
+        return () => {
+            cancelled = true;
+        };
+    }, [displayRows, quickFilter, viewportState.strategy]);
+
+    useEffect(() => {
+        if (!shouldUseDeferredSort || sorting.length === 0) {
+            setDeferredSortedRows(deferredFilteredRows);
+            setIsDeferredSorting(false);
+            return;
+        }
+
+        setIsDeferredSorting(true);
+        const id = window.setTimeout(() => {
+            const [sortRule] = sorting;
+            if (!sortRule) {
+                setDeferredSortedRows(deferredFilteredRows);
+                setIsDeferredSorting(false);
+                return;
+            }
+
+            const direction = sortRule.desc ? -1 : 1;
+            const columnIndex = dataColumnById.get(String(sortRule.id))?.index ?? -1;
+            if (columnIndex < 0) {
+                setDeferredSortedRows(deferredFilteredRows);
+                setIsDeferredSorting(false);
+                return;
+            }
+
+            const next = [...deferredFilteredRows].sort((a, b) => {
+                const left = (a.values[columnIndex] || '').toLowerCase();
+                const right = (b.values[columnIndex] || '').toLowerCase();
+                if (left < right) return -1 * direction;
+                if (left > right) return 1 * direction;
+                return 0;
+            });
+            setDeferredSortedRows(next);
+            setIsDeferredSorting(false);
+        }, 0);
+
+        return () => window.clearTimeout(id);
+    }, [dataColumnById, deferredFilteredRows, shouldUseDeferredSort, sorting]);
+
     useEffect(() => {
         const handleMouseUp = () => setDragStart(null);
         window.addEventListener('mouseup', handleMouseUp);
         return () => window.removeEventListener('mouseup', handleMouseUp);
     }, []);
 
-    const handleCellMouseDown = React.useCallback((e: React.MouseEvent, rIdx: number, cIdx: number) => {
-        if (!isDone) return;
-        if (e.button !== 0) return; // Only default left click
-        const id = `${rIdx}:${cIdx}`;
+    const applyDraftValueUpdates = React.useCallback((changes: Array<{ rowKey: string; colIdx: number; value: string }>) => {
+        if (changes.length === 0) return;
+        setDraftRows((prev) => prev.map((draftRow) => {
+            const rowKey = `d:${draftRow.id}`;
+            const rowChanges = changes.filter((change) => change.rowKey === rowKey);
+            if (rowChanges.length === 0) return draftRow;
 
-        if (e.shiftKey && lastSelected) {
-            const [lastR, lastC] = lastSelected.split(':').map(Number);
-            if (lastC === cIdx) {
-                setSelectedCells(prev => {
-                    const newSel = new Set(prev);
-                    const min = Math.min(lastR, rIdx);
-                    const max = Math.max(lastR, rIdx);
-                    for (let i = min; i <= max; i++) newSel.add(`${i}:${cIdx}`);
-                    return newSel;
+            const nextValues = [...draftRow.values];
+            rowChanges.forEach((change) => {
+                nextValues[change.colIdx] = change.value;
+            });
+
+            return { ...draftRow, values: nextValues };
+        }));
+    }, [setDraftRows]);
+
+    const focusCell = React.useCallback((rowKey: string, colIdx: number) => {
+        const displayRow = displayRowsByKey.get(rowKey);
+        if (!displayRow) return;
+
+        const rawValue = displayRow.values[colIdx] ?? '';
+        pendingSelectionRef.current = null;
+        setSelectedCells(new Set([makeCellId(rowKey, colIdx)]));
+        setLastSelected(makeCellId(rowKey, colIdx));
+        setEditingCell(makeCellId(rowKey, colIdx));
+        setEditValue(isDatetimeLike(rawValue) ? toDatetimeLocalValue(rawValue) : rawValue);
+    }, [displayRowsByKey, setSelectedCells]);
+
+    useEffect(() => {
+        if (!focusCellRequest) return;
+        focusCell(focusCellRequest.rowKey, focusCellRequest.colIdx);
+        onFocusCellRequestHandled();
+    }, [focusCell, focusCellRequest, onFocusCellRequestHandled]);
+
+    const handleCellMouseDown = React.useCallback((event: React.MouseEvent, rowKey: string, colIdx: number) => {
+        if (!isDone || event.button !== 0) return;
+        const cellId = makeCellId(rowKey, colIdx);
+
+        if (editingCellRef.current && editingCellRef.current !== cellId) {
+            pendingSelectionRef.current = { cellId, rowKey, colIdx };
+        } else {
+            pendingSelectionRef.current = null;
+        }
+
+        if (event.shiftKey && lastSelected) {
+            const { rowKey: lastRowKey, colIdx: lastColIdx } = parseCellId(lastSelected);
+            const currentRowOrder = rowOrder.get(rowKey);
+            const lastRowOrder = rowOrder.get(lastRowKey);
+            if (currentRowOrder !== undefined && lastRowOrder !== undefined && lastColIdx === colIdx) {
+                setSelectedCells((prev) => {
+                    const next = new Set(prev);
+                    const min = Math.min(currentRowOrder, lastRowOrder);
+                    const max = Math.max(currentRowOrder, lastRowOrder);
+                    for (let rowIndex = min; rowIndex <= max; rowIndex++) {
+                        next.add(makeCellId(displayRows[rowIndex].key, colIdx));
+                    }
+                    return next;
                 });
                 return;
             }
         }
 
-        if (e.ctrlKey || e.metaKey) {
-            setSelectedCells(prev => {
-                const newSel = new Set(prev);
-                if (newSel.has(id)) newSel.delete(id); else newSel.add(id);
-                return newSel;
+        if (event.ctrlKey || event.metaKey) {
+            setSelectedCells((prev) => {
+                const next = new Set(prev);
+                if (next.has(cellId)) next.delete(cellId); else next.add(cellId);
+                return next;
             });
         } else {
-            const isAppend = e.ctrlKey || e.metaKey;
-            setLastSelected(id);
-            setSelectedCells(prev => {
-                const newSel = isAppend ? new Set(prev) : new Set<string>();
-                if (isAppend && newSel.has(id)) {
-                    newSel.delete(id);
-                } else {
-                    newSel.add(id);
-                }
-                setDragStart({ r: rIdx, c: cIdx, active: true, append: isAppend, initialSelected: new Set(newSel) });
-                return newSel;
-            });
-
+            setSelectedCells(new Set([cellId]));
+            setDragStart({ rowKey, colIdx, active: true, initialSelected: new Set([cellId]) });
         }
-    }, [isDone, lastSelected, setSelectedCells]);
 
-    const handleCellMouseEnter = React.useCallback((rIdx: number, cIdx: number) => {
+        setLastSelected(cellId);
+    }, [displayRows, isDone, lastSelected, rowOrder, setSelectedCells]);
+
+    const handleCellMouseEnter = React.useCallback((rowKey: string, colIdx: number) => {
         if (!dragStart?.active) return;
 
-        setSelectedCells(() => {
-            const newSel = new Set(dragStart.initialSelected);
-            const minR = Math.min(dragStart.r, rIdx);
-            const maxR = Math.max(dragStart.r, rIdx);
-            const minC = Math.min(dragStart.c, cIdx);
-            const maxC = Math.max(dragStart.c, cIdx);
+        const startRowOrder = rowOrder.get(dragStart.rowKey);
+        const currentRowOrder = rowOrder.get(rowKey);
+        if (startRowOrder === undefined || currentRowOrder === undefined) return;
 
-            for (let r = minR; r <= maxR; r++) {
-                for (let c = minC; c <= maxC; c++) {
-                    newSel.add(`${r}:${c}`);
+        setSelectedCells(() => {
+            const next = new Set(dragStart.initialSelected);
+            const minRow = Math.min(startRowOrder, currentRowOrder);
+            const maxRow = Math.max(startRowOrder, currentRowOrder);
+            const minCol = Math.min(dragStart.colIdx, colIdx);
+            const maxCol = Math.max(dragStart.colIdx, colIdx);
+
+            for (let rowIndex = minRow; rowIndex <= maxRow; rowIndex++) {
+                for (let nextCol = minCol; nextCol <= maxCol; nextCol++) {
+                    next.add(makeCellId(displayRows[rowIndex].key, nextCol));
                 }
             }
-            return newSel;
+            return next;
         });
-        setLastSelected(`${rIdx}:${cIdx}`);
-    }, [dragStart, setSelectedCells]);
+        setLastSelected(makeCellId(rowKey, colIdx));
+    }, [displayRows, dragStart, rowOrder, setSelectedCells]);
 
-    const handleCellDoubleClick = React.useCallback((rIdx: number, cIdx: number, val: string) => {
+    const handleCellDoubleClick = React.useCallback((rowKey: string, colIdx: number, val: string) => {
         if (!isDone) return;
-        if (!isEditable) {
-            toast.error("Result is read-only. Make sure the query includes the primary key(s).");
+        const displayRow = displayRowsByKey.get(rowKey);
+        if (!displayRow) return;
+        if (displayRow.kind === 'persisted' && !isEditable) {
+            toast.error('Result is read-only. Make sure the query includes the primary key(s).');
             return;
         }
-        const id = `${rIdx}:${cIdx}`;
-        setEditingCell(id);
-        // For datetime values, strip timezone for datetime-local input
-        setEditValue(isDatetimeLike(val) ? toDatetimeLocalValue(val) : val);
-        setSelectedCells(prev => {
-            if (prev.has(id)) return prev;
-            setLastSelected(id);
-            return new Set([id]);
-        });
-    }, [isDone, isEditable, toast, setSelectedCells]);
 
-    const handleCommitEdit = React.useCallback(() => {
+        const cellId = makeCellId(rowKey, colIdx);
+        pendingSelectionRef.current = null;
+        setEditingCell(cellId);
+        setEditValue(isDatetimeLike(val) ? toDatetimeLocalValue(val) : val);
+        setSelectedCells(new Set([cellId]));
+        setLastSelected(cellId);
+    }, [displayRowsByKey, isDone, isEditable, setSelectedCells, toast]);
+
+    const commitEdit = React.useCallback(async (options?: { nextDirection?: 1 | -1 }) => {
         const currentEditingCell = editingCellRef.current;
         if (!currentEditingCell) return;
-        const [, cIdx] = currentEditingCell.split(':').map(Number);
-        const currentEditValue = editValueRef.current;
-        const currentSelectedCells = selectedCellsRef.current;
 
-        setEditedCells((prev: Map<string, string>) => {
-            const newMap = new Map<string, string>(prev);
-            currentSelectedCells.forEach(selId => {
-                const [, selC] = selId.split(':').map(Number);
-                if (selC === cIdx) newMap.set(selId, currentEditValue);
+        const { rowKey, colIdx } = parseCellId(currentEditingCell);
+        const displayRow = displayRowsRef.current.find((row) => row.key === rowKey);
+        if (!displayRow) return;
+
+        const nextValue = editValueRef.current;
+        if (displayRow.kind === 'persisted') {
+            setEditedCells((prev) => {
+                const next = new Map(prev);
+                next.set(`${displayRow.persistedIndex}:${colIdx}`, nextValue);
+                return next;
             });
-            return newMap;
-        });
-        setEditingCell(null);
-    }, [setEditedCells]);
+        } else {
+            applyDraftValueUpdates([{ rowKey: displayRow.key, colIdx, value: nextValue }]);
+        }
 
-    // Build TanStack column definitions - stable
-    const colDefs = useMemo<ColumnDef<any>[]>(() => {
-        const rowNumCol: ColumnDef<any> = {
+        const currentRowOrder = rowOrder.get(rowKey);
+        if (options?.nextDirection && currentRowOrder !== undefined) {
+            const nextColIdx = colIdx + options.nextDirection;
+            if (nextColIdx >= 0 && nextColIdx < columns.length) {
+                pendingSelectionRef.current = null;
+                const nextCellId = makeCellId(rowKey, nextColIdx);
+                const nextCellValue = displayRow.kind === 'persisted'
+                    ? (editedCells.get(`${displayRow.persistedIndex}:${nextColIdx}`) ?? displayRow.values[nextColIdx] ?? '')
+                    : (displayRow.values[nextColIdx] ?? '');
+                setEditingCell(nextCellId);
+                setEditValue(isDatetimeLike(nextCellValue) ? toDatetimeLocalValue(nextCellValue) : nextCellValue);
+                setSelectedCells(new Set([nextCellId]));
+                setLastSelected(nextCellId);
+                return;
+            }
+        }
+
+        setEditingCell(null);
+        if (pendingSelectionRef.current) {
+            const { cellId } = pendingSelectionRef.current;
+            pendingSelectionRef.current = null;
+            setSelectedCells(new Set([cellId]));
+            setLastSelected(cellId);
+            return;
+        }
+
+        setSelectedCells(new Set([makeCellId(rowKey, colIdx)]));
+    }, [applyDraftValueUpdates, columns, editedCells, rowOrder, setEditedCells, setSelectedCells]);
+
+    const handleRevertRow = React.useCallback((rowKey: string) => {
+        const displayRow = displayRowsByKey.get(rowKey);
+        if (!displayRow) return;
+
+        if (displayRow.kind === 'draft') {
+            onRemoveDraftRows([displayRow.draft!.id]);
+            return;
+        }
+
+        const rowIndex = displayRow.persistedIndex as number;
+        setEditedCells((prev) => {
+            const next = new Map(prev);
+            Array.from(next.keys()).forEach((key) => {
+                if (key.startsWith(`${rowIndex}:`)) {
+                    next.delete(key);
+                }
+            });
+            return next;
+        });
+
+        if (setDeletedRows && deletedRows?.has(rowIndex)) {
+            setDeletedRows((prev) => {
+                const next = new Set(prev);
+                next.delete(rowIndex);
+                return next;
+            });
+        }
+    }, [deletedRows, displayRowsByKey, onRemoveDraftRows, setDeletedRows, setEditedCells]);
+
+    const dataTypeByColumn = React.useMemo(() => {
+        const map = new Map<string, string>();
+        columnDefs.forEach((columnDef) => {
+            map.set(columnDef.Name, normalizeDataTypeLabel(columnDef.DataType));
+        });
+        return map;
+    }, [columnDefs]);
+
+    const applyHeaderFilter = React.useCallback((columnId: string) => {
+        const nextApplied = { ...columnFilterApplied };
+        const draft = (columnFilterDrafts[columnId] || '').trim();
+        if (!draft) {
+            delete nextApplied[columnId];
+        } else {
+            nextApplied[columnId] = draft;
+        }
+        setColumnFilterApplied(nextApplied);
+        const nextAppliedByColumnName = Object.fromEntries(
+            Object.entries(nextApplied).map(([columnId, value]) => [
+                dataColumnById.get(columnId)?.name || columnId,
+                value,
+            ]),
+        );
+        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextAppliedByColumnName, driver));
+        setActiveFilterPopoverColumn(null);
+    }, [columnFilterApplied, columnFilterDrafts, dataColumnById, driver, onHeaderFilterRun]);
+
+    const clearHeaderFilter = React.useCallback((columnId: string) => {
+        const nextApplied = { ...columnFilterApplied };
+        delete nextApplied[columnId];
+        setColumnFilterApplied(nextApplied);
+        setColumnFilterDrafts((prev) => ({ ...prev, [columnId]: '' }));
+        const nextAppliedByColumnName = Object.fromEntries(
+            Object.entries(nextApplied).map(([columnId, value]) => [
+                dataColumnById.get(columnId)?.name || columnId,
+                value,
+            ]),
+        );
+        onHeaderFilterRun?.(buildHeaderColumnFilterExpr(nextAppliedByColumnName, driver));
+        setActiveFilterPopoverColumn(null);
+    }, [columnFilterApplied, dataColumnById, driver, onHeaderFilterRun]);
+
+    const handleHeaderDragEnd = React.useCallback((event: DragEndEvent) => {
+        const activeId = String(event.active.id || '');
+        const overId = String(event.over?.id || '');
+        if (!overId || !activeId || activeId === overId) return;
+        setColumnOrder((prev) => reorderDataColumnIds(prev, activeId, overId));
+    }, []);
+
+    const colDefs = useMemo<ColumnDef<DisplayRow>[]>(() => {
+        const rowNumCol: ColumnDef<DisplayRow> = {
             id: '__rownum__',
             header: () => (
                 <div
                     title={isEditable
                         ? `Editable (${resultState?.tableName})`
-                        : "Read-only (No Primary Key or missing PK in SELECT)"}
-                    className="flex items-center justify-center gap-1 cursor-help opacity-70"
+                        : readOnlyMode
+                            ? 'Read-only (View Mode)'
+                            : 'Read-only (No Primary Key or missing PK in SELECT)'}
+                    className="flex items-center w-full justify-center gap-1 cursor-help opacity-70"
                 >
-                    <span className="font-mono text-[10px]">#</span>
                     {isEditable
                         ? <Unlock size={10} className="text-success" />
-                        : <Lock size={10} className="text-text-muted" />
-                    }
+                        : <Lock size={10} className="text-text-muted" />}
                 </div>
             ),
             enableSorting: false,
             size: 52,
+            minSize: 52,
+            maxSize: 52,
             cell: ({ row, table }) => {
                 const meta = table.options.meta as TableMeta | undefined;
                 return (
                     <div
                         className="rt-cell-content row-num-col"
-                        onDoubleClick={() => meta?.handleRevertRow?.(row.index)}
-                        title="Double-click to revert changes to this row"
+                        onDoubleClick={() => meta?.handleRevertRow?.(row.original.key)}
+                        title={row.original.kind === 'draft' ? 'Double-click to remove this unsaved row' : 'Double-click to revert changes to this row'}
                     >
-                        {row.index + 1}
+                        {row.original.kind === 'draft' ? '+' : (row.original.persistedIndex as number) + 1}
                     </div>
                 );
             },
         };
 
-        const dataCols: ColumnDef<any>[] = columns.map((col, colIdx) => ({
-            id: col || `col_${colIdx}`,
-            header: col,
-            accessorFn: (row: any[]) => row[colIdx] ?? '',
+        const dataCols: ColumnDef<DisplayRow>[] = dataColumns.map(({ id, index: colIdx, name }) => ({
+            id,
+            header: name,
+            accessorFn: (row) => row.values[colIdx] ?? '',
             sortingFn: 'alphanumeric',
             size: 140,
+            minSize: 72,
+            maxSize: 720,
             cell: (info) => {
                 const meta = info.table.options.meta as TableMeta | undefined;
-                const cellId = `${info.row.index}:${colIdx}`;
+                const rowKey = info.row.original.key;
+                const cellId = makeCellId(rowKey, colIdx);
                 const isSelected = meta?.selectedCells?.has(cellId) ?? false;
-                const isDirty = meta?.editedCells?.has(cellId) ?? false;
                 const isEditing = meta?.editingCell === cellId;
-                const origVal = info.getValue() as string;
-                const editedValue = meta?.editedCells?.get(cellId);
-                const value = isDirty && editedValue !== undefined ? editedValue : origVal;
+                const displayRow = info.row.original;
+                const isDirty = displayRow.kind === 'persisted'
+                    ? meta?.editedCells?.has(`${displayRow.persistedIndex}:${colIdx}`) ?? false
+                    : false;
+                const baseValue = info.getValue() as string;
+                const value = displayRow.kind === 'persisted'
+                    ? (meta?.editedCells?.get(`${displayRow.persistedIndex}:${colIdx}`) ?? baseValue)
+                    : (displayRow.values[colIdx] ?? '');
 
                 if (isEditing) {
-                    const dtLike = isDatetimeLike(origVal);
+                    const dtLike = isDatetimeLike(baseValue || value);
                     return (
                         <input
                             autoFocus
@@ -263,21 +695,30 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                             type={dtLike ? 'datetime-local' : 'text'}
                             step={dtLike ? '0.001' : undefined}
                             value={meta?.editValue ?? ''}
-                            onChange={(e) => meta?.setEditValue?.(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    // Convert datetime-local value back to DB format
-                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(e.currentTarget.value));
-                                    meta?.handleCommitEdit?.();
-                                } else if (e.key === 'Escape') {
-                                    meta?.setEditingCell?.(null);
+                            onChange={(event) => meta?.setEditValue?.(event.target.value)}
+                            onKeyDown={async (event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                    await commitEdit();
+                                } else if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    if (displayRow.kind === 'draft') {
+                                        onRemoveDraftRows([displayRow.draft!.id]);
+                                    } else {
+                                        meta?.setEditingCell?.(null);
+                                    }
+                                } else if (event.key === 'Tab') {
+                                    event.preventDefault();
+                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                    await commitEdit({ nextDirection: event.shiftKey ? -1 : 1 });
                                 }
                             }}
-                            onBlur={(e) => {
-                                if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(e.currentTarget.value));
-                                meta?.handleCommitEdit?.();
+                            onBlur={async (event) => {
+                                if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                await commitEdit();
                             }}
-                            onClick={e => e.stopPropagation()}
+                            onClick={(event) => event.stopPropagation()}
                         />
                     );
                 }
@@ -285,25 +726,54 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 return (
                     <div
                         className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
-                        onMouseDown={(e) => meta?.handleCellMouseDown?.(e, info.row.index, colIdx)}
-                        onMouseEnter={() => meta?.handleCellMouseEnter?.(info.row.index, colIdx)}
-                        onDoubleClick={() => meta?.handleCellDoubleClick?.(info.row.index, colIdx, String(value))}
+                        onMouseDown={(event) => meta?.handleCellMouseDown?.(event, rowKey, colIdx)}
+                        onMouseEnter={() => meta?.handleCellMouseEnter?.(rowKey, colIdx)}
+                        onDoubleClick={() => meta?.handleCellDoubleClick?.(rowKey, colIdx, String(value))}
                         title={String(value)}
                     >
                         {String(value)}
                     </div>
                 );
-            }
+            },
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [columns, isEditable, resultState?.tableName, resultState?.hasMore, canSortClientSide]);
+    }, [dataColumns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = useReactTable<any>({
-        data: rows,
+    const filteredRows = quickFilter.trim() ? deferredFilteredRows : displayRows;
+    const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;
+    const handleAutoFitColumn = React.useCallback((columnId: string) => {
+        const columnMeta = dataColumnById.get(columnId);
+        if (!columnMeta) return;
+        const colIdx = columnMeta.index;
+        const columnName = columnMeta.name;
+
+        const sampledRows = tableData.slice(0, 5000);
+        const texts = [
+            columnName,
+            dataTypeByColumn.get(columnName) || '',
+            ...sampledRows.map((row) => row.values[colIdx] ?? ''),
+        ];
+        const width = computeAutoFitWidth(texts);
+        setColumnSizing((prev) => ({ ...prev, [columnId]: width }));
+    }, [dataColumnById, dataTypeByColumn, tableData]);
+
+    useEffect(() => {
+        const nextStats = {
+            visibleRows: tableData.length,
+            totalRows: displayRows.length,
+        };
+        const prev = lastViewStatsRef.current;
+        if (prev && prev.visibleRows === nextStats.visibleRows && prev.totalRows === nextStats.totalRows) {
+            return;
+        }
+        lastViewStatsRef.current = nextStats;
+        onViewStatsChangeRef.current?.(nextStats);
+    }, [displayRows.length, tableData.length]);
+    const table = useReactTable<DisplayRow>({
+        data: tableData,
         columns: colDefs,
-        state: { sorting },
+        state: { sorting, columnOrder: tableColumnOrder, columnSizing },
         meta: {
             selectedCells,
             editedCells,
@@ -313,32 +783,16 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
             handleCellMouseEnter,
             handleCellDoubleClick,
             setEditValue,
-            handleCommitEdit,
             setEditingCell,
-            handleRevertRow: (rIdx: number) => {
-                setEditedCells(prev => {
-                    const next = new Map(prev);
-                    for (const key of Array.from(next.keys())) {
-                        if (key.startsWith(`${rIdx}:`)) {
-                            next.delete(key);
-                        }
-                    }
-                    return next;
-                });
-
-                if (setDeletedRows && deletedRows?.has(rIdx)) {
-                    setDeletedRows(prev => {
-                        const next = new Set(prev);
-                        next.delete(rIdx);
-                        return next;
-                    });
-                }
-            }
+            handleRevertRow,
         },
         onSortingChange: canSortClientSide ? setSorting : undefined,
+        onColumnSizingChange: setColumnSizing,
         getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
+        getSortedRowModel: shouldUseDeferredSort ? undefined : getSortedRowModel(),
         enableSorting: canSortClientSide,
+        enableColumnResizing: true,
+        columnResizeMode: 'onChange',
     });
 
     const { rows: tableRows } = table.getRowModel();
@@ -346,16 +800,32 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
     const virtualizer = useVirtualizer({
         count: tableRows.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 32,
+        estimateSize: () => 22,
         overscan: 20,
+    });
+    const columnVirtualizer = useVirtualizer({
+        count: Math.max(columns.length, 0),
+        horizontal: true,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 140,
+        overscan: 8,
     });
 
     const virtualItems = virtualizer.getVirtualItems();
-
-    // Debounce ref to prevent multiple rapid fetch requests
+    const virtualColumns = columnVirtualizer.getVirtualItems();
+    const renderedColumnIndexes = virtualColumns.length > 0
+        ? virtualColumns.map((virtualColumn) => virtualColumn.index)
+        : columns.map((_, index) => index);
     const fetchMoreRef = React.useRef(false);
 
-    // Infinite Scroll trigger with debounce
+    useEffect(() => {
+        if (!resultState?.progress?.startedAt) return;
+        const scrollEl = parentRef.current;
+        if (!scrollEl) return;
+        scrollEl.scrollTop = 0;
+        virtualizer.scrollToIndex(0, { align: 'start' });
+    }, [resultState?.progress?.startedAt, virtualizer]);
+
     useEffect(() => {
         if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore || fetchMoreRef.current) return;
 
@@ -371,90 +841,238 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                 });
         }
     }, [
-        virtualItems.length ? virtualItems[virtualItems.length - 1].index : 0,
         isDone,
         resultState?.hasMore,
         resultState?.isFetchingMore,
         rows.length,
-        tabId,
         setOffset,
-        tableRows.length
+        tabId,
+        tableRows.length,
+        virtualItems,
     ]);
 
     const totalHeight = virtualizer.getTotalSize();
     const paddingTop = virtualItems.length > 0 ? (virtualItems[0]?.start ?? 0) : 0;
-    const paddingBottom =
-        virtualItems.length > 0
-            ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0)
-            : 0;
+    const paddingBottom = virtualItems.length > 0
+        ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0)
+        : 0;
+    const dataColumnTotalWidth = columnVirtualizer.getTotalSize();
+    const columnPaddingLeft = virtualColumns.length > 0 ? (virtualColumns[0]?.start ?? 0) : 0;
+    const columnPaddingRight = virtualColumns.length > 0
+        ? dataColumnTotalWidth - (virtualColumns[virtualColumns.length - 1]?.end ?? 0)
+        : 0;
 
     return (
         <div ref={parentRef} className="result-virtual-scroll">
+            {(isDeferredSorting || isDeferredFiltering) && (
+                <div className="px-3 py-1 text-[11px] text-text-secondary border-b border-border bg-bg-secondary/50">
+                    {isDeferredFiltering
+                        ? 'Applying incremental filter for loaded rows...'
+                        : 'Applying incremental sort for large result set...'}
+                </div>
+            )}
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleHeaderDragEnd}>
             <table className="result-table-tanstack">
                 <thead>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <tr key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => {
-                                const sorted = header.column.getIsSorted();
-                                const canSort = header.column.getCanSort();
+                            {(() => {
+                                const fixedHeader = headerGroup.headers[0];
+                                const dynamicHeaders = headerGroup.headers.slice(1);
                                 return (
-                                    <th
-                                        key={header.id}
-                                        style={{ width: header.getSize() }}
-                                        className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
-                                        onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
-                                        title={canSort && !isDone ? 'Sort available after query completes' : undefined}
-                                    >
-                                        <span className="rt-th-label">
-                                            {flexRender(header.column.columnDef.header, header.getContext())}
-                                            {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
-                                            {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
-                                        </span>
-                                    </th>
+                                    <>
+                                        {fixedHeader && (() => {
+                                            const sorted = fixedHeader.column.getIsSorted();
+                                            const canSort = fixedHeader.column.getCanSort();
+                                            return (
+                                                <th
+                                                    key={fixedHeader.id}
+                                                    style={{ width: fixedHeader.getSize(), minWidth: fixedHeader.getSize(), maxWidth: fixedHeader.getSize() }}
+                                                    className={`rt-th rt-index-sticky ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
+                                                    onClick={canSort ? fixedHeader.column.getToggleSortingHandler() : undefined}
+                                                    title={canSort && !isDone ? 'Sort available after query completes' : undefined}
+                                                >
+                                                    <span className="rt-th-label">
+                                                        {flexRender(fixedHeader.column.columnDef.header, fixedHeader.getContext())}
+                                                        {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
+                                                        {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
+                                                    </span>
+                                                </th>
+                                            );
+                                        })()}
+                                        {columnPaddingLeft > 0 && (
+                                            <th
+                                                aria-hidden
+                                                className="rt-th"
+                                                style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft, maxWidth: columnPaddingLeft }}
+                                            />
+                                        )}
+                                        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                                            {renderedColumnIndexes.map((columnIndex) => {
+                                                const header = dynamicHeaders[columnIndex];
+                                                if (!header) return null;
+                                                const sorted = header.column.getIsSorted();
+                                                const canSort = header.column.getCanSort();
+                                                const columnId = String(header.column.id);
+                                                const columnMeta = dataColumnById.get(columnId);
+                                                const columnName = columnMeta?.name || columnId;
+                                                const isFilterOpen = activeFilterPopoverColumn === columnId;
+                                                const isFilterActive = Boolean((columnFilterApplied[columnId] || '').trim());
+                                                const dataTypeLabel = dataTypeByColumn.get(columnName) || 'unknown';
+                                                return (
+                                                    <SortableHeaderCell
+                                                        key={header.id}
+                                                        header={header}
+                                                        className={`rt-th ${canSort ? 'rt-th-sortable' : ''} ${sorted ? 'rt-th-sorted' : ''}`}
+                                                        onSortToggle={canSort ? header.column.getToggleSortingHandler() : undefined}
+                                                        onAutoFit={() => handleAutoFitColumn(columnId)}
+                                                        title={canSort && !isDone ? 'Sort available after query completes' : undefined}
+                                                    >
+                                                        <div className="rt-th-content">
+                                                            <span className="rt-th-label">
+                                                                <span className="rt-th-name">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                                                                <span className="rt-th-type">{dataTypeLabel}</span>
+                                                                {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
+                                                                {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                className={`rt-th-filter-btn ${isFilterActive ? 'is-active' : ''}`}
+                                                                title="Filter this column"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    setColumnFilterDrafts((prev) => ({
+                                                                        ...prev,
+                                                                        [columnId]: prev[columnId] ?? columnFilterApplied[columnId] ?? '',
+                                                                    }));
+                                                                    setActiveFilterPopoverColumn(isFilterOpen ? null : columnId);
+                                                                }}
+                                                            >
+                                                                <Search size={10} />
+                                                            </button>
+                                                            {isFilterOpen && (
+                                                                <div className="rt-th-filter-popover" onClick={(event) => event.stopPropagation()}>
+                                                                    <div className="rt-th-filter-input-row">
+                                                                        <input
+                                                                            autoFocus
+                                                                            className="rt-th-filter-input"
+                                                                            value={columnFilterDrafts[columnId] ?? columnFilterApplied[columnId] ?? ''}
+                                                                            onChange={(event) => setColumnFilterDrafts((prev) => ({ ...prev, [columnId]: event.target.value }))}
+                                                                            onKeyDown={(event) => {
+                                                                                if (event.key === 'Enter') {
+                                                                                    event.preventDefault();
+                                                                                    applyHeaderFilter(columnId);
+                                                                                } else if (event.key === 'Escape') {
+                                                                                    event.preventDefault();
+                                                                                    clearHeaderFilter(columnId);
+                                                                                }
+                                                                            }}
+                                                                            placeholder={`Contains in ${columnName}`}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            className="rt-th-filter-input-clear"
+                                                                            title="Clear filter"
+                                                                            onClick={() => clearHeaderFilter(columnId)}
+                                                                        >
+                                                                            <X size={10} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </SortableHeaderCell>
+                                                );
+                                            })}
+                                        </SortableContext>
+                                        {columnPaddingRight > 0 && (
+                                            <th
+                                                aria-hidden
+                                                className="rt-th"
+                                                style={{ width: columnPaddingRight, minWidth: columnPaddingRight, maxWidth: columnPaddingRight }}
+                                            />
+                                        )}
+                                    </>
                                 );
-                            })}
+                            })()}
                         </tr>
                     ))}
                 </thead>
                 <tbody>
                     {paddingTop > 0 && (
-                        <tr><td style={{ height: paddingTop }} /></tr>
+                        <tr><td colSpan={columns.length + 1} style={{ height: paddingTop }} /></tr>
                     )}
                     {virtualItems.map((virtualRow) => {
                         const row = tableRows[virtualRow.index];
-                        const isDeleted = deletedRows?.has(virtualRow.index);
+                        const visibleCells = row.getVisibleCells();
+                        const fixedCell = visibleCells[0];
+                        const dynamicCells = visibleCells.slice(1);
+                        const displayRow = row.original;
+                        const isDeleted = displayRow.kind === 'persisted' && deletedRows?.has(displayRow.persistedIndex as number);
                         const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
-                        const hasRowSel = selectedCells.size > 0 && Array.from(selectedCells).some(k => k.startsWith(`${virtualRow.index}:`));
+                        const hasRowSel = Array.from(selectedCells).some((cellId) => parseCellId(cellId).rowKey === displayRow.key);
+                        const draftClass = displayRow.kind === 'draft' ? 'rt-row-draft' : '';
                         return (
-                            <tr key={row.id} className={`${altClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
-                                {row.getVisibleCells().map((cell) => (
-                                    <td key={cell.id} style={{ width: cell.column.getSize() }}>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
+                                {fixedCell && (
+                                    <td
+                                        key={fixedCell.id}
+                                        style={{ width: fixedCell.column.getSize(), minWidth: fixedCell.column.getSize(), maxWidth: fixedCell.column.getSize() }}
+                                        className="rt-index-sticky"
+                                    >
+                                        {flexRender(fixedCell.column.columnDef.cell, fixedCell.getContext())}
                                     </td>
-                                ))}
+                                )}
+                                {columnPaddingLeft > 0 && (
+                                    <td
+                                        aria-hidden
+                                        style={{ width: columnPaddingLeft, minWidth: columnPaddingLeft, maxWidth: columnPaddingLeft }}
+                                    />
+                                )}
+                                {renderedColumnIndexes.map((columnIndex) => {
+                                    const cell = dynamicCells[columnIndex];
+                                    if (!cell) return null;
+                                    return (
+                                        <td key={cell.id} style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </td>
+                                    );
+                                })}
+                                {columnPaddingRight > 0 && (
+                                    <td
+                                        aria-hidden
+                                        style={{ width: columnPaddingRight, minWidth: columnPaddingRight, maxWidth: columnPaddingRight }}
+                                    />
+                                )}
                             </tr>
                         );
                     })}
                     {paddingBottom > 0 && (
-                        <tr><td style={{ height: paddingBottom }} /></tr>
+                        <tr><td colSpan={columns.length + 1} style={{ height: paddingBottom }} /></tr>
                     )}
                     {resultState?.isFetchingMore && (
                         <tr>
-                            <td colSpan={columns.length + 1} style={{
-                                textAlign: 'center',
-                                padding: '8px',
-                                background: 'var(--bg-primary)'
-                            }}>
-                                <div className="loading-spinner" style={{
-                                    display: 'inline-block',
-                                    width: 12,
-                                    height: 12,
-                                    border: '1.5px solid var(--border-color)',
-                                    borderTopColor: 'var(--accent-color)',
-                                    borderRadius: '50%',
-                                    animation: 'spin 0.8s linear infinite'
-                                }} />
-                                <span style={{ marginLeft: 8, color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 500 }}>
+                            <td
+                                colSpan={columns.length + 1}
+                                style={{
+                                    textAlign: 'center',
+                                    padding: '8px',
+                                    background: 'var(--surface-app)',
+                                }}
+                            >
+                                <div
+                                    className="loading-spinner"
+                                    style={{
+                                        display: 'inline-block',
+                                        width: 12,
+                                        height: 12,
+                                        border: '1.5px solid var(--border-default)',
+                                        borderTopColor: 'var(--interactive-primary)',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite',
+                                    }}
+                                />
+                                <span style={{ marginLeft: 8, color: 'var(--content-secondary)', fontSize: '11px', fontWeight: 500 }}>
                                     Loading more rows...
                                 </span>
                             </td>
@@ -462,6 +1080,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({ tabId, columns, rows, 
                     )}
                 </tbody>
             </table>
+            </DndContext>
         </div>
     );
 };

@@ -16,10 +16,11 @@ interface ColumnRowProps {
     isSelected: boolean;
     onRowMouseDown: (e: React.MouseEvent, idx: number) => void;
     onRowMouseEnter: (idx: number) => void;
+    readOnlyMode?: boolean;
 }
 
 export const ColumnRow: React.FC<ColumnRowProps> = ({
-    row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError, isSelected, onRowMouseDown, onRowMouseEnter
+    row, rowIdx, displayIdx, types, editCell, setEditCell, onUpdate, onDiscard, rowError, isSelected, onRowMouseDown, onRowMouseEnter, readOnlyMode = false
 }) => {
     const col = row.current;
     const isDeleted = row.deleted;
@@ -68,7 +69,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                     ) : (
                         <div
                             className={`rt-cell-content font-mono text-[12px] ${isDirty && col.Name !== row.original.Name ? 'rt-cell-dirty' : ''}`}
-                            onDoubleClick={() => !isDeleted && setEditCell({ rowIdx, field: 'Name' })}
+                            onDoubleClick={() => !isDeleted && !readOnlyMode && setEditCell({ rowIdx, field: 'Name' })}
                             title={col.Name}
                         >
                             {col.Name}
@@ -82,7 +83,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                         value={col.DataType}
                         types={types}
                         isDirty={col.DataType !== row.original.DataType}
-                        disabled={isDeleted}
+                        disabled={isDeleted || readOnlyMode}
                         onCommit={v => onUpdate(rowIdx, { DataType: v })}
                     />
                 </td>
@@ -93,9 +94,9 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                         <input
                             type="checkbox"
                             checked={col.IsPrimaryKey}
-                            disabled={isDeleted}
+                            disabled={isDeleted || readOnlyMode}
                             onChange={e => onUpdate(rowIdx, { IsPrimaryKey: e.target.checked })}
-                            className="w-3.5 h-3.5 rounded-sm border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
+                            className="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
                         />
                     </div>
                 </td>
@@ -106,9 +107,9 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                         <input
                             type="checkbox"
                             checked={col.IsNullable}
-                            disabled={isDeleted}
+                            disabled={isDeleted || readOnlyMode}
                             onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
-                            className="w-3.5 h-3.5 rounded-sm border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
+                            className="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
                         />
                     </div>
                 </td>
@@ -131,7 +132,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             />
                             : <div
                                 className={`rt-cell-content font-mono text-[11px]! ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''} ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'}`}
-                                onDoubleClick={() => setEditCell({ rowIdx, field: 'DefaultValue' })}
+                                onDoubleClick={() => !readOnlyMode && setEditCell({ rowIdx, field: 'DefaultValue' })}
                                 title={col.DefaultValue || 'None'}
                             >
                                 {col.DefaultValue || 'NULL'}
@@ -150,4 +151,3 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
         </React.Fragment>
     );
 };
-

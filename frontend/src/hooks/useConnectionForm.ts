@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { models } from '../../wailsjs/go/models';
-import { TestConnection, SaveConnection } from '../../wailsjs/go/app/App';
+import { TestConnection, SaveConnection } from '../services/connectionService';
+import { getErrorMessage } from '../lib/errors';
 import {
     getProvider,
     makeDefaultForm,
     parseConnectionString,
     validateConnectionForm,
 } from '../lib/providers';
-import { DRIVER } from '../lib/constants';
-
-type ConnectionProfile = models.ConnectionProfile;
+import type { ConnectionProfile } from '../types/connection';
 
 export type TestResult = 'idle' | 'ok' | 'error';
 
@@ -38,6 +37,30 @@ export interface UseConnectionFormReturn {
     handleSave: (e: React.FormEvent) => Promise<void>;
     resetFeedback: () => void;
     resetForm: () => void;
+    setFormFromProfile: (profile: ConnectionProfile) => void;
+}
+
+const DEFAULT_CONNECTION_PROFILE: ConnectionProfile = {
+    name: '',
+    driver: '',
+    host: '',
+    port: 0,
+    db_name: '',
+    username: '',
+    password: '',
+    ssl_mode: '',
+    connect_timeout: 10,
+    save_password: false,
+    encrypt_password: false,
+    show_all_schemas: false,
+    trust_server_cert: false,
+};
+
+function toConnectionProfileModel(formData: Partial<ConnectionProfile>): models.ConnectionProfile {
+    return new models.ConnectionProfile({
+        ...DEFAULT_CONNECTION_PROFILE,
+        ...formData,
+    });
 }
 
 export function useConnectionForm({
@@ -78,6 +101,12 @@ export function useConnectionForm({
         resetFeedback();
     };
 
+    const setFormFromProfile = (profile: ConnectionProfile) => {
+        setFormData({ ...profile });
+        setConnString('');
+        resetFeedback();
+    };
+
     const handleDriverChange = (key: string) => {
         if (isEditing) return;
         const p = getProvider(key);
@@ -93,7 +122,23 @@ export function useConnectionForm({
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
         if (type === 'checkbox') {
-            setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+            const checked = (e.target as HTMLInputElement).checked;
+            setFormData(prev => {
+                if (name === 'save_password') {
+                    return {
+                        ...prev,
+                        save_password: checked,
+                        encrypt_password: checked ? (prev.encrypt_password ?? true) : false,
+                    };
+                }
+                if (name === 'encrypt_password') {
+                    return {
+                        ...prev,
+                        encrypt_password: checked && (prev.save_password ?? true),
+                    };
+                }
+                return { ...prev, [name]: checked };
+            });
         } else if (name === 'port' || name === 'connect_timeout') {
             setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
         } else {
@@ -121,11 +166,11 @@ export function useConnectionForm({
         setSuccessMsg('');
         setTestResult('idle');
         try {
-            await TestConnection(new models.ConnectionProfile(formData as any));
+            await TestConnection(toConnectionProfileModel(formData));
             setSuccessMsg('Connection successful!');
             setTestResult('ok');
-        } catch (err: any) {
-            setErrorMsg(err.toString());
+        } catch (err: unknown) {
+            setErrorMsg(getErrorMessage(err));
             setTestResult('error');
         } finally {
             setTesting(false);
@@ -139,11 +184,11 @@ export function useConnectionForm({
         setSaving(true);
         setErrorMsg('');
         try {
-            await SaveConnection(new models.ConnectionProfile(formData as any));
+            await SaveConnection(toConnectionProfileModel(formData));
             onSaved?.();
             onClose?.();
-        } catch (err: any) {
-            setErrorMsg(err.toString());
+        } catch (err: unknown) {
+            setErrorMsg(getErrorMessage(err));
         } finally {
             setSaving(false);
         }
@@ -158,7 +203,7 @@ export function useConnectionForm({
         errorMsg,
         successMsg,
         isEditing,
-        selectedProvider: formData.driver ?? DRIVER.POSTGRES,
+        selectedProvider: formData.driver ?? '',
         handleDriverChange,
         handleChange,
         handleParseConnectionString,
@@ -166,5 +211,7 @@ export function useConnectionForm({
         handleSave,
         resetFeedback,
         resetForm,
+        setFormFromProfile,
     };
 }
+

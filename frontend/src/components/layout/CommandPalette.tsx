@@ -17,17 +17,16 @@ export const CommandPalette: React.FC = () => {
     const activeItemRef = useRef<HTMLButtonElement>(null);
 
     // Re-build commands on each render so actions get fresh store state
-    const allCommands = useMemo(() => buildCommands(), []);
+    const allCommands = buildCommands();
 
     const filtered = useMemo<CommandItem[]>(() => {
         const q = query.trim().toLowerCase();
         if (!q) return allCommands;
-        return allCommands.filter(
-            c =>
-                c.label.toLowerCase().includes(q) ||
-                c.category.toLowerCase().includes(q) ||
-                (c.keybinding?.toLowerCase().includes(q) ?? false)
-        );
+        return allCommands
+            .map((c) => ({ cmd: c, score: fuzzyScore(q, `${c.label} ${c.category} ${c.keybinding ?? ''}`.toLowerCase()) }))
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .map((item) => item.cmd);
     }, [query, allCommands]);
 
     // Group filtered results by category, preserving CATEGORY_ORDER
@@ -103,7 +102,7 @@ export const CommandPalette: React.FC = () => {
     return (
         <ModalBackdrop onClose={close} className="items-start pt-[15vh]">
             <div
-                className="w-[560px] max-h-[420px] flex flex-col bg-bg-secondary border border-border rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
+                className="w-[560px] max-h-[420px] flex flex-col bg-bg-secondary border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Search input */}
@@ -119,7 +118,7 @@ export const CommandPalette: React.FC = () => {
                         autoComplete="off"
                         spellCheck={false}
                     />
-                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded text-[10px] font-mono text-text-muted shrink-0">
+                    <kbd className="px-1.5 py-0.5 bg-bg-primary border border-border rounded-md text-[10px] font-mono text-text-muted shrink-0">
                         Esc
                     </kbd>
                 </div>
@@ -163,7 +162,7 @@ export const CommandPalette: React.FC = () => {
                                                     {cmd.keybinding.split(' ').map((key, ki) => (
                                                         <kbd
                                                             key={ki}
-                                                            className="px-1.5 py-px bg-bg-primary border border-border rounded text-[10px] font-mono text-text-muted"
+                                                            className="px-1.5 py-px bg-bg-primary border border-border rounded-md text-[10px] font-mono text-text-muted"
                                                         >
                                                             {key}
                                                         </kbd>
@@ -188,3 +187,29 @@ export const CommandPalette: React.FC = () => {
         </ModalBackdrop>
     );
 };
+
+function fuzzyScore(needle: string, haystack: string): number {
+    if (!needle) return 1;
+    if (haystack.includes(needle)) return 1000 - haystack.indexOf(needle);
+
+    let score = 0;
+    let hIdx = 0;
+    let streak = 0;
+    for (let i = 0; i < needle.length; i++) {
+        const ch = needle[i];
+        let found = false;
+        while (hIdx < haystack.length) {
+            if (haystack[hIdx] === ch) {
+                found = true;
+                streak++;
+                score += 10 + streak*2;
+                hIdx++;
+                break;
+            }
+            streak = 0;
+            hIdx++;
+        }
+        if (!found) return 0;
+    }
+    return score;
+}

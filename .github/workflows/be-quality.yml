@@ -1,0 +1,54 @@
+name: BE Quality
+
+on:
+  pull_request:
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'scripts/check-be-guardrails.mjs'
+      - 'scripts/be-debt-dashboard.mjs'
+      - '.github/workflows/be-quality.yml'
+      - 'go.mod'
+      - 'go.sum'
+  push:
+    branches:
+      - main
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'scripts/check-be-guardrails.mjs'
+      - 'scripts/be-debt-dashboard.mjs'
+      - '.github/workflows/be-quality.yml'
+      - 'go.mod'
+      - 'go.sum'
+
+jobs:
+  backend-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Guardrails
+        run: node scripts/check-be-guardrails.mjs
+
+      - name: Debt dashboard
+        run: node scripts/be-debt-dashboard.mjs
+
+      - name: Prepare embedded frontend assets
+        run: |
+          mkdir -p frontend/dist
+          if [ ! -f frontend/dist/index.html ]; then
+            echo '<!doctype html><html><body></body></html>' > frontend/dist/index.html
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...

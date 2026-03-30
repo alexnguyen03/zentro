@@ -8,6 +8,21 @@ The structure is:
 * darwin - macOS specific files
 * windows - Windows specific files
 
+## Sprint 13 Release Matrix
+
+Use the release matrix script to build all supported targets:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\release-matrix.ps1
+```
+
+This script builds:
+- `windows/amd64` (with NSIS installer by default)
+- `darwin/universal`
+- `linux/amd64`
+
+Use `-NoInstaller` to skip NSIS packaging on Windows.
+
 ## Mac
 
 The `darwin` directory holds files specific to Mac builds.
