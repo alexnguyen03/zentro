@@ -9,7 +9,6 @@ node_modules/
 frontend/node_modules/
 
 # Go
-go.sum
 .gocache/
 # IDE
 .vscode/

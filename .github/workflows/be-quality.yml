@@ -40,6 +40,13 @@ jobs:
       - name: Debt dashboard
         run: node scripts/be-debt-dashboard.mjs
 
+      - name: Prepare embedded frontend assets
+        run: |
+          mkdir -p frontend/dist
+          if [ ! -f frontend/dist/index.html ]; then
+            echo '<!doctype html><html><body></body></html>' > frontend/dist/index.html
+          fi
+
       - name: Vet
         run: go vet ./...
 
