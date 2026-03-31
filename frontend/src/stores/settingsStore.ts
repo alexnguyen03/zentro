@@ -66,7 +66,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 autoCheckUpdates: prefs.auto_check_updates !== false,
                 viewMode: prefs.view_mode === true,
             });
-            useShortcutStore.getState().loadFromPreferences(prefs.shortcuts);
+            useShortcutStore.getState().loadFromPreferences(prefs.shortcuts, prefs.shortcut_rules);
             // Apply theme
             document.documentElement.setAttribute('data-theme', prefs.theme || 'system');
         } catch (err) {
@@ -112,6 +112,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 auto_check_updates: prefs.auto_check_updates ?? current.auto_check_updates ?? state.autoCheckUpdates,
                 view_mode: prefs.view_mode ?? current.view_mode ?? state.viewMode,
                 shortcuts: prefs.shortcuts ?? current.shortcuts ?? useShortcutStore.getState().bindings,
+                shortcut_rules: prefs.shortcut_rules ?? current.shortcut_rules ?? useShortcutStore.getState().userRules.map((rule) => ({
+                    id: rule.id,
+                    command_id: rule.commandId,
+                    binding: rule.binding,
+                    when: rule.when,
+                    source: 'user',
+                    order: rule.order,
+                })),
             });
 
             await SetPreferences(merged);

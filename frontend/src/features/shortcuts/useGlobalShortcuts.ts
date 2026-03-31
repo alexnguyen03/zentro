@@ -2,12 +2,15 @@ import { useEffect } from 'react';
 import { eventToKeyToken, getCommandRegistry, normalizeBinding } from '../../lib/shortcutRegistry';
 import { useShortcutStore } from '../../stores/shortcutStore';
 import { appLogger } from '../../lib/logger';
+import { evaluateWhenExpression } from './whenExpression';
+import { buildShortcutWhenContext } from './shortcutContext';
 
 export function useGlobalShortcuts(toast: { error: (message: string) => void }) {
-    const { bindings, chordStart, chordUntil, setChord } = useShortcutStore();
+    const { effectiveRules, chordStart, chordUntil, setChord } = useShortcutStore();
 
     useEffect(() => {
         const commands = getCommandRegistry();
+        const commandMap = new Map(commands.map((entry) => [entry.id, entry]));
 
         const isTypingTarget = (target: EventTarget | null) => {
             const el = target as HTMLElement | null;
@@ -29,8 +32,11 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
         };
 
         const handler = (e: KeyboardEvent) => {
-            if (isTypingTarget(e.target)) return;
             const target = e.target as HTMLElement | null;
+            const whenContext = buildShortcutWhenContext(target);
+            if (whenContext.captureFocus) return;
+            if (isTypingTarget(e.target)) return;
+
             const inSqlMonaco = Boolean(target?.closest('.zentro-sql-editor .monaco-editor'));
             const isCtrlSpace =
                 (e.ctrlKey || e.metaKey) &&
@@ -52,8 +58,14 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
                 return;
             }
 
-            for (const entry of commands) {
-                const binding = normalizeBinding(bindings[entry.id] || entry.defaultBinding);
+            for (const rule of effectiveRules) {
+                const entry = commandMap.get(rule.commandId);
+                if (!entry) continue;
+                if (entry.isEnabled && !entry.isEnabled()) continue;
+                const whenExpr = (rule.when || '').trim();
+                if (!evaluateWhenExpression(whenExpr, whenContext)) continue;
+
+                const binding = normalizeBinding(rule.binding || entry.defaultBinding);
                 const parts = binding.split(' ');
                 if (parts.length === 2) {
                     if (token === parts[0]) {
@@ -83,5 +95,5 @@ export function useGlobalShortcuts(toast: { error: (message: string) => void }) 
 
         window.addEventListener('keydown', handler, true);
         return () => window.removeEventListener('keydown', handler, true);
-    }, [bindings, chordStart, chordUntil, setChord, toast]);
+    }, [effectiveRules, chordStart, chordUntil, setChord, toast]);
 }

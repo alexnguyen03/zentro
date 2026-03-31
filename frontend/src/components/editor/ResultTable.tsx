@@ -27,6 +27,8 @@ import { useResultStore, type TabResult } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useToast } from '../layout/Toast';
 import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
+import { emitCommand } from '../../lib/commandBus';
+import { DOM_EVENT } from '../../lib/constants';
 import {
     buildHeaderColumnFilterExpr,
     computeAutoFitWidth,
@@ -400,6 +402,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             return { ...draftRow, values: nextValues };
         }));
     }, [setDraftRows]);
+    const emitSaveShortcut = React.useCallback(() => {
+        emitCommand(DOM_EVENT.SAVE_TAB_ACTION, tabId);
+    }, [tabId]);
 
     const focusCell = React.useCallback((rowKey: string, colIdx: number) => {
         const displayRow = displayRowsByKey.get(rowKey);
@@ -697,6 +702,14 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                             value={meta?.editValue ?? ''}
                             onChange={(event) => meta?.setEditValue?.(event.target.value)}
                             onKeyDown={async (event) => {
+                                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
+                                    await commitEdit();
+                                    window.setTimeout(() => emitSaveShortcut(), 0);
+                                    return;
+                                }
                                 if (event.key === 'Enter') {
                                     event.preventDefault();
                                     if (dtLike) meta?.setEditValue?.(fromDatetimeLocalValue(event.currentTarget.value));
@@ -738,7 +751,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         }));
 
         return [rowNumCol, ...dataCols];
-    }, [dataColumns, commitEdit, isEditable, onRemoveDraftRows, resultState?.tableName]);
+    }, [dataColumns, commitEdit, emitSaveShortcut, isEditable, onRemoveDraftRows, resultState?.tableName]);
 
     const filteredRows = quickFilter.trim() ? deferredFilteredRows : displayRows;
     const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;

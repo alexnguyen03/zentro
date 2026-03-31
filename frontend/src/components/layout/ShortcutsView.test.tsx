@@ -9,6 +9,7 @@ const commandRegistryMock = [
         label: 'New Query Tab',
         category: 'Editor',
         defaultBinding: 'Ctrl+T',
+        defaultWhen: '',
         action: vi.fn(),
     },
     {
@@ -16,18 +17,15 @@ const commandRegistryMock = [
         label: 'Toggle Left Sidebar',
         category: 'Layout',
         defaultBinding: 'Ctrl+B',
-        action: vi.fn(),
-    },
-    {
-        id: 'app.reload',
-        label: 'Reload Application',
-        category: 'App',
-        defaultBinding: 'Ctrl+Shift+R',
+        defaultWhen: '',
         action: vi.fn(),
     },
 ] as const;
 
 const setBindingMock = vi.fn().mockResolvedValue({ ok: true });
+const addBindingMock = vi.fn().mockResolvedValue({ ok: true });
+const updateRuleBindingMock = vi.fn().mockResolvedValue({ ok: true });
+const removeRuleMock = vi.fn().mockResolvedValue(undefined);
 const restoreBindingMock = vi.fn().mockResolvedValue(undefined);
 const resetDefaultsMock = vi.fn().mockResolvedValue(undefined);
 
@@ -35,65 +33,107 @@ const shortcutStoreState = {
     bindings: {
         'editor.newTab': 'Ctrl+Y',
         'layout.toggleSidebar': 'Ctrl+B',
-        'app.reload': 'Ctrl+Shift+R',
     },
+    userRules: [
+        {
+            id: 'u1',
+            commandId: 'editor.newTab',
+            binding: 'ctrl+y',
+            when: '',
+            source: 'user',
+            order: 0,
+        },
+    ],
+    effectiveRules: [
+        {
+            id: 'u1',
+            commandId: 'editor.newTab',
+            binding: 'ctrl+y',
+            when: '',
+            source: 'user',
+            order: 0,
+        },
+        {
+            id: 'system:layout.toggleSidebar',
+            commandId: 'layout.toggleSidebar',
+            binding: 'ctrl+b',
+            when: '',
+            source: 'system',
+            order: 1,
+        },
+    ],
     setBinding: setBindingMock,
+    addBinding: addBindingMock,
+    updateRuleBinding: updateRuleBindingMock,
+    removeRule: removeRuleMock,
     restoreBinding: restoreBindingMock,
     resetDefaults: resetDefaultsMock,
 };
 
 vi.mock('../../lib/shortcutRegistry', () => ({
     getCommandRegistry: () => commandRegistryMock,
+    eventToKeyToken: () => 'ctrl+k',
 }));
 
 vi.mock('../../stores/shortcutStore', () => ({
-    useShortcutStore: (selector: (state: typeof shortcutStoreState) => unknown) => selector(shortcutStoreState),
+    useShortcutStore: (selector?: (state: typeof shortcutStoreState) => unknown) => (
+        selector ? selector(shortcutStoreState) : shortcutStoreState
+    ),
 }));
 
-vi.mock('../ui', async () => {
-    const actual = await vi.importActual<typeof import('../ui')>('../ui');
-    return {
-        ...actual,
-        PromptModal: ({ isOpen, onConfirm }: { isOpen: boolean; onConfirm: (value: string) => void }) => (isOpen ? (
-            <button onClick={() => onConfirm('Ctrl+K')}>Confirm Rebind</button>
-        ) : null),
-        AlertModal: ({ isOpen, message }: { isOpen: boolean; message: string }) => (isOpen ? <div>{message}</div> : null),
-    };
-});
+vi.mock('./Modal', () => ({
+    Modal: ({
+        isOpen,
+        title,
+        children,
+        footer,
+    }: {
+        isOpen: boolean;
+        title: string;
+        children: React.ReactNode;
+        footer: React.ReactNode;
+    }) => (isOpen ? (
+        <div>
+            <div>{title}</div>
+            <div>{children}</div>
+            <div>{footer}</div>
+        </div>
+    ) : null),
+}));
 
 describe('ShortcutsView', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it('renders category sections in order and without 2-column layout classes', () => {
-        const { container } = render(<ShortcutsView />);
-        const headings = screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
-        expect(headings).toEqual(['Editor', 'Layout', 'App']);
-        expect(container.querySelector('.lg\\:col-span-4')).toBeNull();
-        expect(container.querySelector('.lg\\:col-span-8')).toBeNull();
+    it('renders table columns and rows', () => {
+        render(<ShortcutsView />);
+        expect(screen.getByText('Command')).toBeInTheDocument();
+        expect(screen.getByText('Keybinding')).toBeInTheDocument();
+        expect(screen.getByText('When')).toBeInTheDocument();
+        expect(screen.getByText('Source')).toBeInTheDocument();
+        expect(screen.getByText('New Query Tab')).toBeInTheDocument();
+        expect(screen.getByText('Toggle Left Sidebar')).toBeInTheDocument();
     });
 
-    it('filters shortcuts by search and shows empty state', () => {
+    it('filters rows by search query', () => {
         render(<ShortcutsView />);
-        fireEvent.change(screen.getByPlaceholderText('Search shortcuts...'), {
+        fireEvent.change(screen.getByPlaceholderText('Search commands, keybindings, when...'), {
             target: { value: 'missing-shortcut' },
         });
-
         expect(screen.getByText('No shortcuts match "missing-shortcut"')).toBeInTheDocument();
     });
 
-    it('keeps reset, rebind, and restore behaviors working', async () => {
+    it('opens context menu and triggers reset action', async () => {
         render(<ShortcutsView />);
+        fireEvent.contextMenu(screen.getByText('New Query Tab'));
+        fireEvent.click(screen.getByText('Reset Keybinding'));
+        await waitFor(() => expect(restoreBindingMock).toHaveBeenCalledWith('editor.newTab'));
+    });
 
+    it('reset all keeps behavior', async () => {
+        render(<ShortcutsView />);
         fireEvent.click(screen.getByTitle('Reset all shortcuts to default'));
         await waitFor(() => expect(resetDefaultsMock).toHaveBeenCalledTimes(1));
-
-        fireEvent.click(screen.getAllByRole('button', { name: 'Rebind' })[0]);
-        fireEvent.click(screen.getByRole('button', { name: 'Confirm Rebind' }));
-        await waitFor(() => expect(setBindingMock).toHaveBeenCalledWith('editor.newTab', 'Ctrl+K'));
-
-        fireEvent.click(screen.getAllByRole('button', { name: 'Restore' })[0]);
-        await waitFor(() => expect(restoreBindingMock).toHaveBeenCalledWith('editor.newTab'));
     });
 });

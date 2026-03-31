@@ -15,6 +15,15 @@ import (
 )
 
 // Preferences holds all user-configurable settings.
+type ShortcutRule struct {
+	ID        string `json:"id"`
+	CommandID string `json:"command_id"`
+	Binding   string `json:"binding"`
+	When      string `json:"when"`
+	Source    string `json:"source"`
+	Order     int    `json:"order"`
+}
+
 type Preferences struct {
 	Theme            string            `json:"theme"`              // "light" | "dark" | "system"
 	FontSize         int               `json:"font_size"`          // default 14
@@ -27,6 +36,7 @@ type Preferences struct {
 	AutoCheckUpdates bool              `json:"auto_check_updates"` // default true
 	ViewMode         bool              `json:"view_mode"`          // default false (read-only DB mode)
 	Shortcuts        map[string]string `json:"shortcuts"`
+	ShortcutRules    []ShortcutRule    `json:"shortcut_rules"`
 }
 
 // config is the root JSON structure written to disk.
@@ -116,6 +126,9 @@ func loadConfig() (*config, error) {
 	}
 	if cfg.Preferences.Shortcuts == nil {
 		cfg.Preferences.Shortcuts = map[string]string{}
+	}
+	if cfg.Preferences.ShortcutRules == nil {
+		cfg.Preferences.ShortcutRules = []ShortcutRule{}
 	}
 	// Load passwords from keyring or migrate legacy base64 values.
 	for _, p := range cfg.Connections {
@@ -227,6 +240,7 @@ func defaultConfig() *config {
 			AutoCheckUpdates: true,
 			ViewMode:         false,
 			Shortcuts:        map[string]string{},
+			ShortcutRules:    []ShortcutRule{},
 		},
 		Connections: []*models.ConnectionProfile{},
 	}

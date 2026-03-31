@@ -27,6 +27,7 @@ export interface PluginCommandContribution {
     title: string;
     category: PluginCommandCategory;
     defaultBinding: string;
+    defaultWhen?: string;
     handlerKey: string;
 }
 
@@ -56,6 +57,7 @@ export interface ResolvedPluginCommand {
         label: string;
         category: PluginCommandCategory;
         defaultBinding: string;
+        defaultWhen?: string;
         action: () => void | Promise<void>;
     };
 }

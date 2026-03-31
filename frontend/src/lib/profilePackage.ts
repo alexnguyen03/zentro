@@ -1,5 +1,6 @@
 import { utils } from '../../wailsjs/go/models';
 import { getDefaultShortcutMap, type CommandId } from './shortcutRegistry';
+import { migrateLegacyBindingsToUserRules, sanitizeUserRules, type ShortcutRule } from './shortcutRules';
 import { useLayoutStore } from '../stores/layoutStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useShortcutStore } from '../stores/shortcutStore';
@@ -7,6 +8,7 @@ import type {
     ZentroProfilePackage,
     ZentroProfilePackageV1,
     ZentroProfilePackageV2,
+    ZentroProfilePackageV3,
 } from '../types/profile';
 
 function sanitizeShortcuts(shortcuts: Record<string, string> | undefined): Record<CommandId, string> {
@@ -31,17 +33,47 @@ function sanitizeFileName(name: string): string {
         .replace(/^-+|-+$/g, '') || 'zentro-profile';
 }
 
-export function buildCurrentProfilePackage(profileName: string): ZentroProfilePackageV2 {
+function sanitizeShortcutRulesFromProfile(shortcutRules: unknown): ShortcutRule[] {
+    if (!Array.isArray(shortcutRules)) return [];
+    return sanitizeUserRules(
+        shortcutRules.map((rule) => {
+            const source = rule as Record<string, unknown>;
+            return {
+                id: typeof source.id === 'string' ? source.id : '',
+                commandId: source.command_id as CommandId,
+                binding: typeof source.binding === 'string' ? source.binding : '',
+                when: typeof source.when === 'string' ? source.when : '',
+                source: 'user' as const,
+                order: typeof source.order === 'number' ? source.order : 0,
+            };
+        }),
+    );
+}
+
+function toProfileShortcutRules(shortcutRules: ShortcutRule[]): ZentroProfilePackageV3['shortcut_rules'] {
+    return shortcutRules.map((rule) => ({
+        id: rule.id,
+        command_id: rule.commandId,
+        binding: rule.binding,
+        when: rule.when,
+        source: 'user',
+        order: rule.order,
+    }));
+}
+
+export function buildCurrentProfilePackage(profileName: string): ZentroProfilePackageV3 {
     const settings = useSettingsStore.getState();
     const layout = useLayoutStore.getState();
-    const shortcuts = useShortcutStore.getState().bindings;
+    const shortcutState = useShortcutStore.getState();
+    const shortcuts = shortcutState.bindings;
+    const shortcutRules = shortcutState.userRules;
     const fontFamily = typeof window !== 'undefined'
         ? getComputedStyle(document.documentElement).getPropertyValue('--font-family-sans').trim()
         : '';
 
     return {
         schema: 'zentro.profile',
-        version: 2,
+        version: 3,
         metadata: {
             name: profileName.trim() || 'Zentro Profile',
             exported_at: new Date().toISOString(),
@@ -62,6 +94,7 @@ export function buildCurrentProfilePackage(profileName: string): ZentroProfilePa
             show_right_sidebar: layout.showRightSidebar,
         },
         shortcuts: sanitizeShortcuts(shortcuts),
+        shortcut_rules: toProfileShortcutRules(shortcutRules),
         customization: {
             font_family: fontFamily || undefined,
             token_preset_id: settings.theme || 'system',
@@ -99,11 +132,18 @@ function isProfilePackageV2(value: unknown): value is ZentroProfilePackageV2 {
     return candidate.schema === 'zentro.profile' && candidate.version === 2;
 }
 
-function normalizeProfilePackage(profile: ZentroProfilePackage): ZentroProfilePackageV2 {
-    if (profile.version === 2) {
+function isProfilePackageV3(value: unknown): value is ZentroProfilePackageV3 {
+    if (!value || typeof value !== 'object') return false;
+    const candidate = value as Record<string, unknown>;
+    return candidate.schema === 'zentro.profile' && candidate.version === 3;
+}
+
+function normalizeProfilePackage(profile: ZentroProfilePackage): ZentroProfilePackageV3 {
+    if (profile.version === 3) {
         return {
             ...profile,
             shortcuts: sanitizeShortcuts(profile.shortcuts),
+            shortcut_rules: toProfileShortcutRules(sanitizeShortcutRulesFromProfile(profile.shortcut_rules)),
             customization: {
                 font_family: profile.customization?.font_family,
                 token_preset_id: profile.customization?.token_preset_id || profile.settings.theme || 'system',
@@ -118,10 +158,35 @@ function normalizeProfilePackage(profile: ZentroProfilePackage): ZentroProfilePa
         };
     }
 
+    if (profile.version === 2) {
+        const migratedShortcuts = sanitizeShortcuts(profile.shortcuts);
+        const migratedRules = migrateLegacyBindingsToUserRules(migratedShortcuts);
+        return {
+            ...profile,
+            version: 3,
+            shortcuts: migratedShortcuts,
+            shortcut_rules: toProfileShortcutRules(migratedRules),
+            customization: {
+                font_family: profile.customization?.font_family,
+                token_preset_id: profile.customization?.token_preset_id || profile.settings.theme || 'system',
+                layout_preset_id: profile.customization?.layout_preset_id || 'default',
+            },
+            command_overrides: {
+                metadata: {
+                    source: profile.command_overrides?.metadata?.source || 'imported',
+                    generated_at: profile.command_overrides?.metadata?.generated_at || new Date().toISOString(),
+                },
+            },
+        };
+    }
+
+    const migratedShortcuts = sanitizeShortcuts(profile.shortcuts);
+    const migratedRules = migrateLegacyBindingsToUserRules(migratedShortcuts);
     return {
         ...profile,
-        version: 2,
-        shortcuts: sanitizeShortcuts(profile.shortcuts),
+        version: 3,
+        shortcuts: migratedShortcuts,
+        shortcut_rules: toProfileShortcutRules(migratedRules),
         customization: {
             token_preset_id: profile.settings.theme || 'system',
             layout_preset_id: 'default',
@@ -135,7 +200,7 @@ function normalizeProfilePackage(profile: ZentroProfilePackage): ZentroProfilePa
     };
 }
 
-export function parseProfilePackage(raw: string): ZentroProfilePackageV2 {
+export function parseProfilePackage(raw: string): ZentroProfilePackageV3 {
     let parsed: unknown;
     try {
         parsed = JSON.parse(raw);
@@ -143,7 +208,7 @@ export function parseProfilePackage(raw: string): ZentroProfilePackageV2 {
         throw new Error('Invalid JSON profile file.');
     }
 
-    if (!isProfilePackageV1(parsed) && !isProfilePackageV2(parsed)) {
+    if (!isProfilePackageV1(parsed) && !isProfilePackageV2(parsed) && !isProfilePackageV3(parsed)) {
         throw new Error('Unsupported profile schema or version.');
     }
 
@@ -166,9 +231,10 @@ export async function applyProfilePackage(profile: ZentroProfilePackage): Promis
         auto_check_updates: normalized.settings.auto_check_updates,
         view_mode: normalized.settings.view_mode,
         shortcuts: normalized.shortcuts,
+        shortcut_rules: normalized.shortcut_rules,
     }));
 
-    await shortcuts.replaceBindings(normalized.shortcuts);
+    await shortcuts.replaceShortcutRules(sanitizeShortcutRulesFromProfile(normalized.shortcut_rules));
 
     layout.setShowSidebar(Boolean(normalized.layout.show_sidebar));
     layout.setShowResultPanel(Boolean(normalized.layout.show_result_panel));

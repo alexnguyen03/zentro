@@ -73,6 +73,7 @@ export function resolvePluginCommands(
                     label: command.title,
                     category: command.category,
                     defaultBinding: command.defaultBinding,
+                    defaultWhen: command.defaultWhen,
                     action: handlerResolver(contribution.manifest.id, command.handlerKey),
                 },
             });
