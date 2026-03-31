@@ -100,6 +100,7 @@ func TestExecuteQuery_ViewModeBlocksMutatingBatch(t *testing.T) {
 		func() sqlExecutor { return nil },
 		func() string { return constant.DriverSQLite },
 		func() string { return "" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -139,6 +140,7 @@ func TestExecuteQuery_ViewModeAllowsReadOnlyBatch(t *testing.T) {
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
 		func() string { return "" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -175,6 +177,7 @@ func TestExecuteUpdateSync_ViewModeBlocked(t *testing.T) {
 		func() *sql.DB { return db },
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
+		func() string { return "" },
 		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{},
@@ -235,6 +238,7 @@ func TestStreamSelect_SkipsPrimaryKeyLookupWhenDBIsNil(t *testing.T) {
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
 		func() string { return "" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -287,6 +291,7 @@ func TestExecuteUpdateSync_PostgresUsesCurrentSchemaSearchPath(t *testing.T) {
 		func() sqlExecutor { return executor },
 		func() string { return constant.DriverPostgres },
 		func() string { return "inv" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{},
 	)
@@ -306,5 +311,66 @@ func TestExecuteUpdateSync_PostgresUsesCurrentSchemaSearchPath(t *testing.T) {
 	}
 	if executor.execStatements[1] != "UPDATE inventory_balance SET qty = qty + 1" {
 		t.Fatalf("unexpected update statement: %q", executor.execStatements[1])
+	}
+}
+
+func TestExecuteUpdateSync_StrictEnvironmentBlocksNoWhere(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{}
+		},
+		func() *sql.DB { return db },
+		func() sqlExecutor { return db },
+		func() string { return constant.DriverSQLite },
+		func() string { return "" },
+		func() string { return "pro" },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{},
+	)
+
+	if _, err := svc.ExecuteUpdateSync("UPDATE users SET role = 'admin'"); err == nil {
+		t.Fatalf("expected strict write safety error, got nil")
+	}
+}
+
+func TestExecuteQuery_StrictEnvironmentBlocksNoWhere(t *testing.T) {
+	doneCh := make(chan map[string]any, 1)
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{QueryTimeout: 5}
+		},
+		func() *sql.DB { return nil },
+		func() sqlExecutor { return nil },
+		func() string { return constant.DriverSQLite },
+		func() string { return "" },
+		func() string { return "pro" },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
+			if eventName != constant.EventQueryDone {
+				return
+			}
+			if data, ok := payload.(map[string]any); ok {
+				doneCh <- data
+			}
+		}},
+	)
+
+	svc.ExecuteQuery("tab-strict", "UPDATE users SET role = 'admin';")
+
+	select {
+	case done := <-doneCh:
+		errMsg, _ := done["error"].(string)
+		if !strings.Contains(strings.ToLower(errMsg), "without where") {
+			t.Fatalf("expected write safety where error, got %q", errMsg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for done event")
 	}
 }

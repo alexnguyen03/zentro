@@ -326,6 +326,9 @@ func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	if s.getPrefs().ViewMode {
 		return 0, fmt.Errorf("view mode is enabled: write statements are blocked")
 	}
+	if err := s.validateStrictWriteSafety([]string{query}); err != nil {
+		return 0, err
+	}
 
 	executor := s.getExecutor()
 	if !isExecutorReady(executor) {
@@ -343,4 +346,28 @@ func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	}
 
 	return res.RowsAffected()
+}
+
+func (s *QueryService) validateStrictWriteSafety(statements []string) error {
+	if !s.isStrictWriteSafetyEnvironment() {
+		return nil
+	}
+	for _, statement := range statements {
+		risk := dbpkg.AnalyzeStatementRisk(statement)
+		if risk.UpdateNoWhere {
+			return fmt.Errorf("write safety policy: UPDATE without WHERE is blocked in strict environment")
+		}
+		if risk.DeleteNoWhere {
+			return fmt.Errorf("write safety policy: DELETE without WHERE is blocked in strict environment")
+		}
+	}
+	return nil
+}
+
+func (s *QueryService) isStrictWriteSafetyEnvironment() bool {
+	if s.getCurrentEnvironmentKey == nil {
+		return false
+	}
+	environmentKey := strings.TrimSpace(s.getCurrentEnvironmentKey())
+	return strings.EqualFold(environmentKey, "pro") || strings.EqualFold(environmentKey, "sta")
 }

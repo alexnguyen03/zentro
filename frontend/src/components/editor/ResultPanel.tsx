@@ -22,6 +22,7 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useResultStore, TabResult } from '../../stores/resultStore';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { models } from '../../../wailsjs/go/models';
 import { Modal } from '../layout/Modal';
 import { useToast } from '../layout/Toast';
@@ -43,6 +44,7 @@ import { setClipboardText } from '../../services/clipboardService';
 import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
 import { listResultActionContributions } from '../../features/query/contributionRegistry';
+import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 export type ResultPanelAction = UiAction;
 
@@ -81,6 +83,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 }) => {
     const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const addTab = useEditorStore((s) => s.addTab);
     const updateTabContext = useEditorStore((s) => s.updateTabContext);
     const persistedContext = useEditorStore((state) => {
@@ -93,6 +96,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
     const { toast } = useToast();
     const featureGate = useFeatureGate();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
     const { openDetail } = useRowDetailStore();
     const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
 
@@ -225,9 +229,22 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
     // ── Save flow ─────────────────────────────────────────────────────────────
     const handleDirectExecute = React.useCallback(async () => {
+        const script = generatePendingScript();
+        if (!script.trim()) {
+            return;
+        }
+
+        const guard = await writeSafetyGuard.guardSql(script, 'Execute Changes');
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
+
         await editing.handleDirectExecute(ExecuteUpdateSync);
         setShowSaveModal(false);
-    }, [editing]);
+    }, [editing, generatePendingScript, toast, writeSafetyGuard]);
 
     const handleSaveRequest = React.useCallback(async () => {
         if (viewMode) { toast.error('View Mode is enabled. Write actions are blocked.'); return; }
@@ -773,6 +790,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     </div>
                 </div>
             </Modal>
+
+            {writeSafetyGuard.modals}
 
             {/* SQL export table name modal */}
             <Modal

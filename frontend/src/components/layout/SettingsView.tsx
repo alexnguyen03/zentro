@@ -19,6 +19,13 @@ import { SettingsUpdates } from './settings/SettingsUpdates';
 import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
 import { Button, SearchField } from '../ui';
+import { ENVIRONMENT_KEY } from '../../lib/constants';
+import type { EnvironmentKey } from '../../types/project';
+import {
+    type SafetyLevel,
+    resolveEnvironmentSafetyLevel,
+    setEnvironmentSafetyLevel,
+} from '../../features/query/policyProfiles';
 
 interface SettingsViewProps {
     tabId: string;
@@ -39,6 +46,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
     const [telemetryOptIn, setTelemetryOptIn] = useState(getTelemetryConsent().optedIn);
+    const [safetyEnvironment, setSafetyEnvironment] = useState<EnvironmentKey>(ENVIRONMENT_KEY.PRODUCTION);
+    const [safetyLevel, setSafetyLevel] = useState<SafetyLevel>(() => resolveEnvironmentSafetyLevel(ENVIRONMENT_KEY.PRODUCTION));
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -64,6 +73,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         setFormQueryTimeout(queryTimeout);
         setFormToastPlacement(toastPlacement);
     }, [theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout]);
+
+    useEffect(() => {
+        setSafetyLevel(resolveEnvironmentSafetyLevel(safetyEnvironment));
+    }, [safetyEnvironment]);
 
     // Auto-save effect
     useEffect(() => {
@@ -194,6 +207,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                     onConnectTimeoutChange={setFormConnectTimeout}
                                     queryTimeout={formQueryTimeout}
                                     onQueryTimeoutChange={setFormQueryTimeout}
+                                    safetyEnvironment={safetyEnvironment}
+                                    onSafetyEnvironmentChange={setSafetyEnvironment}
+                                    safetyLevel={safetyLevel}
+                                    onSafetyLevelChange={(level) => {
+                                        setEnvironmentSafetyLevel(safetyEnvironment, level);
+                                        setSafetyLevel(level);
+                                        toast.success(`Write safety for ${safetyEnvironment.toUpperCase()} set to ${level}.`);
+                                    }}
                                     telemetryOptIn={telemetryOptIn}
                                     onTelemetryOptInChange={(checked) => {
                                         setTelemetryConsent(checked);

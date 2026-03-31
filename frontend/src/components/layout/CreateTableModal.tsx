@@ -4,11 +4,13 @@ import { Modal } from '../layout/Modal';
 import { Button } from '../ui';
 import { CreateTable } from '../../services/schemaService';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useToast } from '../layout/Toast';
 import { FetchDatabaseSchema } from '../../services/schemaService';
 import { getErrorMessage } from '../../lib/errors';
 import { models } from '../../../wailsjs/go/models';
+import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 interface Column {
     Name: string;
@@ -42,8 +44,10 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
     ]);
     const [loading, setLoading] = useState(false);
     const { activeProfile } = useConnectionStore();
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const viewMode = useSettingsStore((state) => state.viewMode);
     const { toast } = useToast();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
 
     const handleAddColumn = () => {
         setColumns([...columns, { Name: '', DataType: 'VARCHAR(255)', IsNullable: true, IsPrimaryKey: false, DefaultValue: '' }]);
@@ -86,6 +90,13 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
             toast.error('No active connection');
             return;
         }
+        const guard = await writeSafetyGuard.guardOperations(['create'], 'Create Table');
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
 
         setLoading(true);
         try {
@@ -110,29 +121,30 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={
-                <div className="flex items-center gap-2">
-                    <Table2 size={18} className="text-accent" />
-                    <span>Create Table</span>
-                </div>
-            }
-            width={700}
-            footer={
-                <>
-                    <Button variant="ghost" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button variant="primary" onClick={handleSubmit} disabled={loading || viewMode}>
-                        <Save size={14} className="mr-1.5" />
-                        {loading ? 'Creating...' : 'Create'}
-                    </Button>
-                </>
-            }
-        >
-            <div className="space-y-4">
+        <>
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={
+                    <div className="flex items-center gap-2">
+                        <Table2 size={18} className="text-accent" />
+                        <span>Create Table</span>
+                    </div>
+                }
+                width={700}
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleSubmit} disabled={loading || viewMode}>
+                            <Save size={14} className="mr-1.5" />
+                            {loading ? 'Creating...' : 'Create'}
+                        </Button>
+                    </>
+                }
+            >
+                <div className="space-y-4">
                 <div>
                     <label className="block text-xs font-medium text-text-secondary mb-1">Table Name</label>
                     <input
@@ -209,8 +221,10 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         ))}
                     </div>
                 </div>
-            </div>
-        </Modal>
+                </div>
+            </Modal>
+            {writeSafetyGuard.modals}
+        </>
     );
 };
 

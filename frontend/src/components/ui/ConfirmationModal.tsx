@@ -12,6 +12,7 @@ interface ConfirmationModalProps {
     confirmLabel?: string;
     description?: string;
     variant?: 'danger' | 'primary';
+    closeOnConfirm?: boolean;
 }
 
 /**
@@ -25,7 +26,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     message,
     description,
     confirmLabel = "Confirm",
-    variant = 'primary'
+    variant = 'primary',
+    closeOnConfirm = true,
 }) => {
     return (
         <Modal
@@ -44,7 +46,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                         danger={variant === 'danger'}
                         onClick={() => {
                             onConfirm();
-                            onClose();
+                            if (closeOnConfirm) {
+                                onClose();
+                            }
                         }}
                         autoFocus
                         className="px-4"

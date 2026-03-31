@@ -29,6 +29,8 @@ export interface QueryPolicy {
     requireWriteConfirm: boolean;
     destructiveRules: 'prompt' | 'block';
     environmentStrictness: 'normal' | 'strict';
+    safetyLevel: 'strict' | 'balanced' | 'relaxed';
+    requireProdDoubleConfirm: boolean;
 }
 
 export interface ExecutionPolicy {
@@ -36,6 +38,8 @@ export interface ExecutionPolicy {
     rowCapPerTab: number;
     destructiveRules: 'prompt' | 'block';
     environmentStrictness: 'normal' | 'strict';
+    safetyLevel: 'strict' | 'balanced' | 'relaxed';
+    requireProdDoubleConfirm: boolean;
 }
 
 export function classifyQueryFailure(errorMessage?: string): QueryFailureCode {

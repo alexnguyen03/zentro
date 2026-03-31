@@ -2,10 +2,12 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Loader, Trash2, Hash, Plus } from 'lucide-react';
 import { GetIndexes, DropIndex, CreateIndex } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
+import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { Button } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
+import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 
 interface IndexInfo {
     Name: string;
@@ -32,7 +34,9 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     const [newIndexUnique, setNewIndexUnique] = useState(false);
     const [saving, setSaving] = useState(false);
     const { activeProfile } = useConnectionStore();
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
 
     const loadIndexes = async () => {
         if (!activeProfile?.name) return;
@@ -54,6 +58,13 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     const handleDrop = async () => {
         if (readOnlyMode) return;
         if (!dropIndexTarget || !activeProfile?.name) return;
+        const guard = await writeSafetyGuard.guardOperations(['drop'], 'Drop Index');
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
         try {
             await DropIndex(activeProfile.name, schema, dropIndexTarget);
             toast.success(`Index "${dropIndexTarget}" dropped`);
@@ -76,6 +87,13 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             return;
         }
         if (!activeProfile?.name) return;
+        const guard = await writeSafetyGuard.guardOperations(['create'], 'Create Index');
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
 
         const cols = newIndexColumns.split(',').map(c => c.trim()).filter(Boolean);
         setSaving(true);
@@ -199,6 +217,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                 confirmLabel="Drop"
                 variant="danger"
             />
+            {writeSafetyGuard.modals}
             
             {showCreateForm && renderCreateForm()}
 

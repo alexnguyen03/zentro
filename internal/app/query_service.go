@@ -43,15 +43,16 @@ type queryStatement struct {
 }
 
 type QueryService struct {
-	ctx              context.Context
-	logger           *slog.Logger
-	getPrefs         func() utils.Preferences
-	getDB            func() *sql.DB
-	getExecutor      func() sqlExecutor
-	getDriver        func() string
-	getCurrentSchema func() string
-	appendHistory    func(query string, rowCount int64, dur time.Duration, err error)
-	emitter          EventEmitter
+	ctx                      context.Context
+	logger                   *slog.Logger
+	getPrefs                 func() utils.Preferences
+	getDB                    func() *sql.DB
+	getExecutor              func() sqlExecutor
+	getDriver                func() string
+	getCurrentSchema         func() string
+	getCurrentEnvironmentKey func() string
+	appendHistory            func(query string, rowCount int64, dur time.Duration, err error)
+	emitter                  EventEmitter
 
 	sessions   map[string]*QuerySession
 	sessionsMu sync.Mutex
@@ -66,23 +67,24 @@ type QueryService struct {
 func NewQueryService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
 	getDB func() *sql.DB, getExecutor func() sqlExecutor, getDriver func() string,
-	getCurrentSchema func() string,
+	getCurrentSchema func() string, getCurrentEnvironmentKey func() string,
 	appendHistory func(query string, rowCount int64, dur time.Duration, err error),
 	emitter EventEmitter,
 ) *QueryService {
 	return &QueryService{
-		ctx:              ctx,
-		logger:           logger,
-		getPrefs:         getPrefs,
-		getDB:            getDB,
-		getExecutor:      getExecutor,
-		getDriver:        getDriver,
-		getCurrentSchema: getCurrentSchema,
-		appendHistory:    appendHistory,
-		emitter:          emitter,
-		sessions:         make(map[string]*QuerySession),
-		activeQueries:    make(map[string]string),
-		cancelledTabs:    make(map[string]struct{}),
+		ctx:                      ctx,
+		logger:                   logger,
+		getPrefs:                 getPrefs,
+		getDB:                    getDB,
+		getExecutor:              getExecutor,
+		getDriver:                getDriver,
+		getCurrentSchema:         getCurrentSchema,
+		getCurrentEnvironmentKey: getCurrentEnvironmentKey,
+		appendHistory:            appendHistory,
+		emitter:                  emitter,
+		sessions:                 make(map[string]*QuerySession),
+		activeQueries:            make(map[string]string),
+		cancelledTabs:            make(map[string]struct{}),
 	}
 }
 
@@ -209,6 +211,26 @@ func (s *QueryService) executeQueryWithOptions(tabID, query string, skipEditable
 	prefs := s.getPrefs()
 	if prefs.ViewMode && dbpkg.BatchHasMutatingStatements(statements) {
 		err := fmt.Errorf("view mode is enabled: write statements are blocked")
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
+			TabID:          tabID,
+			SourceTabID:    tabID,
+			Query:          query,
+			StatementText:  query,
+			StatementIndex: 0,
+			StatementCount: len(statements),
+		})
+		s.emitDoneWithMore(queryStatement{
+			SourceTabID:      tabID,
+			TabID:            tabID,
+			Text:             query,
+			Index:            0,
+			Count:            len(statements),
+			SkipEditableMeta: skipEditableMeta,
+		}, 0, 0, false, false, err)
+		return
+	}
+
+	if err := s.validateStrictWriteSafety(statements); err != nil {
 		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryStarted, constant.EventQueryStartedV2, QueryStartedEvent{
 			TabID:          tabID,
 			SourceTabID:    tabID,

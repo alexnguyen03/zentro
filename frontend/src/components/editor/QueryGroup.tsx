@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useResultStore } from '../../stores/resultStore';
-import { useStatusStore } from '../../stores/statusStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { TabBar } from './TabBar';
@@ -17,10 +16,9 @@ import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
-import { ConfirmationModal } from '../ui/ConfirmationModal';
-import { isMutatingSql, resolveQueryPolicy } from '../../features/query/policy';
 import { applyPreExecuteFilterPolicy, resolveExecuteQuery } from '../../features/query/executionRouting';
 import { useToast } from '../layout/Toast';
+import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -40,13 +38,11 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         splitGroup,
     } = useEditorStore();
     const { isConnected, activeProfile } = useConnectionStore();
-    const transactionStatus = useStatusStore((state) => state.transactionStatus);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const activeProject = useProjectStore((state) => state.activeProject);
     const { saveScript } = useScriptStore();
-    const [pendingRunQuery, setPendingRunQuery] = useState<string | null>(null);
-    const [showWriteConfirm, setShowWriteConfirm] = useState(false);
     const { toast } = useToast();
+    const writeSafety = useWriteSafetyGuard(activeEnvironmentKey);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -180,33 +176,16 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     }, [activeTab, isConnected, updateTabContext]);
 
     const handleRun = useCallback(async (queryToRun: string) => {
-        const policy = resolveQueryPolicy(activeEnvironmentKey || undefined);
-        const mutating = isMutatingSql(queryToRun);
-        const shouldPrompt =
-            mutating &&
-            policy.requireWriteConfirm &&
-            policy.environmentStrictness === 'strict' &&
-            policy.destructiveRules === 'prompt' &&
-            transactionStatus !== 'active';
-
-        if (
-            mutating &&
-            policy.requireWriteConfirm &&
-            policy.environmentStrictness === 'strict' &&
-            policy.destructiveRules === 'block'
-        ) {
-            toast.error('Blocked by execution policy: destructive SQL is disabled for this environment.');
-            return;
-        }
-
-        if (shouldPrompt) {
-            setPendingRunQuery(queryToRun);
-            setShowWriteConfirm(true);
+        const guardResult = await writeSafety.guardSql(queryToRun, 'Run Query');
+        if (!guardResult.allowed) {
+            if (guardResult.blockedReason) {
+                toast.error(guardResult.blockedReason);
+            }
             return;
         }
 
         await executeQueryNow(queryToRun);
-    }, [activeEnvironmentKey, executeQueryNow, toast, transactionStatus]);
+    }, [executeQueryNow, toast, writeSafety]);
 
     const handleExplain = useCallback(async (queryToExplain: string, analyze: boolean) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
@@ -294,24 +273,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                     </div>
                 )}
             </div>
-            <ConfirmationModal
-                isOpen={showWriteConfirm}
-                onClose={() => {
-                    setShowWriteConfirm(false);
-                    setPendingRunQuery(null);
-                }}
-                onConfirm={() => {
-                    const sql = pendingRunQuery;
-                    setPendingRunQuery(null);
-                    if (!sql) return;
-                    void executeQueryNow(sql);
-                }}
-                title="Confirm Write Query"
-                message="Mutating SQL detected on a strict environment."
-                description="Run this query only if you are sure. Tip: start a transaction for safer control."
-                confirmLabel="Run Query"
-                variant="danger"
-            />
+            {writeSafety.modals}
         </div>
     );
 };

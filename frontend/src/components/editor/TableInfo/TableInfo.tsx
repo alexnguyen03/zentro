@@ -8,14 +8,15 @@ import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEditorStore } from '../../../stores/editorStore';
 import { useResultStore } from '../../../stores/resultStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
+import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
 import { buildFilterQuery } from '../../../lib/queryBuilder';
-import { DRIVER } from '../../../lib/constants';
 import { Button, Spinner } from '../../ui';
-import { Modal } from '../../layout/Modal';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
-import { AlertCircle } from 'lucide-react';
 import { getErrorMessage } from '../../../lib/errors';
+import { useToast } from '../../layout/Toast';
+import { type WriteOperationKind } from '../../../features/query/writeSafety';
+import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
@@ -83,6 +84,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const { activeProfile } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const { toast } = useToast();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
     const { activeGroupId, groups } = useEditorStore();
     const driver = activeProfile?.driver ?? 'sqlserver';
     const types = getTypesForDriver(driver);
@@ -211,6 +215,38 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setSaving(false);
     }, [rows, schema, table, loadInfo, viewMode]);
 
+    const collectWriteOperations = useCallback((): WriteOperationKind[] => {
+        const operations: WriteOperationKind[] = [];
+        rows.forEach((row) => {
+            if (row.deleted) {
+                operations.push('drop');
+                return;
+            }
+            if (row.isNew) {
+                operations.push('create');
+                return;
+            }
+            if (JSON.stringify(row.original) !== JSON.stringify(row.current)) {
+                operations.push('alter');
+            }
+        });
+        return operations;
+    }, [rows]);
+
+    const confirmSafetyAndSave = useCallback(async () => {
+        const operations = collectWriteOperations();
+        if (operations.length > 0) {
+            const guard = await writeSafetyGuard.guardOperations(operations, 'Apply Table Schema Changes');
+            if (!guard.allowed) {
+                if (guard.blockedReason) {
+                    toast.error(guard.blockedReason);
+                }
+                return;
+            }
+        }
+        await performSave();
+    }, [collectWriteOperations, performSave, toast, writeSafetyGuard]);
+
     const saveAll = useCallback(async () => {
         if (viewMode) return;
         const deletedCount = rows.filter(r => r.deleted).length;
@@ -218,8 +254,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             setShowDeleteConfirm(true);
             return;
         }
-        await performSave();
-    }, [rows, performSave, viewMode]);
+        await confirmSafetyAndSave();
+    }, [rows, confirmSafetyAndSave, viewMode]);
 
     const hasChanges = useMemo(() => rows.some(r => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
 
@@ -475,13 +511,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             <ConfirmationModal
                 isOpen={showDeleteConfirm}
                 onClose={() => setShowDeleteConfirm(false)}
-                onConfirm={performSave}
+                onConfirm={() => {
+                    void confirmSafetyAndSave();
+                }}
                 title="Confirm Destruction"
                 message="Are you sure?"
                 description={`You are about to permanently delete ${rows.filter(r => r.deleted).length} ${rows.filter(r => r.deleted).length === 1 ? 'column' : 'columns'}. This action cannot be undone.`}
                 confirmLabel="Delete Permanently"
                 variant="danger"
             />
+            {writeSafetyGuard.modals}
         </div>
     );
 };

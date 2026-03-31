@@ -1,6 +1,7 @@
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { QueryPolicy } from './runtime';
 import { resolveExecutionPolicyProfile } from './policyProfiles';
+import { analyzeSqlRisk } from './writeSafety';
 
 export function resolveQueryPolicy(environmentKey?: string): QueryPolicy {
     const settings = useSettingsStore.getState();
@@ -15,11 +16,11 @@ export function resolveQueryPolicy(environmentKey?: string): QueryPolicy {
             (profile.destructiveRules === 'prompt' || profile.destructiveRules === 'block'),
         destructiveRules: profile.destructiveRules,
         environmentStrictness: profile.environmentStrictness,
+        safetyLevel: profile.safetyLevel,
+        requireProdDoubleConfirm: profile.requireProdDoubleConfirm !== false,
     };
 }
 
 export function isMutatingSql(sql: string): boolean {
-    const normalized = sql.trim().toLowerCase();
-    if (!normalized) return false;
-    return /^(insert|update|delete|drop|alter|create|truncate|grant|revoke|merge|replace)\b/.test(normalized);
+    return analyzeSqlRisk(sql).hasWrite;
 }

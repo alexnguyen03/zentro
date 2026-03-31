@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { FetchDatabaseSchema } from '../../services/schemaService';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/cn';
@@ -34,6 +35,7 @@ import type { CategoryGroupNode, ConnectionTreeIcon, SchemaBucketNode } from './
 import { Reconnect } from '../../services/connectionService';
 import { CONNECTION_STATUS } from '../../lib/constants';
 import { Button } from '../ui';
+import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 const iconClass = 'opacity-80 shrink-0';
 
@@ -209,8 +211,10 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 export const ConnectionTree: React.FC = () => {
     const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const addTab = useEditorStore((state) => state.addTab);
     const { toast } = useToast();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
     const [filter, setFilter] = useState('');
     const [fuzzyMatch, setFuzzyMatch] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<string>('tables');
@@ -275,6 +279,13 @@ export const ConnectionTree: React.FC = () => {
 
     const handleDropObject = async (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW') => {
         if (!activeProfile?.name || !activeProfile?.db_name) return;
+        const guard = await writeSafetyGuard.guardOperations(['drop'], `Drop ${objectType}`);
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
         try {
             await DropObject(activeProfile.name, schema, objectName, objectType);
             toast.success(`${objectType} "${objectName}" dropped successfully`);
@@ -411,6 +422,7 @@ export const ConnectionTree: React.FC = () => {
                     )}
                 </div>
             </div>
+            {writeSafetyGuard.modals}
         </div>
     );
 };

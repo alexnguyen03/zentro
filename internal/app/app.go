@@ -96,6 +96,7 @@ func NewApp() *App {
 			return ""
 		},
 		func() string { return a.currentProjectSchema() },
+		func() string { return string(a.currentProjectEnvironmentKey()) },
 		a.history.AppendEntry,
 		a.emitter,
 	)

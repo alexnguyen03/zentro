@@ -2,6 +2,9 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
 import { Button, FormField, Input, SelectField, SwitchField } from '../../ui';
+import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
+import type { EnvironmentKey } from '../../../types/project';
+import type { SafetyLevel } from '../../../features/query/policyProfiles';
 
 interface Props {
     limit: number;
@@ -13,6 +16,10 @@ interface Props {
     telemetryOptIn: boolean;
     onTelemetryOptInChange: (val: boolean) => void;
     onExportTelemetry: () => void;
+    safetyEnvironment: EnvironmentKey;
+    onSafetyEnvironmentChange: (val: EnvironmentKey) => void;
+    safetyLevel: SafetyLevel;
+    onSafetyLevelChange: (val: SafetyLevel) => void;
 }
 
 export const SettingsData: React.FC<Props> = ({ 
@@ -20,6 +27,8 @@ export const SettingsData: React.FC<Props> = ({
     connectTimeout, onConnectTimeoutChange, 
     queryTimeout, onQueryTimeoutChange,
     telemetryOptIn, onTelemetryOptInChange, onExportTelemetry,
+    safetyEnvironment, onSafetyEnvironmentChange,
+    safetyLevel, onSafetyLevelChange,
 }) => {
     return (
         <div className={SettingsClasses.section}>
@@ -61,6 +70,36 @@ export const SettingsData: React.FC<Props> = ({
                         value={queryTimeout}
                         onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
                     />
+                </FormField>
+
+                <FormField
+                    label="Write Safety Environment"
+                    hint="Choose which environment policy level you want to configure."
+                >
+                    <SelectField
+                        value={safetyEnvironment}
+                        onChange={(event) => onSafetyEnvironmentChange(event.target.value as EnvironmentKey)}
+                    >
+                        {ENVIRONMENT_KEYS.map((key) => (
+                            <option key={key} value={key}>
+                                {key.toUpperCase()} - {getEnvironmentMeta(key).label}
+                            </option>
+                        ))}
+                    </SelectField>
+                </FormField>
+
+                <FormField
+                    label="Write Safety Level"
+                    hint="Strict blocks UPDATE/DELETE without WHERE. Balanced warns. Relaxed keeps lightweight warnings."
+                >
+                    <SelectField
+                        value={safetyLevel}
+                        onChange={(event) => onSafetyLevelChange(event.target.value as SafetyLevel)}
+                    >
+                        <option value="strict">Strict</option>
+                        <option value="balanced">Balanced</option>
+                        <option value="relaxed">Relaxed</option>
+                    </SelectField>
                 </FormField>
 
                 <FormField
