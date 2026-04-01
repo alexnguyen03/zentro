@@ -4,10 +4,11 @@ import { cn } from '../../lib/cn';
 
 interface SelectFieldProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
     error?: boolean;
+    hideChevron?: boolean;
 }
 
 export const SelectField = React.forwardRef<HTMLSelectElement, SelectFieldProps>(
-    ({ className, error, children, ...props }, ref) => {
+    ({ className, error, hideChevron = false, children, ...props }, ref) => {
         return (
             <div className="relative w-full">
                 <select
@@ -22,10 +23,12 @@ export const SelectField = React.forwardRef<HTMLSelectElement, SelectFieldProps>
                 >
                     {children}
                 </select>
-                <ChevronDown
-                    size={14}
-                    className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-text-muted"
-                />
+                {!hideChevron && (
+                    <ChevronDown
+                        size={14}
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-text-muted"
+                    />
+                )}
             </div>
         );
     },

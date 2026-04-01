@@ -21,6 +21,7 @@ export interface AppApiGateway {
     LoadConnections(): Promise<models.ConnectionProfile[]>;
     LoadDatabasesForProfile(profileName: string): Promise<string[]>;
     SaveConnection(profile: models.ConnectionProfile): Promise<void>;
+    DeleteConnection(name: string): Promise<void>;
     ImportConnectionPackage(): Promise<models.ConnectionProfile | null>;
     ExportConnectionPackage(environmentKey: string): Promise<string>;
     TestConnection(profile: models.ConnectionProfile): Promise<void>;
