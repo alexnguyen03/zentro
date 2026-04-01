@@ -430,8 +430,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-bg-primary outline-none">
-            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary flex items-center">
-                <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto scrollbar-thin">
+            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary grid grid-cols-10 items-center gap-2">
+                <div className="col-span-4 flex items-center gap-2 min-w-0 overflow-hidden">
                     {tabs.map(({ key, label, icon, isModified, count }) => (
                         <button
                             key={key}
@@ -454,38 +454,46 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     ))}
                 </div>
 
-                <div className="flex items-center justify-center gap-1 flex-1">
-                    {actionsByTab[activeTab].map((action) => (
-                        <ToolbarButton key={action.id} action={action} />
-                    ))}
-                </div>
-
-                <div className="flex items-center justify-end flex-1">
-                    {filterTabs.has(activeTab) ? (
-                        <div className="relative group flex items-center w-72 max-w-full">
-                            <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
-                            <input
-                                ref={filterInputRef}
-                                type="text"
-                                placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
-                                value={filterCol}
-                                onChange={(e) => {
-                                    if (activeTab === 'columns') {
-                                        setSortCol('idx');
-                                        setSortDir('asc');
-                                    }
-                                    setFilterCol(e.target.value);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Escape') setFilterCol('');
-                                }}
-                                className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-md text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
-                            />
+                {filterTabs.has(activeTab) ? (
+                    <>
+                        <div className="col-span-2 flex items-center justify-center gap-1 min-w-0">
+                            {actionsByTab[activeTab].map((action) => (
+                                <ToolbarButton key={action.id} action={action} />
+                            ))}
                         </div>
-                    ) : (
-                        <div className="h-7" />
-                    )}
-                </div>
+                        <div className="col-span-4 flex items-center justify-end min-w-0">
+                            <div className="relative group flex items-center w-full max-w-[28rem]">
+                                <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
+                                <input
+                                    ref={filterInputRef}
+                                    type="text"
+                                    placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
+                                    value={filterCol}
+                                    onChange={(e) => {
+                                        if (activeTab === 'columns') {
+                                            setSortCol('idx');
+                                            setSortDir('asc');
+                                        }
+                                        setFilterCol(e.target.value);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Escape') setFilterCol('');
+                                    }}
+                                    className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-md text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
+                                />
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="col-span-2" />
+                        <div className="col-span-4 flex items-center justify-end gap-1 min-w-0">
+                            {actionsByTab[activeTab].map((action) => (
+                                <ToolbarButton key={action.id} action={action} />
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
 
             <main className="flex-1 flex flex-col min-h-0 relative">
