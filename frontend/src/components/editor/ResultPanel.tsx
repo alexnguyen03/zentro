@@ -3,7 +3,6 @@ import {
     AlertCircle,
     CheckCircle,
     Copy,
-    Download,
     FilePlus,
     Loader,
     Trash2,
@@ -27,24 +26,29 @@ import { models } from '../../../wailsjs/go/models';
 import { Modal } from '../layout/Modal';
 import { useToast } from '../layout/Toast';
 import { Button } from '../ui';
-import { ResultTable, type FocusCellRequest } from './ResultTable';
+import { ResultTable, type ResultCellContextMenuPayload } from './ResultTable';
 import { ResultFilterBar } from './ResultFilterBar';
 import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
-import { getErrorMessage } from '../../lib/errors';
 import type { UiAction } from '../../types/uiAction';
-import { LIMIT_OPTIONS, formatDuration } from './resultPanelUtils';
+import { LIMIT_OPTIONS, formatDuration, makeCellId } from './resultPanelUtils';
 import { utils } from '../../../wailsjs/go/models';
 import { FetchTotalRowCount } from '../../services/queryService';
 import { useResultEditing } from './useResultEditing';
 import { useResultKeyboard } from './useResultKeyboard';
 import { useResultExport } from './useResultExport';
-import { setClipboardText } from '../../services/clipboardService';
+import { getClipboardText, setClipboardText } from '../../services/clipboardService';
 import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
 import { listResultActionContributions } from '../../features/query/contributionRegistry';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
+import {
+    applyClipboardPaste,
+    applySetNullToSelection,
+    buildSelectionMatrix,
+    matrixToTsv,
+} from './resultSelectionActions';
 
 export type ResultPanelAction = UiAction;
 
@@ -109,7 +113,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [quickFilter, setQuickFilter] = React.useState(() => persistedContext?.resultQuickFilter || '');
     const [visibleRows, setVisibleRows] = React.useState(0);
     const [activeSearchHit, setActiveSearchHit] = React.useState(0);
+    const [contextMenu, setContextMenu] = React.useState<ResultCellContextMenuPayload | null>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const contextMenuRef = React.useRef<HTMLDivElement>(null);
     const keepFilterFocusRef = React.useRef(false);
     const quickFilterRef = React.useRef<HTMLInputElement>(null);
     const jumpRowRef = React.useRef<HTMLInputElement>(null);
@@ -120,7 +126,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         columnDefs, columnDefsByName, displayRows, displayRowsByKey, rowOrder,
         editedCells, setEditedCells, selectedCells, setSelectedCells,
         deletedRows, setDeletedRows, draftRows, setDraftRows,
-        isSavingDraftRows, setIsSavingDraftRows,
+        isSavingDraftRows,
         focusCellRequest, setFocusCellRequest,
         selectedRowKeys, selectedPersistedRowIndices, selectedDraftIds,
         qualifiedTableName, isEditable, canManageDraftRows,
@@ -517,6 +523,288 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setActiveSearchHit(0);
     }, [quickFilter, result?.lastExecutedQuery]);
 
+    const nullableByColumnIndex = React.useMemo(
+        () => (result?.columns || []).map((columnName) => columnDefsByName.get(columnName)?.IsNullable ?? true),
+        [columnDefsByName, result?.columns],
+    );
+    const contextMenuRow = React.useMemo(
+        () => (contextMenu ? displayRowsByKey.get(contextMenu.rowKey) : undefined),
+        [contextMenu, displayRowsByKey],
+    );
+    const hasEditableCellSelection = selectedCells.size > 0 || Boolean(contextMenu?.cellId);
+    const canMutateCells = isEditable && !isReadOnlyTab && !viewMode && !isSavingDraftRows;
+    const canMutateRows = canManageDraftRows && !isReadOnlyTab && !viewMode && !isSavingDraftRows;
+    const canDuplicateRows = selectedPersistedRowIndices.length > 0 || contextMenuRow?.kind === 'persisted';
+    const canDeleteRows = selectedPersistedRowIndices.length > 0 || selectedDraftIds.length > 0 || Boolean(contextMenuRow);
+
+    const closeContextMenu = React.useCallback(() => {
+        setContextMenu(null);
+    }, []);
+
+    const getEffectiveSelection = React.useCallback(() => {
+        if (selectedCells.size > 0) return selectedCells;
+        if (!contextMenu?.cellId) return new Set<string>();
+        return new Set([contextMenu.cellId]);
+    }, [contextMenu?.cellId, selectedCells]);
+
+    const handleCellContextMenu = React.useCallback((payload: ResultCellContextMenuPayload) => {
+        setContextMenu(payload);
+    }, []);
+
+    const handleContextCopy = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one cell to copy.');
+            closeContextMenu();
+            return;
+        }
+
+        const matrix = buildSelectionMatrix({
+            selectedCells: effectiveSelection,
+            displayRows,
+            rowOrder,
+            editedCells,
+        });
+        if (matrix.length === 0) {
+            toast.info('No copyable cells in current selection.');
+            closeContextMenu();
+            return;
+        }
+
+        void setClipboardText(matrixToTsv(matrix))
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, rowOrder, toast]);
+
+    const handleContextPaste = React.useCallback(() => {
+        if (!canMutateCells) {
+            toast.error('Result is read-only. Paste is unavailable.');
+            closeContextMenu();
+            return;
+        }
+
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one target cell to paste.');
+            closeContextMenu();
+            return;
+        }
+
+        void getClipboardText()
+            .then((text) => {
+                const pasteResult = applyClipboardPaste({
+                    text,
+                    selectedCells: effectiveSelection,
+                    displayRows,
+                    rowOrder,
+                    editedCells,
+                    draftRows,
+                    deletedRows,
+                    columnCount: result?.columns.length || 0,
+                });
+                if (!pasteResult) {
+                    toast.info('Clipboard data is empty or cannot be pasted here.');
+                    return;
+                }
+                setEditedCells(pasteResult.nextEdited);
+                setDraftRows(pasteResult.nextDraftRows);
+                if (pasteResult.pastedCells.size > 0) {
+                    setSelectedCells(pasteResult.pastedCells);
+                }
+            })
+            .catch(() => toast.error('Failed to read from clipboard'));
+        closeContextMenu();
+    }, [
+        canMutateCells,
+        closeContextMenu,
+        deletedRows,
+        displayRows,
+        draftRows,
+        editedCells,
+        getEffectiveSelection,
+        result?.columns.length,
+        rowOrder,
+        setDraftRows,
+        setEditedCells,
+        setSelectedCells,
+        toast,
+    ]);
+
+    const handleContextSetNull = React.useCallback(() => {
+        if (!canMutateCells) {
+            toast.error('Result is read-only. Set NULL is unavailable.');
+            closeContextMenu();
+            return;
+        }
+
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one cell to set NULL.');
+            closeContextMenu();
+            return;
+        }
+
+        const setNullResult = applySetNullToSelection({
+            selectedCells: effectiveSelection,
+            displayRowsByKey,
+            editedCells,
+            draftRows,
+            nullableByColumnIndex,
+        });
+
+        if (setNullResult.updatedCount > 0) {
+            setEditedCells(setNullResult.nextEdited);
+            setDraftRows(setNullResult.nextDraftRows);
+            setSelectedCells(setNullResult.updatedCells);
+        }
+
+        if (setNullResult.updatedCount === 0 && setNullResult.skippedCount === 0) {
+            toast.info('No editable cells in current selection.');
+        } else if (setNullResult.updatedCount === 0) {
+            toast.info(`Skipped ${setNullResult.skippedCount} non-nullable cell(s).`);
+        } else if (setNullResult.skippedCount > 0) {
+            toast.info(`Set NULL for ${setNullResult.updatedCount} cell(s), skipped ${setNullResult.skippedCount} non-nullable cell(s).`);
+        }
+
+        closeContextMenu();
+    }, [
+        canMutateCells,
+        closeContextMenu,
+        displayRowsByKey,
+        draftRows,
+        editedCells,
+        getEffectiveSelection,
+        nullableByColumnIndex,
+        setDraftRows,
+        setEditedCells,
+        setSelectedCells,
+        toast,
+    ]);
+
+    const handleContextDelete = React.useCallback(() => {
+        if (!canMutateRows) {
+            toast.error('Row actions are unavailable in current mode.');
+            closeContextMenu();
+            return;
+        }
+
+        const targetRowKeys = selectedRowKeys.length > 0
+            ? selectedRowKeys
+            : (contextMenu ? [contextMenu.rowKey] : []);
+        if (targetRowKeys.length === 0) {
+            toast.info('Select row(s) to delete.');
+            closeContextMenu();
+            return;
+        }
+
+        const targetDraftIds = targetRowKeys
+            .filter((rowKey) => rowKey.startsWith('d:'))
+            .map((rowKey) => rowKey.slice(2));
+        const targetPersistedIndices = Array.from(new Set(targetRowKeys
+            .filter((rowKey) => rowKey.startsWith('p:'))
+            .map((rowKey) => Number(rowKey.slice(2)))
+            .filter((rowIndex) => Number.isFinite(rowIndex))));
+
+        if (targetPersistedIndices.length > 0 && !isEditable) {
+            toast.error('Result is read-only. Make sure the query includes the primary key(s).');
+            closeContextMenu();
+            return;
+        }
+
+        if (targetDraftIds.length > 0) {
+            removeDraftRows(targetDraftIds);
+        }
+        if (targetPersistedIndices.length > 0) {
+            setDeletedRows((prev) => {
+                const next = new Set(prev);
+                targetPersistedIndices.forEach((rowIndex) => next.add(rowIndex));
+                return next;
+            });
+        }
+
+        closeContextMenu();
+    }, [
+        canMutateRows,
+        closeContextMenu,
+        contextMenu,
+        isEditable,
+        removeDraftRows,
+        selectedRowKeys,
+        setDeletedRows,
+        toast,
+    ]);
+
+    const handleContextDuplicate = React.useCallback(() => {
+        if (!canMutateRows) {
+            toast.error('Row actions are unavailable in current mode.');
+            closeContextMenu();
+            return;
+        }
+
+        const selectedRowSet = new Set(selectedRowKeys);
+        let targetRows = displayRows.filter((row) => row.kind === 'persisted' && selectedRowSet.has(row.key));
+        if (targetRows.length === 0 && contextMenuRow?.kind === 'persisted') {
+            targetRows = [contextMenuRow];
+        }
+        if (targetRows.length === 0) {
+            toast.info('Select at least one persisted row to duplicate.');
+            closeContextMenu();
+            return;
+        }
+
+        const lastRow = targetRows[targetRows.length - 1];
+        const duplicated = targetRows.map((row) => ({
+            id: crypto.randomUUID(),
+            kind: 'duplicate' as const,
+            values: getPersistedRowValues(row.persistedIndex as number),
+            insertAfterRowIndex: lastRow.persistedIndex ?? null,
+            sourceRowIndex: row.persistedIndex,
+        }));
+
+        setDraftRows((prev) => [...prev, ...duplicated]);
+        const firstDraftKey = `d:${duplicated[0].id}`;
+        setSelectedCells(new Set([makeCellId(firstDraftKey, 0)]));
+        setFocusCellRequest({
+            rowKey: firstDraftKey,
+            colIdx: 0,
+            nonce: Date.now(),
+        });
+        closeContextMenu();
+    }, [
+        canMutateRows,
+        closeContextMenu,
+        contextMenuRow,
+        displayRows,
+        getPersistedRowValues,
+        selectedRowKeys,
+        setDraftRows,
+        setFocusCellRequest,
+        setSelectedCells,
+        toast,
+    ]);
+
+    React.useEffect(() => {
+        if (!contextMenu) return;
+        const handleMouseDown = (event: MouseEvent) => {
+            if (contextMenuRef.current?.contains(event.target as Node)) return;
+            setContextMenu(null);
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setContextMenu(null);
+        };
+        window.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('resize', closeContextMenu);
+        return () => {
+            window.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('resize', closeContextMenu);
+        };
+    }, [closeContextMenu, contextMenu]);
+    React.useEffect(() => {
+        setContextMenu(null);
+    }, [result?.isDone, result?.lastExecutedQuery]);
+
     // ── Keyboard ──────────────────────────────────────────────────────────────
     const { handleKeyDown } = useResultKeyboard({
         tabId, result, hasPendingChanges, isReadOnlyTab, viewMode, isEditable,
@@ -639,6 +927,17 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             del: deletedRows.size,
         };
     })();
+    const contextMenuPosition = React.useMemo(() => {
+        if (!contextMenu || typeof window === 'undefined') return null;
+        const estimatedWidth = 164;
+        const estimatedHeight = 182;
+        const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
+        const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
+        return {
+            left: Math.max(8, left),
+            top: Math.max(8, top),
+        };
+    }, [contextMenu]);
 
     // ── Main render ───────────────────────────────────────────────────────────
     return (
@@ -706,12 +1005,64 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     onFocusCellRequestHandled={() => setFocusCellRequest(null)}
                                     onRemoveDraftRows={removeDraftRows}
                                     readOnlyMode={viewMode || isReadOnlyTab}
+                                    onCellContextMenu={handleCellContextMenu}
                                 />
                             )}
                         </div>
                     </div>
                 );
             })()}
+
+            {contextMenu && contextMenuPosition && (
+                <div
+                    ref={contextMenuRef}
+                    className="fixed z-panel-overlay min-w-40 rounded-md border border-border bg-bg-primary py-1 shadow-lg"
+                    style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        disabled={!canMutateCells || !hasEditableCellSelection}
+                        onClick={handleContextSetNull}
+                    >
+                        Set NULL
+                    </button>
+                    <button
+                        type="button"
+                        className={`w-full px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        disabled={!hasEditableCellSelection}
+                        onClick={handleContextCopy}
+                    >
+                        Copy
+                    </button>
+                    <button
+                        type="button"
+                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        disabled={!canMutateCells || !hasEditableCellSelection}
+                        onClick={handleContextPaste}
+                    >
+                        Paste
+                    </button>
+                    <div className="my-1 h-px bg-border/70" />
+                    <button
+                        type="button"
+                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDeleteRows ? 'text-error hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        disabled={!canMutateRows || !canDeleteRows}
+                        onClick={handleContextDelete}
+                    >
+                        Delete
+                    </button>
+                    <button
+                        type="button"
+                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDuplicateRows ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        disabled={!canMutateRows || !canDuplicateRows}
+                        onClick={handleContextDuplicate}
+                    >
+                        Duplicate
+                    </button>
+                </div>
+            )}
 
             {/* Status bar (info only) */}
             <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
@@ -823,3 +1174,5 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         </div>
     );
 };
+
+

@@ -470,7 +470,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 {activeSubTab === 'info' && (
                     <>
                         {activeInfoTab === 'columns' && (
-                            <div className="flex-1 overflow-hidden">
+                            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                             <SchemaInfoView
                                 rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
                                 onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
@@ -489,12 +489,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                             </div>
                         )}
                         {activeInfoTab === 'indexes' && (
-                            <div className="flex-1 overflow-hidden">
+                            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                             <IndexInfoView schema={schema} tableName={table} filterText={filterCol} refreshKey={infoRefreshKey} readOnlyMode={viewMode} />
                             </div>
                         )}
                         {activeInfoTab === 'ddl' && (
-                            <div className="flex-1 overflow-hidden">
+                            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                             <DDLInfoView schema={schema} tableName={table} refreshKey={infoRefreshKey} />
                             </div>
                         )}

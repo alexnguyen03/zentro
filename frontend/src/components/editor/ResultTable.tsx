@@ -42,6 +42,14 @@ export interface FocusCellRequest {
     nonce: number;
 }
 
+export interface ResultCellContextMenuPayload {
+    x: number;
+    y: number;
+    rowKey: string;
+    colIdx: number;
+    cellId: string;
+}
+
 interface ResultTableProps {
     tabId: string;
     columns: string[];
@@ -64,6 +72,7 @@ interface ResultTableProps {
     filterExpr?: string;
     onHeaderFilterRun?: (filterExpr: string) => void;
     onViewStatsChange?: (stats: { visibleRows: number; totalRows: number }) => void;
+    onCellContextMenu?: (payload: ResultCellContextMenuPayload) => void;
 }
 
 interface TableMeta {
@@ -74,6 +83,7 @@ interface TableMeta {
     handleCellMouseDown: (event: React.MouseEvent, rowKey: string, colIdx: number) => void;
     handleCellMouseEnter: (rowKey: string, colIdx: number) => void;
     handleCellDoubleClick: (rowKey: string, colIdx: number, val: string) => void;
+    handleCellContextMenu: (event: React.MouseEvent, rowKey: string, colIdx: number) => void;
     setEditValue: (value: string) => void;
     setEditingCell: (cellId: string | null) => void;
     handleRevertRow: (rowKey: string) => void;
@@ -198,6 +208,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     filterExpr = '',
     onHeaderFilterRun,
     onViewStatsChange,
+    onCellContextMenu,
 }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
@@ -507,6 +518,24 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         setLastSelected(cellId);
     }, [displayRowsByKey, isDone, isEditable, setSelectedCells, toast]);
 
+    const handleCellContextMenu = React.useCallback((event: React.MouseEvent, rowKey: string, colIdx: number) => {
+        if (!isDone || !onCellContextMenu) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const cellId = makeCellId(rowKey, colIdx);
+        if (!selectedCells.has(cellId)) {
+            setSelectedCells(new Set([cellId]));
+            setLastSelected(cellId);
+        }
+        onCellContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            rowKey,
+            colIdx,
+            cellId,
+        });
+    }, [isDone, onCellContextMenu, selectedCells, setSelectedCells]);
+
     const commitEdit = React.useCallback(async (options?: { nextDirection?: 1 | -1 }) => {
         const currentEditingCell = editingCellRef.current;
         if (!currentEditingCell) return;
@@ -742,6 +771,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                         onMouseDown={(event) => meta?.handleCellMouseDown?.(event, rowKey, colIdx)}
                         onMouseEnter={() => meta?.handleCellMouseEnter?.(rowKey, colIdx)}
                         onDoubleClick={() => meta?.handleCellDoubleClick?.(rowKey, colIdx, String(value))}
+                        onContextMenu={(event) => meta?.handleCellContextMenu?.(event, rowKey, colIdx)}
                         title={String(value)}
                     >
                         {String(value)}
@@ -795,6 +825,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             handleCellMouseDown,
             handleCellMouseEnter,
             handleCellDoubleClick,
+            handleCellContextMenu,
             setEditValue,
             setEditingCell,
             handleRevertRow,
