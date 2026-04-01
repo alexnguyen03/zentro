@@ -9,7 +9,7 @@ export interface RowState {
     isNew?: boolean;
 }
 
-export type SubTab = 'info' | 'data' | 'erd';
+export type TableInfoTab = 'columns' | 'data' | 'erd' | 'indexes' | 'ddl';
 export type SortDir = 'asc' | 'desc' | null;
 export type SortCol = 'idx' | 'Name' | 'DataType' | 'IsPrimaryKey' | 'IsNullable' | 'DefaultValue';
 

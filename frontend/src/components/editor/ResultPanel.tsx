@@ -67,6 +67,7 @@ interface ResultPanelProps {
     isMaximized?: boolean;
     onToggleMaximize?: () => void;
     showMaximizeControl?: boolean;
+    showResultFilterBar?: boolean;
 }
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({
@@ -84,6 +85,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     isMaximized = false,
     onToggleMaximize,
     showMaximizeControl = true,
+    showResultFilterBar = true,
 }) => {
     const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
@@ -820,7 +822,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
 
     // ── Limit selector ────────────────────────────────────────────────────────
-    const shouldShowResultFilterBar = Boolean(result?.isSelect);
+    const shouldShowResultFilterBar = Boolean(result?.isSelect) && showResultFilterBar;
     const shouldShowFilterInput = generatedKind !== 'explain';
     const resultFilterBar = result && shouldShowResultFilterBar ? (
         <ResultFilterBar

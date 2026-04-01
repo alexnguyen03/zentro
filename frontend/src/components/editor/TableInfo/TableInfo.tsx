@@ -1,6 +1,20 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import cx from 'classnames';
-import { Loader, RotateCcw, Save, RefreshCw, Plus, Trash2, Database, Table, Info, Table2, Network, Search } from 'lucide-react';
+import {
+    Database,
+    FileCode2,
+    Hash,
+    Info,
+    Loader,
+    Network,
+    Plus,
+    RefreshCw,
+    RotateCcw,
+    Save,
+    Search,
+    Table2,
+    Trash2,
+} from 'lucide-react';
 import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn } from '../../../services/schemaService';
 import { ExecuteQuery } from '../../../services/queryService';
 import { models } from '../../../../wailsjs/go/models';
@@ -23,9 +37,7 @@ import { DataExplorerView } from './DataExplorerView';
 import { RelationshipView } from './RelationshipView';
 import { IndexInfoView } from './IndexInfoView';
 import { DDLInfoView } from './DDLInfoView';
-import { RowState, SubTab, SortCol, SortDir, TabAction } from './types';
-
-type InfoTab = 'columns' | 'indexes' | 'ddl';
+import { RowState, TableInfoTab, SortCol, SortDir, TabAction } from './types';
 
 interface TableInfoProps {
     tabId: string;
@@ -58,13 +70,11 @@ function parseTableName(t: string) {
 }
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
-    // ... states remain same ...
     const [rows, setRows] = useState<RowState[]>([]);
     const [loading, setLoading] = useState(true);
     const [reloading, setReloading] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
-    const [activeSubTab, setActiveSubTab] = useState<SubTab>('info');
-    const [activeInfoTab, setActiveInfoTab] = useState<InfoTab>('columns');
+    const [activeTab, setActiveTab] = useState<TableInfoTab>('columns');
     const [saving, setSaving] = useState(false);
     const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
     const [editCell, setEditCell] = useState<{ rowIdx: number; field: 'Name' | 'DefaultValue' } | null>(null);
@@ -78,9 +88,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const filterInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
+    const [indexTabActions, setIndexTabActions] = useState<TabAction[]>([]);
+    const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [erdRelCount, setErdRelCount] = useState<number | null>(null);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const prevConnRef = useRef<string>('');
+    const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns', 'indexes']), []);
 
     const { activeProfile } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -93,21 +106,28 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const { schema, table } = parseTableName(tableName);
 
     const dataTabId = `data-${tabId}`;
-    const dataResult = useResultStore(s => s.results[dataTabId]);
+    const dataResult = useResultStore((s) => s.results[dataTabId]);
 
     const loadInfo = useCallback(async (silent = false) => {
         try {
-            if (silent) setReloading(true); else setLoading(true);
+            if (silent) setReloading(true);
+            else setLoading(true);
             setFetchError(null);
             const cols = await FetchTableColumns(schema, table);
             const rs: RowState[] = (cols || []).map((c, i) => ({
                 id: `col-${i}-${c.Name}`,
-                original: { ...c }, current: { ...c }, deleted: false,
+                original: { ...c },
+                current: { ...c },
+                deleted: false,
             }));
             setRows(rs);
             setRowErrors({});
-        } catch (error: unknown) { setFetchError(getErrorMessage(error)); }
-        finally { setLoading(false); setReloading(false); }
+        } catch (error: unknown) {
+            setFetchError(getErrorMessage(error));
+        } finally {
+            setLoading(false);
+            setReloading(false);
+        }
     }, [schema, table]);
 
     const loadData = useCallback(async (filter?: string) => {
@@ -119,84 +139,91 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     }, [schema, table, activeGroupId, dataTabId]);
 
     useEffect(() => {
-        if (activeSubTab === 'data' && !dataResult) loadData();
-    }, [activeSubTab, dataResult, loadData]);
+        if (activeTab === 'data' && !dataResult) loadData();
+    }, [activeTab, dataResult, loadData]);
 
     const handleRowMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
         if (e.button !== 0) return;
         setIsDragging(true);
         setDragStartIdx(idx);
         if (e.ctrlKey || e.metaKey) {
-            setSelectedRows(prev => {
+            setSelectedRows((prev) => {
                 const next = new Set(prev);
-                if (next.has(idx)) next.delete(idx); else next.add(idx);
+                if (next.has(idx)) next.delete(idx);
+                else next.add(idx);
                 return next;
             });
         } else if (e.shiftKey && selectedRows.size > 0) {
             const arr = Array.from(selectedRows);
             const start = Math.min(...arr);
-            const min = Math.min(start, idx), max = Math.max(start, idx);
+            const min = Math.min(start, idx);
+            const max = Math.max(start, idx);
             const next = new Set<number>();
             for (let i = min; i <= max; i++) next.add(i);
             setSelectedRows(next);
-        } else setSelectedRows(new Set([idx]));
+        } else {
+            setSelectedRows(new Set([idx]));
+        }
     }, [selectedRows]);
 
     const handleRowMouseEnter = useCallback((idx: number) => {
         if (!isDragging || dragStartIdx === null) return;
-        const min = Math.min(dragStartIdx, idx), max = Math.max(dragStartIdx, idx);
+        const min = Math.min(dragStartIdx, idx);
+        const max = Math.max(dragStartIdx, idx);
         const next = new Set<number>();
         for (let i = min; i <= max; i++) next.add(i);
         setSelectedRows(next);
     }, [isDragging, dragStartIdx]);
 
     useEffect(() => {
-        const h = () => { setIsDragging(false); setDragStartIdx(null); };
+        const h = () => {
+            setIsDragging(false);
+            setDragStartIdx(null);
+        };
         window.addEventListener('mouseup', h);
         return () => window.removeEventListener('mouseup', h);
     }, []);
 
     const toggleDeleteRows = useCallback(() => {
-        if (viewMode) return;
-        if (!selectedRows.size) return;
-        
-        setRows(prev => prev.map((r, i) => {
-            if (selectedRows.has(i)) {
-                if (r.isNew) return null;
-                return { ...r, deleted: !r.deleted };
-            }
-            return r;
-        }).filter(Boolean) as RowState[]);
+        if (viewMode || !selectedRows.size) return;
+        setRows((prev) => prev
+            .map((r, i) => {
+                if (selectedRows.has(i)) {
+                    if (r.isNew) return null;
+                    return { ...r, deleted: !r.deleted };
+                }
+                return r;
+            })
+            .filter(Boolean) as RowState[]);
         setSelectedRows(new Set());
     }, [selectedRows, viewMode]);
 
     useEffect(() => {
-        if (activeSubTab !== 'info') return;
+        if (activeTab !== 'columns') return;
         const h = (e: KeyboardEvent) => {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) toggleDeleteRows();
         };
         window.addEventListener('keydown', h);
         return () => window.removeEventListener('keydown', h);
-    }, [activeSubTab, toggleDeleteRows]);
+    }, [activeTab, toggleDeleteRows]);
 
-    const loadErd = useCallback(async () => setErdRefreshKey(k => k + 1), []);
+    const loadErd = useCallback(async () => setErdRefreshKey((k) => k + 1), []);
     const [infoRefreshKey, setInfoRefreshKey] = useState(0);
-    const tabReload: Record<SubTab, () => void> = useMemo(() => ({
-        info: () => {
-            if (activeInfoTab === 'columns') loadInfo(true);
-            else setInfoRefreshKey(k => k + 1);
-        },
+    const tabReload: Record<TableInfoTab, () => void> = useMemo(() => ({
+        columns: () => loadInfo(true),
         data: loadData,
-        erd: loadErd
-    }), [loadInfo, loadData, loadErd, activeInfoTab]);
+        erd: loadErd,
+        indexes: () => setInfoRefreshKey((k) => k + 1),
+        ddl: () => setInfoRefreshKey((k) => k + 1),
+    }), [loadInfo, loadData, loadErd]);
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
     useEffect(() => {
         const c = `${activeProfile?.name}:${activeProfile?.db_name}`;
-        if (prevConnRef.current && c !== prevConnRef.current) tabReload[activeSubTab]();
+        if (prevConnRef.current && c !== prevConnRef.current) tabReload[activeTab]();
         prevConnRef.current = c;
-    }, [activeProfile?.name, activeProfile?.db_name, activeSubTab, tabReload]);
+    }, [activeProfile?.name, activeProfile?.db_name, activeTab, tabReload]);
 
     const performSave = useCallback(async () => {
         if (viewMode) return;
@@ -208,7 +235,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 if (r.deleted) await DropTableColumn(schema, table, r.original.Name);
                 else if (r.isNew) await AddTableColumn(schema, table, r.current);
                 else if (JSON.stringify(r.original) !== JSON.stringify(r.current)) await AlterTableColumn(schema, table, r.original, r.current);
-            } catch (error: unknown) { errs[i] = getErrorMessage(error); }
+            } catch (error: unknown) {
+                errs[i] = getErrorMessage(error);
+            }
         }
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);
@@ -238,9 +267,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         if (operations.length > 0) {
             const guard = await writeSafetyGuard.guardOperations(operations, 'Apply Table Schema Changes');
             if (!guard.allowed) {
-                if (guard.blockedReason) {
-                    toast.error(guard.blockedReason);
-                }
+                if (guard.blockedReason) toast.error(guard.blockedReason);
                 return;
             }
         }
@@ -249,7 +276,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const saveAll = useCallback(async () => {
         if (viewMode) return;
-        const deletedCount = rows.filter(r => r.deleted).length;
+        const deletedCount = rows.filter((r) => r.deleted).length;
         if (deletedCount > 0) {
             setShowDeleteConfirm(true);
             return;
@@ -257,42 +284,45 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         await confirmSafetyAndSave();
     }, [rows, confirmSafetyAndSave, viewMode]);
 
-    const hasChanges = useMemo(() => rows.some(r => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
+    const hasChanges = useMemo(() => rows.some((r) => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
-            const activeGroup = groups.find(g => g.id === activeGroupId);
+            const activeGroup = groups.find((g) => g.id === activeGroupId);
             const isTabActive = activeGroup?.activeTabId === tabId;
-            if (e.key === 'F5' && isTabActive) { e.preventDefault(); tabReload[activeSubTab](); return; }
-            
-            // Ctrl + S to Save
-            if (e.ctrlKey && e.key.toLowerCase() === 's' && isTabActive) {
+            if (!isTabActive) return;
+
+            if (e.key === 'F5') {
                 e.preventDefault();
-                if (activeSubTab === 'info' && hasChanges && !saving && !viewMode) {
-                    saveAll();
-                }
+                tabReload[activeTab]();
                 return;
             }
 
-            if (e.ctrlKey && e.key.toLowerCase() === 'f' && isTabActive) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                if (activeTab === 'columns' && hasChanges && !saving && !viewMode) saveAll();
+                return;
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                if (!filterTabs.has(activeTab)) return;
                 const activeEl = document.activeElement;
                 if (activeEl?.closest('.sidebar')) return;
                 e.preventDefault();
-                if (activeSubTab !== 'info') setActiveSubTab('info');
                 setTimeout(() => filterInputRef.current?.focus(), 10);
             }
         };
         window.addEventListener('keydown', h);
         return () => window.removeEventListener('keydown', h);
-    }, [groups, activeGroupId, tabId, activeSubTab, tabReload, hasChanges, saving, saveAll, viewMode]);
+    }, [groups, activeGroupId, tabId, activeTab, tabReload, hasChanges, saving, saveAll, viewMode, filterTabs]);
 
     const displayIds = useMemo(() => {
         let rs = rows;
         if (filterCol.trim() !== '') {
             const f = filterCol.trim().toLowerCase();
-            rs = rows.filter(r => r.current.Name.toLowerCase().includes(f));
+            rs = rows.filter((r) => r.current.Name.toLowerCase().includes(f));
         }
-        if (!sortDir || sortCol === 'idx') return rs.map(r => r.id);
+        if (!sortDir || sortCol === 'idx') return rs.map((r) => r.id);
         return [...rs].sort((a, b) => {
             let av = a.current[sortCol as keyof models.ColumnDef] as string | boolean | number;
             let bv = b.current[sortCol as keyof models.ColumnDef] as string | boolean | number;
@@ -300,211 +330,234 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             if (typeof bv === 'boolean') bv = bv ? 1 : 0;
             const res = av < bv ? -1 : av > bv ? 1 : 0;
             return sortDir === 'asc' ? res : -res;
-        }).map(r => r.id);
+        }).map((r) => r.id);
     }, [rows, filterCol, sortCol, sortDir]);
 
     const updateRow = (idx: number, patch: Partial<models.ColumnDef>) => {
         if (viewMode) return;
-        setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.current, ...patch } } : r));
+        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, current: { ...r.current, ...patch } } : r)));
     };
+
     const discardRow = (idx: number) => {
-        setRows(prev => prev.map((r, i) => i === idx ? { ...r, current: { ...r.original }, deleted: false } : r));
-        setRowErrors(e => { const ne = { ...e }; delete ne[idx]; return ne; });
+        setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, current: { ...r.original }, deleted: false } : r)));
+        setRowErrors((e) => {
+            const ne = { ...e };
+            delete ne[idx];
+            return ne;
+        });
     };
+
     const discardAll = () => {
-        setRows(prev => prev.filter(r => !r.isNew).map(r => ({ ...r, current: { ...r.original }, deleted: false })));
+        setRows((prev) => prev.filter((r) => !r.isNew).map((r) => ({ ...r, current: { ...r.original }, deleted: false })));
         setRowErrors({});
         setSelectedRows(new Set());
     };
+
     const addColumn = () => {
         if (viewMode) return;
         const newCol: models.ColumnDef = {
             Name: `new_column_${rows.length + 1}`,
             DataType: driver === 'postgres' || driver === 'mysql' ? 'varchar(255)' : 'nvarchar(255)',
-            DefaultValue: '', IsNullable: true, IsPrimaryKey: false,
+            DefaultValue: '',
+            IsNullable: true,
+            IsPrimaryKey: false,
         };
-        setRows(prev => [...prev, { id: `new-${Date.now()}`, original: { ...newCol }, current: { ...newCol }, deleted: false, isNew: true }]);
+        setRows((prev) => [...prev, {
+            id: `new-${Date.now()}`,
+            original: { ...newCol },
+            current: { ...newCol },
+            deleted: false,
+            isNew: true,
+        }]);
     };
 
     const hasDataChanges = (dataResult?.pendingEdits?.size ?? 0) > 0 || (dataResult?.pendingDeletions?.size ?? 0) > 0;
-    const reloadAction: TabAction = { id: 'reload', icon: <RefreshCw size={12} />, label: 'Reload', title: 'Reload (F5)', onClick: tabReload[activeSubTab], loading: reloading };
+    const reloadAction: TabAction = {
+        id: 'reload',
+        icon: <RefreshCw size={12} />,
+        label: 'Reload',
+        title: 'Reload (F5)',
+        onClick: tabReload[activeTab],
+        loading: reloading,
+    };
 
-    const actions: Record<SubTab, TabAction[]> = {
-        info: [
-            ...(activeInfoTab === 'columns' ? [
-                ...(viewMode ? [] : [{ id: 'add', icon: <Plus size={12} />, label: 'Add Column', onClick: addColumn, disabled: saving }]),
-                ...(!viewMode && selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
-                ...(hasChanges ? [
-                    { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
-                    ...(!viewMode ? [
-                    { id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving },
-                    ] : []),
-                ] : []),
+    const actionsByTab: Record<TableInfoTab, TabAction[]> = {
+        columns: [
+            ...(viewMode ? [] : [{ id: 'add', icon: <Plus size={12} />, label: 'Add Column', onClick: addColumn, disabled: saving }]),
+            ...(!viewMode && selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
+            ...(hasChanges ? [
+                { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
+                ...(!viewMode ? [{ id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving }] : []),
             ] : []),
             reloadAction,
         ],
-        data: dataTabActions,
+        data: [...dataTabActions, reloadAction],
         erd: [reloadAction],
+        indexes: [...indexTabActions, reloadAction],
+        ddl: [...ddlTabActions, reloadAction],
     };
 
-    if (loading) return (
-        <div className="flex flex-col items-center justify-center gap-4 h-full bg-bg-primary">
-            <Loader size={24} className="animate-spin text-accent" />
-            <span className="text-sm text-text-secondary font-medium animate-pulse">Fetching table schema...</span>
-        </div>
-    );
+    const tabs: Array<{ key: TableInfoTab; label: string; icon: React.ReactNode; isModified: boolean; count?: number | null }> = [
+        { key: 'columns', label: 'Columns', icon: <Table2 size={13} />, isModified: hasChanges },
+        { key: 'data', label: 'Data', icon: <Database size={13} />, isModified: hasDataChanges },
+        { key: 'erd', label: 'Erd', icon: <Network size={13} />, isModified: false, count: erdRelCount },
+        { key: 'indexes', label: 'Indexes', icon: <Hash size={13} />, isModified: false },
+        { key: 'ddl', label: 'DDL', icon: <FileCode2 size={13} />, isModified: false },
+    ];
 
-    if (fetchError) return (
-        <div className="flex flex-col items-center justify-center p-12 h-full bg-bg-primary text-center">
-            <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6"><Info size={32} className="text-error" /></div>
-            <h2 className="text-xl font-bold text-text-primary mb-2">Failed to load table</h2>
-            <p className="text-text-secondary max-w-md mb-8">{fetchError}</p>
-            <Button onClick={() => loadInfo()} variant="solid" className="rounded-md px-8">Try Again</Button>
-        </div>
-    );
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center gap-4 h-full bg-bg-primary">
+                <Loader size={24} className="animate-spin text-accent" />
+                <span className="text-sm text-text-secondary font-medium animate-pulse">Fetching table schema...</span>
+            </div>
+        );
+    }
+
+    if (fetchError) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 h-full bg-bg-primary text-center">
+                <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6">
+                    <Info size={32} className="text-error" />
+                </div>
+                <h2 className="text-xl font-bold text-text-primary mb-2">Failed to load table</h2>
+                <p className="text-text-secondary max-w-md mb-8">{fetchError}</p>
+                <Button onClick={() => loadInfo()} variant="solid" className="rounded-md px-8">Try Again</Button>
+            </div>
+        );
+    }
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-bg-primary outline-none">
-            <header className="shrink-0 px-6 h-11 border-b border-border/40 bg-bg-secondary/20 flex items-center justify-between">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-bold text-text-muted/60 text-[11px] uppercase tracking-wider select-none">Table</span>
-                        {schema && (
-                            <span className="text-[10px] font-mono text-text-muted/60 bg-bg-tertiary/50 px-1.5 py-0.5 rounded-md tracking-tight select-none">
-                                {schema}
-                            </span>
-                        )}
-                        <h1 className="text-[14px] font-bold text-text-primary truncate tracking-tight">
-                            {table}
-                        </h1>
-                    </div>
+            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary flex items-center">
+                <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto scrollbar-thin">
+                    {tabs.map(({ key, label, icon, isModified, count }) => (
+                        <button
+                            key={key}
+                            onClick={() => {
+                                setActiveTab(key);
+                                setFilterCol('');
+                            }}
+                            className={cx(
+                                'relative flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-bold transition-colors cursor-pointer outline-none shrink-0',
+                                activeTab === key
+                                    ? 'text-text-primary bg-bg-secondary/70'
+                                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-secondary/30',
+                            )}
+                        >
+                            <span className={cx(activeTab === key ? 'text-accent' : 'opacity-60')}>{icon}</span>
+                            <span className="uppercase tracking-wider">{label}</span>
+                            {count !== undefined && count !== null && <span className="text-[10px] opacity-55">{count}</span>}
+                            {isModified && <span className="w-1.5 h-1.5 rounded-full bg-success ml-0.5" />}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex items-center gap-8 h-full">
-                    <div className="flex items-center gap-6 h-full">
-                        {([
-                            { key: 'info', label: 'Info', icon: <Info size={14} />, isModified: hasChanges, count: null },
-                            { key: 'data', label: 'Data', icon: <Database size={14} />, isModified: hasDataChanges, count: null },
-                            { key: 'erd', label: 'Erd', icon: <Network size={14} />, isModified: false, count: erdRelCount },
-                        ] as { key: SubTab; label: string; icon: React.ReactNode; isModified: boolean; count: number | null }[]).map(({ key, label, icon, isModified, count }) => (
-                            <button
-                                key={key}
-                                onClick={() => setActiveSubTab(key)}
-                                className={cx(
-                                    "relative flex items-center gap-2 h-full text-[11px] font-bold transition-all duration-200 cursor-pointer outline-none",
-                                    activeSubTab === key ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
-                                )}
-                            >
-                                <span className={cx(activeSubTab === key ? "text-accent" : "opacity-50")}>{icon}</span>
-                                <span>{label}</span>
-                                {count !== null && <span className="text-[10px] opacity-40 ml-0.5">{count}</span>}
-                                {isModified && <span className="w-1.5 h-1.5 rounded-full bg-success ml-1" />}
-                                {activeSubTab === key && (
-                                    <div className="absolute -bottom-px left-0 right-0 h-[2px] bg-accent rounded-t-full transition-all" />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </header>
-
-            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary flex items-center justify-between">
-                {/* LEFT: Actions */}
-                <div className="flex items-center gap-1 w-1/3">
-                    {actions[activeSubTab].map(action => (
+                <div className="flex items-center justify-center gap-1 flex-1">
+                    {actionsByTab[activeTab].map((action) => (
                         <ToolbarButton key={action.id} action={action} />
                     ))}
                 </div>
 
-                {/* CENTER: Filter */}
-                {activeSubTab === 'info' && (
-                    <div className="w-1/3 flex justify-center">
-                        <div className="relative group flex items-center w-64 max-w-full">
+                <div className="flex items-center justify-end flex-1">
+                    {filterTabs.has(activeTab) ? (
+                        <div className="relative group flex items-center w-72 max-w-full">
                             <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
                             <input
                                 ref={filterInputRef}
                                 type="text"
-                                placeholder={`Filter ${activeInfoTab}...`}
+                                placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
                                 value={filterCol}
                                 onChange={(e) => {
-                                    setSortCol('idx');
-                                    setSortDir('asc');
+                                    if (activeTab === 'columns') {
+                                        setSortCol('idx');
+                                        setSortDir('asc');
+                                    }
                                     setFilterCol(e.target.value);
                                 }}
-                                onKeyDown={(e) => e.key === 'Escape' && setFilterCol('')}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setFilterCol('');
+                                }}
                                 className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-md text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
                             />
                         </div>
-                    </div>
-                )}
-
-                {/* RIGHT: Sub-tabs */}
-                <div className="flex items-center justify-end w-1/3 gap-4 h-full">
-                    {activeSubTab === 'info' && (
-                        <div className="flex items-center gap-4 h-full">
-                            {([
-                                { key: 'columns', label: 'Columns' },
-                                { key: 'indexes', label: 'Indexes' },
-                                { key: 'ddl', label: 'DDL' }
-                            ] as const).map(({ key, label }) => (
-                                <button
-                                    key={key}
-                                    onClick={() => { setActiveInfoTab(key); setFilterCol(''); }}
-                                    className={cx(
-                                        "relative flex items-center h-full text-[11px] font-bold transition-all duration-200 cursor-pointer outline-none uppercase tracking-wider",
-                                        activeInfoTab === key ? "text-accent" : "text-text-muted hover:text-text-secondary"
-                                    )}
-                                >
-                                    <span>{label}</span>
-                                    {activeInfoTab === key && (
-                                        <div className="absolute -bottom-px left-0 right-0 h-[2px] bg-accent rounded-t-full transition-all" />
-                                    )}
-                                </button>
-                            ))}
-                        </div>
+                    ) : (
+                        <div className="h-7" />
                     )}
                 </div>
             </div>
 
             <main className="flex-1 flex flex-col min-h-0 relative">
-                {activeSubTab === 'info' && (
-                    <>
-                        {activeInfoTab === 'columns' && (
-                            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                            <SchemaInfoView
-                                rows={rows} displayIds={displayIds} types={types} editCell={editCell} setEditCell={setEditCell}
-                                onUpdate={updateRow} onDiscard={discardRow} rowErrors={rowErrors} selectedRows={selectedRows}
-                                onRowMouseDown={handleRowMouseDown} onRowMouseEnter={handleRowMouseEnter}
-                                readOnlyMode={viewMode}
-                                sortCol={sortCol} sortDir={sortDir} onSort={c => {
-                                    if (sortCol !== c) {
-                                        setSortCol(c);
-                                        setSortDir('asc');
-                                    } else {
-                                        setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc');
-                                    }
-                                }}
-                                filterText={filterCol} onFilterChange={setFilterCol} filterInputRef={filterInputRef}
-                            />
-                            </div>
-                        )}
-                        {activeInfoTab === 'indexes' && (
-                            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                            <IndexInfoView schema={schema} tableName={table} filterText={filterCol} refreshKey={infoRefreshKey} readOnlyMode={viewMode} />
-                            </div>
-                        )}
-                        {activeInfoTab === 'ddl' && (
-                            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                            <DDLInfoView schema={schema} tableName={table} refreshKey={infoRefreshKey} />
-                            </div>
-                        )}
-                    </>
+                {activeTab === 'columns' && (
+                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                        <SchemaInfoView
+                            rows={rows}
+                            displayIds={displayIds}
+                            types={types}
+                            editCell={editCell}
+                            setEditCell={setEditCell}
+                            onUpdate={updateRow}
+                            onDiscard={discardRow}
+                            rowErrors={rowErrors}
+                            selectedRows={selectedRows}
+                            onRowMouseDown={handleRowMouseDown}
+                            onRowMouseEnter={handleRowMouseEnter}
+                            readOnlyMode={viewMode}
+                            sortCol={sortCol}
+                            sortDir={sortDir}
+                            onSort={(c) => {
+                                if (sortCol !== c) {
+                                    setSortCol(c);
+                                    setSortDir('asc');
+                                } else {
+                                    setSortDir((d) => (d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc'));
+                                }
+                            }}
+                            filterText={filterCol}
+                            onFilterChange={setFilterCol}
+                            filterInputRef={filterInputRef}
+                        />
+                    </div>
                 )}
-                {activeSubTab === 'data' && (
-                    <DataExplorerView tabId={dataTabId} onRun={loadData} result={dataResult} onActionsChange={setDataTabActions} schema={schema} table={table} isReadOnlyMode={viewMode} />
+
+                {activeTab === 'data' && (
+                    <DataExplorerView
+                        tabId={dataTabId}
+                        onRun={loadData}
+                        result={dataResult}
+                        onActionsChange={setDataTabActions}
+                        schema={schema}
+                        table={table}
+                        isReadOnlyMode={viewMode}
+                    />
                 )}
-                {activeSubTab === 'erd' && (
+
+                {activeTab === 'erd' && (
                     <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={setErdRelCount} />
+                )}
+
+                {activeTab === 'indexes' && (
+                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                        <IndexInfoView
+                            schema={schema}
+                            tableName={table}
+                            filterText={filterCol}
+                            refreshKey={infoRefreshKey}
+                            readOnlyMode={viewMode}
+                            onActionsChange={setIndexTabActions}
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'ddl' && (
+                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                        <DDLInfoView
+                            schema={schema}
+                            tableName={table}
+                            refreshKey={infoRefreshKey}
+                            onActionsChange={setDdlTabActions}
+                        />
+                    </div>
                 )}
             </main>
 
@@ -516,7 +569,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 }}
                 title="Confirm Destruction"
                 message="Are you sure?"
-                description={`You are about to permanently delete ${rows.filter(r => r.deleted).length} ${rows.filter(r => r.deleted).length === 1 ? 'column' : 'columns'}. This action cannot be undone.`}
+                description={`You are about to permanently delete ${rows.filter((r) => r.deleted).length} ${rows.filter((r) => r.deleted).length === 1 ? 'column' : 'columns'}. This action cannot be undone.`}
                 confirmLabel="Delete Permanently"
                 variant="danger"
             />
@@ -524,5 +577,4 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         </div>
     );
 };
-
 

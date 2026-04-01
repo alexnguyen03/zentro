@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Loader, Trash2, Hash, Plus } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader, RotateCcw, Save, Trash2, Hash, Plus } from 'lucide-react';
 import { GetIndexes, DropIndex, CreateIndex } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { Button } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
+import { type TabAction } from './types';
 
 interface IndexInfo {
     Name: string;
@@ -22,9 +23,10 @@ interface IndexInfoViewProps {
     filterText: string;
     refreshKey: number; // Trigger reload
     readOnlyMode?: boolean;
+    onActionsChange?: (actions: TabAction[]) => void;
 }
 
-export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName, filterText, refreshKey, readOnlyMode = false }) => {
+export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName, filterText, refreshKey, readOnlyMode = false, onActionsChange }) => {
     const [indexes, setIndexes] = useState<IndexInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [dropIndexTarget, setDropIndexTarget] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     const [newIndexColumns, setNewIndexColumns] = useState('');
     const [newIndexUnique, setNewIndexUnique] = useState(false);
     const [saving, setSaving] = useState(false);
+    const actionsSignatureRef = useRef('');
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
@@ -120,6 +123,53 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             idx.Columns.some(c => c.toLowerCase().includes(lower))
         );
     }, [indexes, filterText]);
+    const showInlineActions = !onActionsChange;
+
+    const panelActions = useMemo<TabAction[]>(() => {
+        if (readOnlyMode) return [];
+        if (showCreateForm) {
+            return [
+                {
+                    id: 'index-cancel-create',
+                    icon: <RotateCcw size={12} />,
+                    label: 'Cancel',
+                    title: 'Cancel Create Index',
+                    onClick: () => setShowCreateForm(false),
+                    disabled: saving,
+                    danger: true,
+                },
+                {
+                    id: 'index-create',
+                    icon: <Save size={12} />,
+                    label: 'Create Index',
+                    title: 'Create Index',
+                    onClick: () => { void handleCreate(); },
+                    disabled: saving,
+                    loading: saving,
+                },
+            ];
+        }
+        return [
+            {
+                id: 'index-new',
+                icon: <Plus size={12} />,
+                label: 'New Index',
+                title: 'New Index',
+                onClick: () => setShowCreateForm(true),
+                disabled: saving,
+            },
+        ];
+    }, [handleCreate, readOnlyMode, saving, showCreateForm]);
+
+    useEffect(() => {
+        if (!onActionsChange) return;
+        const signature = panelActions
+            .map((action) => `${action.id}:${action.disabled ? 1 : 0}:${action.loading ? 1 : 0}:${action.danger ? 1 : 0}`)
+            .join('|');
+        if (actionsSignatureRef.current === signature) return;
+        actionsSignatureRef.current = signature;
+        onActionsChange(panelActions);
+    }, [onActionsChange, panelActions]);
 
     if (loading) {
         return (
@@ -164,12 +214,14 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                     />
                     <span className="text-[11px] font-medium text-text-secondary">Unique Index</span>
                 </label>
-                <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(false)} className="h-7 text-[11px]">Cancel</Button>
-                    <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving} className="h-7 text-[11px]">
-                        {saving ? 'Creating...' : 'Create Index'}
-                    </Button>
-                </div>
+                {showInlineActions && (
+                    <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(false)} className="h-7 text-[11px]">Cancel</Button>
+                        <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving} className="h-7 text-[11px]">
+                            {saving ? 'Creating...' : 'Create Index'}
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -198,9 +250,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                 <p className="text-[13px] text-text-secondary max-w-sm mb-6">
                     This table does not have any indexes.
                 </p>
-                <Button variant="ghost" onClick={() => setShowCreateForm(true)} disabled={readOnlyMode}>
-                    <Plus size={14} className="mr-1.5" /> Add First Index
-                </Button>
+                {showInlineActions && (
+                    <Button variant="ghost" onClick={() => setShowCreateForm(true)} disabled={readOnlyMode}>
+                        <Plus size={14} className="mr-1.5" /> Add First Index
+                    </Button>
+                )}
             </div>
         );
     }
@@ -224,10 +278,12 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
             {!showCreateForm && indexes.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 shrink-0">
                     <span className="text-[11px] font-medium text-text-secondary">{indexes.length} index(es)</span>
-                    <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(true)} className="h-7 px-2 text-[11px]" disabled={readOnlyMode}>
-                        <Plus size={13} className="mr-1.5" />
-                        New Index
-                    </Button>
+                    {showInlineActions && (
+                        <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(true)} className="h-7 px-2 text-[11px]" disabled={readOnlyMode}>
+                            <Plus size={13} className="mr-1.5" />
+                            New Index
+                        </Button>
+                    )}
                 </div>
             )}
 
