@@ -820,6 +820,17 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         onSearchPrev: () => { if (canUseResultSearch) jumpToPrevHit(); },
         setEditedCells, setDraftRows,
     });
+    const contextMenuPosition = React.useMemo(() => {
+        if (!contextMenu || typeof window === 'undefined') return null;
+        const estimatedWidth = 164;
+        const estimatedHeight = 182;
+        const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
+        const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
+        return {
+            left: Math.max(8, left),
+            top: Math.max(8, top),
+        };
+    }, [contextMenu]);
 
     // ── Limit selector ────────────────────────────────────────────────────────
     const shouldShowResultFilterBar = Boolean(result?.isSelect) && showResultFilterBar;
@@ -929,18 +940,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             del: deletedRows.size,
         };
     })();
-    const contextMenuPosition = React.useMemo(() => {
-        if (!contextMenu || typeof window === 'undefined') return null;
-        const estimatedWidth = 164;
-        const estimatedHeight = 182;
-        const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
-        const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
-        return {
-            left: Math.max(8, left),
-            top: Math.max(8, top),
-        };
-    }, [contextMenu]);
-
     // ── Main render ───────────────────────────────────────────────────────────
     return (
         <div
