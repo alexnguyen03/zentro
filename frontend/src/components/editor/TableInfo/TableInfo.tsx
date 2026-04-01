@@ -372,6 +372,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     };
 
     const hasDataChanges = (dataResult?.pendingEdits?.size ?? 0) > 0 || (dataResult?.pendingDeletions?.size ?? 0) > 0;
+    const safeDataActions = useMemo(() => dataTabActions.filter((action) => !action.render), [dataTabActions]);
     const reloadAction: TabAction = {
         id: 'reload',
         icon: <RefreshCw size={12} />,
@@ -391,7 +392,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             ] : []),
             reloadAction,
         ],
-        data: [...dataTabActions, reloadAction],
+        data: [...safeDataActions, reloadAction],
         erd: [reloadAction],
         indexes: [...indexTabActions, reloadAction],
         ddl: [...ddlTabActions, reloadAction],
@@ -577,4 +578,3 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         </div>
     );
 };
-
