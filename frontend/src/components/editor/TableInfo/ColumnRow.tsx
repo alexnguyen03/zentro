@@ -44,7 +44,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* Index / Selector */}
                 <td className="w-10 text-center border-b border-border">
                     <div
-                        className="rt-cell-content row-num-col justify-center"
+                        className="rt-cell-content rt-cell-content--compact row-num-col"
                         onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
                         title={(isDirty || isDeleted) ? 'Double-click to discard changes' : undefined}
                     >
@@ -68,7 +68,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                         />
                     ) : (
                         <div
-                            className={`rt-cell-content font-mono text-[12px] ${isDirty && col.Name !== row.original.Name ? 'rt-cell-dirty' : ''}`}
+                            className={`rt-cell-content rt-cell-content--compact font-mono ${isDirty && col.Name !== row.original.Name ? 'rt-cell-dirty' : ''}`}
                             onDoubleClick={() => !isDeleted && !readOnlyMode && setEditCell({ rowIdx, field: 'Name' })}
                             title={col.Name}
                         >
@@ -90,7 +90,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
 
                 {/* PK */}
                 <td className="w-12 text-center border-b border-border">
-                    <div className="rt-cell-content justify-center h-full">
+                    <div className="rt-cell-content rt-cell-content--compact justify-center">
                         <input
                             type="checkbox"
                             checked={col.IsPrimaryKey}
@@ -103,7 +103,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
 
                 {/* Nullable */}
                 <td className="w-16 text-center border-b border-border">
-                    <div className="rt-cell-content justify-center h-full">
+                    <div className="rt-cell-content rt-cell-content--compact justify-center">
                         <input
                             type="checkbox"
                             checked={col.IsNullable}
@@ -117,12 +117,12 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* Default */}
                 <td className="p-0 border-b border-border">
                     {isDeleted
-                        ? <div className="rt-cell-content font-mono text-[11px]! opacity-40 italic">{col.DefaultValue || 'NULL'}</div>
+                        ? <div className="rt-cell-content rt-cell-content--compact font-mono opacity-40 italic">{col.DefaultValue || 'NULL'}</div>
                         : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
                             ? <input
                                 autoFocus
                                 onFocus={e => e.target.select()}
-                                className="rt-cell-input font-mono text-[11px]! border-accent!"
+                                className="rt-cell-input font-mono text-[11px] border-accent!"
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
                                 onKeyDown={e => {
@@ -131,7 +131,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                                 }}
                             />
                             : <div
-                                className={`rt-cell-content font-mono text-[11px]! ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''} ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'}`}
+                                className={`rt-cell-content rt-cell-content--compact font-mono ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''} ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'}`}
                                 onDoubleClick={() => !readOnlyMode && setEditCell({ rowIdx, field: 'DefaultValue' })}
                                 title={col.DefaultValue || 'None'}
                             >

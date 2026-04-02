@@ -687,7 +687,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                 const meta = table.options.meta as TableMeta | undefined;
                 return (
                     <div
-                        className="rt-cell-content row-num-col"
+                        className="rt-cell-content rt-cell-content--compact row-num-col"
                         onDoubleClick={() => meta?.handleRevertRow?.(row.original.key)}
                         title={row.original.kind === 'draft' ? 'Double-click to remove this unsaved row' : 'Double-click to revert changes to this row'}
                     >
@@ -767,7 +767,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
 
                 return (
                     <div
-                        className={`rt-cell-content ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
+                        className={`rt-cell-content rt-cell-content--compact ${isSelected ? 'rt-cell-selected' : ''} ${isDirty ? 'rt-cell-dirty' : ''}`}
                         onMouseDown={(event) => meta?.handleCellMouseDown?.(event, rowKey, colIdx)}
                         onMouseEnter={() => meta?.handleCellMouseEnter?.(rowKey, colIdx)}
                         onDoubleClick={() => meta?.handleCellDoubleClick?.(rowKey, colIdx, String(value))}
@@ -936,7 +936,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
                                                     onClick={canSort ? fixedHeader.column.getToggleSortingHandler() : undefined}
                                                     title={canSort && !isDone ? 'Sort available after query completes' : undefined}
                                                 >
-                                                    <span className="rt-th-label">
+                                                    <span className="rt-th-label justify-center">
                                                         {flexRender(fixedHeader.column.columnDef.header, fixedHeader.getContext())}
                                                         {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
                                                         {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
