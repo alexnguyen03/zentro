@@ -631,6 +631,28 @@ export namespace plugin {
 
 export namespace utils {
 	
+	export class ShortcutRule {
+	    id: string;
+	    command_id: string;
+	    binding: string;
+	    when: string;
+	    source: string;
+	    order: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ShortcutRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.command_id = source["command_id"];
+	        this.binding = source["binding"];
+	        this.when = source["when"];
+	        this.source = source["source"];
+	        this.order = source["order"];
+	    }
+	}
 	export class Preferences {
 	    theme: string;
 	    font_size: number;
@@ -643,6 +665,7 @@ export namespace utils {
 	    auto_check_updates: boolean;
 	    view_mode: boolean;
 	    shortcuts: Record<string, string>;
+	    shortcut_rules: ShortcutRule[];
 	
 	    static createFrom(source: any = {}) {
 	        return new Preferences(source);
@@ -661,7 +684,26 @@ export namespace utils {
 	        this.auto_check_updates = source["auto_check_updates"];
 	        this.view_mode = source["view_mode"];
 	        this.shortcuts = source["shortcuts"];
+	        this.shortcut_rules = this.convertValues(source["shortcut_rules"], ShortcutRule);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

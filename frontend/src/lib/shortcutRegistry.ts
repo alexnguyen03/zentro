@@ -50,6 +50,7 @@ export interface CommandRegistryEntry {
   label: string;
   category: CommandCategory;
   defaultBinding: string;
+  defaultWhen?: string;
   action: () => void | Promise<void>;
   isEnabled?: () => boolean;
 }
@@ -95,6 +96,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Save Current Tab',
     category: 'Editor',
     defaultBinding: 'Ctrl+S',
+    defaultWhen: 'queryTabActive && !viewMode && !captureFocus',
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -122,6 +124,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Run Query',
     category: 'Editor',
     defaultBinding: 'Ctrl+Enter',
+    defaultWhen: 'sqlEditorFocus && queryTabActive',
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -136,6 +139,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Explain Query',
     category: 'Editor',
     defaultBinding: 'Ctrl+Shift+E',
+    defaultWhen: 'sqlEditorFocus && queryTabActive',
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -150,6 +154,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Explain Analyze',
     category: 'Editor',
     defaultBinding: 'Ctrl+Alt+E',
+    defaultWhen: 'sqlEditorFocus && queryTabActive',
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -164,6 +169,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Format Query',
     category: 'Editor',
     defaultBinding: 'Ctrl+Shift+F',
+    defaultWhen: 'sqlEditorFocus && queryTabActive',
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -177,7 +183,8 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     id: 'editor.toggleBookmark',
     label: 'Toggle Bookmark',
     category: 'Editor',
-    defaultBinding: 'Ctrl+F2',
+    defaultBinding: 'Ctrl+F3',
+    defaultWhen: 'sqlEditorFocus && queryTabActive',
     action: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -191,7 +198,8 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     id: 'editor.nextBookmark',
     label: 'Next Bookmark',
     category: 'Editor',
-    defaultBinding: 'F2',
+    defaultBinding: 'F3',
+    defaultWhen: 'queryTabActive',
     action: () => {
       if (document.querySelector('.monaco-editor.focused')) {
         const state = useEditorStore.getState();
@@ -266,6 +274,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Toggle Result Panel',
     category: 'Layout',
     defaultBinding: 'Ctrl+J',
+    defaultWhen: 'queryTabActive',
     isEnabled: () => {
       const state = useEditorStore.getState();
       const activeGroup = state.groups.find(g => g.id === state.activeGroupId);
@@ -339,6 +348,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Begin Transaction',
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+7',
+    defaultWhen: 'connectionActive && !viewMode',
     action: async () => {
       if (useConnectionStore.getState().isConnected && !useSettingsStore.getState().viewMode) {
         await BeginTransaction();
@@ -350,6 +360,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Commit Transaction',
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+8',
+    defaultWhen: 'connectionActive && !viewMode',
     action: async () => {
       if (useConnectionStore.getState().isConnected && !useSettingsStore.getState().viewMode) {
         await CommitTransaction();
@@ -361,6 +372,7 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     label: 'Rollback Transaction',
     category: 'Connection',
     defaultBinding: 'Ctrl+Shift+9',
+    defaultWhen: 'connectionActive && !viewMode',
     action: async () => {
       if (useConnectionStore.getState().isConnected && !useSettingsStore.getState().viewMode) {
         await RollbackTransaction();

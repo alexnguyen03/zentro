@@ -1,23 +1,24 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Loader, Copy, Check, FileCode2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Copy, FileCode2, Loader } from 'lucide-react';
 import { GetTableDDL } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useToast } from '../../layout/Toast';
 import { highlightSQL } from '../../../lib/sqlHighlight';
-import { Button } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
 import { setClipboardText } from '../../../services/clipboardService';
+import { type TabAction } from './types';
 
 interface DDLInfoViewProps {
     schema: string;
     tableName: string;
-    refreshKey: number; // Trigger reload
+    refreshKey: number;
+    onActionsChange?: (actions: TabAction[]) => void;
 }
 
-export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, refreshKey }) => {
+export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, refreshKey, onActionsChange }) => {
     const [ddl, setDdl] = useState<string>('');
     const [loading, setLoading] = useState(true);
-    const [copied, setCopied] = useState(false);
+    const actionsSignatureRef = useRef('');
     const { activeProfile } = useConnectionStore();
     const { toast } = useToast();
 
@@ -44,12 +45,32 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
     const handleCopy = async () => {
         try {
             await setClipboardText(ddl);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            toast.success('DDL copied to clipboard');
         } catch (err: unknown) {
             toast.error(`Failed to copy DDL: ${getErrorMessage(err)}`);
         }
     };
+
+    const panelActions = useMemo<TabAction[]>(() => ([
+        {
+            id: 'ddl-copy',
+            icon: <Copy size={12} />,
+            label: 'Copy',
+            title: 'Copy DDL',
+            onClick: () => { void handleCopy(); },
+            disabled: !ddl,
+        },
+    ]), [ddl]);
+
+    useEffect(() => {
+        if (!onActionsChange) return;
+        const signature = panelActions
+            .map((action) => `${action.id}:${action.disabled ? 1 : 0}:${action.loading ? 1 : 0}:${action.danger ? 1 : 0}`)
+            .join('|');
+        if (actionsSignatureRef.current === signature) return;
+        actionsSignatureRef.current = signature;
+        onActionsChange(panelActions);
+    }, [onActionsChange, panelActions]);
 
     if (loading) {
         return (
@@ -76,17 +97,13 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
 
     return (
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 bg-bg-secondary border-b border-border/50 shrink-0">
+            <div className="flex items-center px-4 py-2 bg-bg-secondary border-b border-border/50 shrink-0">
                 <div className="flex items-center gap-2 text-[12px] font-medium text-text-primary">
                     <FileCode2 size={14} className="text-accent" />
-                    <span>CREATE Script — {schema}.{tableName}</span>
+                    <span>CREATE Script - {schema}.{tableName}</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleCopy} className="h-7 px-2" disabled={!ddl}>
-                    {copied ? <Check size={13} className="mr-1.5 text-success" /> : <Copy size={13} className="mr-1.5" />}
-                    {copied ? 'Copied' : 'Copy'}
-                </Button>
             </div>
-            
+
             <div className="flex-1 overflow-auto p-4 bg-bg-primary">
                 <pre
                     className="text-[12px] font-mono leading-loose text-text-primary select-text"

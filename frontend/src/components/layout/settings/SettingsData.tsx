@@ -2,6 +2,9 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
 import { Button, FormField, Input, SelectField, SwitchField } from '../../ui';
+import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
+import type { EnvironmentKey } from '../../../types/project';
+import type { SafetyLevel } from '../../../features/query/policyProfiles';
 
 interface Props {
     limit: number;
@@ -13,14 +16,40 @@ interface Props {
     telemetryOptIn: boolean;
     onTelemetryOptInChange: (val: boolean) => void;
     onExportTelemetry: () => void;
+    activeSafetyEnvironment: EnvironmentKey;
+    safetyLevel: SafetyLevel;
+    onSafetyLevelChange: (val: SafetyLevel) => void;
+    strongConfirmFromEnvironment: EnvironmentKey;
+    onStrongConfirmFromEnvironmentChange: (val: EnvironmentKey) => void;
 }
+
+const STRONG_CONFIRM_SLIDER_KEYS = [...ENVIRONMENT_KEYS].reverse() as EnvironmentKey[];
+
+const STRONG_CONFIRM_INDEX = STRONG_CONFIRM_SLIDER_KEYS.reduce<Record<EnvironmentKey, number>>((acc, key, index) => {
+    acc[key] = index;
+    return acc;
+}, {} as Record<EnvironmentKey, number>);
 
 export const SettingsData: React.FC<Props> = ({ 
     limit, onLimitChange, 
     connectTimeout, onConnectTimeoutChange, 
     queryTimeout, onQueryTimeoutChange,
     telemetryOptIn, onTelemetryOptInChange, onExportTelemetry,
+    activeSafetyEnvironment,
+    safetyLevel, onSafetyLevelChange,
+    strongConfirmFromEnvironment, onStrongConfirmFromEnvironmentChange,
 }) => {
+    const maxSliderIndex = STRONG_CONFIRM_SLIDER_KEYS.length - 1;
+    const strongConfirmIndex = STRONG_CONFIRM_INDEX[strongConfirmFromEnvironment] ?? 0;
+    const activeSafetyEnvironmentLabel = getEnvironmentMeta(activeSafetyEnvironment).label;
+    const strongConfirmLabel = getEnvironmentMeta(strongConfirmFromEnvironment).label;
+    const setStrongConfirmByIndex = (index: number) => {
+        const nextEnvironment = STRONG_CONFIRM_SLIDER_KEYS[index];
+        if (nextEnvironment) {
+            onStrongConfirmFromEnvironmentChange(nextEnvironment);
+        }
+    };
+
     return (
         <div className={SettingsClasses.section}>
             <div className={SettingsClasses.sectionInfo}>
@@ -61,6 +90,84 @@ export const SettingsData: React.FC<Props> = ({
                         value={queryTimeout}
                         onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
                     />
+                </FormField>
+
+                <FormField
+                    label="Write Safety Level"
+                    hint={`Applies to current environment: ${activeSafetyEnvironmentLabel}. Strict blocks UPDATE/DELETE without WHERE.`}
+                >
+                    <SelectField
+                        value={safetyLevel}
+                        onChange={(event) => onSafetyLevelChange(event.target.value as SafetyLevel)}
+                    >
+                        <option value="strict">Strict</option>
+                        <option value="balanced">Balanced</option>
+                        <option value="relaxed">Relaxed</option>
+                    </SelectField>
+                </FormField>
+
+                <FormField
+                    label="Strong Confirm From Environment"
+                    hint={`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
+                >
+                    <div className="rounded-md border border-border/25 bg-bg-primary/60 px-3 py-3">
+                        <input
+                            type="range"
+                            min={0}
+                            max={maxSliderIndex}
+                            step={1}
+                            value={strongConfirmIndex}
+                            onChange={(event) => {
+                                const nextIndex = parseInt(event.target.value, 10);
+                                setStrongConfirmByIndex(nextIndex);
+                            }}
+                            className="w-full cursor-pointer accent-accent"
+                            aria-label="Strong Confirm From Environment"
+                        />
+                        <div className="relative mt-1 h-2">
+                            {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {
+                                const isActive = key === strongConfirmFromEnvironment;
+                                const position = `${(index / maxSliderIndex) * 100}%`;
+                                const alignmentClass = index === 0
+                                    ? 'left-0 translate-x-0'
+                                    : index === maxSliderIndex
+                                        ? 'left-full -translate-x-full'
+                                        : '-translate-x-1/2';
+                                return (
+                                    <span
+                                        key={key}
+                                        className={`absolute top-0 h-2 w-2 rounded-full border ${alignmentClass} ${isActive ? 'border-accent bg-accent' : 'border-border/60 bg-bg-primary'}`}
+                                        style={{ left: position }}
+                                    />
+                                );
+                            })}
+                        </div>
+                        <div className="relative mt-2 h-7">
+                            {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {
+                                const isActive = key === strongConfirmFromEnvironment;
+                                const position = `${(index / maxSliderIndex) * 100}%`;
+                                const alignmentClass = index === 0
+                                    ? 'left-0 translate-x-0'
+                                    : index === maxSliderIndex
+                                        ? 'left-full -translate-x-full'
+                                        : '-translate-x-1/2';
+
+                                return (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setStrongConfirmByIndex(index)}
+                                        className={`absolute top-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-text-muted/75'}`}
+                                        style={{ left: position }}
+                                        aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}
+                                        title={`Set to ${getEnvironmentMeta(key).label}`}
+                                    >
+                                        {getEnvironmentMeta(key).label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </FormField>
 
                 <FormField

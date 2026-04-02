@@ -27,6 +27,20 @@ vi.mock('../../stores/connectionStore', () => ({
         selector({ activeProfile: { driver: 'postgres' } }),
 }));
 
+vi.mock('@tanstack/react-virtual', () => ({
+    useVirtualizer: ({ count }: { count: number }) => ({
+        getVirtualItems: () => Array.from({ length: count }, (_, index) => ({
+            index,
+            key: index,
+            start: index * 22,
+            end: (index + 1) * 22,
+            size: 22,
+        })),
+        getTotalSize: () => count * 22,
+        scrollToIndex: vi.fn(),
+    }),
+}));
+
 describe('ResultTable', () => {
     it('renders compact data type on header and sticky index column', () => {
         const onHeaderFilterRun = vi.fn();
@@ -111,5 +125,46 @@ describe('ResultTable', () => {
         const updatedHeader = container.querySelectorAll('th')[2] as HTMLTableCellElement;
         const nextWidth = Number.parseInt(updatedHeader.style.width || '0', 10);
         expect(nextWidth).toBeGreaterThan(initialWidth);
+    });
+
+    it('emits cell context menu payload and selects right-clicked cell', () => {
+        const onCellContextMenu = vi.fn();
+        const setSelectedCells = vi.fn();
+
+        render(
+            <ResultTable
+                tabId="tab-ctx"
+                columns={['id', 'name']}
+                rows={[['1', 'Alice']]}
+                isDone={true}
+                editedCells={new Map()}
+                setEditedCells={vi.fn()}
+                selectedCells={new Set()}
+                setSelectedCells={setSelectedCells}
+                draftRows={[]}
+                setDraftRows={vi.fn()}
+                columnDefs={[
+                    { Name: 'id', DataType: 'integer' },
+                    { Name: 'name', DataType: 'character varying' },
+                ] as any}
+                focusCellRequest={null}
+                onFocusCellRequestHandled={vi.fn()}
+                onRemoveDraftRows={vi.fn()}
+                onHeaderFilterRun={vi.fn()}
+                onViewStatsChange={vi.fn()}
+                onCellContextMenu={onCellContextMenu}
+            />,
+        );
+
+        fireEvent.contextMenu(screen.getByText('Alice'), { clientX: 220, clientY: 140 });
+
+        expect(setSelectedCells).toHaveBeenCalledWith(new Set(['p:0|1']));
+        expect(onCellContextMenu).toHaveBeenCalledWith(expect.objectContaining({
+            x: 220,
+            y: 140,
+            rowKey: 'p:0',
+            colIdx: 1,
+            cellId: 'p:0|1',
+        }));
     });
 });

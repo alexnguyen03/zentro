@@ -22,6 +22,8 @@ describe('query policy', () => {
             rowCapPerTab: 25000,
             destructiveRules: 'block',
             environmentStrictness: 'strict',
+            safetyLevel: 'strict',
+            requireProdDoubleConfirm: true,
         });
         assignExecutionPolicyProfile('dev', 'team-guarded');
 
@@ -29,5 +31,8 @@ describe('query policy', () => {
         expect(policy.rowCapPerTab).toBe(25000);
         expect(policy.destructiveRules).toBe('block');
         expect(policy.environmentStrictness).toBe('strict');
+        expect(policy.safetyLevel).toBe('strict');
+        expect(policy.requireProdDoubleConfirm).toBe(true);
+        expect(policy.strongConfirmFromEnvironment).toBe('pro');
     });
 });

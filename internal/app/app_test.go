@@ -404,6 +404,23 @@ func TestFetchMoreRows_Lifecycle(t *testing.T) {
 	if hasMore, _ := firstDone["hasMore"].(bool); !hasMore {
 		t.Fatalf("expected hasMore=true for initial query")
 	}
+	firstBatchRows := 0
+drainFirstChunks:
+	for {
+		select {
+		case chunk := <-chunkChan:
+			rows, ok := chunk["rows"].([][]string)
+			if !ok {
+				t.Fatalf("expected chunk rows to be [][]string, got %T", chunk["rows"])
+			}
+			firstBatchRows += len(rows)
+		default:
+			break drainFirstChunks
+		}
+	}
+	if firstBatchRows != 10 {
+		t.Fatalf("expected initial chunk rows == limit (10), got %d", firstBatchRows)
+	}
 
 	a.FetchMoreRows("tab-fetchmore-1", 10)
 
@@ -417,18 +434,22 @@ func TestFetchMoreRows_Lifecycle(t *testing.T) {
 		t.Fatalf("expected no fetch-more error, got %q", errMsg)
 	}
 
-	chunkCount := 0
-drainChunks:
+	secondBatchRows := 0
+drainSecondChunks:
 	for {
 		select {
-		case <-chunkChan:
-			chunkCount++
+		case chunk := <-chunkChan:
+			rows, ok := chunk["rows"].([][]string)
+			if !ok {
+				t.Fatalf("expected chunk rows to be [][]string, got %T", chunk["rows"])
+			}
+			secondBatchRows += len(rows)
 		default:
-			break drainChunks
+			break drainSecondChunks
 		}
 	}
-	if chunkCount == 0 {
-		t.Fatalf("expected query chunk events for run/fetch-more lifecycle")
+	if secondBatchRows > 10 {
+		t.Fatalf("expected fetch-more chunk rows to never exceed limit (10), got %d", secondBatchRows)
 	}
 }
 

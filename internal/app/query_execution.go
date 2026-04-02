@@ -90,14 +90,19 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 	buf := make([][]string, 0, chunkSize)
 	sentCols := false
 	totalRowsFetched := 0
+	hasMore := false
 
 	for rows.Next() {
 		if ctx.Err() != nil || s.isCancelled(statement.SourceTabID) {
 			break
 		}
 		row := scanRowAsStrings(rows, colCount)
-		buf = append(buf, row)
 		totalRowsFetched++
+		if totalRowsFetched > fetchLimit {
+			hasMore = true
+			break
+		}
+		buf = append(buf, row)
 
 		if len(buf) == chunkSize {
 			var chunkCols []string
@@ -122,8 +127,6 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(statement, chunkCols, buf, seq, "", nil))
 		}
 	}
-
-	hasMore := totalRowsFetched > fetchLimit
 
 	if hasMore {
 		totalRowsFetched = fetchLimit
@@ -227,14 +230,19 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		var chunk [][]string
 		seq := 0
 		rowCount := 0
+		hasMore := false
 
 		for rows.Next() {
 			if ctx.Err() != nil || s.isCancelled(sourceID) {
 				break
 			}
 			row := scanRowAsStrings(rows, len(cols))
-			chunk = append(chunk, row)
 			rowCount++
+			if rowCount > limit {
+				hasMore = true
+				break
+			}
+			chunk = append(chunk, row)
 
 			if len(chunk) >= 500 {
 				EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
@@ -248,7 +256,6 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		}
 
 		duration := time.Since(start)
-		hasMore := rowCount > limit
 
 		if hasMore {
 			rowCount = limit
@@ -326,6 +333,9 @@ func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	if s.getPrefs().ViewMode {
 		return 0, fmt.Errorf("view mode is enabled: write statements are blocked")
 	}
+	if err := s.validateStrictWriteSafety([]string{query}); err != nil {
+		return 0, err
+	}
 
 	executor := s.getExecutor()
 	if !isExecutorReady(executor) {
@@ -343,4 +353,28 @@ func (s *QueryService) ExecuteUpdateSync(query string) (int64, error) {
 	}
 
 	return res.RowsAffected()
+}
+
+func (s *QueryService) validateStrictWriteSafety(statements []string) error {
+	if !s.isStrictWriteSafetyEnvironment() {
+		return nil
+	}
+	for _, statement := range statements {
+		risk := dbpkg.AnalyzeStatementRisk(statement)
+		if risk.UpdateNoWhere {
+			return fmt.Errorf("write safety policy: UPDATE without WHERE is blocked in strict environment")
+		}
+		if risk.DeleteNoWhere {
+			return fmt.Errorf("write safety policy: DELETE without WHERE is blocked in strict environment")
+		}
+	}
+	return nil
+}
+
+func (s *QueryService) isStrictWriteSafetyEnvironment() bool {
+	if s.getCurrentEnvironmentKey == nil {
+		return false
+	}
+	environmentKey := strings.TrimSpace(s.getCurrentEnvironmentKey())
+	return strings.EqualFold(environmentKey, "pro") || strings.EqualFold(environmentKey, "sta")
 }

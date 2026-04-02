@@ -7,11 +7,8 @@ import {
     Layers,
     Link2,
     List,
-    Loader,
     Plus,
-    RefreshCw,
     Search,
-    Server,
     Sigma,
     SpellCheck2,
     Table2,
@@ -22,7 +19,9 @@ import {
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { FetchDatabaseSchema } from '../../services/schemaService';
+import { useSchemaStore } from '../../stores/schemaStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/cn';
 import { CreateTableModal } from '../layout/CreateTableModal';
@@ -31,11 +30,12 @@ import { DropObject } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
 import { useConnectionTreeModel } from './useConnectionTreeModel';
 import type { CategoryGroupNode, ConnectionTreeIcon, SchemaBucketNode } from './connectionTreeTypes';
-import { Reconnect } from '../../services/connectionService';
-import { CONNECTION_STATUS } from '../../lib/constants';
-import { Button } from '../ui';
+import { Button, SelectField } from '../ui';
+import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 const iconClass = 'opacity-80 shrink-0';
+const ALL_SCHEMAS_VALUE = '__all_schemas__';
+const PRIMARY_CATEGORY_KEYS = new Set(['tables', 'views']);
 
 function renderIcon(icon: ConnectionTreeIcon, size = 12): React.ReactNode {
     switch (icon) {
@@ -207,14 +207,20 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 };
 
 export const ConnectionTree: React.FC = () => {
-    const { isConnected, activeProfile, connectionStatus } = useConnectionStore();
+    const { isConnected, activeProfile } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const addTab = useEditorStore((state) => state.addTab);
     const { toast } = useToast();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
     const [filter, setFilter] = useState('');
     const [fuzzyMatch, setFuzzyMatch] = useState(false);
     const [activeCategoryKey, setActiveCategoryKey] = useState<string>('tables');
+    const [selectedSchema, setSelectedSchema] = useState<string>(ALL_SCHEMAS_VALUE);
+    const [showMoreCategories, setShowMoreCategories] = useState(false);
     const filterInputRef = useRef<HTMLInputElement>(null);
+    const schemaTreeKey = activeProfile?.name && activeProfile?.db_name ? `${activeProfile.name}:${activeProfile.db_name}` : '';
+    const schemas = useSchemaStore((state) => (schemaTreeKey ? state.trees[schemaTreeKey] : undefined));
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -229,6 +235,10 @@ export const ConnectionTree: React.FC = () => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
+
+    useEffect(() => {
+        setSelectedSchema(ALL_SCHEMAS_VALUE);
+    }, [schemaTreeKey]);
 
     if (!isConnected || !activeProfile || !activeProfile.db_name || !activeProfile.name) {
         return null;
@@ -248,21 +258,61 @@ export const ConnectionTree: React.FC = () => {
         fuzzyMatch,
     });
 
+    const availableSchemas = useMemo(() => {
+        if (!schemas || schemas.length === 0) return [];
+        return Array.from(new Set(schemas.map((schema) => schema.Name).filter(Boolean))).sort((left, right) =>
+            left.localeCompare(right),
+        );
+    }, [schemas]);
+
+    const scopedCategories = useMemo(() => {
+        if (selectedSchema === ALL_SCHEMAS_VALUE) return categories;
+        return categories.map((category) => {
+            const scopedSchemas = category.schemas.filter((bucket) => bucket.schemaName === selectedSchema);
+            return {
+                ...category,
+                schemas: scopedSchemas,
+                totalCount: scopedSchemas.reduce((sum, bucket) => sum + bucket.totalCount, 0),
+            };
+        });
+    }, [categories, selectedSchema]);
+    const primaryCategories = useMemo(
+        () => scopedCategories.filter((category) => PRIMARY_CATEGORY_KEYS.has(category.key)),
+        [scopedCategories],
+    );
+    const secondaryCategories = useMemo(
+        () => scopedCategories.filter((category) => !PRIMARY_CATEGORY_KEYS.has(category.key)),
+        [scopedCategories],
+    );
+    const visibleCategories = useMemo(
+        () => (showMoreCategories ? scopedCategories : primaryCategories),
+        [primaryCategories, scopedCategories, showMoreCategories],
+    );
+
     const filterLower = filter.trim().toLowerCase();
     const isFiltering = filterLower.length > 0;
     const activeCategory = useMemo(
-        () => categories.find((category) => category.key === activeCategoryKey) || categories[0] || null,
-        [activeCategoryKey, categories],
+        () => scopedCategories.find((category) => category.key === activeCategoryKey) || scopedCategories[0] || null,
+        [activeCategoryKey, scopedCategories],
     );
 
     useEffect(() => {
-        if (categories.length === 0) return;
-        const hasActive = categories.some((category) => category.key === activeCategoryKey);
+        if (scopedCategories.length === 0) return;
+        const hasActive = scopedCategories.some((category) => category.key === activeCategoryKey);
         if (!hasActive) {
-            const tablesCategory = categories.find((category) => category.key === 'tables');
-            setActiveCategoryKey((tablesCategory || categories[0]).key);
+            const tablesCategory = scopedCategories.find((category) => category.key === 'tables');
+            setActiveCategoryKey((tablesCategory || scopedCategories[0]).key);
         }
-    }, [activeCategoryKey, categories]);
+    }, [activeCategoryKey, scopedCategories]);
+    useEffect(() => {
+        if (visibleCategories.length === 0) return;
+        const hasVisibleActive = visibleCategories.some((category) => category.key === activeCategoryKey);
+        if (!hasVisibleActive) {
+            const tablesCategory = visibleCategories.find((category) => category.key === 'tables');
+            const viewsCategory = visibleCategories.find((category) => category.key === 'views');
+            setActiveCategoryKey((tablesCategory || viewsCategory || visibleCategories[0]).key);
+        }
+    }, [activeCategoryKey, visibleCategories]);
 
     const handleOpenDefinition = (schemaName: string, objectName: string) => {
         addTab({
@@ -275,6 +325,13 @@ export const ConnectionTree: React.FC = () => {
 
     const handleDropObject = async (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW') => {
         if (!activeProfile?.name || !activeProfile?.db_name) return;
+        const guard = await writeSafetyGuard.guardOperations(['drop'], `Drop ${objectType}`);
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
         try {
             await DropObject(activeProfile.name, schema, objectName, objectType);
             toast.success(`${objectType} "${objectName}" dropped successfully`);
@@ -283,15 +340,6 @@ export const ConnectionTree: React.FC = () => {
             toast.error(`Failed to drop: ${error}`);
         }
     };
-    const handleReconnect = async () => {
-        if (!activeProfile || connectionStatus === CONNECTION_STATUS.CONNECTING) return;
-        try {
-            await Reconnect();
-        } catch {
-            // Keep silent to match previous toolbar behavior.
-        }
-    };
-
     const emptyMessage = useMemo(() => {
         if (isLoading && !hasLoadedSchemas) return 'Loading schemas...';
         if (!activeCategory) return 'No categories found';
@@ -300,29 +348,6 @@ export const ConnectionTree: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden bg-bg-secondary/80">
-            <div className="flex items-center justify-between gap-2 px-2 py-1 shrink-0 bg-bg-secondary">
-                <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                    <Server size={13} className="text-success shrink-0" />
-                    <span className="text-[12px] font-semibold text-text-primary truncate" title={activeProfile.db_name}>
-                        {activeProfile.db_name}
-                    </span>
-                    {isLoading && <Loader size={12} className="animate-spin text-text-secondary shrink-0" />}
-                </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 p-0 text-text-secondary hover:text-text-primary"
-                    title="Reload Connection"
-                    onClick={() => {
-                        void handleReconnect();
-                    }}
-                    disabled={connectionStatus === CONNECTION_STATUS.CONNECTING}
-                >
-                    <span className="inline-flex items-center justify-center">
-                        <RefreshCw size={12} className={cn(connectionStatus === CONNECTION_STATUS.CONNECTING && 'animate-spin')} />
-                    </span>
-                </Button>
-            </div>
             <div className="flex items-center gap-1.5 px-2 py-1 shrink-0 bg-bg-secondary/70">
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
@@ -362,10 +387,49 @@ export const ConnectionTree: React.FC = () => {
                     </button>
                 )}
             </div>
+            <div className="px-2 pb-1 shrink-0 bg-bg-secondary/70">
+                <div className="flex items-center gap-1.5 justify-between">
+                    <span className='text-xs'>Schema</span>
+                    <div className="min-w-0">
+                        <SelectField
+                            value={selectedSchema}
+                            onChange={(event) => setSelectedSchema(event.target.value)}
+                            aria-label="Select schema"
+                            title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
+                            hideChevron
+                            className="h-7 w-full min-w-0 cursor-pointer text-accent border-0 bg-transparent px-2 text-center rounded-sm shadow-none hover:bg-bg-tertiary/70 focus:border-0 focus:ring-0"
+                        >
+                            <option value={ALL_SCHEMAS_VALUE} className="text-text-primary">
+                                All schemas
+                            </option>
+                            {availableSchemas.map((schemaName) => (
+                                <option key={schemaName} value={schemaName} className="text-text-primary">
+                                    {schemaName}
+                                </option>
+                                ))}
+                        </SelectField>
+                    </div>
+                    {secondaryCategories.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                                'h-7 w-7 p-0 text-text-secondary hover:text-text-primary',
+                                showMoreCategories && 'text-accent bg-bg-tertiary/50',
+                            )}
+                            onClick={() => setShowMoreCategories((current) => !current)}
+                            aria-expanded={showMoreCategories}
+                            title={showMoreCategories ? 'Show fewer actions' : 'Show more actions'}
+                        >
+                            <ChevronDown size={12} className={cn('transition-transform', showMoreCategories && 'rotate-180')} />
+                        </Button>
+                    )}
+                </div>
+            </div>
 
             <div className="flex-1 min-h-0 flex flex-col p-1.5 gap-1.5 overflow-hidden">
                 <div className="shrink-0 pb-1 border-b border-border/70 ">
-                    {categories.map((category) => (
+                    {visibleCategories.map((category) => (
                         <button
                             key={category.id}
                             type="button"
@@ -411,6 +475,7 @@ export const ConnectionTree: React.FC = () => {
                     )}
                 </div>
             </div>
+            {writeSafetyGuard.modals}
         </div>
     );
 };

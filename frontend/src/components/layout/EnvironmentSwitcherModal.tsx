@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Check, CircleAlert, Download } from 'lucide-react';
-import { ModalBackdrop, ModalFrame, Button, Spinner, Tooltip } from '../ui';
+import { ConfirmationModal, ModalBackdrop, ModalFrame, Button, Spinner, Tooltip } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -11,7 +11,7 @@ import { getProvider } from '../../lib/providers';
 import type { ConnectionProfile } from '../../types/connection';
 import type { EnvironmentKey } from '../../types/project';
 import { useToast } from './Toast';
-import { ExportConnectionPackage, ImportConnectionPackage, LoadConnections } from '../../services/connectionService';
+import { DeleteConnection, ExportConnectionPackage, ImportConnectionPackage, LoadConnections } from '../../services/connectionService';
 import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
@@ -44,6 +44,9 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const [saving, setSaving] = React.useState(false);
     const [exporting, setExporting] = React.useState(false);
     const [importingFormConnection, setImportingFormConnection] = React.useState(false);
+    const [editingProfile, setEditingProfile] = React.useState<ConnectionProfile | null>(null);
+    const [pendingDeleteProfile, setPendingDeleteProfile] = React.useState<ConnectionProfile | null>(null);
+    const [deletingConnectionName, setDeletingConnectionName] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         if (!activeProject) return;
@@ -88,6 +91,8 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
     const existingNames = connections.map((c) => c.name!).filter(Boolean);
     const form = useConnectionForm({
+        profile: editingProfile,
+        isOpen: mode === 'add',
         existingNames,
         onSaved: async () => {
             const savedName = form.formData.name || '';
@@ -100,6 +105,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 setMode('choose');
                 setIsSelectingProvider(false);
                 setProviderFilter('');
+                setEditingProfile(null);
             } catch (error) {
                 toast.error(`Failed to reload connections: ${error}`);
             }
@@ -108,6 +114,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
             setMode('choose');
             setIsSelectingProvider(false);
             setProviderFilter('');
+            setEditingProfile(null);
         },
     });
     const selectedProvider = React.useMemo(
@@ -133,6 +140,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
             if (!imported) return;
 
             const importedProfile: ConnectionProfile = { ...(imported as ConnectionProfile) };
+            setEditingProfile(null);
             form.setFormFromProfile(importedProfile);
             setIsSelectingProvider(false);
             setProviderFilter('');
@@ -143,6 +151,51 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
             setImportingFormConnection(false);
         }
     }, [form, toast]);
+
+    const handleEditConnection = React.useCallback((profile: ConnectionProfile) => {
+        setEditingProfile(profile);
+        setMode('add');
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+    }, []);
+
+    const handleRequestDeleteConnection = React.useCallback((profile: ConnectionProfile) => {
+        setPendingDeleteProfile(profile);
+    }, []);
+
+    const handleConfirmDeleteConnection = React.useCallback(async () => {
+        const profileName = pendingDeleteProfile?.name;
+        if (!profileName) return;
+
+        setDeletingConnectionName(profileName);
+        try {
+            await DeleteConnection(profileName);
+            const loaded = await LoadConnections();
+            const next = loaded || [];
+            setLocalConnections(next);
+            setConnections(next);
+
+            if (selectedProfileName === profileName) {
+                const fallback = next[0] || null;
+                setSelectedProfileName(fallback?.name || null);
+                setSelectedDatabase(fallback?.db_name || '');
+            }
+
+            if (editingProfile?.name === profileName) {
+                setEditingProfile(null);
+                setMode('choose');
+                setIsSelectingProvider(false);
+                setProviderFilter('');
+            }
+
+            toast.success(`Deleted connection "${profileName}".`);
+        } catch (error) {
+            toast.error(`Could not delete connection: ${error}`);
+        } finally {
+            setDeletingConnectionName(null);
+            setPendingDeleteProfile(null);
+        }
+    }, [editingProfile?.name, pendingDeleteProfile?.name, selectedProfileName, setConnections, toast]);
 
     const handleApply = async () => {
         if (!activeProject) return;
@@ -197,6 +250,21 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
     return (
         <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
+            <ConfirmationModal
+                isOpen={Boolean(pendingDeleteProfile)}
+                onClose={() => {
+                    if (deletingConnectionName) return;
+                    setPendingDeleteProfile(null);
+                }}
+                onConfirm={() => {
+                    void handleConfirmDeleteConnection();
+                }}
+                title="Delete Connection"
+                message={`Delete "${pendingDeleteProfile?.name || ''}"?`}
+                description="This action removes the saved connection profile."
+                confirmLabel={deletingConnectionName ? 'Deleting...' : 'Delete'}
+                variant="danger"
+            />
             <ModalFrame
                 title={activeProject.name}
                 subtitle="Project"
@@ -294,11 +362,15 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                         selectedProfile={selectedProfileName}
                                         selectedDatabase={selectedDatabase}
                                         onAddNew={() => {
+                                            setEditingProfile(null);
                                             form.resetForm();
                                             setMode('add');
                                             setIsSelectingProvider(true);
                                             setProviderFilter('');
                                         }}
+                                        onEditConnection={handleEditConnection}
+                                        onDeleteConnection={handleRequestDeleteConnection}
+                                        deletingConnectionName={deletingConnectionName}
                                     />
                                 </div>
                             </div>
@@ -309,6 +381,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                     providerFilter={providerFilter}
                                     selectedProvider={selectedProvider}
                                     onBack={() => {
+                                        setEditingProfile(null);
                                         setMode('choose');
                                         setIsSelectingProvider(false);
                                         setProviderFilter('');
@@ -348,6 +421,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                     onTest={form.handleTest}
                                                     onSave={form.handleSave}
                                                     onCancel={() => {
+                                                        setEditingProfile(null);
                                                         setMode('choose');
                                                         setIsSelectingProvider(false);
                                                         setProviderFilter('');

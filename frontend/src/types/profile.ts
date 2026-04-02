@@ -35,6 +35,15 @@ export interface ProfileCommandOverridesMetadata {
     generated_at?: string;
 }
 
+export interface ProfileShortcutRule {
+    id: string;
+    command_id: CommandId;
+    binding: string;
+    when: string;
+    source: 'user' | 'system';
+    order: number;
+}
+
 export interface ZentroProfilePackageV1 {
     schema: 'zentro.profile';
     version: 1;
@@ -57,4 +66,18 @@ export interface ZentroProfilePackageV2 {
     };
 }
 
-export type ZentroProfilePackage = ZentroProfilePackageV1 | ZentroProfilePackageV2;
+export interface ZentroProfilePackageV3 {
+    schema: 'zentro.profile';
+    version: 3;
+    metadata: ProfileMetadata;
+    settings: ProfileSettings;
+    layout: ProfileLayout;
+    shortcuts: Record<CommandId, string>;
+    shortcut_rules: ProfileShortcutRule[];
+    customization: ProfileCustomization;
+    command_overrides: {
+        metadata: ProfileCommandOverridesMetadata;
+    };
+}
+
+export type ZentroProfilePackage = ZentroProfilePackageV1 | ZentroProfilePackageV2 | ZentroProfilePackageV3;

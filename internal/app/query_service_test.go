@@ -100,6 +100,7 @@ func TestExecuteQuery_ViewModeBlocksMutatingBatch(t *testing.T) {
 		func() sqlExecutor { return nil },
 		func() string { return constant.DriverSQLite },
 		func() string { return "" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -139,6 +140,7 @@ func TestExecuteQuery_ViewModeAllowsReadOnlyBatch(t *testing.T) {
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
 		func() string { return "" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -175,6 +177,7 @@ func TestExecuteUpdateSync_ViewModeBlocked(t *testing.T) {
 		func() *sql.DB { return db },
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
+		func() string { return "" },
 		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{},
@@ -235,6 +238,7 @@ func TestStreamSelect_SkipsPrimaryKeyLookupWhenDBIsNil(t *testing.T) {
 		func() sqlExecutor { return db },
 		func() string { return constant.DriverSQLite },
 		func() string { return "" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
 			if eventName != constant.EventQueryDone {
@@ -287,6 +291,7 @@ func TestExecuteUpdateSync_PostgresUsesCurrentSchemaSearchPath(t *testing.T) {
 		func() sqlExecutor { return executor },
 		func() string { return constant.DriverPostgres },
 		func() string { return "inv" },
+		func() string { return "" },
 		func(string, int64, time.Duration, error) {},
 		funcEventEmitter{},
 	)
@@ -306,5 +311,113 @@ func TestExecuteUpdateSync_PostgresUsesCurrentSchemaSearchPath(t *testing.T) {
 	}
 	if executor.execStatements[1] != "UPDATE inventory_balance SET qty = qty + 1" {
 		t.Fatalf("unexpected update statement: %q", executor.execStatements[1])
+	}
+}
+
+func TestExecuteUpdateSync_StrictEnvironmentBlocksNoWhere(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{}
+		},
+		func() *sql.DB { return db },
+		func() sqlExecutor { return db },
+		func() string { return constant.DriverSQLite },
+		func() string { return "" },
+		func() string { return "pro" },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{},
+	)
+
+	if _, err := svc.ExecuteUpdateSync("UPDATE users SET role = 'admin'"); err == nil {
+		t.Fatalf("expected strict write safety error, got nil")
+	}
+}
+
+func TestExecuteQuery_StrictEnvironmentBlocksNoWhere(t *testing.T) {
+	doneCh := make(chan map[string]any, 1)
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{QueryTimeout: 5}
+		},
+		func() *sql.DB { return nil },
+		func() sqlExecutor { return nil },
+		func() string { return constant.DriverSQLite },
+		func() string { return "" },
+		func() string { return "pro" },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{fn: func(_ context.Context, eventName string, payload any) {
+			if eventName != constant.EventQueryDone {
+				return
+			}
+			if data, ok := payload.(map[string]any); ok {
+				doneCh <- data
+			}
+		}},
+	)
+
+	svc.ExecuteQuery("tab-strict", "UPDATE users SET role = 'admin';")
+
+	select {
+	case done := <-doneCh:
+		errMsg, _ := done["error"].(string)
+		if !strings.Contains(strings.ToLower(errMsg), "without where") {
+			t.Fatalf("expected write safety where error, got %q", errMsg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for done event")
+	}
+}
+
+func TestExportAllRows_IgnoresViewportLimit(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`CREATE TABLE export_rows (x INTEGER);`); err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+	for i := 1; i <= 30; i++ {
+		if _, err := db.Exec(`INSERT INTO export_rows (x) VALUES (?);`, i); err != nil {
+			t.Fatalf("failed to seed table row %d: %v", i, err)
+		}
+	}
+
+	svc := NewQueryService(
+		context.Background(),
+		utils.NewLogger(false),
+		func() utils.Preferences {
+			return utils.Preferences{DefaultLimit: 10, ChunkSize: 5, QueryTimeout: 5}
+		},
+		func() *sql.DB { return db },
+		func() sqlExecutor { return db },
+		func() string { return constant.DriverSQLite },
+		func() string { return "" },
+		func() string { return "" },
+		func(string, int64, time.Duration, error) {},
+		funcEventEmitter{},
+	)
+
+	svc.activeQueriesMu.Lock()
+	svc.activeQueries["tab-export-all"] = "SELECT x FROM export_rows ORDER BY x"
+	svc.activeQueriesMu.Unlock()
+
+	cols, rows, err := svc.ExportAllRows("tab-export-all")
+	if err != nil {
+		t.Fatalf("expected export-all query to succeed, got %v", err)
+	}
+	if len(cols) != 1 || cols[0] != "x" {
+		t.Fatalf("unexpected columns: %#v", cols)
+	}
+	if len(rows) != 30 {
+		t.Fatalf("expected 30 rows from export-all, got %d", len(rows))
+	}
+	if rows[0][0] != "1" || rows[29][0] != "30" {
+		t.Fatalf("unexpected row boundaries: first=%q last=%q", rows[0][0], rows[29][0])
 	}
 }

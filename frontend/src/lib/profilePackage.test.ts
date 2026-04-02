@@ -27,13 +27,14 @@ describe('profilePackage', () => {
             bindings: {
                 'editor.newTab': 'Ctrl+T',
             },
+            userRules: [],
         } as any);
     });
 
     it('builds profile package from current stores', () => {
         const profile = buildCurrentProfilePackage('Team SQL');
         expect(profile.schema).toBe('zentro.profile');
-        expect(profile.version).toBe(2);
+        expect(profile.version).toBe(3);
         expect(profile.metadata.name).toBe('Team SQL');
         expect(profile.settings.theme).toBe('dark');
         expect(profile.layout.show_sidebar).toBe(true);
@@ -67,7 +68,7 @@ describe('profilePackage', () => {
 
         const parsed = parseProfilePackage(raw);
         expect(parsed.metadata.name).toBe('Demo');
-        expect(parsed.version).toBe(2);
+        expect(parsed.version).toBe(3);
         expect(parsed.shortcuts['editor.newTab']).toBe('Ctrl+T');
         expect(parsed.command_overrides.metadata.source).toBe('migrated-v1');
     });
@@ -78,13 +79,13 @@ describe('profilePackage', () => {
 
     it('applies profile into stores and persistence APIs', async () => {
         const save = vi.fn(async () => undefined);
-        const replaceBindings = vi.fn(async () => undefined);
+        const replaceShortcutRules = vi.fn(async () => undefined);
         const setShowSidebar = vi.fn();
         const setShowResultPanel = vi.fn();
         const setShowRightSidebar = vi.fn();
 
         useSettingsStore.setState({ save } as any);
-        useShortcutStore.setState({ replaceBindings } as any);
+        useShortcutStore.setState({ replaceShortcutRules } as any);
         useLayoutStore.setState({
             setShowSidebar,
             setShowResultPanel,
@@ -116,7 +117,7 @@ describe('profilePackage', () => {
         });
 
         expect(save).toHaveBeenCalledTimes(1);
-        expect(replaceBindings).toHaveBeenCalledTimes(1);
+        expect(replaceShortcutRules).toHaveBeenCalledTimes(1);
         expect(setShowSidebar).toHaveBeenCalledWith(false);
         expect(setShowResultPanel).toHaveBeenCalledWith(false);
         expect(setShowRightSidebar).toHaveBeenCalledWith(true);

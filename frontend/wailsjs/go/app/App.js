@@ -110,6 +110,18 @@ export function ExplainQuery(arg1, arg2, arg3) {
   return window['go']['app']['App']['ExplainQuery'](arg1, arg2, arg3);
 }
 
+export function ExportAllCSV(arg1, arg2) {
+  return window['go']['app']['App']['ExportAllCSV'](arg1, arg2);
+}
+
+export function ExportAllJSON(arg1, arg2) {
+  return window['go']['app']['App']['ExportAllJSON'](arg1, arg2);
+}
+
+export function ExportAllSQLInsert(arg1, arg2, arg3) {
+  return window['go']['app']['App']['ExportAllSQLInsert'](arg1, arg2, arg3);
+}
+
 export function ExportCSV(arg1, arg2) {
   return window['go']['app']['App']['ExportCSV'](arg1, arg2);
 }

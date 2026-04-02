@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
@@ -8,15 +9,18 @@ import { Spinner } from '../ui';
 interface ConnectionPickerProps {
     onClose: () => void;
     anchorRef: React.RefObject<HTMLDivElement | null>;
+    onEditConnection?: (name: string) => void | Promise<void>;
+    onDeleteConnection?: (name: string) => void | Promise<void>;
 }
 
-export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anchorRef }) => {
+export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anchorRef, onEditConnection, onDeleteConnection }) => {
     const { connections, databases, activeProfile } = useConnectionStore();
 
     // Track which connection is "previewed" in right column
     const [selectedConn, setSelectedConn] = useState<string>(activeProfile?.name ?? '');
     const [connecting, setConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deletingConnectionName, setDeletingConnectionName] = useState<string | null>(null);
 
     // Databases to show: only from active profile (the backend owns this list)
     // After Connect(), the store gets updated via event, so we reactively re-render.
@@ -48,6 +52,22 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
             await SwitchDatabase(dbName);
         } catch (err) {
             console.error('ConnectionPicker: switch db failed:', err);
+        }
+    };
+
+    const handleEditConnection = (event: React.MouseEvent, name: string) => {
+        event.stopPropagation();
+        void onEditConnection?.(name);
+    };
+
+    const handleDeleteConnection = async (event: React.MouseEvent, name: string) => {
+        event.stopPropagation();
+        if (!onDeleteConnection) return;
+        setDeletingConnectionName(name);
+        try {
+            await onDeleteConnection(name);
+        } finally {
+            setDeletingConnectionName((current) => (current === name ? null : current));
         }
     };
 
@@ -93,12 +113,40 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                     key={conn.name}
                                     className={cn(
                                         itemBaseClass,
+                                        "group flex items-center gap-2",
                                         isSelected && "bg-white/5",
                                         isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
                                     )}
                                     onClick={() => handleSelectConn(conn.name)}
                                 >
-                                    {conn.name}
+                                    <span className="min-w-0 flex-1 truncate">{conn.name}</span>
+                                    {(onEditConnection || onDeleteConnection) && (
+                                        <span className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                                            {onEditConnection && (
+                                                <button
+                                                    type="button"
+                                                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-primary/65 hover:text-text-primary"
+                                                    onClick={(event) => handleEditConnection(event, conn.name)}
+                                                    title={`Edit ${conn.name}`}
+                                                >
+                                                    <Pencil size={11} />
+                                                </button>
+                                            )}
+                                            {onDeleteConnection && (
+                                                <button
+                                                    type="button"
+                                                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-error/12 hover:text-error disabled:cursor-not-allowed disabled:opacity-60"
+                                                    onClick={(event) => {
+                                                        void handleDeleteConnection(event, conn.name);
+                                                    }}
+                                                    title={`Delete ${conn.name}`}
+                                                    disabled={deletingConnectionName === conn.name}
+                                                >
+                                                    {deletingConnectionName === conn.name ? <Spinner size={10} /> : <Trash2 size={11} />}
+                                                </button>
+                                            )}
+                                        </span>
+                                    )}
                                 </div>
                             );
                         })}

@@ -3,6 +3,7 @@ import {
     Settings,
     Lock,
     Eye,
+    RefreshCw,
     PanelLeft,
     PanelBottom,
     PanelRight,
@@ -36,6 +37,7 @@ import { utils } from '../../../wailsjs/go/models';
 import { emitCommand, onCommand } from '../../lib/commandBus';
 import { WindowControls } from './toolbar/WindowControls';
 import { AppMenu } from './toolbar/AppMenu';
+import { Reconnect } from '../../services/connectionService';
 
 export const Toolbar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
@@ -247,6 +249,14 @@ export const Toolbar: React.FC = () => {
         await savePrefs(new utils.Preferences({ view_mode: next }));
         toast.success(next ? 'View Mode enabled (read-only).' : 'View Mode disabled.');
     };
+    const handleReconnect = async () => {
+        if (!activeProfile || connectionStatus === CONNECTION_STATUS.CONNECTING) return;
+        try {
+            await Reconnect();
+        } catch {
+            // Keep silent to match previous reload behavior.
+        }
+    };
 
     return (
         <div className="h-8 grid grid-cols-10 items-center flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
@@ -280,6 +290,17 @@ export const Toolbar: React.FC = () => {
                     >
                         {viewMode ? <Eye size={14} className="drop-shadow-[0_0_4px_rgba(245,158,11,0.55)]" /> : <Lock size={14} />}
                         {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Reload Connection"
+                        onClick={() => {
+                            void handleReconnect();
+                        }}
+                        disabled={!activeProfile || connectionStatus === CONNECTION_STATUS.CONNECTING}
+                    >
+                        <RefreshCw size={14} className={cn(connectionStatus === CONNECTION_STATUS.CONNECTING && 'animate-spin')} />
                     </Button>
                 </div>
             </div>

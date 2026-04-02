@@ -43,7 +43,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div
                     ref={tableContainerRef}
-                    className="flex-1 overflow-auto scrollbar-thin"
+                    className="flex-1 overflow-auto scrollbar-thin px-3"
                 >
                     <table
                         className="result-table-tanstack border-collapse table-fixed select-none"
@@ -51,7 +51,9 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                     >
                         <thead>
                             <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 text-center font-mono text-[10px] text-text-muted">#</th>
+                                <th className="rt-th w-10 font-mono text-[10px] text-text-muted">
+                                    <div className="rt-th-label justify-center">#</div>
+                                </th>
                                 <th
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('Name')}

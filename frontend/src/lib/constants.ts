@@ -14,6 +14,7 @@ export const STORAGE_KEY = {
     TELEMETRY_ANALYTICS_OUTBOX: 'zentro:telemetry-analytics-outbox:v1',
     EXECUTION_POLICY_PROFILES: 'zentro:execution-policy-profiles:v1',
     EXECUTION_POLICY_ASSIGNMENTS: 'zentro:execution-policy-assignments:v1',
+    EXECUTION_POLICY_STRONG_CONFIRM_FROM: 'zentro:execution-policy-strong-confirm-from:v1',
 } as const;
 
 export const DOM_EVENT = {

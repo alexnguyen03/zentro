@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, Server, Database, Plus, Search, Upload, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, Server, Database, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { Spinner } from './Spinner';
@@ -13,6 +13,9 @@ interface DatabaseTreePickerProps {
     onImport?: () => void | Promise<void>;
     importing?: boolean;
     importDisabled?: boolean;
+    onEditConnection?: (profile: ConnectionProfile) => void;
+    onDeleteConnection?: (profile: ConnectionProfile) => void;
+    deletingConnectionName?: string | null;
 }
 
 interface ConnectionNode {
@@ -39,6 +42,9 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     onImport,
     importing = false,
     importDisabled = false,
+    onEditConnection,
+    onDeleteConnection,
+    deletingConnectionName = null,
 }) => {
     const [connections, setConnections] = useState<ConnectionNode[]>([]);
     const [loading, setLoading] = useState(true);
@@ -181,6 +187,16 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
         void onImport();
     }, [importDisabled, importing, onImport]);
 
+    const handleEditConnection = useCallback((event: React.MouseEvent, profile: ConnectionProfile) => {
+        event.stopPropagation();
+        onEditConnection?.(profile);
+    }, [onEditConnection]);
+
+    const handleDeleteConnection = useCallback((event: React.MouseEvent, profile: ConnectionProfile) => {
+        event.stopPropagation();
+        onDeleteConnection?.(profile);
+    }, [onDeleteConnection]);
+
     const visibleConnections: VisibleConnectionNode[] = connections.reduce<VisibleConnectionNode[]>((acc, node) => {
         const name = node.profile.name || '';
         if (!name) return acc;
@@ -280,45 +296,73 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             : '';
                         return (
                             <div key={name} className="mb-1">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleConnection(name)}
-                                    className={cn(
-                                        'group w-full rounded-md border px-2.5 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/45',
-                                        profileSelected
-                                            ? 'border-accent/25 bg-accent/8'
-                                            : 'border-transparent hover:bg-bg-tertiary/65',
-                                    )}
-                                    title={name}
-                                >
-                                    <div className="flex items-center gap-1.5">
-                                        {isExpanded ? (
-                                            <ChevronDown size={14} className="shrink-0 text-text-secondary" />
-                                        ) : (
-                                            <ChevronRight size={14} className="shrink-0 text-text-secondary" />
+                                <div className="group relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleConnection(name)}
+                                        className={cn(
+                                            'w-full rounded-md border px-2.5 py-1.5 pr-14 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/45',
+                                            profileSelected
+                                                ? 'border-accent/25 bg-accent/8'
+                                                : 'border-transparent hover:bg-bg-tertiary/65',
                                         )}
-                                        <Server
-                                            size={13}
-                                            className={cn(
-                                                'shrink-0',
-                                                profileSelected || connectionMatched ? 'text-accent' : 'text-success',
+                                        title={name}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            {isExpanded ? (
+                                                <ChevronDown size={14} className="shrink-0 text-text-secondary" />
+                                            ) : (
+                                                <ChevronRight size={14} className="shrink-0 text-text-secondary" />
                                             )}
-                                        />
-                                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text-primary">
-                                            {name}
-                                        </span>
-                                        {node.loadingDatabases && <Spinner size={12} className="shrink-0 text-text-secondary" />}
-                                    </div>
-                                    <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-[11px] text-text-secondary">
-                                        <span className="truncate">{node.profile.driver || 'unknown driver'}</span>
-                                        {hostLabel && (
-                                            <>
-                                                <span className="opacity-65">|</span>
-                                                <span className="truncate">{hostLabel}</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </button>
+                                            <Server
+                                                size={13}
+                                                className={cn(
+                                                    'shrink-0',
+                                                    profileSelected || connectionMatched ? 'text-accent' : 'text-success',
+                                                )}
+                                            />
+                                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-text-primary">
+                                                {name}
+                                            </span>
+                                            {node.loadingDatabases && <Spinner size={12} className="shrink-0 text-text-secondary" />}
+                                        </div>
+                                        <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-[11px] text-text-secondary">
+                                            <span className="truncate">{node.profile.driver || 'unknown driver'}</span>
+                                            {hostLabel && (
+                                                <>
+                                                    <span className="opacity-65">|</span>
+                                                    <span className="truncate">{hostLabel}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </button>
+
+                                    {(onEditConnection || onDeleteConnection) && (
+                                        <div className="pointer-events-none absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                                            {onEditConnection && (
+                                                <button
+                                                    type="button"
+                                                    className="pointer-events-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-border/45 bg-bg-primary/70 text-text-secondary transition-colors hover:border-border/80 hover:bg-bg-primary hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/45"
+                                                    title={`Edit ${name}`}
+                                                    onClick={(event) => handleEditConnection(event, node.profile)}
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                            )}
+                                            {onDeleteConnection && (
+                                                <button
+                                                    type="button"
+                                                    className="pointer-events-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-border/45 bg-bg-primary/70 text-text-secondary transition-colors hover:border-error/50 hover:bg-error/12 hover:text-error focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/45"
+                                                    title={`Delete ${name}`}
+                                                    onClick={(event) => handleDeleteConnection(event, node.profile)}
+                                                    disabled={deletingConnectionName === name}
+                                                >
+                                                    {deletingConnectionName === name ? <Spinner size={12} /> : <Trash2 size={12} />}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
 
                                 {isExpanded && (
                                     <div className="mt-1 ml-[14px] border-l border-border/35 pl-3">

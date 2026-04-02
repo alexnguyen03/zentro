@@ -9,8 +9,11 @@ export const FetchTotalRowCount = (tabId: string) => wailsGateway.FetchTotalRowC
 export const FormatSQL = (query: string, driver: string) => wailsGateway.FormatSQL(query, driver);
 export const CompareQueries = (original: string, modified: string) => wailsGateway.CompareQueries(original, modified);
 export const ExportCSV = (columns: string[], rows: unknown[]) => wailsGateway.ExportCSV(columns, rows);
+export const ExportAllCSV = (tabId: string, selectedColumns: string[]) => wailsGateway.ExportAllCSV(tabId, selectedColumns);
 export const ExportJSON = (columns: string[], rows: unknown[]) => wailsGateway.ExportJSON(columns, rows);
+export const ExportAllJSON = (tabId: string, selectedColumns: string[]) => wailsGateway.ExportAllJSON(tabId, selectedColumns);
 export const ExportSQLInsert = (columns: string[], rows: unknown[], tableName: string) => wailsGateway.ExportSQLInsert(columns, rows, tableName);
+export const ExportAllSQLInsert = (tabId: string, tableName: string, selectedColumns: string[]) => wailsGateway.ExportAllSQLInsert(tabId, tableName, selectedColumns);
 export const BeginTransaction = () => wailsGateway.BeginTransaction();
 export const CommitTransaction = () => wailsGateway.CommitTransaction();
 export const RollbackTransaction = () => wailsGateway.RollbackTransaction();

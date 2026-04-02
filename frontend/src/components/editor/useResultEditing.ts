@@ -27,6 +27,37 @@ export interface FocusCellRequest {
     nonce: number;
 }
 
+function toStringMap(input: unknown): Map<string, string> {
+    if (input instanceof Map) return new Map(input as Map<string, string>);
+    if (Array.isArray(input)) {
+        try {
+            return new Map(input as Array<[string, string]>);
+        } catch {
+            return new Map();
+        }
+    }
+    return new Map();
+}
+
+function toNumberSet(input: unknown): Set<number> {
+    if (input instanceof Set) return new Set(Array.from(input as Set<number>).filter((v) => typeof v === 'number' && Number.isFinite(v)));
+    if (Array.isArray(input)) return new Set((input as unknown[]).filter((v): v is number => typeof v === 'number' && Number.isFinite(v)));
+    return new Set();
+}
+
+function toDraftRows(input: unknown): DraftRow[] {
+    if (!Array.isArray(input)) return [];
+    return input
+        .filter((row): row is DraftRow => Boolean(row && typeof row === 'object'))
+        .map((row) => ({
+            ...row,
+            values: Array.isArray(row.values) ? row.values.map((v) => String(v ?? '')) : [],
+            insertAfterRowIndex: typeof row.insertAfterRowIndex === 'number' || row.insertAfterRowIndex === null
+                ? row.insertAfterRowIndex
+                : null,
+        }));
+}
+
 /**
  * Encapsulates all draft-row / cell-edit / delete state and derived helpers
  * for ResultPanel. Keeps the orchestrating component focused on layout.
@@ -42,14 +73,14 @@ export function useResultEditing({ tabId, result }: UseResultEditingOptions) {
 
     const [columnDefs, setColumnDefs] = React.useState<models.ColumnDef[]>([]);
     const [editedCells, setEditedCells] = React.useState<Map<string, string>>(
-        () => (result?.pendingEdits ? new Map(result.pendingEdits) : new Map()),
+        () => toStringMap(result?.pendingEdits),
     );
     const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
     const [deletedRows, setDeletedRows] = React.useState<Set<number>>(
-        () => (result?.pendingDeletions ? new Set(result.pendingDeletions) : new Set()),
+        () => toNumberSet(result?.pendingDeletions),
     );
     const [draftRows, setDraftRows] = React.useState<DraftRow[]>(
-        () => (result?.pendingDraftRows ? [...result.pendingDraftRows] : []),
+        () => toDraftRows(result?.pendingDraftRows),
     );
     const [isSavingDraftRows, setIsSavingDraftRows] = React.useState(false);
     const [focusCellRequest, setFocusCellRequest] = React.useState<FocusCellRequest | null>(null);

@@ -1,8 +1,8 @@
 import React from 'react';
 import type { DraftRow } from '../../lib/dataEditing';
-import { parseCellId, makeCellId } from './resultPanelUtils';
 import { useToast } from '../layout/Toast';
 import { getClipboardText, setClipboardText } from '../../services/clipboardService';
+import { applyClipboardPaste, buildSelectionMatrix, matrixToTsv } from './resultSelectionActions';
 
 interface UseResultKeyboardOptions {
     tabId: string;
@@ -143,33 +143,15 @@ export function useResultKeyboard({
                 if (selectedCells.size === 0) return;
                 event.preventDefault();
 
-                let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
-                selectedCells.forEach((cellId) => {
-                    const { rowKey, colIdx } = parseCellId(cellId);
-                    const rowIndex = rowOrder.get(rowKey);
-                    if (rowIndex === undefined) return;
-                    minRow = Math.min(minRow, rowIndex);
-                    maxRow = Math.max(maxRow, rowIndex);
-                    minCol = Math.min(minCol, colIdx);
-                    maxCol = Math.max(maxCol, colIdx);
+                const matrix = buildSelectionMatrix({
+                    selectedCells,
+                    displayRows,
+                    rowOrder,
+                    editedCells,
                 });
+                if (matrix.length === 0) return;
 
-                const matrix: string[][] = [];
-                for (let ri = minRow; ri <= maxRow; ri++) {
-                    const displayRow = displayRows[ri];
-                    const row: string[] = [];
-                    for (let ci = minCol; ci <= maxCol; ci++) {
-                        const cellId = makeCellId(displayRow.key, ci);
-                        if (!selectedCells.has(cellId)) { row.push(''); continue; }
-                        row.push(
-                            displayRow.kind === 'persisted'
-                                ? (editedCells.get(`${displayRow.persistedIndex}:${ci}`) ?? displayRow.values[ci] ?? '')
-                                : (displayRow.values[ci] ?? ''),
-                        );
-                    }
-                    matrix.push(row);
-                }
-                void setClipboardText(matrix.map((r) => r.join('\t')).join('\n'))
+                void setClipboardText(matrixToTsv(matrix))
                     .catch(() => toast.error('Failed to write to clipboard'));
                 return;
             }
@@ -180,47 +162,21 @@ export function useResultKeyboard({
                 event.preventDefault();
 
                 void getClipboardText().then((text) => {
-                    if (!text) return;
-                    const lines = text.split(/\r?\n/).map((l) => l.split('\t'));
-                    if (lines.length === 0 || lines[0].length === 0) return;
-
-                    let minRow = Infinity, minCol = Infinity;
-                    selectedCells.forEach((cellId) => {
-                        const { rowKey, colIdx } = parseCellId(cellId);
-                        const rowIndex = rowOrder.get(rowKey);
-                        if (rowIndex === undefined) return;
-                        minRow = Math.min(minRow, rowIndex);
-                        minCol = Math.min(minCol, colIdx);
+                    const pasteResult = applyClipboardPaste({
+                        text,
+                        selectedCells,
+                        displayRows,
+                        rowOrder,
+                        editedCells,
+                        draftRows,
+                        deletedRows,
+                        columnCount: result.columns.length,
                     });
+                    if (!pasteResult) return;
 
-                    const nextEdited = new Map(editedCells);
-                    const nextDrafts = draftRows.map((dr) => ({ ...dr, values: [...dr.values] }));
-                    const pasted = new Set<string>();
-
-                    for (let rowOffset = 0; rowOffset < lines.length; rowOffset++) {
-                        const displayRow = displayRows[minRow + rowOffset];
-                        if (!displayRow) break;
-                        if (displayRow.kind === 'persisted' && deletedRows.has(displayRow.persistedIndex as number)) continue;
-
-                        for (let colOffset = 0; colOffset < lines[rowOffset].length; colOffset++) {
-                            const colIdx = minCol + colOffset;
-                            if (colIdx >= result.columns.length) break;
-                            const value = lines[rowOffset][colOffset];
-                            const cellId = makeCellId(displayRow.key, colIdx);
-
-                            if (displayRow.kind === 'persisted') {
-                                nextEdited.set(`${displayRow.persistedIndex}:${colIdx}`, value);
-                            } else {
-                                const target = nextDrafts.find((dr) => dr.id === displayRow.draft?.id);
-                                if (target) target.values[colIdx] = value;
-                            }
-                            pasted.add(cellId);
-                        }
-                    }
-
-                    setEditedCells(nextEdited);
-                    setDraftRows(nextDrafts);
-                    if (pasted.size > 0) setSelectedCells(pasted);
+                    setEditedCells(pasteResult.nextEdited);
+                    setDraftRows(pasteResult.nextDraftRows);
+                    if (pasteResult.pastedCells.size > 0) setSelectedCells(pasteResult.pastedCells);
                 }).catch(() => toast.error('Failed to read from clipboard'));
             }
         },
