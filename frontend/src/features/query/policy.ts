@@ -1,6 +1,6 @@
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { QueryPolicy } from './runtime';
-import { resolveExecutionPolicyProfile } from './policyProfiles';
+import { resolveExecutionPolicyProfile, resolveStrongConfirmFromEnvironment } from './policyProfiles';
 import { analyzeSqlRisk } from './writeSafety';
 
 export function resolveQueryPolicy(environmentKey?: string): QueryPolicy {
@@ -18,6 +18,7 @@ export function resolveQueryPolicy(environmentKey?: string): QueryPolicy {
         environmentStrictness: profile.environmentStrictness,
         safetyLevel: profile.safetyLevel,
         requireProdDoubleConfirm: profile.requireProdDoubleConfirm !== false,
+        strongConfirmFromEnvironment: resolveStrongConfirmFromEnvironment(),
     };
 }
 

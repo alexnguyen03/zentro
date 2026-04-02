@@ -1,4 +1,6 @@
 import { ENVIRONMENT_KEY } from '../../lib/constants';
+import { getEnvironmentOrderIndex } from '../../lib/projects';
+import type { EnvironmentKey } from '../../types/project';
 import type { SafetyLevel } from './policyProfiles';
 
 export type WriteOperationKind =
@@ -404,19 +406,37 @@ function formatOperations(operations: WriteOperationKind[]): string {
     return labels.length > 0 ? labels.join(', ') : 'WRITE';
 }
 
-function isProductionEnvironment(environmentKey?: string | null): boolean {
-    return environmentKey === ENVIRONMENT_KEY.PRODUCTION;
+function isAtOrAboveStrongConfirmThreshold(
+    environmentKey?: string | null,
+    strongConfirmFromEnvironment: string = ENVIRONMENT_KEY.PRODUCTION,
+): boolean {
+    if (!environmentKey) return false;
+    const currentOrder = getEnvironmentOrderIndex(environmentKey as EnvironmentKey);
+    const thresholdOrder = getEnvironmentOrderIndex(strongConfirmFromEnvironment as EnvironmentKey);
+    return currentOrder >= thresholdOrder;
 }
 
 export function evaluateWriteSafetyDecision(params: {
     analysis: OperationRiskAnalysis | SqlRiskAnalysis;
     safetyLevel: SafetyLevel;
     environmentKey?: string | null;
+    strongConfirmFromEnvironment?: string | null;
     actionLabel?: string;
 }): WriteSafetyDecision {
-    const { analysis, safetyLevel, environmentKey, actionLabel = 'Run SQL' } = params;
+    const {
+        analysis,
+        safetyLevel,
+        environmentKey,
+        strongConfirmFromEnvironment,
+        actionLabel = 'Run SQL',
+    } = params;
     const noWhereDetected = analysis.hasUpdateNoWhere || analysis.hasDeleteNoWhere;
-    const prodDoubleConfirm = isProductionEnvironment(environmentKey) && (analysis.hasDestructive || noWhereDetected);
+    const requiresStrongConfirm =
+        (analysis.hasDestructive || noWhereDetected)
+        && isAtOrAboveStrongConfirmThreshold(
+            environmentKey,
+            strongConfirmFromEnvironment || ENVIRONMENT_KEY.PRODUCTION,
+        );
     const operationSummary = formatOperations(analysis.operations);
 
     if (!analysis.hasWrite) {
@@ -449,8 +469,8 @@ export function evaluateWriteSafetyDecision(params: {
             title: 'No-WHERE Write Detected',
             message: 'UPDATE/DELETE without WHERE may affect many rows.',
             description: `${actionLabel} includes SQL without WHERE. Review carefully before continuing.`,
-            confirmLabel: prodDoubleConfirm ? 'Continue' : 'Run Anyway',
-            requiresDoubleConfirm: prodDoubleConfirm,
+            confirmLabel: requiresStrongConfirm ? 'Continue' : 'Run Anyway',
+            requiresDoubleConfirm: requiresStrongConfirm,
             severity: 'danger',
         };
     }
@@ -461,8 +481,8 @@ export function evaluateWriteSafetyDecision(params: {
             title: 'Confirm Destructive Write',
             message: `Destructive operation detected (${operationSummary}).`,
             description: `${actionLabel} includes destructive SQL and requires explicit confirmation.`,
-            confirmLabel: prodDoubleConfirm ? 'Continue' : 'Run',
-            requiresDoubleConfirm: prodDoubleConfirm,
+            confirmLabel: requiresStrongConfirm ? 'Continue' : 'Run',
+            requiresDoubleConfirm: requiresStrongConfirm,
             severity: 'danger',
         };
     }

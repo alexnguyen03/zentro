@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Settings as SettingsIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
 import { utils } from '../../../wailsjs/go/models';
 import { ToastPlacement, useToast } from './Toast';
 import {
@@ -20,10 +21,13 @@ import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } fro
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
 import { Button, SearchField } from '../ui';
 import { ENVIRONMENT_KEY } from '../../lib/constants';
+import { getEnvironmentMeta } from '../../lib/projects';
 import type { EnvironmentKey } from '../../types/project';
 import {
     type SafetyLevel,
     resolveEnvironmentSafetyLevel,
+    resolveStrongConfirmFromEnvironment,
+    setStrongConfirmFromEnvironment,
     setEnvironmentSafetyLevel,
 } from '../../features/query/policyProfiles';
 
@@ -34,6 +38,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const { theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout, save } = useSettingsStore();
     const autoCheckUpdates = useSettingsStore((state) => state.autoCheckUpdates);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { addTab } = useEditorStore();
     const { toast } = useToast();
 
@@ -46,8 +51,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
     const [telemetryOptIn, setTelemetryOptIn] = useState(getTelemetryConsent().optedIn);
-    const [safetyEnvironment, setSafetyEnvironment] = useState<EnvironmentKey>(ENVIRONMENT_KEY.PRODUCTION);
-    const [safetyLevel, setSafetyLevel] = useState<SafetyLevel>(() => resolveEnvironmentSafetyLevel(ENVIRONMENT_KEY.PRODUCTION));
+    const safetyEnvironment: EnvironmentKey = activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL;
+    const [safetyLevel, setSafetyLevel] = useState<SafetyLevel>(() => (
+        resolveEnvironmentSafetyLevel(activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL)
+    ));
+    const [strongConfirmFromEnvironment, setStrongConfirmFromEnvironmentState] = useState<EnvironmentKey>(
+        () => resolveStrongConfirmFromEnvironment(),
+    );
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -138,6 +148,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         }
     };
 
+    const handleSafetyLevelChange = (level: SafetyLevel) => {
+        const currentLevel = resolveEnvironmentSafetyLevel(safetyEnvironment);
+        if (currentLevel === level) {
+            setSafetyLevel(level);
+            return;
+        }
+
+        setEnvironmentSafetyLevel(safetyEnvironment, level);
+        setSafetyLevel(resolveEnvironmentSafetyLevel(safetyEnvironment));
+        toast.success(`Write safety for ${getEnvironmentMeta(safetyEnvironment).label} set to ${level}.`);
+    };
+
+    const handleStrongConfirmFromEnvironmentChange = (environment: EnvironmentKey) => {
+        if (environment === strongConfirmFromEnvironment) return;
+        setStrongConfirmFromEnvironment(environment);
+        setStrongConfirmFromEnvironmentState(environment);
+    };
+
     return (
         <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
             {/* Minimal Flat Header */}
@@ -199,7 +227,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             )}
 
                             {/* Editor & Data */}
-                            {matchesSearch("Data & Query", ["Default Row Limit", "Telemetry", "Export Telemetry"]) && (
+                            {matchesSearch("Data & Query", ["Default Row Limit", "Telemetry", "Export Telemetry", "Write Safety", "Strong Confirm"]) && (
                                 <SettingsData
                                     limit={formLimit}
                                     onLimitChange={setFormLimit}
@@ -207,14 +235,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                     onConnectTimeoutChange={setFormConnectTimeout}
                                     queryTimeout={formQueryTimeout}
                                     onQueryTimeoutChange={setFormQueryTimeout}
-                                    safetyEnvironment={safetyEnvironment}
-                                    onSafetyEnvironmentChange={setSafetyEnvironment}
+                                    activeSafetyEnvironment={safetyEnvironment}
                                     safetyLevel={safetyLevel}
-                                    onSafetyLevelChange={(level) => {
-                                        setEnvironmentSafetyLevel(safetyEnvironment, level);
-                                        setSafetyLevel(level);
-                                        toast.success(`Write safety for ${safetyEnvironment.toUpperCase()} set to ${level}.`);
-                                    }}
+                                    onSafetyLevelChange={handleSafetyLevelChange}
+                                    strongConfirmFromEnvironment={strongConfirmFromEnvironment}
+                                    onStrongConfirmFromEnvironmentChange={handleStrongConfirmFromEnvironmentChange}
                                     telemetryOptIn={telemetryOptIn}
                                     onTelemetryOptInChange={(checked) => {
                                         setTelemetryConsent(checked);

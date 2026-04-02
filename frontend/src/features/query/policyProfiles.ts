@@ -1,4 +1,6 @@
 import { ENVIRONMENT_KEY, STORAGE_KEY } from '../../lib/constants';
+import { ENVIRONMENT_KEYS } from '../../lib/projects';
+import type { EnvironmentKey } from '../../types/project';
 import type { ExecutionPolicy } from './runtime';
 
 export type SafetyLevel = 'strict' | 'balanced' | 'relaxed';
@@ -72,6 +74,8 @@ const DEFAULT_ASSIGNMENTS: ExecutionPolicyAssignments = {
     [ENVIRONMENT_KEY.PRODUCTION]: 'strict_prod',
     [ENVIRONMENT_KEY.STAGING]: 'strict_stage',
 };
+
+const DEFAULT_STRONG_CONFIRM_FROM_ENVIRONMENT: EnvironmentKey = ENVIRONMENT_KEY.PRODUCTION;
 
 function readJson<T>(key: string, fallback: T): T {
     try {
@@ -154,4 +158,18 @@ export function resolveEnvironmentSafetyLevel(environmentKey: string): SafetyLev
 
 export function setEnvironmentSafetyLevel(environmentKey: string, level: SafetyLevel) {
     assignExecutionPolicyProfile(environmentKey, profileIdForLevel(level, environmentKey));
+}
+
+export function resolveStrongConfirmFromEnvironment(): EnvironmentKey {
+    const saved = readJson<string>(
+        STORAGE_KEY.EXECUTION_POLICY_STRONG_CONFIRM_FROM,
+        DEFAULT_STRONG_CONFIRM_FROM_ENVIRONMENT,
+    );
+    return ENVIRONMENT_KEYS.includes(saved as EnvironmentKey)
+        ? (saved as EnvironmentKey)
+        : DEFAULT_STRONG_CONFIRM_FROM_ENVIRONMENT;
+}
+
+export function setStrongConfirmFromEnvironment(environmentKey: EnvironmentKey) {
+    writeJson(STORAGE_KEY.EXECUTION_POLICY_STRONG_CONFIRM_FROM, environmentKey);
 }

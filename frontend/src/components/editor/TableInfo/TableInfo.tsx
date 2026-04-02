@@ -29,8 +29,13 @@ import { Button, Spinner } from '../../ui';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { getErrorMessage } from '../../../lib/errors';
 import { useToast } from '../../layout/Toast';
-import { type WriteOperationKind } from '../../../features/query/writeSafety';
+import {
+    analyzeOperationRisk,
+    evaluateWriteSafetyDecision,
+    type WriteOperationKind,
+} from '../../../features/query/writeSafety';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
+import { resolveQueryPolicy } from '../../../features/query/policy';
 
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
@@ -276,13 +281,25 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const saveAll = useCallback(async () => {
         if (viewMode) return;
+        const operations = collectWriteOperations();
         const deletedCount = rows.filter((r) => r.deleted).length;
         if (deletedCount > 0) {
-            setShowDeleteConfirm(true);
-            return;
+            const policy = resolveQueryPolicy(activeEnvironmentKey || undefined);
+            const decision = evaluateWriteSafetyDecision({
+                analysis: analyzeOperationRisk(operations),
+                actionLabel: 'Apply Table Schema Changes',
+                environmentKey: activeEnvironmentKey,
+                safetyLevel: policy.safetyLevel,
+                strongConfirmFromEnvironment: policy.strongConfirmFromEnvironment,
+            });
+
+            if (decision.action === 'allow') {
+                setShowDeleteConfirm(true);
+                return;
+            }
         }
         await confirmSafetyAndSave();
-    }, [rows, confirmSafetyAndSave, viewMode]);
+    }, [rows, collectWriteOperations, activeEnvironmentKey, confirmSafetyAndSave, viewMode]);
 
     const hasChanges = useMemo(() => rows.some((r) => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
 

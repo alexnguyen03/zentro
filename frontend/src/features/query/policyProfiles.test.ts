@@ -3,7 +3,9 @@ import {
     assignExecutionPolicyProfile,
     resolveExecutionPolicyProfile,
     resolveEnvironmentSafetyLevel,
+    resolveStrongConfirmFromEnvironment,
     saveExecutionPolicyProfile,
+    setStrongConfirmFromEnvironment,
     setEnvironmentSafetyLevel,
 } from './policyProfiles';
 
@@ -41,6 +43,12 @@ describe('policyProfiles', () => {
         expect(resolveEnvironmentSafetyLevel('dev')).toBe('balanced');
         setEnvironmentSafetyLevel('dev', 'strict');
         expect(resolveEnvironmentSafetyLevel('dev')).toBe('strict');
+    });
+
+    it('stores strong confirm threshold by environment', () => {
+        expect(resolveStrongConfirmFromEnvironment()).toBe('pro');
+        setStrongConfirmFromEnvironment('sta');
+        expect(resolveStrongConfirmFromEnvironment()).toBe('sta');
     });
 });
 

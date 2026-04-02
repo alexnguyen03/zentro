@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { SettingsView } from './SettingsView';
 
-const { saveMock, addTabMock, toastSuccessMock, toastErrorMock, settingsState } = vi.hoisted(() => {
+const { saveMock, addTabMock, toastSuccessMock, toastErrorMock, settingsState, environmentState } = vi.hoisted(() => {
     const save = vi.fn().mockResolvedValue(undefined);
     return {
         saveMock: save,
@@ -19,6 +19,9 @@ const { saveMock, addTabMock, toastSuccessMock, toastErrorMock, settingsState } 
             queryTimeout: 60,
             autoCheckUpdates: true,
             save,
+        },
+        environmentState: {
+            activeEnvironmentKey: 'loc',
         },
     };
 });
@@ -37,6 +40,13 @@ vi.mock('../../stores/editorStore', () => ({
     useEditorStore: () => ({
         addTab: addTabMock,
     }),
+}));
+
+vi.mock('../../stores/environmentStore', () => ({
+    useEnvironmentStore: (selector?: (state: typeof environmentState) => unknown) => {
+        if (selector) return selector(environmentState);
+        return environmentState;
+    },
 }));
 
 vi.mock('./Toast', () => ({
@@ -80,6 +90,8 @@ vi.mock('../../../wailsjs/go/models', () => ({
 describe('SettingsView', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        localStorage.clear();
+        environmentState.activeEnvironmentKey = 'loc';
     });
 
     it('filters sections by search query', () => {
@@ -123,5 +135,51 @@ describe('SettingsView', () => {
         expect(section?.className).not.toContain('lg:grid-cols-12');
         expect(container.querySelector('.lg\\:col-span-4')).toBeNull();
         expect(container.querySelector('.lg\\:col-span-8')).toBeNull();
+    });
+
+    it('applies write safety level to active environment and updates strong confirm slider', () => {
+        const view = render(<SettingsView tabId="settings-tab" />);
+
+        const levelLabel = screen.getByText('Write Safety Level');
+        const strongConfirmLabel = screen.getByText('Strong Confirm From Environment');
+        const levelSelect = levelLabel.parentElement?.querySelector('select');
+        const strongConfirmSlider = strongConfirmLabel.parentElement?.querySelector('input[type="range"]');
+
+        if (
+            !(levelSelect instanceof HTMLSelectElement)
+            || !(strongConfirmSlider instanceof HTMLInputElement)
+        ) {
+            throw new Error('Write safety fields are not rendered correctly');
+        }
+
+        expect(levelSelect.value).toBe('balanced');
+        expect(strongConfirmSlider.value).toBe('0');
+
+        fireEvent.change(levelSelect, {
+            target: { value: 'relaxed' },
+        });
+        expect(levelSelect.value).toBe('relaxed');
+        expect(toastSuccessMock).toHaveBeenCalledWith('Write safety for Local set to relaxed.');
+
+        environmentState.activeEnvironmentKey = 'pro';
+        view.rerender(<SettingsView tabId="settings-tab" />);
+        const productionLevelSelect = levelLabel.parentElement?.querySelector('select');
+        if (!(productionLevelSelect instanceof HTMLSelectElement)) {
+            throw new Error('Write safety level is not rendered correctly after rerender');
+        }
+        expect(productionLevelSelect.value).toBe('strict');
+
+        environmentState.activeEnvironmentKey = 'loc';
+        view.rerender(<SettingsView tabId="settings-tab" />);
+        const localLevelSelect = levelLabel.parentElement?.querySelector('select');
+        if (!(localLevelSelect instanceof HTMLSelectElement)) {
+            throw new Error('Write safety level is not rendered correctly after local rerender');
+        }
+        expect(localLevelSelect.value).toBe('relaxed');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Set strong confirm threshold to Staging' }));
+        expect(strongConfirmSlider.value).toBe('1');
+        expect(localStorage.getItem('zentro:execution-policy-strong-confirm-from:v1')).toBe('"sta"');
+        expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     });
 });

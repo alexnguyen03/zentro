@@ -58,4 +58,48 @@ describe('writeSafety decision', () => {
         expect(decision.action).toBe('confirm');
         expect(decision.requiresDoubleConfirm).toBe(true);
     });
+
+    it('requires single confirmation for non-threshold destructive operations', () => {
+        const decision = evaluateWriteSafetyDecision({
+            analysis: analyzeOperationRisk(['drop']),
+            safetyLevel: 'relaxed',
+            environmentKey: 'loc',
+            actionLabel: 'Drop Table',
+        });
+        expect(decision.action).toBe('confirm');
+        expect(decision.requiresDoubleConfirm).toBe(false);
+    });
+
+    it('still requires double confirmation for production destructive operations in relaxed mode', () => {
+        const decision = evaluateWriteSafetyDecision({
+            analysis: analyzeOperationRisk(['drop']),
+            safetyLevel: 'relaxed',
+            environmentKey: 'pro',
+            actionLabel: 'Drop Table',
+        });
+        expect(decision.action).toBe('confirm');
+        expect(decision.requiresDoubleConfirm).toBe(true);
+    });
+
+    it('applies strong confirmation threshold from staging and above', () => {
+        const devDecision = evaluateWriteSafetyDecision({
+            analysis: analyzeOperationRisk(['drop']),
+            safetyLevel: 'balanced',
+            environmentKey: 'dev',
+            strongConfirmFromEnvironment: 'sta',
+            actionLabel: 'Drop Table',
+        });
+        expect(devDecision.action).toBe('confirm');
+        expect(devDecision.requiresDoubleConfirm).toBe(false);
+
+        const stagingDecision = evaluateWriteSafetyDecision({
+            analysis: analyzeOperationRisk(['drop']),
+            safetyLevel: 'balanced',
+            environmentKey: 'sta',
+            strongConfirmFromEnvironment: 'sta',
+            actionLabel: 'Drop Table',
+        });
+        expect(stagingDecision.action).toBe('confirm');
+        expect(stagingDecision.requiresDoubleConfirm).toBe(true);
+    });
 });

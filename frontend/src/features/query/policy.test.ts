@@ -33,5 +33,6 @@ describe('query policy', () => {
         expect(policy.environmentStrictness).toBe('strict');
         expect(policy.safetyLevel).toBe('strict');
         expect(policy.requireProdDoubleConfirm).toBe(true);
+        expect(policy.strongConfirmFromEnvironment).toBe('pro');
     });
 });

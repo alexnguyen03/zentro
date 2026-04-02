@@ -31,6 +31,7 @@ export interface QueryPolicy {
     environmentStrictness: 'normal' | 'strict';
     safetyLevel: 'strict' | 'balanced' | 'relaxed';
     requireProdDoubleConfirm: boolean;
+    strongConfirmFromEnvironment: string;
 }
 
 export interface ExecutionPolicy {

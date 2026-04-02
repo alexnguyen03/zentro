@@ -55,6 +55,7 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
             actionLabel,
             environmentKey,
             safetyLevel: policy.safetyLevel,
+            strongConfirmFromEnvironment: policy.strongConfirmFromEnvironment,
         });
 
         if (decision.action === 'allow') {
@@ -135,10 +136,10 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
                 isOpen={Boolean(secondaryRequest)}
                 onClose={handleSecondaryClose}
                 onConfirm={handleSecondaryConfirm}
-                title="Final Production Confirmation"
-                message="Production destructive write requires one more confirmation."
+                title="Final Destructive Confirmation"
+                message="This environment requires one more confirmation for destructive writes."
                 description={createFinalConfirmDescription(environmentKey)}
-                confirmLabel="Run on Production"
+                confirmLabel="Run Anyway"
                 variant="danger"
             />
         </>
