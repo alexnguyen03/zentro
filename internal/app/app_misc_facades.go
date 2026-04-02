@@ -63,6 +63,42 @@ func (a *App) ExportSQLInsert(columns []string, rows [][]string, tableName strin
 	return exportSQLInsert(a.ctx, columns, rows, tableName)
 }
 
+func (a *App) ExportAllCSV(tabID string, selectedColumns []string) (string, error) {
+	columns, rows, err := a.query.ExportAllRows(tabID)
+	if err != nil {
+		return "", err
+	}
+	filteredColumns, filteredRows, err := filterExportColumns(columns, rows, selectedColumns)
+	if err != nil {
+		return "", err
+	}
+	return exportCSV(a.ctx, filteredColumns, filteredRows)
+}
+
+func (a *App) ExportAllJSON(tabID string, selectedColumns []string) (string, error) {
+	columns, rows, err := a.query.ExportAllRows(tabID)
+	if err != nil {
+		return "", err
+	}
+	filteredColumns, filteredRows, err := filterExportColumns(columns, rows, selectedColumns)
+	if err != nil {
+		return "", err
+	}
+	return exportJSON(a.ctx, filteredColumns, filteredRows)
+}
+
+func (a *App) ExportAllSQLInsert(tabID, tableName string, selectedColumns []string) (string, error) {
+	columns, rows, err := a.query.ExportAllRows(tabID)
+	if err != nil {
+		return "", err
+	}
+	filteredColumns, filteredRows, err := filterExportColumns(columns, rows, selectedColumns)
+	if err != nil {
+		return "", err
+	}
+	return exportSQLInsert(a.ctx, filteredColumns, filteredRows, tableName)
+}
+
 // Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0-beta'"
 var Version = "v0.2.0-beta"
 

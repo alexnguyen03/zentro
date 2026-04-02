@@ -37,8 +37,11 @@ export interface AppApiGateway {
     FormatSQL(query: string, driver: string): Promise<string>;
     CompareQueries(original: string, modified: string): Promise<string>;
     ExportCSV(columns: string[], rows: unknown[]): Promise<string>;
+    ExportAllCSV(tabId: string, selectedColumns: string[]): Promise<string>;
     ExportJSON(columns: string[], rows: unknown[]): Promise<string>;
+    ExportAllJSON(tabId: string, selectedColumns: string[]): Promise<string>;
     ExportSQLInsert(columns: string[], rows: unknown[], tableName: string): Promise<string>;
+    ExportAllSQLInsert(tabId: string, tableName: string, selectedColumns: string[]): Promise<string>;
 
     // Transaction
     BeginTransaction(): Promise<void>;

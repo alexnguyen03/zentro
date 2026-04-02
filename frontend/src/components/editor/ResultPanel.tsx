@@ -109,9 +109,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
     const [showSaveModal, setShowSaveModal] = React.useState(false);
-    const [showExportMenu, setShowExportMenu] = React.useState(false);
-    const [showTableNameInput, setShowTableNameInput] = React.useState(false);
-    const [tableNameForExport, setTableNameForExport] = React.useState('');
+    const [showExportModal, setShowExportModal] = React.useState(false);
+    const [exportScope, setExportScope] = React.useState<'all' | 'view'>('all');
+    const [exportFormat, setExportFormat] = React.useState<'csv' | 'json' | 'sql'>('csv');
+    const [selectedExportColumns, setSelectedExportColumns] = React.useState<string[]>([]);
+    const [exportTableName, setExportTableName] = React.useState('');
     const [quickFilter, setQuickFilter] = React.useState(() => persistedContext?.resultQuickFilter || '');
     const [visibleRows, setVisibleRows] = React.useState(0);
     const [activeSearchHit, setActiveSearchHit] = React.useState(0);
@@ -283,14 +285,73 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [handleSaveRequest, hasPendingChanges, isSavingDraftRows, tabId, viewMode]);
 
     // ── Panel actions (bubbled to toolbar) ────────────────────────────────────
-    const { handleExportCSV, handleExportJSON, handleExportSQLConfirm, exportJob, cancelExport } = useResultExport({
-        result, tableNameForExport, setTableNameForExport, setShowExportMenu, setShowTableNameInput,
-    });
+    const { runExport, exportJob, cancelExport } = useResultExport({ tabId, result });
     const canUseResultExport = featureGate.canUse('query.result.export');
-    const handleLimitChange = React.useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    const allExportColumns = result?.columns || [];
+    const handleLimitChange = React.useCallback(async (event: React.ChangeEvent<HTMLSelectElement>) => {
         const newLimit = parseInt(event.target.value, 10) || 1000;
-        save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
-    }, [fontSize, save, theme]);
+        await save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
+
+        // Re-run immediately so the new limit applies without requiring manual reload.
+        const activeFilter = filterExpr.trim();
+        if (activeFilter && onFilterRun) {
+            onFilterRun(activeFilter);
+            return;
+        }
+        onRun?.();
+    }, [filterExpr, fontSize, onFilterRun, onRun, save, theme]);
+    const handleOpenExportModal = React.useCallback(() => {
+        if (!result?.columns?.length) {
+            toast.error('No columns available to export.');
+            return;
+        }
+        setExportScope('all');
+        setExportFormat('csv');
+        setSelectedExportColumns([...result.columns]);
+        setExportTableName(result.tableName || '');
+        setShowExportModal(true);
+    }, [result?.columns, result?.tableName, toast]);
+    const selectedExportColumnSet = React.useMemo(() => new Set(selectedExportColumns), [selectedExportColumns]);
+    const orderedSelectedExportColumns = React.useMemo(
+        () => (result?.columns || []).filter((col) => selectedExportColumnSet.has(col)),
+        [result?.columns, selectedExportColumnSet],
+    );
+    const areAllExportColumnsSelected = allExportColumns.length > 0 && orderedSelectedExportColumns.length === allExportColumns.length;
+    const previewExportRows = React.useMemo(() => {
+        if (!result?.rows?.length || orderedSelectedExportColumns.length === 0) return [];
+        const indexByColumn = new Map((result.columns || []).map((column, index) => [column, index]));
+        return result.rows.slice(0, 10).map((row) => (
+            orderedSelectedExportColumns.map((column) => {
+                const colIndex = indexByColumn.get(column);
+                return colIndex === undefined ? '' : (row[colIndex] ?? '');
+            })
+        ));
+    }, [orderedSelectedExportColumns, result?.columns, result?.rows]);
+    const toggleExportColumn = React.useCallback((column: string) => {
+        setSelectedExportColumns((prev) => (
+            prev.includes(column)
+                ? prev.filter((name) => name !== column)
+                : [...prev, column]
+        ));
+    }, []);
+    const toggleAllExportColumns = React.useCallback(() => {
+        setSelectedExportColumns((prev) => (
+            prev.length === allExportColumns.length ? [] : [...allExportColumns]
+        ));
+    }, [allExportColumns]);
+    const handleConfirmExport = React.useCallback(() => {
+        if (orderedSelectedExportColumns.length === 0) {
+            toast.error('Select at least one column to export.');
+            return;
+        }
+        runExport({
+            scope: exportScope,
+            format: exportFormat,
+            selectedColumns: orderedSelectedExportColumns,
+            tableName: exportFormat === 'sql' ? exportTableName : undefined,
+        });
+        setShowExportModal(false);
+    }, [exportFormat, exportScope, exportTableName, orderedSelectedExportColumns, runExport, toast]);
 
     const renderPanelAction = React.useCallback((action: ResultPanelAction) => {
         if (action.render) return <React.Fragment key={action.id}>{action.render()}</React.Fragment>;
@@ -391,33 +452,18 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
         actions.push({
             id: 'export-dropdown',
-            signature: `export:${canUseResultExport ? 1 : 0}:${showExportMenu ? 1 : 0}`,
+            signature: `export:${canUseResultExport ? 1 : 0}:${showExportModal ? 1 : 0}`,
             render: () => (
-                <div className="relative">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowExportMenu((prev) => !prev)}
-                        disabled={!canUseResultExport}
-                        title="Export"
-                        className="gap-1"
-                    >
-                        <Upload size={13} />
-                    </Button>
-                    {showExportMenu && (
-                        <div className="absolute right-0 top-full z-panel-overlay mt-1 min-w-40 rounded-md border border-border bg-bg-primary py-1 shadow-lg">
-                            <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportCSV}>
-                                <span>CSV</span>
-                            </button>
-                            <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={handleExportJSON}>
-                                <span>JSON</span>
-                            </button>
-                            <button className="w-full text-left px-3 py-1.5 text-[12px] text-text-primary hover:bg-bg-tertiary flex items-center gap-2" onClick={() => { setShowExportMenu(false); setShowTableNameInput(true); }}>
-                                <span>SQL INSERT</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleOpenExportModal}
+                    disabled={!canUseResultExport}
+                    title="Export"
+                    className="gap-1"
+                >
+                    <Upload size={13} />
+                </Button>
             ),
         });
 
@@ -460,9 +506,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         viewMode,
         defaultLimit,
         canUseResultExport,
-        showExportMenu,
-        handleExportCSV,
-        handleExportJSON,
+        showExportModal,
+        handleOpenExportModal,
         showMaximizeControl,
         isMaximized,
         onToggleMaximize,
@@ -1097,7 +1142,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         <div className="flex items-center gap-2 text-[11px] border border-border rounded-md px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
                             <span>
-                                {exportJob.label || 'Exporting'} {exportJob.progressPct ?? 0}%
+                                {exportJob.label || 'Exporting'} {typeof exportJob.progressPct === 'number' ? `${exportJob.progressPct}%` : 'running...'}
                                 {typeof exportJob.totalRows === 'number' ? ` (${(exportJob.processedRows || 0).toLocaleString()}/${exportJob.totalRows.toLocaleString()})` : ''}
                                 {exportJob.queuedCount ? ` +${exportJob.queuedCount} queued` : ''}
                             </span>
@@ -1145,31 +1190,140 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
             {writeSafetyGuard.modals}
 
-            {/* SQL export table name modal */}
             <Modal
-                isOpen={showTableNameInput}
-                onClose={() => { setShowTableNameInput(false); setTableNameForExport(''); }}
-                title="Export as SQL INSERT"
-                width={400}
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                title="Export Options"
+                width={920}
                 footer={
                     <>
-                        <Button variant="ghost" onClick={() => { setShowTableNameInput(false); setTableNameForExport(''); }}>Cancel</Button>
-                        <Button variant="primary" onClick={() => { void handleExportSQLConfirm(); }} autoFocus>Export</Button>
+                        <Button variant="ghost" onClick={() => setShowExportModal(false)}>Cancel</Button>
+                        <Button variant="primary" onClick={handleConfirmExport} autoFocus>Export</Button>
                     </>
                 }
             >
-                <div className="py-2">
-                    <label className="block text-[12px] text-text-secondary mb-1.5">Table Name</label>
-                    <input
-                        type="text"
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
-                        placeholder={result?.tableName || 'my_table'}
-                        value={tableNameForExport}
-                        onChange={(e) => setTableNameForExport(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleExportSQLConfirm()}
-                        autoFocus
-                    />
-                    <p className="text-[11px] text-text-muted mt-2">Leave empty to use "{result?.tableName || 'my_table'}"</p>
+                <div className="grid grid-cols-12 gap-4">
+                    <section className="col-span-12 lg:col-span-5 space-y-4">
+                        <div>
+                            <p className="text-[12px] font-semibold text-text-primary mb-2">Extraction</p>
+                            <label className="flex items-center gap-2 text-[12px] text-text-primary">
+                                <input
+                                    type="radio"
+                                    checked={exportScope === 'all'}
+                                    onChange={() => setExportScope('all')}
+                                />
+                                Query the database (no paging)
+                            </label>
+                            <label className="flex items-center gap-2 text-[12px] text-text-primary mt-1.5">
+                                <input
+                                    type="radio"
+                                    checked={exportScope === 'view'}
+                                    onChange={() => setExportScope('view')}
+                                />
+                                Use fetched rows (current table view)
+                            </label>
+                        </div>
+
+                        <div>
+                            <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Format</label>
+                            <select
+                                value={exportFormat}
+                                onChange={(event) => setExportFormat(event.target.value as 'csv' | 'json' | 'sql')}
+                                className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                            >
+                                <option value="csv">CSV</option>
+                                <option value="json">JSON</option>
+                                <option value="sql">SQL INSERT</option>
+                            </select>
+                        </div>
+
+                        {exportFormat === 'sql' && (
+                            <div>
+                                <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Table Name</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                                    placeholder={result?.tableName || 'my_table'}
+                                    value={exportTableName}
+                                    onChange={(event) => setExportTableName(event.target.value)}
+                                />
+                                <p className="text-[11px] text-text-muted mt-1.5">
+                                    Leave empty to use "{result?.tableName || 'my_table'}"
+                                </p>
+                            </div>
+                        )}
+
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-[12px] font-semibold text-text-primary">Columns</label>
+                                <button
+                                    type="button"
+                                    className="text-[11px] text-text-secondary hover:text-text-primary"
+                                    onClick={toggleAllExportColumns}
+                                >
+                                    {areAllExportColumnsSelected ? 'Clear all' : 'Select all'}
+                                </button>
+                            </div>
+                            <div className="max-h-44 overflow-auto rounded-md border border-border/50 bg-bg-primary p-2 space-y-1">
+                                {allExportColumns.map((column) => (
+                                    <label key={column} className="flex items-center gap-2 text-[12px] text-text-primary">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedExportColumnSet.has(column)}
+                                            onChange={() => toggleExportColumn(column)}
+                                        />
+                                        <span className="truncate" title={column}>{column}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-text-muted mt-1.5">
+                                {orderedSelectedExportColumns.length}/{allExportColumns.length} columns selected
+                            </p>
+                        </div>
+                    </section>
+
+                    <section className="col-span-12 lg:col-span-7">
+                        <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-[12px] font-semibold text-text-primary">Preview (10 rows)</p>
+                            <p className="text-[11px] text-text-muted">
+                                Showing loaded rows preview only
+                            </p>
+                        </div>
+                        <div className="rounded-md border border-border/50 bg-bg-primary overflow-auto max-h-[360px]">
+                            {orderedSelectedExportColumns.length === 0 ? (
+                                <div className="px-3 py-8 text-[12px] text-text-muted text-center">
+                                    Select at least one column to preview.
+                                </div>
+                            ) : previewExportRows.length === 0 ? (
+                                <div className="px-3 py-8 text-[12px] text-text-muted text-center">
+                                    No loaded rows to preview.
+                                </div>
+                            ) : (
+                                <table className="w-full text-[11px] border-collapse">
+                                    <thead className="sticky top-0 bg-bg-secondary">
+                                        <tr>
+                                            {orderedSelectedExportColumns.map((column) => (
+                                                <th key={column} className="text-left px-2 py-1.5 border-b border-border/60 whitespace-nowrap">
+                                                    {column}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {previewExportRows.map((row, rowIdx) => (
+                                            <tr key={`preview_${rowIdx}`} className="odd:bg-bg-primary even:bg-bg-secondary/30">
+                                                {row.map((cell, cellIdx) => (
+                                                    <td key={`preview_${rowIdx}_${cellIdx}`} className="px-2 py-1.5 border-b border-border/20 whitespace-nowrap max-w-[220px] overflow-hidden text-ellipsis">
+                                                        {cell}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </section>
                 </div>
             </Modal>
         </div>

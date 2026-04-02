@@ -861,6 +861,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         ? virtualColumns.map((virtualColumn) => virtualColumn.index)
         : columns.map((_, index) => index);
     const fetchMoreRef = React.useRef(false);
+    const loadMoreZoneArmedRef = React.useRef(true);
 
     useEffect(() => {
         if (!resultState?.progress?.startedAt) return;
@@ -871,19 +872,32 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     }, [resultState?.progress?.startedAt, virtualizer]);
 
     useEffect(() => {
-        if (!virtualItems.length || !isDone || !resultState?.hasMore || resultState?.isFetchingMore || fetchMoreRef.current) return;
-
-        const lastItem = virtualItems[virtualItems.length - 1];
-        if (lastItem.index >= tableRows.length - 15) {
-            fetchMoreRef.current = true;
-            const newOffset = rows.length;
-            setOffset(tabId, newOffset);
-            FetchMoreRows(tabId, newOffset)
-                .catch(console.error)
-                .finally(() => {
-                    setTimeout(() => { fetchMoreRef.current = false; }, 300);
-                });
+        if (!resultState?.isFetchingMore) {
+            fetchMoreRef.current = false;
         }
+    }, [resultState?.isFetchingMore]);
+
+    useEffect(() => {
+        if (!virtualItems.length || !isDone || !resultState?.hasMore) {
+            loadMoreZoneArmedRef.current = true;
+            return;
+        }
+        const lastItem = virtualItems[virtualItems.length - 1];
+        const triggerIndex = Math.max(tableRows.length - 15, 0);
+        const inLoadMoreZone = lastItem.index >= triggerIndex;
+
+        if (!inLoadMoreZone) {
+            loadMoreZoneArmedRef.current = true;
+            return;
+        }
+
+        if (!loadMoreZoneArmedRef.current || resultState?.isFetchingMore || fetchMoreRef.current) return;
+
+        loadMoreZoneArmedRef.current = false;
+        fetchMoreRef.current = true;
+        const newOffset = rows.length;
+        setOffset(tabId, newOffset);
+        FetchMoreRows(tabId, newOffset).catch(console.error);
     }, [
         isDone,
         resultState?.hasMore,

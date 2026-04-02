@@ -90,14 +90,19 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 	buf := make([][]string, 0, chunkSize)
 	sentCols := false
 	totalRowsFetched := 0
+	hasMore := false
 
 	for rows.Next() {
 		if ctx.Err() != nil || s.isCancelled(statement.SourceTabID) {
 			break
 		}
 		row := scanRowAsStrings(rows, colCount)
-		buf = append(buf, row)
 		totalRowsFetched++
+		if totalRowsFetched > fetchLimit {
+			hasMore = true
+			break
+		}
+		buf = append(buf, row)
 
 		if len(buf) == chunkSize {
 			var chunkCols []string
@@ -122,8 +127,6 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 			EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(statement, chunkCols, buf, seq, "", nil))
 		}
 	}
-
-	hasMore := totalRowsFetched > fetchLimit
 
 	if hasMore {
 		totalRowsFetched = fetchLimit
@@ -227,14 +230,19 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		var chunk [][]string
 		seq := 0
 		rowCount := 0
+		hasMore := false
 
 		for rows.Next() {
 			if ctx.Err() != nil || s.isCancelled(sourceID) {
 				break
 			}
 			row := scanRowAsStrings(rows, len(cols))
-			chunk = append(chunk, row)
 			rowCount++
+			if rowCount > limit {
+				hasMore = true
+				break
+			}
+			chunk = append(chunk, row)
 
 			if len(chunk) >= 500 {
 				EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryChunk, constant.EventQueryChunkV2, buildChunk(queryStatement{SourceTabID: sourceID, TabID: tabID, Text: query, Index: 0, Count: 1}, cols, chunk, seq, "", nil))
@@ -248,7 +256,6 @@ func (s *QueryService) FetchMoreRows(tabID string, offset int) {
 		}
 
 		duration := time.Since(start)
-		hasMore := rowCount > limit
 
 		if hasMore {
 			rowCount = limit

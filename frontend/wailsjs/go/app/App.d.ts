@@ -61,6 +61,12 @@ export function ExecuteUpdateSync(arg1:string):Promise<number>;
 
 export function ExplainQuery(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 
+export function ExportAllCSV(arg1:string,arg2:Array<string>):Promise<string>;
+
+export function ExportAllJSON(arg1:string,arg2:Array<string>):Promise<string>;
+
+export function ExportAllSQLInsert(arg1:string,arg2:string,arg3:Array<string>):Promise<string>;
+
 export function ExportCSV(arg1:Array<string>,arg2:Array<any>):Promise<string>;
 
 export function ExportConnectionPackage(arg1:string):Promise<string>;
