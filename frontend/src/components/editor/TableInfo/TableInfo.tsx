@@ -74,6 +74,9 @@ function parseTableName(t: string) {
     return parts.length > 1 ? { schema: parts[0], table: parts.slice(1).join('.') } : { schema: '', table: t };
 }
 
+const TABLE_INFO_AUTO_RETRY_DELAYS_MS = [250, 500, 900, 1300, 1700, 2200];
+const TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS = 10;
+
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
     const [loading, setLoading] = useState(true);
@@ -97,10 +100,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [erdRelCount, setErdRelCount] = useState<number | null>(null);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
+    const [fadeInContent, setFadeInContent] = useState(false);
     const prevConnRef = useRef<string>('');
+    const fadeInTimerRef = useRef<number | null>(null);
+    const autoRetryTimerRef = useRef<number | null>(null);
+    const autoRetryAttemptRef = useRef(0);
+    const autoRetryConnectionRef = useRef('');
     const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns', 'indexes']), []);
 
-    const { activeProfile } = useConnectionStore();
+    const { activeProfile, isConnected } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
@@ -112,12 +120,45 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const dataTabId = `data-${tabId}`;
     const dataResult = useResultStore((s) => s.results[dataTabId]);
+    const isTableTabActive = useMemo(() => {
+        const activeGroup = groups.find((group) => group.id === activeGroupId);
+        return activeGroup?.activeTabId === tabId;
+    }, [activeGroupId, groups, tabId]);
+    const canAutoRecoverConnectionError = useMemo(() => {
+        if (typeof fetchError !== 'string') return false;
+        const normalized = fetchError.toLowerCase();
+        return [
+            'no active connection',
+            'database is closed',
+            'connection is closed',
+            'bad connection',
+        ].some((needle) => normalized.includes(needle));
+    }, [fetchError]);
+    const triggerContentFadeIn = useCallback(() => {
+        setFadeInContent(false);
+        if (fadeInTimerRef.current !== null) {
+            window.clearTimeout(fadeInTimerRef.current);
+        }
+        fadeInTimerRef.current = window.setTimeout(() => {
+            setFadeInContent(true);
+            fadeInTimerRef.current = window.setTimeout(() => {
+                setFadeInContent(false);
+                fadeInTimerRef.current = null;
+            }, 260);
+        }, 0);
+    }, []);
+    const clearAutoRetryTimer = useCallback(() => {
+        if (autoRetryTimerRef.current !== null) {
+            window.clearTimeout(autoRetryTimerRef.current);
+            autoRetryTimerRef.current = null;
+        }
+    }, []);
 
     const loadInfo = useCallback(async (silent = false) => {
         try {
             if (silent) setReloading(true);
             else setLoading(true);
-            setFetchError(null);
+            if (!silent) setFetchError(null);
             const cols = await FetchTableColumns(schema, table);
             const rs: RowState[] = (cols || []).map((c, i) => ({
                 id: `col-${i}-${c.Name}`,
@@ -127,13 +168,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             }));
             setRows(rs);
             setRowErrors({});
+            setFetchError(null);
+            triggerContentFadeIn();
         } catch (error: unknown) {
             setFetchError(getErrorMessage(error));
         } finally {
             setLoading(false);
             setReloading(false);
         }
-    }, [schema, table]);
+    }, [schema, table, triggerContentFadeIn]);
 
     const loadData = useCallback(async (filter?: string) => {
         if (!activeGroupId) return;
@@ -224,11 +267,70 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     }), [loadInfo, loadData, loadErd]);
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
+    useEffect(() => () => {
+        if (fadeInTimerRef.current !== null) {
+            window.clearTimeout(fadeInTimerRef.current);
+        }
+        clearAutoRetryTimer();
+    }, [clearAutoRetryTimer]);
     useEffect(() => {
         const c = `${activeProfile?.name}:${activeProfile?.db_name}`;
         if (prevConnRef.current && c !== prevConnRef.current) tabReload[activeTab]();
         prevConnRef.current = c;
     }, [activeProfile?.name, activeProfile?.db_name, activeTab, tabReload]);
+    useEffect(() => {
+        if (!canAutoRecoverConnectionError) {
+            autoRetryAttemptRef.current = 0;
+            autoRetryConnectionRef.current = '';
+            clearAutoRetryTimer();
+        }
+    }, [canAutoRecoverConnectionError, clearAutoRetryTimer]);
+    useEffect(() => {
+        if (!isConnected || !isTableTabActive) {
+            if (!isConnected) {
+                autoRetryAttemptRef.current = 0;
+                autoRetryConnectionRef.current = '';
+            }
+            clearAutoRetryTimer();
+            return;
+        }
+
+        if (!canAutoRecoverConnectionError || loading || reloading) {
+            clearAutoRetryTimer();
+            return;
+        }
+
+        const connectionKey = `${activeProfile?.name || ''}:${activeProfile?.db_name || ''}`;
+        if (!connectionKey) return;
+
+        if (autoRetryConnectionRef.current !== connectionKey) {
+            autoRetryConnectionRef.current = connectionKey;
+            autoRetryAttemptRef.current = 0;
+        }
+
+        if (autoRetryAttemptRef.current >= TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS) return;
+        if (autoRetryTimerRef.current !== null) return;
+
+        const delayIdx = Math.min(autoRetryAttemptRef.current, TABLE_INFO_AUTO_RETRY_DELAYS_MS.length - 1);
+        const retryDelay = TABLE_INFO_AUTO_RETRY_DELAYS_MS[delayIdx];
+        autoRetryTimerRef.current = window.setTimeout(() => {
+            autoRetryTimerRef.current = null;
+            autoRetryAttemptRef.current += 1;
+            void loadInfo(true);
+        }, retryDelay);
+
+        return clearAutoRetryTimer;
+    }, [
+        activeProfile?.db_name,
+        activeProfile?.name,
+        canAutoRecoverConnectionError,
+        clearAutoRetryTimer,
+        isConnected,
+        isTableTabActive,
+        loadInfo,
+        loading,
+        reloading,
+    ]);
 
     const performSave = useCallback(async () => {
         if (viewMode) return;
@@ -512,7 +614,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 )}
             </div>
 
-            <main className="flex-1 flex flex-col min-h-0 relative">
+            <main className={`flex-1 flex flex-col min-h-0 relative ${fadeInContent ? 'ti-fade-in' : ''}`}>
                 {activeTab === 'columns' && (
                     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                         <SchemaInfoView

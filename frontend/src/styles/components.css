@@ -66,6 +66,21 @@
     animation: rtRowsFadeIn 0.25s ease-out forwards;
 }
 
+@keyframes tiFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ti-fade-in {
+    animation: tiFadeIn 0.22s ease-out;
+}
+
 /* ── Result table (ResultTable.tsx — migrated separately) ─ */
 .result-table-tanstack {
     border-collapse: collapse;
