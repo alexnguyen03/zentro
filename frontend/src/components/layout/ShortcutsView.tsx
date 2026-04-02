@@ -60,7 +60,7 @@ const BindingCaptureModal: React.FC<{
             return;
         }
 
-        const token = eventToKeyToken(event.nativeEvent as unknown as KeyboardEvent);
+        const token = eventToKeyToken(event.nativeEvent);
         if (!token || isModifierOnlyToken(token)) {
             return;
         }
