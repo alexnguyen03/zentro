@@ -13,6 +13,7 @@ import type { GitTimelineItem, GitTrackingStatus } from '../../platform/app-api/
 import { useProjectStore } from '../../stores/projectStore';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
+import { PromptModal } from '../ui';
 
 function formatDateTime(iso: string): string {
     try {
@@ -44,6 +45,7 @@ export const GitTimelinePanel: React.FC = () => {
     const [selectedHash, setSelectedHash] = React.useState<string | null>(null);
     const [selectedDiff, setSelectedDiff] = React.useState('');
     const [pendingFiles, setPendingFiles] = React.useState<string[]>([]);
+    const [isManualCommitOpen, setIsManualCommitOpen] = React.useState(false);
 
     const applyTimelineFilters = React.useCallback(
         (rows: GitTimelineItem[]): GitTimelineItem[] => {
@@ -136,16 +138,15 @@ export const GitTimelinePanel: React.FC = () => {
         }
     }, []);
 
-    const handleManualCommit = React.useCallback(async () => {
-        const raw = window.prompt('Commit message (optional):', '');
-        if (raw === null) return;
+    const handleManualCommit = React.useCallback(async (message: string) => {
         try {
-            const result = await ManualGitCommit(raw);
+            const result = await ManualGitCommit(message);
             if (result.no_changes) {
                 toast.success('No pending changes to commit.');
             } else {
                 toast.success(`Committed ${result.files.length} file(s) ${result.hash ? `(${result.hash.slice(0, 8)})` : ''}`.trim());
             }
+            setIsManualCommitOpen(false);
             await load();
         } catch (error) {
             toast.error(`Manual commit failed: ${error}`);
@@ -221,7 +222,7 @@ export const GitTimelinePanel: React.FC = () => {
                 </button>
                 <button
                     className="cursor-pointer bg-transparent border border-border rounded px-2 py-0.5 text-text-primary hover:bg-bg-tertiary"
-                    onClick={() => void handleManualCommit()}
+                    onClick={() => setIsManualCommitOpen(true)}
                     title="Commit pending SQL changes now"
                 >
                     Commit Now
@@ -264,6 +265,16 @@ export const GitTimelinePanel: React.FC = () => {
                     </div>
                 )}
             </div>
+            <PromptModal
+                isOpen={isManualCommitOpen}
+                title="Manual Commit"
+                message="Enter an optional commit message for pending SQL changes."
+                placeholder="manual.commit: your message"
+                confirmLabel="Commit"
+                cancelLabel="Cancel"
+                onCancel={() => setIsManualCommitOpen(false)}
+                onConfirm={(value) => handleManualCommit(value)}
+            />
         </div>
     );
 };
