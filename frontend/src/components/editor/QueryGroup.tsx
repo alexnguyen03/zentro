@@ -40,7 +40,6 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const { isConnected, activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const activeProject = useProjectStore((state) => state.activeProject);
-    const { saveScript } = useScriptStore();
     const { toast } = useToast();
     const writeSafety = useWriteSafetyGuard(activeEnvironmentKey);
 
