@@ -217,7 +217,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                 {showInlineActions && (
                     <div className="flex gap-2">
                         <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(false)} className="h-7 text-[11px]">Cancel</Button>
-                        <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving} className="h-7 text-[11px]">
+                        <Button variant="default" size="sm" onClick={handleCreate} disabled={saving} className="h-7 text-[11px]">
                             {saving ? 'Creating...' : 'Create Index'}
                         </Button>
                     </div>
@@ -269,7 +269,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                 message={`Are you sure you want to drop index "${dropIndexTarget}"?`}
                 description="This action cannot be undone."
                 confirmLabel="Drop"
-                variant="danger"
+                variant="destructive"
             />
             {writeSafetyGuard.modals}
             
@@ -334,4 +334,3 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
         </div>
     );
 };
-

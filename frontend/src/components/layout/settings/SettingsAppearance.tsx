@@ -24,7 +24,7 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
             </div>
             <div className={SettingsClasses.sectionContent}>
                 <FormField label="Interface Theme" hint="Follows your operating system's color scheme.">
-                    <SelectField value={theme} onChange={(e) => onThemeChange(e.target.value)}>
+                    <SelectField value={theme} onValueChange={(value) => onThemeChange(value)}>
                         <option value="system">System Preference</option>
                         <option value="light">Light Mode</option>
                         <option value="dark">Dark Mode</option>

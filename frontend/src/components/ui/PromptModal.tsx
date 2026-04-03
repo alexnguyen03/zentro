@@ -47,7 +47,7 @@ export const PromptModal: React.FC<PromptModalProps> = ({
                         {cancelLabel}
                     </Button>
                     <Button
-                        variant="primary"
+                        variant="default"
                         onClick={() => onConfirm(value)}
                         autoFocus
                         className="px-4"

@@ -155,7 +155,7 @@ export const SavedScriptsPanel: React.FC = () => {
                 message={`Delete "${pendingDeleteScript?.name || 'this script'}"?`}
                 description="This action permanently removes the saved SQL script."
                 confirmLabel="Delete"
-                variant="danger"
+                variant="destructive"
             />
         </div>
     );

@@ -113,9 +113,12 @@ describe('SettingsView', () => {
         try {
             render(<SettingsView tabId="settings-tab" />);
 
-            fireEvent.change(screen.getAllByRole('combobox')[0], {
-                target: { value: 'dark' },
-            });
+            const themeTrigger = screen.getAllByRole('combobox')[0];
+            if (!(themeTrigger instanceof HTMLButtonElement)) {
+                throw new Error('Theme selector trigger is missing');
+            }
+            fireEvent.click(themeTrigger);
+            fireEvent.click(screen.getByRole('option', { name: 'Dark Mode' }));
 
             await act(async () => {
                 vi.advanceTimersByTime(600);
@@ -140,42 +143,38 @@ describe('SettingsView', () => {
     it('applies write safety level to active environment and updates strong confirm slider', () => {
         const view = render(<SettingsView tabId="settings-tab" />);
 
-        const levelLabel = screen.getByText('Write Safety Level');
         const strongConfirmLabel = screen.getByText('Strong Confirm From Environment');
-        const levelSelect = levelLabel.parentElement?.querySelector('select');
         const strongConfirmSlider = strongConfirmLabel.parentElement?.querySelector('input[type="range"]');
 
-        if (
-            !(levelSelect instanceof HTMLSelectElement)
-            || !(strongConfirmSlider instanceof HTMLInputElement)
-        ) {
+        if (!(strongConfirmSlider instanceof HTMLInputElement)) {
             throw new Error('Write safety fields are not rendered correctly');
         }
 
-        expect(levelSelect.value).toBe('balanced');
+        const getSafetyTrigger = () => {
+            const trigger = screen.getAllByRole('combobox').find((element) => (
+                /balanced|relaxed|strict/i.test(element.textContent || '')
+            ));
+            if (!(trigger instanceof HTMLButtonElement)) {
+                throw new Error('Write safety trigger is not rendered correctly');
+            }
+            return trigger;
+        };
+
+        expect(getSafetyTrigger()).toHaveTextContent(/balanced/i);
         expect(strongConfirmSlider.value).toBe('0');
 
-        fireEvent.change(levelSelect, {
-            target: { value: 'relaxed' },
-        });
-        expect(levelSelect.value).toBe('relaxed');
+        fireEvent.click(getSafetyTrigger());
+        fireEvent.click(screen.getByRole('option', { name: 'Relaxed' }));
+        expect(getSafetyTrigger()).toHaveTextContent(/relaxed/i);
         expect(toastSuccessMock).toHaveBeenCalledWith('Write safety for Local set to relaxed.');
 
         environmentState.activeEnvironmentKey = 'pro';
         view.rerender(<SettingsView tabId="settings-tab" />);
-        const productionLevelSelect = levelLabel.parentElement?.querySelector('select');
-        if (!(productionLevelSelect instanceof HTMLSelectElement)) {
-            throw new Error('Write safety level is not rendered correctly after rerender');
-        }
-        expect(productionLevelSelect.value).toBe('strict');
+        expect(getSafetyTrigger()).toHaveTextContent(/strict/i);
 
         environmentState.activeEnvironmentKey = 'loc';
         view.rerender(<SettingsView tabId="settings-tab" />);
-        const localLevelSelect = levelLabel.parentElement?.querySelector('select');
-        if (!(localLevelSelect instanceof HTMLSelectElement)) {
-            throw new Error('Write safety level is not rendered correctly after local rerender');
-        }
-        expect(localLevelSelect.value).toBe('relaxed');
+        expect(getSafetyTrigger()).toHaveTextContent(/relaxed/i);
 
         fireEvent.click(screen.getByRole('button', { name: 'Set strong confirm threshold to Staging' }));
         expect(strongConfirmSlider.value).toBe('1');

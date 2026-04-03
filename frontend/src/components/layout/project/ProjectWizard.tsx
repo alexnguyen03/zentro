@@ -313,16 +313,16 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 <>
                     <div className="flex items-center gap-3">
                         {step !== 'basics' ? (
-                            <Button variant="solid" onClick={goBack} className="rounded-md">Back</Button>
+                            <Button variant="secondary" onClick={goBack} className="rounded-md">Back</Button>
                         ) : (
                             <Button variant="ghost" onClick={onClose} className="rounded-md" disabled={!onClose}>Cancel</Button>
                         )}
                     </div>
                     {step !== 'review' ? (
-                        <Button variant="primary" onClick={goNext} disabled={!canGoNext} className="rounded-md px-5">Continue</Button>
+                        <Button variant="default" onClick={goNext} disabled={!canGoNext} className="rounded-md px-5">Continue</Button>
                     ) : (
                         <Button
-                            variant="success"
+                            variant="default"
                             onClick={() => void handleCreateAndEnter()}
                             disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
                             className="rounded-md px-5"
@@ -376,7 +376,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         />
                                         <Button
                                             type="button"
-                                            variant="solid"
+                                            variant="secondary"
                                             className="h-11 rounded-md px-3"
                                             onClick={() => {
                                                 void handlePickStorageFolder();

@@ -54,9 +54,8 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
     if (!action.onClick || !action.icon) return null;
     return (
         <Button
-            variant="ghost"
+            variant={action.danger ? 'destructive' : 'ghost'}
             size="icon"
-            danger={action.danger}
             onClick={() => {
                 const res = action.onClick?.();
                 if (res instanceof Promise) res.catch(() => {});
@@ -541,7 +540,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 </div>
                 <h2 className="text-xl font-bold text-text-primary mb-2">Failed to load table</h2>
                 <p className="text-text-secondary max-w-md mb-8">{fetchError}</p>
-                <Button onClick={() => loadInfo()} variant="solid" className="rounded-md px-8">Try Again</Button>
+                <Button onClick={() => loadInfo()} variant="secondary" className="rounded-md px-8">Try Again</Button>
             </div>
         );
     }
@@ -698,7 +697,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 message="Are you sure?"
                 description={`You are about to permanently delete ${rows.filter((r) => r.deleted).length} ${rows.filter((r) => r.deleted).length === 1 ? 'column' : 'columns'}. This action cannot be undone.`}
                 confirmLabel="Delete Permanently"
-                variant="danger"
+                variant="destructive"
             />
             {writeSafetyGuard.modals}
         </div>

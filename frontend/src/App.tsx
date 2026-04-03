@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
@@ -104,7 +104,7 @@ function App() {
                 message="One or more queries are still running."
                 description="Close now and stop all active queries?"
                 confirmLabel="Force Close"
-                variant="danger"
+                variant="destructive"
             />
             <Toolbar />
             <div className="flex flex-1 overflow-hidden">

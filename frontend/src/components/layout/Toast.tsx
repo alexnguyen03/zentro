@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import * as ToastPrimitive from '@radix-ui/react-toast';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
@@ -37,11 +38,8 @@ interface ToastProviderProps {
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placement = 'bottom-left' }) => {
     const [toasts, setToasts] = useState<ToastItem[]>([]);
-    const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     const dismiss = useCallback((id: string) => {
-        clearTimeout(timers.current[id]);
-        delete timers.current[id];
         setToasts((prev) => prev.filter((t) => t.id !== id));
     }, []);
 
@@ -49,16 +47,15 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
         const id = crypto.randomUUID();
         setToasts((prev) => {
             const next = [...prev, { id, message, variant }];
-            return next.slice(-3); // max 3 visible
+            return next.slice(-3);
         });
-        timers.current[id] = setTimeout(() => dismiss(id), 4000);
-    }, [dismiss]);
+    }, []);
 
-    const toast = {
+    const toast = useMemo(() => ({
         success: (msg: string) => addToast(msg, 'success'),
         error: (msg: string) => addToast(msg, 'error'),
         info: (msg: string) => addToast(msg, 'info'),
-    };
+    }), [addToast]);
 
     const placementClass = {
         'bottom-left': 'bottom-9 left-4',
@@ -77,38 +74,42 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
 
     return (
         <ToastContext.Provider value={{ toast }}>
-            {children}
-            <div className={cn("fixed z-toast flex flex-col gap-2.5 pointer-events-none", placementClass)}>
+            <ToastPrimitive.Provider duration={4000}>
+                {children}
                 {toasts.map((t) => {
                     const style = variantStyles[t.variant];
+                    const Icon = style.Icon;
                     return (
-                        <div
+                        <ToastPrimitive.Root
                             key={t.id}
+                            open
+                            onOpenChange={(open) => {
+                                if (!open) dismiss(t.id);
+                            }}
                             className={cn(
-                                "flex items-start gap-2.5 py-3 px-4 rounded-md text-[13px] min-w-[250px] max-w-[400px] bg-bg-primary shadow-[0_4px_20px_rgba(0,0,0,0.25)] pointer-events-auto",
-                                "border border-border border-l-4",
+                                'pointer-events-auto flex min-w-[250px] max-w-[400px] items-start gap-2.5 rounded-md border border-border border-l-4 bg-background px-4 py-3 text-[13px] shadow-elevation-md',
                                 style.border,
-                                "animate-in fade-in slide-in-from-bottom-3 duration-250 ease-[cubic-bezier(0.16,1,0.3,1)]"
                             )}
-                            onMouseEnter={() => { clearTimeout(timers.current[t.id]); }}
-                            onMouseLeave={() => { timers.current[t.id] = setTimeout(() => dismiss(t.id), 4000); }}
                         >
-                            <span className={cn("flex shrink-0 mt-[2px]", style.icon)}>
-                                <style.Icon size={15} />
+                            <span className={cn('mt-[2px] flex shrink-0', style.icon)}>
+                                <Icon size={15} />
                             </span>
-                            <span className="flex-1 text-text-primary leading-normal break-words">
+                            <ToastPrimitive.Description className="flex-1 break-words leading-normal text-foreground">
                                 {t.message}
-                            </span>
-                            <button
-                                className="bg-transparent border-none cursor-pointer text-text-secondary flex items-center p-1 -mr-1 -mt-1 rounded-md shrink-0 transition-colors duration-150 hover:text-text-primary hover:bg-bg-secondary"
-                                onClick={() => dismiss(t.id)}
+                            </ToastPrimitive.Description>
+                            <ToastPrimitive.Close
+                                className="shrink-0 -mt-1 -mr-1 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                aria-label="Close"
                             >
                                 <X size={14} />
-                            </button>
-                        </div>
+                            </ToastPrimitive.Close>
+                        </ToastPrimitive.Root>
                     );
                 })}
-            </div>
+                <ToastPrimitive.Viewport
+                    className={cn('pointer-events-none fixed z-toast flex flex-col gap-2.5 outline-none', placementClass)}
+                />
+            </ToastPrimitive.Provider>
         </ToastContext.Provider>
     );
 };

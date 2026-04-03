@@ -25,7 +25,7 @@ export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToast
                 <FormField label="Alert Placement" hint="Where success and error messages will emerge.">
                     <SelectField
                         value={toastPlacement}
-                        onChange={(e) => onToastPlacementChange(e.target.value as ToastPlacement)}
+                        onValueChange={(value) => onToastPlacementChange(value as ToastPlacement)}
                     >
                         <option value="bottom-left">Bottom Left</option>
                         <option value="bottom-center">Bottom Center</option>

@@ -1,7 +1,16 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Modal } from '../layout/Modal';
-import { Button } from '../ui';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from './alert-dialog';
+import { cn } from '../../lib/cn';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -11,66 +20,62 @@ interface ConfirmationModalProps {
     message: string | React.ReactNode;
     confirmLabel?: string;
     description?: string;
-    variant?: 'danger' | 'primary';
+    variant?: 'destructive' | 'default' | 'danger' | 'primary';
     closeOnConfirm?: boolean;
 }
 
-/**
- * A reusable standard confirmation modal for destructive or important actions.
- */
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     isOpen,
     onClose,
     onConfirm,
-    title = "Confirm Action",
+    title = 'Confirm Action',
     message,
     description,
-    confirmLabel = "Confirm",
-    variant = 'primary',
+    confirmLabel = 'Confirm',
+    variant = 'default',
     closeOnConfirm = true,
 }) => {
+    const normalizedVariant = variant === 'danger' ? 'destructive' : variant === 'primary' ? 'default' : variant;
+
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={title}
-            width={440}
-            layer="confirm"
-            footer={
-                <>
-                    <Button variant="ghost" onClick={onClose} className="px-4">
+        <AlertDialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <AlertDialogContent className="max-w-[440px]">
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{title}</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                        <div className="flex items-start gap-4 py-1">
+                            <div className={cn('shrink-0 rounded-full p-2', normalizedVariant === 'destructive' ? 'bg-error/10' : 'bg-accent/10')}>
+                                <AlertCircle size={24} className={normalizedVariant === 'destructive' ? 'text-error' : 'text-accent'} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="mb-1 text-[14px] font-bold text-foreground">{message}</p>
+                                {description && (
+                                    <p className="text-[12px] leading-relaxed text-muted-foreground">
+                                        {description}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={onClose} className="px-4">
                         Cancel
-                    </Button>
-                    <Button
-                        variant="primary"
-                        danger={variant === 'danger'}
-                        onClick={() => {
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                        className={cn('px-4', normalizedVariant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90')}
+                        onClick={(event) => {
+                            event.preventDefault();
                             onConfirm();
                             if (closeOnConfirm) {
                                 onClose();
                             }
                         }}
-                        autoFocus
-                        className="px-4"
                     >
                         {confirmLabel}
-                    </Button>
-                </>
-            }
-        >
-            <div className="flex items-start gap-4 py-2">
-                <div className={`shrink-0 p-2 rounded-full ${variant === 'danger' ? 'bg-error/10' : 'bg-accent/10'}`}>
-                    <AlertCircle size={24} className={variant === 'danger' ? 'text-error' : 'text-accent'} />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-bold text-text-primary mb-1">{message}</p>
-                    {description && (
-                        <p className="text-[12px] leading-relaxed text-text-secondary">
-                            {description}
-                        </p>
-                    )}
-                </div>
-            </div>
-        </Modal>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 };

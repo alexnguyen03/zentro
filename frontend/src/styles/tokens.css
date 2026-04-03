@@ -93,6 +93,28 @@
     --success-color: var(--status-success);
     --warning-color: var(--status-warning);
     --bg-main: var(--surface-app);
+
+    /* shadcn/ui semantic contract (dark default) */
+    --background: var(--surface-app);
+    --foreground: var(--content-primary);
+    --card: var(--surface-panel);
+    --card-foreground: var(--content-primary);
+    --popover: var(--surface-overlay-card);
+    --popover-foreground: var(--content-primary);
+    --primary: var(--interactive-primary);
+    --primary-foreground: var(--content-inverse);
+    --secondary: var(--surface-elevated);
+    --secondary-foreground: var(--content-primary);
+    --muted: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+    --muted-foreground: var(--content-secondary);
+    --accent: color-mix(in srgb, var(--interactive-primary) 22%, transparent);
+    --accent-foreground: var(--content-primary);
+    --destructive: var(--status-error);
+    --destructive-foreground: var(--content-inverse);
+    --border: var(--border-default);
+    --input: var(--border-default);
+    --ring: var(--focus-ring);
+    --radius: var(--radius-scale-md);
 }
 
 [data-theme='light'] {
@@ -123,4 +145,26 @@
     --elevation-sm: 0 2px 8px rgb(0 0 0 / 10%);
     --elevation-md: 0 8px 24px rgb(0 0 0 / 16%);
     --elevation-lg: 0 16px 48px rgb(0 0 0 / 24%);
+
+    /* shadcn/ui semantic contract (light override) */
+    --background: var(--surface-app);
+    --foreground: var(--content-primary);
+    --card: var(--surface-panel);
+    --card-foreground: var(--content-primary);
+    --popover: var(--surface-overlay-card);
+    --popover-foreground: var(--content-primary);
+    --primary: var(--interactive-primary);
+    --primary-foreground: var(--content-inverse);
+    --secondary: var(--surface-elevated);
+    --secondary-foreground: var(--content-primary);
+    --muted: color-mix(in srgb, var(--surface-elevated) 82%, transparent);
+    --muted-foreground: var(--content-secondary);
+    --accent: color-mix(in srgb, var(--interactive-primary) 14%, transparent);
+    --accent-foreground: var(--content-primary);
+    --destructive: var(--status-error);
+    --destructive-foreground: var(--content-inverse);
+    --border: var(--border-default);
+    --input: var(--border-default);
+    --ring: var(--focus-ring);
+    --radius: var(--radius-scale-md);
 }

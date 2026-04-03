@@ -74,7 +74,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                 <div className="flex items-center gap-2">
                     <Button
                         type="button"
-                        variant="solid"
+                        variant="secondary"
                         size="icon"
                         onClick={() => {
                             void handleImportConnection();

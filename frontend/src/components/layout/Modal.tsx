@@ -1,7 +1,13 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
-
-import { ModalBackdrop, ModalFrame } from '../ui';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '../ui/dialog';
 
 interface ModalProps {
     isOpen: boolean;
@@ -22,32 +28,33 @@ export const Modal: React.FC<ModalProps> = ({
     footer,
     width = 600,
     className,
-    layer = 'modal',
+    layer: _layer = 'modal',
 }) => {
-    if (!isOpen) return null;
-
     return (
-        <ModalBackdrop
-            onClose={onClose}
-            layer={layer}
-            contentClassName="flex w-full items-center justify-center p-3"
-        >
-            <ModalFrame
-                title={title}
-                onClose={onClose}
-                footer={footer}
-                style={{ width, maxWidth: '90vw' }}
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent
                 className={cn(
-                    'w-full max-h-[90vh] rounded-md border border-border/30 shadow-elevation-lg',
+                    'max-h-[90vh] overflow-hidden rounded-md border border-border/30 bg-card p-0 text-card-foreground shadow-elevation-lg',
                     className,
                 )}
-                headerClassName="shrink-0 border-b border-border/25 bg-bg-secondary px-5 py-4"
-                titleClassName="m-0 text-base font-semibold text-text-primary"
-                bodyClassName="flex-1 overflow-y-auto p-5 text-[13px] text-text-secondary"
-                footerClassName="shrink-0 border-t border-border/25 bg-bg-secondary px-5 py-4 flex justify-end gap-3"
+                style={{ width, maxWidth: '90vw' }}
             >
-                {children}
-            </ModalFrame>
-        </ModalBackdrop>
+                <DialogHeader className="shrink-0 border-b border-border/25 bg-card px-5 py-4">
+                    <DialogTitle className="m-0 text-base font-semibold text-foreground">
+                        {title}
+                    </DialogTitle>
+                </DialogHeader>
+                <DialogDescription asChild>
+                    <div className="flex-1 overflow-y-auto px-5 py-5 text-[13px] text-muted-foreground">
+                        {children}
+                    </div>
+                </DialogDescription>
+                {footer && (
+                    <DialogFooter className="shrink-0 border-t border-border/25 bg-card px-5 py-4">
+                        {footer}
+                    </DialogFooter>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 };

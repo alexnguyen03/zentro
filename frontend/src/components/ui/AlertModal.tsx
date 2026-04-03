@@ -26,7 +26,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
             width={420}
             layer="confirm"
             footer={
-                <Button variant="primary" autoFocus onClick={onClose} className="px-4">
+                <Button variant="default" autoFocus onClick={onClose} className="px-4">
                     {closeLabel}
                 </Button>
             }

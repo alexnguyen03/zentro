@@ -1,4 +1,6 @@
 export * from './Button';
+export * from './dialog';
+export * from './alert-dialog';
 export * from './Input';
 export * from './FormField';
 export * from './SelectField';

@@ -85,7 +85,7 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
 
             <div className="mt-4 flex items-center justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="rounded-md"><X size={14} /> Cancel</Button>
-                <Button variant="primary" size="sm" onClick={() => onSave(project)} disabled={isSaving || !editDraft.name.trim()} className="rounded-md">
+                <Button variant="default" size="sm" onClick={() => onSave(project)} disabled={isSaving || !editDraft.name.trim()} className="rounded-md">
                     {isSaving ? <><Spinner size={12} className="mr-1 text-white" /> Saving...</> : <><Check size={14} /> Save changes</>}
                 </Button>
             </div>

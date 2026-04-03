@@ -263,7 +263,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 message={`Delete "${pendingDeleteProfile?.name || ''}"?`}
                 description="This action removes the saved connection profile."
                 confirmLabel={deletingConnectionName ? 'Deleting...' : 'Delete'}
-                variant="danger"
+                variant="destructive"
             />
             <ModalFrame
                 title={activeProject.name}
@@ -288,7 +288,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             {exporting ? <Spinner size={13} /> : <Download size={14} />}
                         </Button>
                         <Button
-                            variant="primary"
+                            variant="default"
                             onClick={() => void handleApply()}
                             disabled={applyDisabled}
                             className="rounded-md"
@@ -439,4 +439,3 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
         </ModalBackdrop>
     );
 };
-

@@ -1,73 +1,53 @@
-import React from 'react';
-import { cn } from '../../lib/cn';
+import * as React from 'react';
+import { Slot } from '@radix-ui/react-slot';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/cn';
 
-export const BUTTON_VARIANT = {
-    GHOST: 'ghost',
-    SOLID: 'solid',
-    PRIMARY: 'primary',
-    DANGER: 'danger',
-    SUCCESS: 'success',
-} as const;
+export const buttonVariants = cva(
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50',
+    {
+        variants: {
+            variant: {
+                default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+                secondary: 'border border-border bg-secondary text-secondary-foreground hover:bg-secondary/85',
+                destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+                ghost: 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                outline: 'border border-border bg-background text-foreground hover:bg-muted',
+                link: 'text-primary underline-offset-4 hover:underline',
+            },
+            size: {
+                default: 'h-8 px-3 py-1.5',
+                sm: 'h-7 rounded-md px-2 text-xs',
+                lg: 'h-9 rounded-md px-4 text-sm',
+                icon: 'h-8 w-8',
+            },
+        },
+        defaultVariants: {
+            variant: 'secondary',
+            size: 'default',
+        },
+    },
+);
 
-export const BUTTON_SIZE = {
-    ICON: 'icon',
-    SM: 'sm',
-    MD: 'md',
-    LG: 'lg',
-} as const;
-
-export type ButtonVariant = typeof BUTTON_VARIANT[keyof typeof BUTTON_VARIANT];
-export type ButtonSize = typeof BUTTON_SIZE[keyof typeof BUTTON_SIZE];
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: ButtonVariant;
-    size?: ButtonSize;
-    danger?: boolean;
+export interface ButtonProps
+    extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
     asChild?: boolean;
 }
 
-const variantClasses: Record<ButtonVariant, string> = {
-    [BUTTON_VARIANT.GHOST]: 'bg-transparent border-none text-text-muted hover:text-text-primary hover:bg-text-primary/10',
-    [BUTTON_VARIANT.SOLID]: 'bg-bg-secondary hover:bg-bg-tertiary text-text-primary border border-border',
-    [BUTTON_VARIANT.PRIMARY]: 'bg-accent text-white hover:bg-accent-hover border border-transparent',
-    [BUTTON_VARIANT.DANGER]: 'bg-error text-white hover:opacity-90 border border-transparent',
-    [BUTTON_VARIANT.SUCCESS]: 'bg-success text-white hover:opacity-90 border border-transparent',
-};
-
-const ghostDangerClass = 'bg-transparent border-none text-error/70 hover:text-error hover:bg-error/10';
-
-const sizeClasses: Record<ButtonSize, string> = {
-    [BUTTON_SIZE.ICON]: 'p-1.5 text-xs h-7 w-7 rounded-md',
-    [BUTTON_SIZE.SM]: 'px-2 py-1 text-xs h-7 rounded-md',
-    [BUTTON_SIZE.MD]: 'px-3 py-1.5 text-[13px] h-8',
-    [BUTTON_SIZE.LG]: 'px-4 py-2 text-sm h-9',
-};
-
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className, variant = BUTTON_VARIANT.SOLID, size = BUTTON_SIZE.MD, danger, children, ...props }, ref) => {
-        const actualVariant = (variant === BUTTON_VARIANT.SOLID && danger) ? BUTTON_VARIANT.DANGER : variant;
-        const finalVariantClass = (variant === BUTTON_VARIANT.GHOST && danger) 
-            ? ghostDangerClass 
-            : variantClasses[actualVariant];
-
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+    ({ className, variant, size, asChild = false, ...props }, ref) => {
+        const Comp = asChild ? Slot : 'button';
         return (
-            <button
+            <Comp
+                className={cn(buttonVariants({ variant, size, className }))}
                 ref={ref}
-                className={cn(
-                    // Base styles
-                    'inline-flex items-center justify-center rounded-md font-medium transition-all outline-none cursor-pointer',
-                    'disabled:opacity-50 disabled:cursor-not-allowed',
-                    // Applied generic classes
-                    finalVariantClass,
-                    sizeClasses[size],
-                    className
-                )}
                 {...props}
-            >
-                {children}
-            </button>
+            />
         );
-    }
+    },
 );
 
 Button.displayName = 'Button';
+
+export { Button };

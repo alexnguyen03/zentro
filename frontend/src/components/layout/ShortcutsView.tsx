@@ -92,7 +92,7 @@ const BindingCaptureModal: React.FC<{
                 <>
                     <Button variant="ghost" onClick={onCancel}>Cancel</Button>
                     <Button
-                        variant="primary"
+                        variant="default"
                         onClick={() => onConfirm(normalizeRuleBinding(binding))}
                         disabled={!binding.trim()}
                     >
@@ -298,7 +298,7 @@ export const ShortcutsView: React.FC = () => {
 
                 <Button
                     variant="ghost"
-                    size="md"
+                    size="default"
                     className="gap-2 font-bold text-[11px] tracking-widest uppercase"
                     onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                     title="Reset all shortcuts to default"

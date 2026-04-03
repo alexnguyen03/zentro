@@ -27,7 +27,9 @@ describe('shared form controls', () => {
             </SelectField>,
         );
 
-        fireEvent.change(screen.getByLabelText('Theme Select'), { target: { value: 'dark' } });
+        const trigger = screen.getByRole('combobox', { name: /theme select/i });
+        fireEvent.click(trigger);
+        fireEvent.click(screen.getByRole('option', { name: 'Dark' }));
         expect(onChange).toHaveBeenCalledTimes(1);
     });
 
@@ -55,4 +57,3 @@ describe('shared form controls', () => {
         expect(onChange).toHaveBeenCalledTimes(1);
     });
 });
-

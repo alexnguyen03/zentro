@@ -359,9 +359,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         return (
             <Button
                 key={action.id}
-                variant="ghost"
+                variant={action.danger ? 'destructive' : 'ghost'}
                 size="icon"
-                danger={action.danger}
                 onClick={() => action.onClick?.()}
                 disabled={action.disabled || action.loading}
                 title={action.title || action.label}
@@ -1166,7 +1165,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <>
                         <Button variant="ghost" size="icon" onClick={handleCopyScript} title="Copy Script"><Copy size={14} /></Button>
                         <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab"><FilePlus size={14} /></Button>
-                        <Button variant="primary" onClick={() => { void handleDirectExecute(); }} title="Execute Changes" autoFocus className="px-6">
+                        <Button variant="default" onClick={() => { void handleDirectExecute(); }} title="Execute Changes" autoFocus className="px-6">
                             <Play size={14} className="mr-2" />Execute Changes
                         </Button>
                     </>
@@ -1198,7 +1197,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 footer={
                     <>
                         <Button variant="ghost" onClick={() => setShowExportModal(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleConfirmExport} autoFocus>Export</Button>
+                        <Button variant="default" onClick={handleConfirmExport} autoFocus>Export</Button>
                     </>
                 }
             >
@@ -1329,5 +1328,3 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         </div>
     );
 };
-
-

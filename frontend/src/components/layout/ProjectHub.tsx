@@ -225,7 +225,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                             {openingFolder ? <Spinner size={12} /> : <FolderOpen size={14} />}
                                         </Button>
                                         <Button
-                                            variant="primary"
+                                            variant="default"
                                             onClick={() => setSurface('wizard')}
                                             size="sm"
                                             className="rounded-md px-4"
@@ -255,7 +255,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                 message={`Remove "${projectToDelete?.name || 'this project'}" from launcher?`}
                 description="Project data on disk will be kept."
                 confirmLabel="Remove"
-                variant="danger"
+                variant="destructive"
             />
         </div>
     );

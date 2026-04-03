@@ -63,7 +63,7 @@ export const SettingsData: React.FC<Props> = ({
             </div>
             <div className={SettingsClasses.sectionContent}>
                 <FormField label="Fetch Row Limit" hint="Default row count for the result records.">
-                    <SelectField value={limit} onChange={(e) => onLimitChange(parseInt(e.target.value) || 1000)}>
+                    <SelectField value={limit} onValueChange={(value) => onLimitChange(parseInt(value, 10) || 1000)}>
                         <option value={100}>100 rows</option>
                         <option value={500}>500 rows</option>
                         <option value={1000}>1,000 rows</option>
@@ -98,7 +98,7 @@ export const SettingsData: React.FC<Props> = ({
                 >
                     <SelectField
                         value={safetyLevel}
-                        onChange={(event) => onSafetyLevelChange(event.target.value as SafetyLevel)}
+                        onValueChange={(value) => onSafetyLevelChange(value as SafetyLevel)}
                     >
                         <option value="strict">Strict</option>
                         <option value="balanced">Balanced</option>
@@ -188,7 +188,7 @@ export const SettingsData: React.FC<Props> = ({
                     label="Export Telemetry Bundle"
                     hint="Exports local metrics + anonymized analytics outbox (if opted-in)."
                 >
-                    <Button type="button" variant="solid" size="sm" className="w-fit" onClick={onExportTelemetry}>
+                    <Button type="button" variant="secondary" size="sm" className="w-fit" onClick={onExportTelemetry}>
                         Export Pipeline Bundle
                     </Button>
                 </FormField>

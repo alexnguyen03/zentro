@@ -135,7 +135,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                 message={`Are you sure you want to drop "${dropModal?.item}"?`}
                 description="This action cannot be undone."
                 confirmLabel="Drop"
-                variant="danger"
+                variant="destructive"
             />
 
             <div
@@ -395,7 +395,7 @@ export const ConnectionTree: React.FC = () => {
                     <div className="min-w-0">
                         <SelectField
                             value={selectedSchema}
-                            onChange={(event) => setSelectedSchema(event.target.value)}
+                            onValueChange={(value) => setSelectedSchema(value)}
                             aria-label="Select schema"
                             title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
                             hideChevron

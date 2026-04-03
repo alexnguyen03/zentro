@@ -241,7 +241,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             <div className="mt-auto flex gap-1.5 pt-2.5">
                 <Button
                     type="button"
-                    variant="solid"
+                    variant="secondary"
                     className={cn(
                         "transition-all",
                         testResult === 'ok' && "bg-[#89d185]/15 border-success text-success hover:bg-[#89d185]/20",
@@ -257,7 +257,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                             : 'Test'}
                 </Button>
                 <div className="flex-1" />
-                <Button type="submit" variant="success" className="w-6/12 min-w-[120px] sm:min-w-0" disabled={saving}>
+                <Button type="submit" variant="default" className="w-6/12 min-w-[120px] sm:min-w-0" disabled={saving}>
                     {saving ? <><Spinner size={11} className="text-white mr-1" /> Saving…</> : 'Save'}
                 </Button>
             </div>

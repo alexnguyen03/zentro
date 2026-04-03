@@ -140,7 +140,7 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
                 message="This environment requires one more confirmation for destructive writes."
                 description={createFinalConfirmDescription(environmentKey)}
                 confirmLabel="Run Anyway"
-                variant="danger"
+                variant="destructive"
             />
         </>
     );

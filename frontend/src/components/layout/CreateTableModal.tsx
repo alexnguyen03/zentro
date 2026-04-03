@@ -137,7 +137,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         <Button variant="ghost" onClick={onClose}>
                             Cancel
                         </Button>
-                        <Button variant="primary" onClick={handleSubmit} disabled={loading || viewMode}>
+                        <Button variant="default" onClick={handleSubmit} disabled={loading || viewMode}>
                             <Save size={14} className="mr-1.5" />
                             {loading ? 'Creating...' : 'Create'}
                         </Button>
@@ -227,4 +227,3 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
         </>
     );
 };
-

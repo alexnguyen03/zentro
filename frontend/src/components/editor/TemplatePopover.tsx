@@ -482,7 +482,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 message={`Delete ${pendingDeleteIds.length} selected ${pendingDeleteIds.length === 1 ? 'template' : 'templates'}?`}
                 description="This action cannot be undone."
                 confirmLabel="Delete"
-                variant="danger"
+                variant="destructive"
             />
         </div>
     );
