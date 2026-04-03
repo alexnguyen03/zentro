@@ -52,6 +52,8 @@ type QueryService struct {
 	getCurrentSchema         func() string
 	getCurrentEnvironmentKey func() string
 	appendHistory            func(query string, rowCount int64, dur time.Duration, err error)
+	onQueryExecution         func(QueryExecutionAuditEvent)
+	onRoutineDDL             func(statement string)
 	emitter                  EventEmitter
 
 	sessions   map[string]*QuerySession
@@ -153,6 +155,35 @@ func (s *QueryService) prepareExecutor(ctx context.Context, executor sqlExecutor
 
 func (s *QueryService) SetContext(ctx context.Context) {
 	s.ctx = ctx
+}
+
+func (s *QueryService) SetQueryExecutionHook(hook func(QueryExecutionAuditEvent)) {
+	s.onQueryExecution = hook
+}
+
+func (s *QueryService) SetRoutineDDLHook(hook func(statement string)) {
+	s.onRoutineDDL = hook
+}
+
+func (s *QueryService) trackQueryExecution(statement queryStatement, rowCount int64, duration time.Duration, isSelect bool, err error) {
+	if s.onQueryExecution == nil {
+		return
+	}
+
+	event := QueryExecutionAuditEvent{
+		SourceTabID:    statement.SourceTabID,
+		TabID:          statement.TabID,
+		StatementText:  statement.Text,
+		StatementIndex: statement.Index,
+		StatementCount: statement.Count,
+		RowCount:       rowCount,
+		DurationMs:     duration.Milliseconds(),
+		IsSelect:       isSelect,
+	}
+	if err != nil {
+		event.Error = err.Error()
+	}
+	s.onQueryExecution(event)
 }
 
 func (s *QueryService) Shutdown() {

@@ -21,6 +21,8 @@ type HistoryEntry struct {
 	Query      string `json:"query"`
 	Profile    string `json:"profile"`
 	Database   string `json:"database"`
+	ProjectID  string `json:"project_id,omitempty"`
+	EnvKey     string `json:"environment_key,omitempty"`
 	DurationMs int64  `json:"duration_ms"`
 	RowCount   int64  `json:"row_count"`
 	Error      string `json:"error,omitempty"`

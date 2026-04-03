@@ -63,6 +63,16 @@ const CATEGORY_DEFINITION_MAP: Record<CategoryKey, DriverCategoryDefinition> = {
         allowCreateTable: false,
         dropObjectType: null,
     },
+    procedures: {
+        key: 'procedures',
+        label: 'Procedures',
+        icon: 'procedure',
+        itemIcon: 'procedure',
+        getItems: (schema) => schema.Procedures || [],
+        canOpenDefinition: false,
+        allowCreateTable: false,
+        dropObjectType: null,
+    },
     sequences: {
         key: 'sequences',
         label: 'Sequences',
@@ -103,6 +113,7 @@ const DRIVER_CATEGORY_ORDER: Record<string, CategoryKey[]> = {
         'materialized_views',
         'indexes',
         'functions',
+        'procedures',
         'sequences',
         'data_types',
         'aggregate_functions',
@@ -112,6 +123,7 @@ const DRIVER_CATEGORY_ORDER: Record<string, CategoryKey[]> = {
         'views',
         'indexes',
         'functions',
+        'procedures',
         'data_types',
     ],
     [DRIVER.MYSQL]: [
@@ -119,6 +131,7 @@ const DRIVER_CATEGORY_ORDER: Record<string, CategoryKey[]> = {
         'views',
         'indexes',
         'functions',
+        'procedures',
     ],
     [DRIVER.SQLITE]: [
         'tables',

@@ -20,6 +20,7 @@ func (a *App) CreateProject(p models.Project) (*models.Project, error) {
 	a.project = project
 	a.currentEnvironmentKey = project.DefaultEnvironmentKey
 	a.draft = []*models.ConnectionProfile{}
+	a.bindTrackingProject(project)
 	return project, nil
 }
 
@@ -34,6 +35,7 @@ func (a *App) SaveProject(p models.Project) (*models.Project, error) {
 			a.currentEnvironmentKey = project.DefaultEnvironmentKey
 		}
 	}
+	a.bindTrackingProject(project)
 	return project, nil
 }
 
@@ -53,6 +55,7 @@ func (a *App) OpenProject(projectID string) (*models.Project, error) {
 	a.project = project
 	a.currentEnvironmentKey = project.DefaultEnvironmentKey
 	a.draft = []*models.ConnectionProfile{}
+	a.bindTrackingProject(project)
 	return project, nil
 }
 
@@ -81,5 +84,6 @@ func (a *App) OpenProjectFromDirectory(directoryPath string) (*models.Project, e
 	a.project = project
 	a.currentEnvironmentKey = project.DefaultEnvironmentKey
 	a.draft = []*models.ConnectionProfile{}
+	a.bindTrackingProject(project)
 	return project, nil
 }

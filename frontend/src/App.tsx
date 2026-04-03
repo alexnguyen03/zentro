@@ -15,13 +15,14 @@ import { ProjectHub } from './components/layout/ProjectHub';
 import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { DOM_EVENT } from './lib/constants';
 import { emitCommand, onCommand } from './lib/commandBus';
-import { ForceQuit } from './services/projectService';
 import { Disconnect } from './services/connectionService';
 import { useGlobalShortcuts } from './features/shortcuts/useGlobalShortcuts';
 import { useAppEventBridge } from './features/app-runtime/useAppEventBridge';
 import { useBeforeCloseGuard } from './features/app-runtime/useBeforeCloseGuard';
 import { useSidebarResize, useProjectLifecycle } from './features/project/useProjectLifecycle';
 import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge';
+import { forceQuitWithAutosave } from './features/app-runtime/forceQuitWithAutosave';
+import { useQueryTabAutosave } from './features/editor/useQueryTabAutosave';
 
 function App() {
     const { isConnected } = useConnectionStore();
@@ -44,6 +45,7 @@ function App() {
     useAppEventBridge(toast);
     useGlobalShortcuts(toast);
     usePluginCommandBridge();
+    useQueryTabAutosave();
 
     useEffect(() => {
         const off = onCommand(DOM_EVENT.OPEN_QUERY_COMPARE, () => setShowCompareModal(true));
@@ -95,7 +97,8 @@ function App() {
                 isOpen={showForceQuitConfirm}
                 onClose={() => setShowForceQuitConfirm(false)}
                 onConfirm={() => {
-                    ForceQuit().catch(() => {});
+                    setShowForceQuitConfirm(false);
+                    forceQuitWithAutosave().catch(() => {});
                 }}
                 title="Force Close Application"
                 message="One or more queries are still running."

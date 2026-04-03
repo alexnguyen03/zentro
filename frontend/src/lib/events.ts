@@ -41,6 +41,7 @@ export interface SchemaNode {
     MaterializedViews?: string[];
     Indexes?: string[];
     Functions?: string[];
+    Procedures?: string[];
     Sequences?: string[];
     DataTypes?: string[];
     AggregateFunctions?: string[];

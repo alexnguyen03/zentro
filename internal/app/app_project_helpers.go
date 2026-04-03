@@ -199,6 +199,32 @@ func cloneConnectionProfile(profile *models.ConnectionProfile) *models.Connectio
 	return &copy
 }
 
+func (a *App) bindTrackingProject(project *models.Project) {
+	if a.tracking == nil || project == nil {
+		return
+	}
+	if err := a.tracking.BindProject(project); err != nil && a.logger != nil {
+		a.logger.Warn("tracking bind project failed", "project_id", project.ID, "err", err)
+	}
+}
+
+func (a *App) trackingProjectByID(projectID string) *models.Project {
+	if projectID == "" {
+		return a.project
+	}
+	if a.project != nil && a.project.ID == projectID {
+		return a.project
+	}
+	if a.projects == nil {
+		return nil
+	}
+	project, err := a.projects.GetProject(projectID)
+	if err != nil {
+		return nil
+	}
+	return project
+}
+
 func projectConnectionMatchesName(connection *models.ProjectConnection, name string) bool {
 	if connection == nil || name == "" {
 		return false

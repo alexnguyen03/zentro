@@ -47,6 +47,8 @@ export function DeleteScript(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DeleteTemplate(arg1:string):Promise<void>;
 
+export function DisableGitTracking():Promise<void>;
+
 export function Disconnect():Promise<void>;
 
 export function DropIndex(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -54,6 +56,8 @@ export function DropIndex(arg1:string,arg2:string,arg3:string):Promise<void>;
 export function DropObject(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function DropTableColumn(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function EnableGitTracking():Promise<void>;
 
 export function ExecuteQuery(arg1:string,arg2:string):Promise<void>;
 
@@ -101,6 +105,12 @@ export function GetDefaultProjectStorageRoot():Promise<string>;
 
 export function GetExecutionPolicy(arg1:string):Promise<app.ExecutionPolicy>;
 
+export function GetGitCommitDiff(arg1:string):Promise<string>;
+
+export function GetGitPendingChanges():Promise<Array<string>>;
+
+export function GetGitTrackingStatus():Promise<app.GitTrackingStatus>;
+
 export function GetHistory():Promise<Array<models.HistoryEntry>>;
 
 export function GetIndexes(arg1:string,arg2:string,arg3:string):Promise<Array<app.IndexInfo>>;
@@ -123,6 +133,8 @@ export function ImportConnectionPackage():Promise<models.ConnectionProfile>;
 
 export function ListDriverDescriptors():Promise<Array<core.DriverDescriptor>>;
 
+export function ListGitTimeline(arg1:number,arg2:string):Promise<Array<app.GitTimelineItem>>;
+
 export function ListPluginByCapability(arg1:string):Promise<Array<plugin.Contribution>>;
 
 export function ListProjects():Promise<Array<models.Project>>;
@@ -132,6 +144,8 @@ export function LoadConnections():Promise<Array<models.ConnectionProfile>>;
 export function LoadDatabasesForProfile(arg1:string):Promise<Array<string>>;
 
 export function LoadTemplates():Promise<Array<models.Template>>;
+
+export function ManualGitCommit(arg1:string):Promise<app.GitCommitResult>;
 
 export function OpenProject(arg1:string):Promise<models.Project>;
 
@@ -151,6 +165,8 @@ export function ResolvePluginContribution(arg1:string):Promise<plugin.Contributi
 
 export function RollbackTransaction():Promise<void>;
 
+export function RunGitTrackingMigration():Promise<void>;
+
 export function SaveBookmark(arg1:string,arg2:string,arg3:models.Bookmark):Promise<void>;
 
 export function SaveConnection(arg1:models.ConnectionProfile):Promise<void>;
@@ -164,6 +180,8 @@ export function SaveTemplate(arg1:models.Template):Promise<void>;
 export function SetPreferences(arg1:utils.Preferences):Promise<void>;
 
 export function Shutdown():Promise<void>;
+
+export function SnapshotStoredProcedures(arg1:string):Promise<number>;
 
 export function SwitchDatabase(arg1:string):Promise<void>;
 
