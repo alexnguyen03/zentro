@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ModalBackdrop, ModalFrame } from '../ui';
+import { Modal } from './Modal';
 import changelogMd from '../../../../CHANGELOG.md?raw';
 
 interface ChangelogModalProps {
@@ -10,15 +10,14 @@ interface ChangelogModalProps {
 
 export const ChangelogModal: React.FC<ChangelogModalProps> = ({ onClose }) => {
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
-            <ModalFrame
-                title="Changelog"
-                onClose={onClose}
-                className="h-[80vh] w-[700px] max-h-[800px] max-w-[calc(100vw-24px)] rounded-md border border-border shadow-elevation-lg"
-                headerClassName="shrink-0 border-b border-border bg-bg-tertiary px-4 py-3"
-                titleClassName="m-0 text-[14px] font-semibold text-text-primary"
-                bodyClassName="min-h-0 flex-1 overflow-y-auto p-6 text-[13px] leading-relaxed markdown-body"
-            >
+        <Modal
+            isOpen
+            onClose={onClose}
+            title="Changelog"
+            width={700}
+            className="h-[80vh] max-h-[800px] rounded-md border border-border shadow-elevation-lg"
+        >
+            <div className="min-h-0 flex-1 overflow-y-auto p-6 text-[13px] leading-relaxed markdown-body">
                 <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -34,7 +33,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ onClose }) => {
                 >
                     {changelogMd}
                 </ReactMarkdown>
-            </ModalFrame>
-        </ModalBackdrop>
+            </div>
+        </Modal>
     );
 };

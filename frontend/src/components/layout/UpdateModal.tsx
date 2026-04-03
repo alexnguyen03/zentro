@@ -2,9 +2,10 @@ import React from 'react';
 import { Gift, ArrowRight, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ModalBackdrop, ModalFrame, Button } from '../ui';
+import { Button } from '../ui';
 import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime';
 import pkg from '../../../../package.json';
+import { Modal } from './Modal';
 
 interface UpdateModalProps {
     latestVersion: string;
@@ -47,32 +48,29 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     );
 
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
-            <ModalFrame
-                title={(
+        <Modal
+            isOpen
+            onClose={onClose}
+            title={(
+                <div className="flex flex-col gap-1">
                     <span className="inline-flex items-center gap-3">
                         <span className="flex h-10 w-10 items-center justify-center rounded-md bg-success/10 text-success">
                             <Gift size={20} />
                         </span>
                         <span>New Update Available</span>
                     </span>
-                )}
-                subtitle={(
-                    <span className="inline-flex items-center gap-2">
+                    <span className="inline-flex items-center gap-2 text-[12px] font-medium text-text-muted">
                         <span>v{pkg.version}</span>
                         <ArrowRight size={10} />
                         <span className="font-bold text-success">v{latestVersion}</span>
                     </span>
-                )}
-                onClose={onClose}
-                footer={footer}
-                className="w-[500px] max-w-[calc(100vw-24px)] max-h-[85vh] rounded-md border border-border/10 shadow-elevation-lg"
-                headerClassName="border-b-0 px-6 pb-2 pt-6"
-                titleClassName="m-0 text-lg font-bold tracking-tight"
-                subtitleClassName="text-[12px] font-medium text-text-muted"
-                bodyClassName="min-h-0 flex-1 overflow-y-auto"
-                footerClassName="border-t-0 p-6 pt-2"
-            >
+                </div>
+            )}
+            footer={footer}
+            width={500}
+            className="max-h-[85vh] rounded-md border border-border/10 shadow-elevation-lg"
+        >
+            <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="flex-1 overflow-y-auto w-full px-8 py-4 text-[13px] leading-relaxed custom-scrollbar bg-bg-primary/30 mx-6 my-2 rounded-md border border-border/5">
                     <div className="font-bold text-[11px] uppercase tracking-widest text-text-muted mb-3">Release Notes</div>
                     <ReactMarkdown 
@@ -91,7 +89,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                         {changelog}
                     </ReactMarkdown>
                 </div>
-            </ModalFrame>
-        </ModalBackdrop>
+            </div>
+        </Modal>
     );
 };

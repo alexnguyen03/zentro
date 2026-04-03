@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ModalBackdrop, ModalFrame } from '../ui';
+import { Modal } from './Modal';
 import { getLicenseState } from '../../features/license/service';
 import { FeatureGate } from '../../features/license/featureGate';
 import type { LicenseState } from '../../features/license/types';
@@ -49,17 +49,19 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
     }, []);
 
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
-            <ModalFrame
-                title="License"
-                subtitle="MIT License"
-                onClose={onClose}
-                className="w-[720px] max-w-[calc(100vw-32px)] max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
-                headerClassName="px-6 py-4"
-                titleClassName="m-0 text-[16px] font-bold"
-                subtitleClassName="text-[11px] text-text-secondary"
-                bodyClassName="min-h-0 overflow-y-auto px-5 py-4"
-            >
+        <Modal
+            isOpen
+            onClose={onClose}
+            title={(
+                <div className="flex flex-col">
+                    <span className="text-[16px] font-bold">License</span>
+                    <span className="text-[11px] text-text-secondary">MIT License</span>
+                </div>
+            )}
+            width={720}
+            className="max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
+        >
+            <div className="min-h-0 overflow-y-auto px-1 py-1">
                 <div className="text-left">
                     {licenseState && (
                         <div className="mb-3 rounded-md border border-border/30 bg-bg-primary/30 p-3 text-[11px] text-text-secondary">
@@ -83,7 +85,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                         </pre>
                     )}
                 </div>
-            </ModalFrame>
-        </ModalBackdrop>
+            </div>
+        </Modal>
     );
 };

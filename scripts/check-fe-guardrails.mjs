@@ -67,6 +67,12 @@ for (const file of files) {
       ...collectViolations(file, /(^|[^\w.])(confirm|prompt|alert)\s*\(/, 'no-native-dialogs'),
       ...collectViolations(file, /\bas\s+unknown\s+as\b/, 'no-double-unknown-cast'),
       ...collectViolations(file, /\bfunction\s+toErrorMessage\s*\(/, 'use-shared-error-helper'),
+      ...collectViolations(
+        file,
+        /variant\s*=\s*["'](primary|solid|danger|success)["']/,
+        'no-legacy-button-variants',
+      ),
+      ...collectViolations(file, /\bdanger\s*=\s*\{?/, 'no-legacy-button-danger-prop'),
     );
   }
 

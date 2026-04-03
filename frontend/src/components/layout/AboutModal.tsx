@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ExternalLink, Github, FileText } from 'lucide-react';
-import { ModalBackdrop, ModalFrame } from '../ui';
+import { Modal } from './Modal';
 import { ChangelogModal } from './ChangelogModal';
 import zentroLogo from '../../assets/images/main-logo.png';
 import pkg from '../../../package.json';
@@ -17,15 +17,14 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
     }
 
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
-            <ModalFrame
-                title="About Zentro"
-                onClose={onClose}
-                className="w-[420px] max-w-[calc(100vw-24px)] rounded-md border border-border/10 shadow-elevation-lg"
-                headerClassName="shrink-0 border-b-0 px-6 pt-5 pb-0"
-                titleClassName="m-0 text-[15px] font-semibold tracking-wide text-text-secondary"
-                bodyClassName="overflow-y-auto px-10 pb-10 pt-2"
-            >
+        <Modal
+            isOpen
+            onClose={onClose}
+            title="About Zentro"
+            width={420}
+            className="rounded-md border border-border/10 shadow-elevation-lg"
+        >
+            <div className="overflow-y-auto px-5 pb-5 pt-1">
                 <div className="flex flex-col items-center">
                     {/* Integrated Logo Section */}
                     <div className="w-24 h-24 mb-6 bg-bg-tertiary/40 rounded-md flex items-center justify-center p-4 border border-border/5">
@@ -74,7 +73,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
                         </button>
                     </div>
                 </div>
-            </ModalFrame>
-        </ModalBackdrop>
+            </div>
+        </Modal>
     );
 };
