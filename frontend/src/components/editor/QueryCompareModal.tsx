@@ -3,7 +3,7 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
-import { ModalBackdrop, Button } from '../ui';
+import { ModalBackdrop, Button, SelectField } from '../ui';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
 
 interface QueryCompareModalProps {
@@ -141,36 +141,36 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
         </div>
 
         <div className="px-4 py-2 border-b border-border bg-bg-primary/40 flex items-center gap-3">
-          <label className="text-xs text-text-secondary flex items-center gap-1">
-            Left
-            <select
-              className="ml-1 bg-bg-primary border border-border rounded-md px-2 py-1 text-[12px]"
-              value={leftTabId}
-              disabled={!canUseCompare}
-              onChange={(e) => setLeftTabId(e.target.value)}
-            >
-              {queryTabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs text-text-secondary flex items-center gap-1">
-            Right
-            <select
-              className="ml-1 bg-bg-primary border border-border rounded-md px-2 py-1 text-[12px]"
-              value={rightTabId}
-              disabled={!canUseCompare}
-              onChange={(e) => setRightTabId(e.target.value)}
-            >
-              {queryTabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="text-xs text-text-secondary flex items-center gap-1">
+              Left
+              <SelectField
+                className="ml-1 min-w-[220px] text-[12px]"
+                value={leftTabId}
+                disabled={!canUseCompare}
+                onValueChange={(value) => setLeftTabId(value)}
+              >
+                {queryTabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </option>
+                ))}
+              </SelectField>
+            </label>
+            <label className="text-xs text-text-secondary flex items-center gap-1">
+              Right
+              <SelectField
+                className="ml-1 min-w-[220px] text-[12px]"
+                value={rightTabId}
+                disabled={!canUseCompare}
+                onValueChange={(value) => setRightTabId(value)}
+              >
+                {queryTabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </option>
+                ))}
+              </SelectField>
+            </label>
           <span className="text-[11px] text-text-muted">
             Deterministic source order by group/tab index
           </span>

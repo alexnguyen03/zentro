@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { cn } from '../../lib/cn';
 
 interface ModalBackdropProps {
@@ -45,17 +45,6 @@ export const ModalBackdrop: React.FC<ModalBackdropProps> = ({
     const backdropClass = layer === 'confirm' ? 'bg-overlay-strong' : 'bg-overlay';
 
     React.useEffect(() => {
-        if (!closeOnEscape || !onClose) return;
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') onClose();
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [closeOnEscape, onClose]);
-
-    React.useEffect(() => {
         if (!lockScroll) return;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
@@ -64,31 +53,52 @@ export const ModalBackdrop: React.FC<ModalBackdropProps> = ({
         };
     }, [lockScroll]);
 
-    const handleBackdropClick = () => {
-        if (!closeOnBackdropClick) return;
-        onClose?.();
-    };
-
     const content = contentClassName ? (
-        <div className={contentClassName} onClick={(event) => event.stopPropagation()}>
+        <div className={contentClassName}>
             {children}
         </div>
     ) : (
         children
     );
 
-    return ReactDOM.createPortal(
-        <div
-            className={cn(
-                'fixed inset-0 flex items-center justify-center animate-in fade-in duration-150 modal-backdrop-fade-in',
-                backdropClass,
-                layerClass,
-                className
-            )}
-            onClick={handleBackdropClick}
+    return (
+        <DialogPrimitive.Root
+            open
+            onOpenChange={(open) => {
+                if (!open) {
+                    onClose?.();
+                }
+            }}
         >
-            {content}
-        </div>,
-        document.body
+            <DialogPrimitive.Portal>
+                <DialogPrimitive.Overlay
+                    className={cn(
+                        'fixed inset-0 animate-in fade-in duration-150 modal-backdrop-fade-in',
+                        backdropClass,
+                        layerClass,
+                    )}
+                />
+                <DialogPrimitive.Content
+                    aria-label="Overlay"
+                    onEscapeKeyDown={(event) => {
+                        if (!closeOnEscape) {
+                            event.preventDefault();
+                        }
+                    }}
+                    onPointerDownOutside={(event) => {
+                        if (!closeOnBackdropClick) {
+                            event.preventDefault();
+                        }
+                    }}
+                    className={cn(
+                        'fixed inset-0 flex items-center justify-center outline-none',
+                        layerClass,
+                        className,
+                    )}
+                >
+                    {content}
+                </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
     );
 };
