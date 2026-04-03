@@ -82,6 +82,10 @@ export function DeleteTemplate(arg1) {
   return window['go']['app']['App']['DeleteTemplate'](arg1);
 }
 
+export function DisableGitTracking() {
+  return window['go']['app']['App']['DisableGitTracking']();
+}
+
 export function Disconnect() {
   return window['go']['app']['App']['Disconnect']();
 }
@@ -96,6 +100,10 @@ export function DropObject(arg1, arg2, arg3, arg4) {
 
 export function DropTableColumn(arg1, arg2, arg3) {
   return window['go']['app']['App']['DropTableColumn'](arg1, arg2, arg3);
+}
+
+export function EnableGitTracking() {
+  return window['go']['app']['App']['EnableGitTracking']();
 }
 
 export function ExecuteQuery(arg1, arg2) {
@@ -190,6 +198,18 @@ export function GetExecutionPolicy(arg1) {
   return window['go']['app']['App']['GetExecutionPolicy'](arg1);
 }
 
+export function GetGitCommitDiff(arg1) {
+  return window['go']['app']['App']['GetGitCommitDiff'](arg1);
+}
+
+export function GetGitPendingChanges() {
+  return window['go']['app']['App']['GetGitPendingChanges']();
+}
+
+export function GetGitTrackingStatus() {
+  return window['go']['app']['App']['GetGitTrackingStatus']();
+}
+
 export function GetHistory() {
   return window['go']['app']['App']['GetHistory']();
 }
@@ -234,6 +254,10 @@ export function ListDriverDescriptors() {
   return window['go']['app']['App']['ListDriverDescriptors']();
 }
 
+export function ListGitTimeline(arg1, arg2) {
+  return window['go']['app']['App']['ListGitTimeline'](arg1, arg2);
+}
+
 export function ListPluginByCapability(arg1) {
   return window['go']['app']['App']['ListPluginByCapability'](arg1);
 }
@@ -252,6 +276,10 @@ export function LoadDatabasesForProfile(arg1) {
 
 export function LoadTemplates() {
   return window['go']['app']['App']['LoadTemplates']();
+}
+
+export function ManualGitCommit(arg1) {
+  return window['go']['app']['App']['ManualGitCommit'](arg1);
 }
 
 export function OpenProject(arg1) {
@@ -290,6 +318,10 @@ export function RollbackTransaction() {
   return window['go']['app']['App']['RollbackTransaction']();
 }
 
+export function RunGitTrackingMigration() {
+  return window['go']['app']['App']['RunGitTrackingMigration']();
+}
+
 export function SaveBookmark(arg1, arg2, arg3) {
   return window['go']['app']['App']['SaveBookmark'](arg1, arg2, arg3);
 }
@@ -316,6 +348,10 @@ export function SetPreferences(arg1) {
 
 export function Shutdown() {
   return window['go']['app']['App']['Shutdown']();
+}
+
+export function SnapshotStoredProcedures(arg1) {
+  return window['go']['app']['App']['SnapshotStoredProcedures'](arg1);
 }
 
 export function SwitchDatabase(arg1) {

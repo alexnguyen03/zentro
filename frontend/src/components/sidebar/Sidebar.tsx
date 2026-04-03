@@ -4,6 +4,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { ConnectionTree } from './ConnectionTree';
 import { HistoryPanel } from './HistoryPanel';
 import { SavedScriptsPanel } from './SavedScriptsPanel';
+import { GitTimelinePanel } from './GitTimelinePanel';
 import { LoadConnections, GetConnectionStatus } from '../../services/connectionService';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
@@ -14,7 +15,7 @@ import { emitCommand } from '../../lib/commandBus';
 import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
 import { getErrorMessage } from '../../lib/errors';
 
-type SidebarTab = 'explorer' | 'history' | 'scripts';
+type SidebarTab = 'explorer' | 'history' | 'scripts' | 'timeline';
 
 export const Sidebar: React.FC = () => {
     const { setConnections, isConnected } = useConnectionStore();
@@ -68,6 +69,7 @@ export const Sidebar: React.FC = () => {
         { id: 'explorer', label: 'Explorer', icon: <Hash size={14} /> },
         { id: 'history', label: 'History', icon: <Clock size={14} /> },
         { id: 'scripts', label: 'Scripts', icon: <BookMarked size={14} /> },
+        { id: 'timeline', label: 'Timeline', icon: <Zap size={14} /> },
     ];
     const lockExplorerScroll = activeTab === 'explorer' && isConnected;
 
@@ -169,6 +171,8 @@ export const Sidebar: React.FC = () => {
                     )
                 ) : activeTab === 'history' ? (
                     <HistoryPanel />
+                ) : activeTab === 'timeline' ? (
+                    <GitTimelinePanel />
                 ) : (
                     <SavedScriptsPanel />
                 )}

@@ -7,6 +7,7 @@ export type CategoryKey =
     | 'materialized_views'
     | 'indexes'
     | 'functions'
+    | 'procedures'
     | 'sequences'
     | 'data_types'
     | 'aggregate_functions';
@@ -18,6 +19,7 @@ export type ConnectionTreeIcon =
     | 'materialized_view'
     | 'index'
     | 'function'
+    | 'procedure'
     | 'sequence'
     | 'data_type'
     | 'aggregate'

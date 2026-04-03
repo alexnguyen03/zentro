@@ -218,6 +218,25 @@ func (d *PostgresDriver) populateSchema(ctx context.Context, db *sql.DB, schema 
 	}
 
 	rows, err = db.QueryContext(ctx, `
+		SELECT p.proname
+		FROM pg_proc p
+		JOIN pg_namespace n ON n.oid = p.pronamespace
+		WHERE n.nspname = $1 AND p.prokind = 'p'
+		ORDER BY p.proname
+	`, schema)
+	if err != nil {
+		logger.Warn("schema: list procedures failed", "schema", schema, "err", err)
+	} else {
+		for rows.Next() {
+			var name string
+			if rows.Scan(&name) == nil {
+				node.Procedures = append(node.Procedures, name)
+			}
+		}
+		rows.Close()
+	}
+
+	rows, err = db.QueryContext(ctx, `
 		SELECT sequence_name FROM information_schema.sequences
 		WHERE sequence_schema = $1 ORDER BY sequence_name
 	`, schema)
@@ -284,6 +303,7 @@ func (d *PostgresDriver) populateSchema(ctx context.Context, db *sql.DB, schema 
 		"matviews", len(node.MaterializedViews),
 		"indexes", len(node.Indexes),
 		"functions", len(node.Functions),
+		"procedures", len(node.Procedures),
 		"sequences", len(node.Sequences),
 		"types", len(node.DataTypes),
 		"aggregates", len(node.AggregateFunctions),

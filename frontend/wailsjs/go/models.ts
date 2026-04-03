@@ -50,6 +50,72 @@ export namespace app {
 	        this.environment_strictness = source["environment_strictness"];
 	    }
 	}
+	export class GitCommitResult {
+	    hash?: string;
+	    message: string;
+	    files: string[];
+	    created_at: string;
+	    no_changes: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hash = source["hash"];
+	        this.message = source["message"];
+	        this.files = source["files"];
+	        this.created_at = source["created_at"];
+	        this.no_changes = source["no_changes"];
+	    }
+	}
+	export class GitTimelineItem {
+	    hash: string;
+	    message: string;
+	    event_type: string;
+	    author: string;
+	    when: string;
+	    files: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GitTimelineItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hash = source["hash"];
+	        this.message = source["message"];
+	        this.event_type = source["event_type"];
+	        this.author = source["author"];
+	        this.when = source["when"];
+	        this.files = source["files"];
+	    }
+	}
+	export class GitTrackingStatus {
+	    enabled: boolean;
+	    initialized: boolean;
+	    repo_path?: string;
+	    project_id?: string;
+	    last_commit_hash?: string;
+	    last_error?: string;
+	    pending_count?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitTrackingStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.initialized = source["initialized"];
+	        this.repo_path = source["repo_path"];
+	        this.project_id = source["project_id"];
+	        this.last_commit_hash = source["last_commit_hash"];
+	        this.last_error = source["last_error"];
+	        this.pending_count = source["pending_count"];
+	    }
+	}
 	export class IndexInfo {
 	    Name: string;
 	    Table: string;
@@ -286,6 +352,8 @@ export namespace models {
 	    query: string;
 	    profile: string;
 	    database: string;
+	    project_id?: string;
+	    environment_key?: string;
 	    duration_ms: number;
 	    row_count: number;
 	    error?: string;
@@ -301,6 +369,8 @@ export namespace models {
 	        this.query = source["query"];
 	        this.profile = source["profile"];
 	        this.database = source["database"];
+	        this.project_id = source["project_id"];
+	        this.environment_key = source["environment_key"];
 	        this.duration_ms = source["duration_ms"];
 	        this.row_count = source["row_count"];
 	        this.error = source["error"];

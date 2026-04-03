@@ -6,9 +6,6 @@ import { useResultStore } from '../../stores/resultStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useProjectStore } from '../../stores/projectStore';
-import { useEnvironmentStore } from '../../stores/environmentStore';
-import { useScriptStore } from '../../stores/scriptStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from './ResultPanel';
 import { ExecuteQuery } from '../../services/queryService';
@@ -28,6 +25,7 @@ import { cn } from '../../lib/cn';
 import { splitLastQuery } from '../../lib/queryBuilder';
 import { getErrorMessage } from '../../lib/errors';
 import { applyPreExecuteFilterPolicy, type QueryExecutionSource, resolveExecuteQuery } from '../../features/query/executionRouting';
+import { saveQueryTabById } from '../../features/editor/scriptAutosave';
 
 export const QueryTabs: React.FC = () => {
     const {
@@ -44,7 +42,7 @@ export const QueryTabs: React.FC = () => {
         updateTabContext,
     } = useEditorStore();
     const { results } = useResultStore();
-    const { isConnected, activeProfile } = useConnectionStore();
+    const { isConnected } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
     const { showResultPanel } = useLayoutStore();
 
@@ -164,46 +162,15 @@ export const QueryTabs: React.FC = () => {
         if (!groupId || !activeTabId || !activeTab) return;
 
         if (activeTab.type === TAB_TYPE.QUERY && activeTab.query?.trim()) {
-            const activeProject = useProjectStore.getState().activeProject;
-            const activeEnvironmentKey = useEnvironmentStore.getState().activeEnvironmentKey
-                || activeProject?.last_active_environment_key
-                || activeProject?.default_environment_key;
-            const envConnection = activeProject?.connections?.find((item) => item.environment_key === activeEnvironmentKey);
-            const envConnectionName = envConnection?.advanced_meta?.profile_name || envConnection?.name || null;
-
-            const projectId =
-                activeProject?.id ||
-                activeTab.context?.scriptProjectId ||
-                null;
-            const profileName =
-                activeProfile?.name ||
-                useConnectionStore.getState().activeProfile?.name ||
-                activeTab.context?.scriptConnectionName ||
-                envConnectionName ||
-                null;
-
-            if (projectId && profileName) {
-                try {
-                    const savedScriptId = await useScriptStore.getState().saveScript(
-                        projectId,
-                        profileName,
-                        activeTab.name,
-                        activeTab.query,
-                        activeTab.context?.savedScriptId,
-                    );
-                    updateTabContext(activeTabId, {
-                        savedScriptId,
-                        scriptProjectId: projectId,
-                        scriptConnectionName: profileName,
-                    });
-                } catch (error) {
-                    console.error('Shortcut close autosave failed', error);
-                }
+            try {
+                await saveQueryTabById(activeTabId);
+            } catch (error) {
+                console.error('Shortcut close autosave failed', error);
             }
         }
 
         removeTab(activeTabId, groupId);
-    }, [activeProfile?.name, removeTab, updateTabContext]);
+    }, [removeTab]);
 
     // Global event listener for command palette's 'close-active-tab'
     useEffect(() => {

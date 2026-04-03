@@ -12,6 +12,33 @@ export interface ConnectionRuntimeState {
     profile?: ConnectionProfile | null;
 }
 
+export interface GitTrackingStatus {
+    enabled: boolean;
+    initialized: boolean;
+    repo_path?: string;
+    project_id?: string;
+    last_commit_hash?: string;
+    last_error?: string;
+    pending_count?: number;
+}
+
+export interface GitTimelineItem {
+    hash: string;
+    message: string;
+    event_type: string;
+    author: string;
+    when: string;
+    files: string[];
+}
+
+export interface GitCommitResult {
+    hash?: string;
+    message: string;
+    files: string[];
+    created_at: string;
+    no_changes: boolean;
+}
+
 export interface AppApiGateway {
     // Connection
     Connect(database: string): Promise<void>;
@@ -81,6 +108,15 @@ export interface AppApiGateway {
     GetBookmarks(profileName: string, dbName: string): Promise<models.Bookmark[]>;
     SaveBookmark(profileName: string, dbName: string, bookmark: models.Bookmark): Promise<void>;
     DeleteBookmark(profileName: string, dbName: string, lineNumber: number): Promise<void>;
+    EnableGitTracking(): Promise<void>;
+    DisableGitTracking(): Promise<void>;
+    GetGitTrackingStatus(): Promise<GitTrackingStatus>;
+    ListGitTimeline(limit: number, eventType: string): Promise<GitTimelineItem[]>;
+    GetGitCommitDiff(commitHash: string): Promise<string>;
+    ManualGitCommit(message: string): Promise<GitCommitResult>;
+    GetGitPendingChanges(): Promise<string[]>;
+    SnapshotStoredProcedures(schema: string): Promise<number>;
+    RunGitTrackingMigration(): Promise<void>;
 
     // App-level lifecycle
     ForceQuit(): Promise<void>;

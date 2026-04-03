@@ -12,18 +12,50 @@ func (a *App) GetScriptContent(projectID, connectionName, scriptID string) (stri
 	return a.scripts.GetScriptContent(projectID, connectionName, scriptID)
 }
 func (a *App) SaveScript(script models.SavedScript, content string) error {
-	return a.scripts.SaveScript(script, content)
+	if err := a.scripts.SaveScript(script, content); err != nil {
+		return err
+	}
+	if a.tracking != nil {
+		if project := a.trackingProjectByID(script.ProjectID); project != nil {
+			_ = a.tracking.TrackScriptSave(project, script, content)
+		}
+	}
+	return nil
 }
 func (a *App) DeleteScript(projectID, connectionName, scriptID string) error {
-	return a.scripts.DeleteScript(projectID, connectionName, scriptID)
+	if err := a.scripts.DeleteScript(projectID, connectionName, scriptID); err != nil {
+		return err
+	}
+	if a.tracking != nil {
+		if project := a.trackingProjectByID(projectID); project != nil {
+			_ = a.tracking.TrackScriptDelete(project, connectionName, scriptID)
+		}
+	}
+	return nil
 }
 
 func (a *App) GetHistory() []models.HistoryEntry { return a.history.GetHistory() }
 func (a *App) ClearHistory() error               { return a.history.ClearHistory() }
 
 func (a *App) LoadTemplates() ([]models.Template, error) { return a.templates.LoadTemplates() }
-func (a *App) SaveTemplate(t models.Template) error      { return a.templates.SaveTemplate(t) }
-func (a *App) DeleteTemplate(id string) error            { return a.templates.DeleteTemplate(id) }
+func (a *App) SaveTemplate(t models.Template) error {
+	if err := a.templates.SaveTemplate(t); err != nil {
+		return err
+	}
+	if a.tracking != nil && a.project != nil {
+		_ = a.tracking.TrackTemplateSave(a.project, t)
+	}
+	return nil
+}
+func (a *App) DeleteTemplate(id string) error {
+	if err := a.templates.DeleteTemplate(id); err != nil {
+		return err
+	}
+	if a.tracking != nil && a.project != nil {
+		_ = a.tracking.TrackTemplateDelete(a.project, id)
+	}
+	return nil
+}
 
 func (a *App) FormatSQL(query string, dialect string) (string, error) {
 	return a.formatter.FormatSQL(query, dialect)
@@ -34,11 +66,23 @@ func (a *App) GetBookmarks(connectionID, tabID string) ([]models.Bookmark, error
 }
 
 func (a *App) SaveBookmark(connectionID, tabID string, bookmark models.Bookmark) error {
-	return a.bookmarks.SaveBookmark(connectionID, tabID, bookmark)
+	if err := a.bookmarks.SaveBookmark(connectionID, tabID, bookmark); err != nil {
+		return err
+	}
+	if a.tracking != nil && a.project != nil {
+		_ = a.tracking.TrackBookmarkSave(a.project, connectionID, tabID, bookmark)
+	}
+	return nil
 }
 
 func (a *App) DeleteBookmark(connectionID, tabID string, line int) error {
-	return a.bookmarks.DeleteBookmark(connectionID, tabID, line)
+	if err := a.bookmarks.DeleteBookmark(connectionID, tabID, line); err != nil {
+		return err
+	}
+	if a.tracking != nil && a.project != nil {
+		_ = a.tracking.TrackBookmarkDelete(a.project, connectionID, tabID, line)
+	}
+	return nil
 }
 
 func (a *App) CompareQueries(query1, query2 string) (string, error) {

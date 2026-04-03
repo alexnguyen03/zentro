@@ -3,12 +3,15 @@ package app
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"zentro/internal/constant"
 	dbpkg "zentro/internal/db"
 )
+
+var routineDDLPattern = regexp.MustCompile(`(?is)\b(create|alter|drop)\s+(or\s+replace\s+)?(function|procedure)\b`)
 
 func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, statement queryStatement, offset int, start time.Time) error {
 	driver := s.getDriver()
@@ -133,21 +136,23 @@ func (s *QueryService) streamSelect(ctx context.Context, executor sqlExecutor, s
 	}
 
 	totalRows := int64(seq*chunkSize + len(buf))
-	if offset == 0 {
-		s.appendHistory(statement.Text, totalRows, time.Since(start), rows.Err())
-	}
+	duration := time.Since(start)
 	if s.isCancelled(statement.SourceTabID) || ctx.Err() == context.Canceled {
 		err = context.Canceled
 	}
 	if rows.Err() != nil && err == nil {
 		err = rows.Err()
 	}
+	if offset == 0 {
+		s.appendHistory(statement.Text, totalRows, duration, err)
+		s.trackQueryExecution(statement, totalRows, duration, true, err)
+	}
 	if err == context.Canceled {
-		s.emitDoneWithMore(statement, int64(totalRowsFetched), time.Since(start), true, hasMore, fmt.Errorf("query cancelled"))
+		s.emitDoneWithMore(statement, int64(totalRowsFetched), duration, true, hasMore, fmt.Errorf("query cancelled"))
 		return err
 	}
-	s.emitDoneWithMore(statement, int64(totalRowsFetched), time.Since(start), true, hasMore, err)
-	s.logger.Debug("query profile", "stage", "stream-select", "tab", statement.TabID, "rows", totalRowsFetched, "duration_ms", time.Since(start).Milliseconds())
+	s.emitDoneWithMore(statement, int64(totalRowsFetched), duration, true, hasMore, err)
+	s.logger.Debug("query profile", "stage", "stream-select", "tab", statement.TabID, "rows", totalRowsFetched, "duration_ms", duration.Milliseconds())
 	return err
 }
 
@@ -275,11 +280,16 @@ func (s *QueryService) execNonSelect(ctx context.Context, executor sqlExecutor, 
 	if err != nil {
 		wrappedErr := fmt.Errorf("exec: %w", err)
 		s.appendHistory(statement.Text, 0, dur, wrappedErr)
+		s.trackQueryExecution(statement, 0, dur, false, wrappedErr)
 		s.emitDone(statement, 0, dur, false, wrappedErr)
 		return wrappedErr
 	}
 	affected, _ := res.RowsAffected()
 	s.appendHistory(statement.Text, affected, dur, nil)
+	s.trackQueryExecution(statement, affected, dur, false, nil)
+	if s.onRoutineDDL != nil && routineDDLPattern.MatchString(statement.Text) {
+		s.onRoutineDDL(statement.Text)
+	}
 	s.emitDone(statement, affected, dur, false, nil)
 	return nil
 }

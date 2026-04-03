@@ -37,6 +37,7 @@ type SchemaNode struct {
 	MaterializedViews  []string `json:"MaterializedViews"`
 	Indexes            []string `json:"Indexes"`
 	Functions          []string `json:"Functions"`
+	Procedures         []string `json:"Procedures"`
 	Sequences          []string `json:"Sequences"`
 	DataTypes          []string `json:"DataTypes"`
 	AggregateFunctions []string `json:"AggregateFunctions"`
@@ -52,6 +53,7 @@ func NewSchemaNode(name string) *SchemaNode {
 		MaterializedViews:  []string{},
 		Indexes:            []string{},
 		Functions:          []string{},
+		Procedures:         []string{},
 		Sequences:          []string{},
 		DataTypes:          []string{},
 		AggregateFunctions: []string{},

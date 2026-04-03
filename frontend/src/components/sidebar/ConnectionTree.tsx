@@ -51,6 +51,8 @@ function renderIcon(icon: ConnectionTreeIcon, size = 12): React.ReactNode {
             return <Hash size={size} className={iconClass} />;
         case 'function':
             return <Zap size={size} className={iconClass} />;
+        case 'procedure':
+            return <Zap size={size} className={iconClass} />;
         case 'sequence':
             return <List size={size} className={iconClass} />;
         case 'data_type':

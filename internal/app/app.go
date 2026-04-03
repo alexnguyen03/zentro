@@ -47,6 +47,7 @@ type App struct {
 	formatter *QueryFormatterService
 	compare   *QueryCompareService
 	update    *UpdateService
+	tracking  *GitTrackingService
 
 	pluginRegistry *pluginext.InMemoryRegistry
 	licenseService *license.LicenseService
@@ -58,7 +59,11 @@ func NewApp() *App {
 		draft:   []*models.ConnectionProfile{},
 	}
 
-	a.history = NewHistoryService(func() *models.ConnectionProfile { return a.profile })
+	a.history = NewHistoryService(
+		func() *models.ConnectionProfile { return a.profile },
+		func() *models.Project { return a.project },
+		func() string { return string(a.currentProjectEnvironmentKey()) },
+	)
 	a.tx = NewTransactionService(
 		context.Background(),
 		nil,
@@ -108,6 +113,7 @@ func NewApp() *App {
 	a.compare = NewQueryCompareService()
 	a.update = NewUpdateService("alexnguyen03/zentro")
 	a.projects = NewProjectService(nil)
+	a.tracking = NewGitTrackingService(nil)
 	a.pluginRegistry = pluginext.NewInMemoryRegistry()
 	a.licenseService = license.NewLicenseService(nil)
 
@@ -126,6 +132,7 @@ func (a *App) Startup(ctx context.Context) {
 	a.tx.logger = a.logger
 	a.scripts.logger = a.logger
 	a.projects.logger = a.logger
+	a.tracking.SetLogger(a.logger)
 
 	prefs, err := utils.LoadPreferences()
 	if err != nil {
@@ -151,6 +158,22 @@ func (a *App) ForceQuit() {
 
 func (a *App) Shutdown() {
 	a.logger.Info("zentro shutting down")
+	project := a.project
+	if a.tracking != nil && project != nil {
+		done := make(chan error, 1)
+		go func() {
+			done <- a.tracking.FlushAndCommitOnClose(project)
+		}()
+		select {
+		case err := <-done:
+			if err != nil {
+				a.logger.Warn("tracking flush on close failed", "err", err)
+			}
+		case <-time.After(3 * time.Second):
+			a.logger.Warn("tracking flush on close timed out")
+		}
+	}
+
 	a.query.Shutdown()
 	_ = a.tx.RollbackActive()
 	if a.db != nil {
@@ -160,5 +183,8 @@ func (a *App) Shutdown() {
 	a.profile = nil
 	a.project = nil
 	a.currentEnvironmentKey = ""
+	if a.tracking != nil {
+		a.tracking.Close()
+	}
 	a.logger.Info("zentro shutdown complete")
 }
