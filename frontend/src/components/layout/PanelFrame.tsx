@@ -1,9 +1,9 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Button } from './Button';
+import { Button } from '../ui/Button';
 
-interface ModalFrameProps {
+interface PanelFrameProps {
     title: React.ReactNode;
     subtitle?: React.ReactNode;
     onClose?: () => void;
@@ -20,7 +20,7 @@ interface ModalFrameProps {
     style?: React.CSSProperties;
 }
 
-export const ModalFrame: React.FC<ModalFrameProps> = ({
+export const PanelFrame: React.FC<PanelFrameProps> = ({
     title,
     subtitle,
     onClose,
@@ -37,15 +37,15 @@ export const ModalFrame: React.FC<ModalFrameProps> = ({
     style,
 }) => {
     return (
-        <section style={style} className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-bg-secondary text-text-primary', className)}>
-            <header className={cn('flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3', headerClassName)}>
+        <section style={style} className={cn('flex h-full min-h-0 flex-col overflow-hidden bg-card text-card-foreground', className)}>
+            <header className={cn('flex items-center justify-between gap-3 border-b border-border/25 px-4 py-3', headerClassName)}>
                 <div className="min-w-0">
                     {subtitle && (
-                        <div className={cn('text-[11px] font-semibold text-text-secondary', subtitleClassName)}>
+                        <div className={cn('text-[11px] font-semibold text-muted-foreground', subtitleClassName)}>
                             {subtitle}
                         </div>
                     )}
-                    <h2 className={cn('m-0 mt-0.5 truncate text-[28px] font-bold tracking-tight text-text-primary', titleClassName)}>
+                    <h2 className={cn('m-0 mt-0.5 truncate text-[28px] font-bold tracking-tight text-foreground', titleClassName)}>
                         {title}
                     </h2>
                 </div>
@@ -57,7 +57,7 @@ export const ModalFrame: React.FC<ModalFrameProps> = ({
                             size="icon"
                             onClick={onClose}
                             title={closeTitle}
-                            className="h-8 w-8 rounded-md text-text-secondary hover:bg-bg-primary/30 hover:text-text-primary"
+                            className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                             <X size={16} />
                         </Button>
@@ -70,7 +70,7 @@ export const ModalFrame: React.FC<ModalFrameProps> = ({
             </div>
 
             {footer && (
-                <footer className={cn('shrink-0 border-t border-border/20 px-4 py-3', footerClassName)}>
+                <footer className={cn('shrink-0 border-t border-border/25 px-4 py-3', footerClassName)}>
                     {footer}
                 </footer>
             )}

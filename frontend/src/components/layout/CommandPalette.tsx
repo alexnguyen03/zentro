@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { buildCommands, CommandItem, CommandCategory } from '../../lib/commands';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { ModalBackdrop } from '../ui';
+import { OverlayDialog } from './OverlayDialog';
 
 const CATEGORY_ORDER: CommandCategory[] = ['Editor', 'View', 'Layout', 'Connection', 'App'];
 
@@ -100,7 +100,7 @@ export const CommandPalette: React.FC = () => {
     };
 
     return (
-        <ModalBackdrop onClose={close} className="items-start pt-[15vh]">
+        <OverlayDialog onClose={close} className="items-start pt-[15vh]">
             <div
                 className="w-[560px] max-h-[420px] flex flex-col bg-bg-secondary border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={e => e.stopPropagation()}
@@ -184,7 +184,7 @@ export const CommandPalette: React.FC = () => {
                     <span><kbd className="font-mono">Esc</kbd> close</span>
                 </div>
             </div>
-        </ModalBackdrop>
+        </OverlayDialog>
     );
 };
 

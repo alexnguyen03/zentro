@@ -13,7 +13,8 @@ import type { GitTimelineItem, GitTrackingStatus } from '../../platform/app-api/
 import { useProjectStore } from '../../stores/projectStore';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
-import { PromptModal } from '../ui';
+import { Modal } from '../layout/Modal';
+import { Button, Input } from '../ui';
 
 function formatDateTime(iso: string): string {
     try {
@@ -46,6 +47,7 @@ export const GitTimelinePanel: React.FC = () => {
     const [selectedDiff, setSelectedDiff] = React.useState('');
     const [pendingFiles, setPendingFiles] = React.useState<string[]>([]);
     const [isManualCommitOpen, setIsManualCommitOpen] = React.useState(false);
+    const [manualCommitMessage, setManualCommitMessage] = React.useState('');
 
     const applyTimelineFilters = React.useCallback(
         (rows: GitTimelineItem[]): GitTimelineItem[] => {
@@ -222,7 +224,10 @@ export const GitTimelinePanel: React.FC = () => {
                 </button>
                 <button
                     className="cursor-pointer bg-transparent border border-border rounded px-2 py-0.5 text-text-primary hover:bg-bg-tertiary"
-                    onClick={() => setIsManualCommitOpen(true)}
+                    onClick={() => {
+                        setManualCommitMessage('');
+                        setIsManualCommitOpen(true);
+                    }}
                     title="Commit pending SQL changes now"
                 >
                     Commit Now
@@ -265,16 +270,46 @@ export const GitTimelinePanel: React.FC = () => {
                     </div>
                 )}
             </div>
-            <PromptModal
+            <Modal
                 isOpen={isManualCommitOpen}
+                onClose={() => setIsManualCommitOpen(false)}
                 title="Manual Commit"
-                message="Enter an optional commit message for pending SQL changes."
-                placeholder="manual.commit: your message"
-                confirmLabel="Commit"
-                cancelLabel="Cancel"
-                onCancel={() => setIsManualCommitOpen(false)}
-                onConfirm={(value) => handleManualCommit(value)}
-            />
+                width={520}
+                layer="confirm"
+                footer={(
+                    <>
+                        <Button variant="ghost" onClick={() => setIsManualCommitOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="default"
+                            onClick={() => {
+                                void handleManualCommit(manualCommitMessage);
+                            }}
+                            autoFocus
+                        >
+                            Commit
+                        </Button>
+                    </>
+                )}
+            >
+                <div className="space-y-3">
+                    <p className="text-[13px] text-text-primary">
+                        Enter an optional commit message for pending SQL changes.
+                    </p>
+                    <Input
+                        value={manualCommitMessage}
+                        placeholder="manual.commit: your message"
+                        onChange={(event) => setManualCommitMessage(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                void handleManualCommit(manualCommitMessage);
+                            }
+                        }}
+                    />
+                </div>
+            </Modal>
         </div>
     );
 };

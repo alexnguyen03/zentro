@@ -3,7 +3,7 @@ import { Keyboard, RotateCcw, Search } from 'lucide-react';
 import { eventToKeyToken, getCommandRegistry, type CommandId } from '../../lib/shortcutRegistry';
 import { normalizeRuleBinding, type ShortcutRule } from '../../lib/shortcutRules';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { AlertModal, Button, SearchField } from '../ui';
+import { Button, SearchField } from '../ui';
 import { Modal } from './Modal';
 
 type ContextMenuState = {
@@ -406,12 +406,20 @@ export const ShortcutsView: React.FC = () => {
                 onConfirm={(binding) => { void handleConfirmBinding(binding); }}
             />
 
-            <AlertModal
+            <Modal
                 isOpen={Boolean(conflictMessage)}
-                title="Shortcut Conflict"
-                message={conflictMessage}
                 onClose={() => setConflictMessage('')}
-            />
+                title="Shortcut Conflict"
+                width={420}
+                layer="confirm"
+                footer={(
+                    <Button variant="default" autoFocus onClick={() => setConflictMessage('')} className="px-4">
+                        OK
+                    </Button>
+                )}
+            >
+                <p className="text-[13px] leading-relaxed text-text-primary">{conflictMessage}</p>
+            </Modal>
         </div>
     );
 };

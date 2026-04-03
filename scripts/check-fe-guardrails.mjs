@@ -73,6 +73,21 @@ for (const file of files) {
         'no-legacy-button-variants',
       ),
       ...collectViolations(file, /\bdanger\s*=\s*\{?/, 'no-legacy-button-danger-prop'),
+      ...collectViolations(
+        file,
+        /import\s+\{[^}]*\b(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b[^}]*\}\s+from\s+['"][^'"]*\/ui(?:['"]|\/)/,
+        'no-legacy-ui-components',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/ui\/(ModalBackdrop|ModalFrame|AlertModal|PromptModal)['"]/,
+        'no-legacy-ui-components',
+      ),
+      ...collectViolations(
+        file,
+        /<\s*(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b/,
+        'no-legacy-ui-components',
+      ),
     );
   }
 

@@ -25,7 +25,7 @@ import { useEnvironmentStore } from '../../stores/environmentStore';
 import { models } from '../../../wailsjs/go/models';
 import { Modal } from '../layout/Modal';
 import { useToast } from '../layout/Toast';
-import { Button } from '../ui';
+import { Button, SelectField } from '../ui';
 import { ResultTable, type ResultCellContextMenuPayload } from './ResultTable';
 import { ResultFilterBar } from './ResultFilterBar';
 import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
@@ -288,8 +288,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const { runExport, exportJob, cancelExport } = useResultExport({ tabId, result });
     const canUseResultExport = featureGate.canUse('query.result.export');
     const allExportColumns = result?.columns || [];
-    const handleLimitChange = React.useCallback(async (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newLimit = parseInt(event.target.value, 10) || 1000;
+    const handleLimitChange = React.useCallback(async (value: string) => {
+        const newLimit = parseInt(value, 10) || 1000;
         await save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
 
         // Re-run immediately so the new limit applies without requiring manual reload.
@@ -436,16 +436,16 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             id: 'row-limit',
             signature: `limit:${defaultLimit}`,
             render: () => (
-                <select
+                <SelectField
                     className="bg-transparent border border-border/40 text-text-secondary text-[11px] px-1.5 py-0.5 h-7 rounded-md cursor-pointer outline-none transition-colors duration-100 hover:bg-bg-tertiary focus:border-success appearance-auto"
                     value={defaultLimit}
-                    onChange={handleLimitChange}
+                    onValueChange={handleLimitChange}
                     title="Row limit for next query"
                 >
                     {LIMIT_OPTIONS.map((value) => (
                         <option key={value} value={value}>{value.toLocaleString()}</option>
                     ))}
-                </select>
+                </SelectField>
             ),
         });
 
@@ -1225,15 +1225,15 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                         <div>
                             <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Format</label>
-                            <select
+                            <SelectField
                                 value={exportFormat}
-                                onChange={(event) => setExportFormat(event.target.value as 'csv' | 'json' | 'sql')}
+                                onValueChange={(value) => setExportFormat(value as 'csv' | 'json' | 'sql')}
                                 className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
                             >
                                 <option value="csv">CSV</option>
                                 <option value="json">JSON</option>
                                 <option value="sql">SQL INSERT</option>
-                            </select>
+                            </SelectField>
                         </div>
 
                         {exportFormat === 'sql' && (

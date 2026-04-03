@@ -4,7 +4,7 @@ import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
 import { DRIVER } from '../../lib/constants';
 import { TestResult } from '../../hooks/useConnectionForm';
-import { Button, Spinner } from '../ui';
+import { Button, SelectField, Spinner } from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
 // ── Style tokens (shared, defined once) ──────────────────────────────────────
@@ -163,12 +163,21 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 {requiresHost && (
                     <div className="sm:basis-1/3">
                         <label className={lbl}>SSL</label>
-                        <select name="ssl_mode" value={formData.ssl_mode || 'disable'} onChange={onChange} className={fi}>
+                        <SelectField
+                            name="ssl_mode"
+                            value={formData.ssl_mode || 'disable'}
+                            onValueChange={(value) => {
+                                onChange({
+                                    target: { name: 'ssl_mode', value },
+                                } as React.ChangeEvent<HTMLSelectElement>);
+                            }}
+                            className={fi}
+                        >
                             <option value="disable">Disable</option>
                             <option value="require">Require</option>
                             <option value="verify-ca">Verify CA</option>
                             <option value="verify-full">Verify Full</option>
-                        </select>
+                        </SelectField>
                     </div>
                 )}
             </div>

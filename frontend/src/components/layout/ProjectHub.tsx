@@ -3,7 +3,7 @@ import { FolderOpen, Plus } from 'lucide-react';
 import { Disconnect } from '../../services/connectionService';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button, ConfirmationModal, ModalBackdrop, ModalFrame, Spinner } from '../ui';
+import { Button, ConfirmationModal, Spinner } from '../ui';
 import { cn } from '../../lib/cn';
 import { useToast } from './Toast';
 import { sortProjects, getProjectIconKey, buildTagsWithProjectIcon, type ProjectIconKey } from './projectHubMeta';
@@ -12,6 +12,8 @@ import { ProjectCard, ProjectCardEdit, type EditDraft } from './project/ProjectC
 import { GetDefaultProjectStorageRoot, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
 import type { Project } from '../../types/project';
 import appIcon from '../../assets/images/appicon.png';
+import { OverlayDialog } from './OverlayDialog';
+import { PanelFrame } from './PanelFrame';
 
 type Surface = 'entry' | 'wizard';
 
@@ -144,7 +146,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         )}>
             {surface === 'entry' ? (
                 <div className="h-full min-h-0">
-                    <ModalFrame
+                    <PanelFrame
                         title="Projects"
                         onClose={overlay && onClose ? onClose : undefined}
                         className="h-full"
@@ -236,7 +238,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                 </div>
                             </section>
                         </div>
-                    </ModalFrame>
+                    </PanelFrame>
                 </div>
             ) : (
                 <ProjectWizard
@@ -262,9 +264,9 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
 
     if (overlay) {
         return (
-            <ModalBackdrop onClose={onClose} contentClassName="flex items-center justify-center">
+            <OverlayDialog onClose={onClose} contentClassName="flex items-center justify-center">
                 {content}
-            </ModalBackdrop>
+            </OverlayDialog>
         );
     }
     return content;

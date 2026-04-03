@@ -1,6 +1,5 @@
 import React from 'react';
 import { Database, Eye, Hash, Layers, Link2, List, Search, Sigma, Table2, Type, Zap } from 'lucide-react';
-import { ModalBackdrop } from '../ui';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore, type SchemaNode } from '../../stores/schemaStore';
@@ -10,6 +9,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { TAB_TYPE } from '../../lib/constants';
 import { useToast } from './Toast';
 import { getErrorMessage } from '../../lib/errors';
+import { OverlayDialog } from './OverlayDialog';
 
 type ObjectKind =
     | 'table'
@@ -335,7 +335,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     }, [activeProfile, isConnected, isLoading, query, schemas]);
 
     return (
-        <ModalBackdrop onClose={onClose} className="items-start pt-[15vh]">
+        <OverlayDialog onClose={onClose} className="items-start pt-[15vh]">
             <div
                 className="w-[720px] max-h-[560px] flex flex-col bg-bg-secondary border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={(e) => e.stopPropagation()}
@@ -437,6 +437,6 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                 </div>
 
             </div>
-        </ModalBackdrop>
+        </OverlayDialog>
     );
 };

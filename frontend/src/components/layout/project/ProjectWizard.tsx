@@ -10,7 +10,7 @@ import { useConnectionForm } from '../../../hooks/useConnectionForm';
 import { ConnectionForm } from '../../connection/ConnectionForm';
 import { ProviderPickerToolbar } from '../../connection/ProviderPickerToolbar';
 import { ProviderGrid } from '../../connection/ProviderGrid';
-import { Button, Input, ModalFrame, Spinner } from '../../ui';
+import { Button, Input, Spinner } from '../../ui';
 import { DatabaseTreePicker } from '../../ui/DatabaseTreePicker';
 import { ENVIRONMENT_KEY } from '../../../lib/constants';
 import { cn } from '../../../lib/cn';
@@ -24,6 +24,7 @@ import {
     buildTagsWithProjectIcon,
     type ProjectIconKey,
 } from '../projectHubMeta';
+import { PanelFrame } from '../PanelFrame';
 
 type WizardStep = 'basics' | 'environment' | 'connection' | 'review';
 type ConnectionMode = 'existing' | 'new';
@@ -293,7 +294,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     }, [connectionMode, goNext, selectedDatabase, selectedProfile, selectedProfileName, step, submitting]);
 
     return (
-        <ModalFrame
+        <PanelFrame
             title={
                 <>
                     {step === 'basics' && 'Create the project shell'}
@@ -515,6 +516,6 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                     </div>
                 )}
             </div>
-        </ModalFrame>
+        </PanelFrame>
     );
 };

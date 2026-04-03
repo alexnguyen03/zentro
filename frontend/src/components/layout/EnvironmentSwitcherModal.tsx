@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Check, CircleAlert, Download } from 'lucide-react';
-import { ConfirmationModal, ModalBackdrop, ModalFrame, Button, Spinner, Tooltip } from '../ui';
+import { ConfirmationModal, Button, Spinner, Tooltip } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -17,6 +17,8 @@ import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ProviderPickerToolbar } from '../connection/ProviderPickerToolbar';
 import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
+import { OverlayDialog } from './OverlayDialog';
+import { PanelFrame } from './PanelFrame';
 
 interface EnvironmentSwitcherModalProps {
     onClose: () => void;
@@ -249,7 +251,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const applyDisabled = saving || mode === 'add';
 
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
+        <OverlayDialog onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
             <ConfirmationModal
                 isOpen={Boolean(pendingDeleteProfile)}
                 onClose={() => {
@@ -265,7 +267,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 confirmLabel={deletingConnectionName ? 'Deleting...' : 'Delete'}
                 variant="destructive"
             />
-            <ModalFrame
+            <PanelFrame
                 title={activeProject.name}
                 subtitle="Project"
                 onClose={onClose}
@@ -435,7 +437,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                         )}
                     </section>
                 </div>
-            </ModalFrame>
-        </ModalBackdrop>
+            </PanelFrame>
+        </OverlayDialog>
     );
 };

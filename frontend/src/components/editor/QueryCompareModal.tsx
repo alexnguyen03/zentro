@@ -3,8 +3,9 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
-import { ModalBackdrop, Button, SelectField } from '../ui';
+import { Button, SelectField } from '../ui';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
+import { OverlayDialog } from '../layout/OverlayDialog';
 
 interface QueryCompareModalProps {
   onClose: () => void;
@@ -120,7 +121,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
   };
 
   return (
-    <ModalBackdrop onClose={onClose} className="items-start pt-[8vh]">
+    <OverlayDialog onClose={onClose} className="items-start pt-[8vh]">
       <div className="w-[92vw] h-[84vh] bg-bg-secondary border border-border rounded-md shadow-2xl overflow-hidden flex flex-col">
         <div className="h-11 px-4 border-b border-border flex items-center justify-between">
           <div className="text-sm font-semibold">Compare Queries</div>
@@ -215,7 +216,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           </div>
         )}
       </div>
-    </ModalBackdrop>
+    </OverlayDialog>
   );
 };
 

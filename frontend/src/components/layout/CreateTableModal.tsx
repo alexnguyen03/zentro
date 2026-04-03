@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Save, Table2 } from 'lucide-react';
 import { Modal } from '../layout/Modal';
-import { Button } from '../ui';
+import { Button, SelectField } from '../ui';
 import { CreateTable } from '../../services/schemaService';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -177,16 +177,16 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                     disabled={viewMode}
                                     className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[100px]"
                                 />
-                                <select
+                                <SelectField
                                     value={col.DataType}
-                                    onChange={(e) => handleColumnChange(idx, 'DataType', e.target.value)}
+                                    onValueChange={(value) => handleColumnChange(idx, 'DataType', value)}
                                     disabled={viewMode}
                                     className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[120px]"
                                 >
                                     {DATA_TYPES.map(dt => (
                                         <option key={dt} value={dt}>{dt}</option>
                                     ))}
-                                </select>
+                                </SelectField>
                                 <label className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap">
                                     <input
                                         type="checkbox"
