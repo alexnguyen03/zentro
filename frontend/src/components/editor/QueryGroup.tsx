@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -40,6 +40,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const { isConnected, activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const activeProject = useProjectStore((state) => state.activeProject);
+    const { saveScript } = useScriptStore();
     const { toast } = useToast();
     const writeSafety = useWriteSafetyGuard(activeEnvironmentKey);
 
