@@ -1,7 +1,7 @@
 import React from 'react';
 import { Gift } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
-import { SwitchField } from '../../ui';
+import { Switch } from '../../ui';
 
 interface Props {
     autoCheckUpdates: boolean;
@@ -26,7 +26,7 @@ export const SettingsUpdates: React.FC<Props> = ({ autoCheckUpdates, onAutoCheck
                         <span className="text-[12px] font-semibold text-foreground">Auto-Check For Updates</span>
                         <span className="text-[11px] text-muted-foreground">Automatically notify when a new version is available.</span>
                     </div>
-                    <SwitchField
+                    <Switch
                         checked={autoCheckUpdates}
                         onCheckedChange={onAutoCheckUpdatesChange}
                         aria-label="Auto-Check For Updates"

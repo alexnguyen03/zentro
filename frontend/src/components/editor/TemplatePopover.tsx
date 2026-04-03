@@ -4,7 +4,8 @@ import { useTemplateStore } from '../../stores/templateStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { models } from '../../../wailsjs/go/models';
-import { BaseTable, Button, ConfirmationModal, Input, Spinner, type BaseTableColumn } from '../ui';
+import { Button, ConfirmationModal, Input, Spinner } from '../ui';
+import { BaseTable, type BaseTableColumn } from '../shared/BaseTable';
 
 type Template = models.Template;
 type EditableField = 'name' | 'trigger' | 'content';

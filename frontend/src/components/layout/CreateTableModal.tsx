@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Save, Table2 } from 'lucide-react';
 import { Modal } from '../layout/Modal';
-import { Button, SelectField } from '../ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
 import { CreateTable } from '../../services/schemaService';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -177,16 +177,22 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                     disabled={viewMode}
                                     className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[100px]"
                                 />
-                                <SelectField
+                                <Select
                                     value={col.DataType}
                                     onValueChange={(value) => handleColumnChange(idx, 'DataType', value)}
-                                    disabled={viewMode}
-                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[120px]"
                                 >
-                                    {DATA_TYPES.map(dt => (
-                                        <option key={dt} value={dt}>{dt}</option>
-                                    ))}
-                                </SelectField>
+                                    <SelectTrigger
+                                        disabled={viewMode}
+                                        className="min-w-[120px] flex-1 bg-bg-secondary px-2 py-1 text-[12px]"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {DATA_TYPES.map((dt) => (
+                                            <SelectItem key={dt} value={dt}>{dt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <label className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap">
                                     <input
                                         type="checkbox"

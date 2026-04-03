@@ -1,7 +1,17 @@
 import React from 'react';
 import { Database } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
-import { Button, FormField, Input, SelectField, SwitchField } from '../../ui';
+import {
+    Button,
+    Input,
+    Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Switch,
+} from '../../ui';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
 import type { EnvironmentKey } from '../../../types/project';
 import type { SafetyLevel } from '../../../features/query/policyProfiles';
@@ -62,17 +72,25 @@ export const SettingsData: React.FC<Props> = ({
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <FormField label="Fetch Row Limit" hint="Default row count for the result records.">
-                    <SelectField value={limit} onValueChange={(value) => onLimitChange(parseInt(value, 10) || 1000)}>
-                        <option value={100}>100 rows</option>
-                        <option value={500}>500 rows</option>
-                        <option value={1000}>1,000 rows</option>
-                        <option value={5000}>5,000 rows</option>
-                        <option value={10000}>10,000 rows</option>
-                    </SelectField>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Fetch Row Limit</Label>
+                    <Select value={String(limit)} onValueChange={(value) => onLimitChange(parseInt(value, 10) || 1000)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="100">100 rows</SelectItem>
+                            <SelectItem value="500">500 rows</SelectItem>
+                            <SelectItem value="1000">1,000 rows</SelectItem>
+                            <SelectItem value="5000">5,000 rows</SelectItem>
+                            <SelectItem value="10000">10,000 rows</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Default row count for the result records.</p>
+                </div>
 
-                <FormField label="Connection Timeout" hint="Seconds before aborting login.">
+                <div className="space-y-1.5">
+                    <Label>Connection Timeout</Label>
                     <Input
                         type="number"
                         min={5}
@@ -80,9 +98,11 @@ export const SettingsData: React.FC<Props> = ({
                         value={connectTimeout}
                         onChange={(e) => onConnectTimeoutChange(parseInt(e.target.value) || 10)}
                     />
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">Seconds before aborting login.</p>
+                </div>
 
-                <FormField label="Execution Timeout" hint="Seconds for long queries.">
+                <div className="space-y-1.5">
+                    <Label>Execution Timeout</Label>
                     <Input
                         type="number"
                         min={5}
@@ -90,26 +110,28 @@ export const SettingsData: React.FC<Props> = ({
                         value={queryTimeout}
                         onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
                     />
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">Seconds for long queries.</p>
+                </div>
 
-                <FormField
-                    label="Write Safety Level"
-                    hint={`Applies to current environment: ${activeSafetyEnvironmentLabel}. Strict blocks UPDATE/DELETE without WHERE.`}
-                >
-                    <SelectField
-                        value={safetyLevel}
-                        onValueChange={(value) => onSafetyLevelChange(value as SafetyLevel)}
-                    >
-                        <option value="strict">Strict</option>
-                        <option value="balanced">Balanced</option>
-                        <option value="relaxed">Relaxed</option>
-                    </SelectField>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Write Safety Level</Label>
+                    <Select value={safetyLevel} onValueChange={(value) => onSafetyLevelChange(value as SafetyLevel)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="strict">Strict</SelectItem>
+                            <SelectItem value="balanced">Balanced</SelectItem>
+                            <SelectItem value="relaxed">Relaxed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                        {`Applies to current environment: ${activeSafetyEnvironmentLabel}. Strict blocks UPDATE/DELETE without WHERE.`}
+                    </p>
+                </div>
 
-                <FormField
-                    label="Strong Confirm From Environment"
-                    hint={`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
-                >
+                <div className="space-y-1.5">
+                    <Label>Strong Confirm From Environment</Label>
                     <div className="rounded-md border border-border/25 bg-muted/35 px-3 py-3">
                         <input
                             type="range"
@@ -168,30 +190,35 @@ export const SettingsData: React.FC<Props> = ({
                             })}
                         </div>
                     </div>
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">
+                        {`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
+                    </p>
+                </div>
 
-                <FormField
-                    label="Telemetry (Opt-in)"
-                    hint="Local metrics always stay on device. Opt-in enables product insights export/share."
-                >
+                <div className="space-y-1.5">
+                    <Label>Telemetry (Opt-in)</Label>
                     <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/35 px-3 py-2">
                         <span className="text-[12px] text-foreground">Share anonymized product telemetry</span>
-                        <SwitchField
+                        <Switch
                             checked={telemetryOptIn}
                             onCheckedChange={onTelemetryOptInChange}
                             aria-label="Share anonymized product telemetry"
                         />
                     </div>
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">
+                        Local metrics always stay on device. Opt-in enables product insights export/share.
+                    </p>
+                </div>
 
-                <FormField
-                    label="Export Telemetry Bundle"
-                    hint="Exports local metrics + anonymized analytics outbox (if opted-in)."
-                >
+                <div className="space-y-1.5">
+                    <Label>Export Telemetry Bundle</Label>
                     <Button type="button" variant="secondary" size="sm" className="w-fit" onClick={onExportTelemetry}>
                         Export Pipeline Bundle
                     </Button>
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">
+                        Exports local metrics + anonymized analytics outbox (if opted-in).
+                    </p>
+                </div>
             </div>
         </div>
     );

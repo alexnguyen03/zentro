@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Keyboard } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
-import { Button, FormField, Input } from '../../ui';
+import { Button, Input, Label } from '../../ui';
 
 interface Props {
     profileName: string;
@@ -25,13 +25,15 @@ export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameCh
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <FormField label="Profile Name" hint="Used as file name and profile metadata.">
+                <div className="space-y-1.5">
+                    <Label>Profile Name</Label>
                     <Input
                         value={profileName}
                         onChange={(e) => onProfileNameChange(e.target.value)}
                         placeholder="Zentro Profile"
                     />
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">Used as file name and profile metadata.</p>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
                     <Button

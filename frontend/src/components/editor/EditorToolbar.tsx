@@ -10,7 +10,7 @@ import {
     Check,
     Undo2,
 } from 'lucide-react';
-import { Button, Divider } from '../ui';
+import { Button, Separator } from '../ui';
 import { useTemplateStore } from '../../stores/templateStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -151,7 +151,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                 </Button>
                 
 
-                <Divider orientation="horizontal" className="w-5 my-1" />
+                <Separator orientation="horizontal" className="w-5 my-1" />
 
                 <Button
                     variant="ghost"
@@ -182,7 +182,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ isActive, tabId, r
                 </Button>
             </div>
 
-            <Divider orientation="horizontal" className="w-5 my-1" />
+            <Separator orientation="horizontal" className="w-5 my-1" />
 
             <div className="flex flex-col items-center gap-1">
                 <Button

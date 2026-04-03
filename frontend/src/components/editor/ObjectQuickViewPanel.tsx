@@ -1,6 +1,6 @@
 import React from 'react';
 import type { models } from '../../../wailsjs/go/models';
-import { BaseTable, type BaseTableColumn } from '../ui';
+import { BaseTable, type BaseTableColumn } from '../shared/BaseTable';
 
 interface ObjectQuickViewPanelProps {
     title: string;

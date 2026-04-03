@@ -4,7 +4,17 @@ import { cn } from '../../lib/cn';
 import { DRIVER } from '../../lib/constants';
 import { getProvider } from '../../lib/providers';
 import { TestResult } from '../../hooks/useConnectionForm';
-import { Button, Checkbox, Input, SelectField, Spinner } from '../ui';
+import {
+    Button,
+    Checkbox,
+    Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Spinner,
+} from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
 const fieldInputClass = 'h-8 w-full text-[12px]';
@@ -160,21 +170,24 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 {requiresHost && (
                     <div className="sm:basis-1/3">
                         <label className={labelClass}>SSL</label>
-                        <SelectField
-                            name="ssl_mode"
+                        <Select
                             value={formData.ssl_mode || 'disable'}
                             onValueChange={(value) => {
                                 onChange({
                                     target: { name: 'ssl_mode', value },
                                 } as React.ChangeEvent<HTMLSelectElement>);
                             }}
-                            className={fieldInputClass}
                         >
-                            <option value="disable">Disable</option>
-                            <option value="require">Require</option>
-                            <option value="verify-ca">Verify CA</option>
-                            <option value="verify-full">Verify Full</option>
-                        </SelectField>
+                            <SelectTrigger className={fieldInputClass}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="disable">Disable</SelectItem>
+                                <SelectItem value="require">Require</SelectItem>
+                                <SelectItem value="verify-ca">Verify CA</SelectItem>
+                                <SelectItem value="verify-full">Verify Full</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
             </div>

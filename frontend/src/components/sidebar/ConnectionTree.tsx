@@ -30,7 +30,7 @@ import { DropObject } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
 import { useConnectionTreeModel } from './useConnectionTreeModel';
 import type { CategoryGroupNode, ConnectionTreeIcon, SchemaBucketNode } from './connectionTreeTypes';
-import { Button, SelectField } from '../ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 const iconClass = 'opacity-80 shrink-0';
@@ -393,23 +393,26 @@ export const ConnectionTree: React.FC = () => {
                 <div className="flex items-center gap-1.5 justify-between">
                     <span className='text-xs'>Schema</span>
                     <div className="min-w-0">
-                        <SelectField
+                        <Select
                             value={selectedSchema}
                             onValueChange={(value) => setSelectedSchema(value)}
-                            aria-label="Select schema"
-                            title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
-                            hideChevron
-                            className="h-7 w-full min-w-0 cursor-pointer text-accent border-0 bg-transparent px-2 text-center rounded-sm shadow-none hover:bg-bg-tertiary/70 focus:border-0 focus:ring-0"
                         >
-                            <option value={ALL_SCHEMAS_VALUE} className="text-text-primary">
-                                All schemas
-                            </option>
-                            {availableSchemas.map((schemaName) => (
-                                <option key={schemaName} value={schemaName} className="text-text-primary">
-                                    {schemaName}
-                                </option>
+                            <SelectTrigger
+                                aria-label="Select schema"
+                                title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
+                                className="h-7 w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-bg-tertiary/70 focus:ring-0"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={ALL_SCHEMAS_VALUE}>All schemas</SelectItem>
+                                {availableSchemas.map((schemaName) => (
+                                    <SelectItem key={schemaName} value={schemaName}>
+                                        {schemaName}
+                                    </SelectItem>
                                 ))}
-                        </SelectField>
+                            </SelectContent>
+                        </Select>
                     </div>
                     {secondaryCategories.length > 0 && (
                         <Button

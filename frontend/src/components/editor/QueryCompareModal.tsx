@@ -3,7 +3,15 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
-import { Button, Checkbox, SelectField } from '../ui';
+import {
+  Button,
+  Checkbox,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
 import { OverlayDialog } from '../layout/OverlayDialog';
 
@@ -144,33 +152,39 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
         <div className="flex items-center gap-3 border-b border-border bg-muted/35 px-4 py-2">
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               Left
-              <SelectField
-                className="ml-1 min-w-[220px] text-[12px]"
+              <Select
                 value={leftTabId}
-                disabled={!canUseCompare}
                 onValueChange={(value) => setLeftTabId(value)}
               >
-                {queryTabs.map((tab) => (
-                  <option key={tab.id} value={tab.id}>
-                    {tab.label}
-                  </option>
-                ))}
-              </SelectField>
+                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {queryTabs.map((tab) => (
+                    <SelectItem key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               Right
-              <SelectField
-                className="ml-1 min-w-[220px] text-[12px]"
+              <Select
                 value={rightTabId}
-                disabled={!canUseCompare}
                 onValueChange={(value) => setRightTabId(value)}
               >
-                {queryTabs.map((tab) => (
-                  <option key={tab.id} value={tab.id}>
-                    {tab.label}
-                  </option>
-                ))}
-              </SelectField>
+                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {queryTabs.map((tab) => (
+                    <SelectItem key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
           <span className="text-[11px] text-muted-foreground">
             Deterministic source order by group/tab index

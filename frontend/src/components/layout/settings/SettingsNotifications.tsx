@@ -2,7 +2,7 @@ import React from 'react';
 import { Bell } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
 import type { ToastPlacement } from '../Toast';
-import { FormField, SelectField } from '../../ui';
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
 
 interface Props {
     toastPlacement: ToastPlacement;
@@ -22,19 +22,26 @@ export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToast
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <FormField label="Alert Placement" hint="Where success and error messages will emerge.">
-                    <SelectField
+                <div className="space-y-1.5">
+                    <Label>Alert Placement</Label>
+                    <Select
                         value={toastPlacement}
                         onValueChange={(value) => onToastPlacementChange(value as ToastPlacement)}
                     >
-                        <option value="bottom-left">Bottom Left</option>
-                        <option value="bottom-center">Bottom Center</option>
-                        <option value="bottom-right">Bottom Right</option>
-                        <option value="top-left">Top Left</option>
-                        <option value="top-center">Top Center</option>
-                        <option value="top-right">Top Right</option>
-                    </SelectField>
-                </FormField>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                            <SelectItem value="bottom-center">Bottom Center</SelectItem>
+                            <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                            <SelectItem value="top-left">Top Left</SelectItem>
+                            <SelectItem value="top-center">Top Center</SelectItem>
+                            <SelectItem value="top-right">Top Right</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Where success and error messages will emerge.</p>
+                </div>
             </div>
         </div>
     );

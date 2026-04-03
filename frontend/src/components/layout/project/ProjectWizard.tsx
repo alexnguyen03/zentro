@@ -11,7 +11,7 @@ import { ConnectionForm } from '../../connection/ConnectionForm';
 import { ProviderPickerToolbar } from '../../connection/ProviderPickerToolbar';
 import { ProviderGrid } from '../../connection/ProviderGrid';
 import { Button, Input, Spinner } from '../../ui';
-import { DatabaseTreePicker } from '../../ui/DatabaseTreePicker';
+import { DatabaseTreePicker } from '../../connection/DatabaseTreePicker';
 import { ENVIRONMENT_KEY } from '../../../lib/constants';
 import { cn } from '../../../lib/cn';
 import { getProvider } from '../../../lib/providers';

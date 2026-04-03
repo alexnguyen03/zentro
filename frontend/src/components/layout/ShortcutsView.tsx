@@ -3,7 +3,7 @@ import { Keyboard, RotateCcw, Search } from 'lucide-react';
 import { eventToKeyToken, getCommandRegistry, type CommandId } from '../../lib/shortcutRegistry';
 import { normalizeRuleBinding, type ShortcutRule } from '../../lib/shortcutRules';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { Button, SearchField } from '../ui';
+import { Button, Input } from '../ui';
 import { Modal } from './Modal';
 
 type ContextMenuState = {
@@ -287,13 +287,16 @@ export const ShortcutsView: React.FC = () => {
                 </div>
 
                 <div className="flex-1 flex justify-center max-w-2xl px-6">
-                    <SearchField
-                        ref={searchInputRef}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search commands, keybindings, when..."
-                        wrapperClassName="max-w-xl"
-                    />
+                    <div className="relative w-full max-w-xl">
+                        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            ref={searchInputRef}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search commands, keybindings, when..."
+                            className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                        />
+                    </div>
                 </div>
 
                 <Button

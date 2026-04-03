@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Server, Database, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
-import { Spinner } from './Spinner';
+import { Spinner } from '../ui/Spinner';
 import type { ConnectionProfile } from '../../types/connection';
 
 interface DatabaseTreePickerProps {

@@ -98,6 +98,31 @@ for (const file of files) {
         /variant\s*=\s*["'](danger|primary)["']/,
         'no-legacy-confirmation-variants',
       ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/ui\/(BaseTable|DatabaseTreePicker)['"]/,
+        'no-domain-components-inside-ui',
+      ),
+      ...collectViolations(
+        file,
+        /import\s+\{[^}]*\b(BaseTable|DatabaseTreePicker)\b[^}]*\}\s+from\s+['"][^'"]*\/ui['"]/,
+        'no-domain-components-inside-ui',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/ui\/(FormField|SelectField|SwitchField|SearchField|Divider)['"]/,
+        'no-legacy-form-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /import\s+\{[^}]*\b(FormField|SelectField|SwitchField|SearchField|Divider)\b[^}]*\}\s+from\s+['"][^'"]*\/ui['"]/,
+        'no-legacy-form-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /<\s*(FormField|SelectField|SwitchField|SearchField|Divider)\b/,
+        'no-legacy-form-wrappers',
+      ),
     );
   }
 

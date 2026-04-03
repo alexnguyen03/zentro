@@ -16,7 +16,7 @@ import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ProviderPickerToolbar } from '../connection/ProviderPickerToolbar';
-import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
+import { DatabaseTreePicker } from '../connection/DatabaseTreePicker';
 import { OverlayDialog } from './OverlayDialog';
 import { PanelFrame } from './PanelFrame';
 

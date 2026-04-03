@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings as SettingsIcon, Keyboard } from 'lucide-react';
+import { Search, Settings as SettingsIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -19,7 +19,7 @@ import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
 import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
-import { Button, SearchField } from '../ui';
+import { Button, Input } from '../ui';
 import { ENVIRONMENT_KEY } from '../../lib/constants';
 import { getEnvironmentMeta } from '../../lib/projects';
 import type { EnvironmentKey } from '../../types/project';
@@ -180,13 +180,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
 
                 {/* Centered Flush Search Bar */}
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
-                    <SearchField
-                        placeholder="Search settings..."
-                        ref={searchInputRef}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        wrapperClassName="max-w-md"
-                    />
+                    <div className="relative w-full max-w-md">
+                        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search settings..."
+                            ref={searchInputRef}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                        />
+                    </div>
                 </div>
 
                 {/* Right Actions */}
