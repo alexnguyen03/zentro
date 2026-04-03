@@ -1,15 +1,14 @@
 import React from 'react';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { getProvider } from '../../lib/providers';
 import { DRIVER } from '../../lib/constants';
+import { getProvider } from '../../lib/providers';
 import { TestResult } from '../../hooks/useConnectionForm';
-import { Button, SelectField, Spinner } from '../ui';
+import { Button, Checkbox, Input, SelectField, Spinner } from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
-// ── Style tokens (shared, defined once) ──────────────────────────────────────
-export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded-md text-[12px] outline-none focus:border-success transition-colors w-full';
-export const lbl = 'text-[11px] text-text-secondary block mb-0.5';
+const fieldInputClass = 'h-8 w-full text-[12px]';
+const labelClass = 'mb-0.5 block text-[11px] text-muted-foreground';
 
 interface ConnectionFormProps {
     formData: Partial<ConnectionProfile>;
@@ -20,7 +19,6 @@ interface ConnectionFormProps {
     errorMsg: string;
     successMsg: string;
     isEditing: boolean;
-    /** When true the connection-string URI field is shown at the top */
     showUriField?: boolean;
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
     onConnStringChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -45,7 +43,12 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
     onSave,
     onCancel,
 }) => {
-    // Derive capabilities from provider registry — no hardcoded strings in JSX
+    const emitCheckboxChange = React.useCallback((name: string, checked: boolean) => {
+        onChange({
+            target: { name, type: 'checkbox', checked, value: checked ? 'on' : 'off' },
+        } as React.ChangeEvent<HTMLInputElement>);
+    }, [onChange]);
+
     const provider = getProvider(formData.driver ?? DRIVER.POSTGRES);
     const { requiresHost, requiresAuth, extraFields = [] } = provider;
     const providerLogo = formData.driver ? provider.icon : null;
@@ -60,53 +63,49 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 />
             )}
 
-            {/* URI — new connections only */}
             {showUriField && (
-                <div className="pb-2.5 border-b border-border">
-                    <label className={lbl}>Connection string (URI)</label>
-                    <input
-                        type="text"
+                <div className="border-b border-border pb-2.5">
+                    <label className={labelClass}>Connection string (URI)</label>
+                    <Input
                         value={connString}
                         onChange={onConnStringChange}
                         placeholder={`${DRIVER.POSTGRES}://user:pass@host:5432/db`}
-                        className={cn(fi, 'font-mono text-[11px]')}
+                        className={cn(fieldInputClass, 'font-mono text-[11px]')}
                     />
                 </div>
             )}
 
-            {/* Profile name */}
             <div>
-                <label className={lbl}>Profile name <span className="text-error">*</span></label>
-                <input
+                <label className={labelClass}>Profile name <span className="text-destructive">*</span></label>
+                <Input
                     name="name"
                     value={formData.name || ''}
                     onChange={onChange}
                     placeholder="e.g. Production"
                     autoFocus={!isEditing}
                     disabled={isEditing}
-                    className={cn(fi, isEditing && 'opacity-50')}
+                    className={cn(fieldInputClass, isEditing && 'opacity-50')}
                 />
                 {isEditing && (
-                    <span className="text-[10px] text-text-muted">Name cannot be changed after creation</span>
+                    <span className="text-[10px] text-muted-foreground">Name cannot be changed after creation</span>
                 )}
             </div>
 
-            {/* Host + Port */}
             <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1 sm:basis-3/4">
-                    <label className={lbl}>Host {requiresHost && <span className="text-error">*</span>}</label>
-                    <input
+                    <label className={labelClass}>Host {requiresHost && <span className="text-destructive">*</span>}</label>
+                    <Input
                         name="host"
                         value={formData.host || ''}
                         onChange={onChange}
                         placeholder="localhost"
                         disabled={!requiresHost}
-                        className={cn(fi, !requiresHost && 'opacity-40')}
+                        className={cn(fieldInputClass, !requiresHost && 'opacity-40')}
                     />
                 </div>
                 <div className="sm:basis-1/4">
-                    <label className={lbl}>Port {requiresHost && <span className="text-error">*</span>}</label>
-                    <input
+                    <label className={labelClass}>Port {requiresHost && <span className="text-destructive">*</span>}</label>
+                    <Input
                         type="number"
                         name="port"
                         value={requiresHost ? (formData.port || '') : ''}
@@ -114,55 +113,53 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         min={1}
                         max={65535}
                         disabled={!requiresHost}
-                        placeholder={!requiresHost ? '—' : ''}
-                        className={cn(fi, !requiresHost && 'opacity-40')}
+                        placeholder={!requiresHost ? '-' : ''}
+                        className={cn(fieldInputClass, !requiresHost && 'opacity-40')}
                     />
                 </div>
             </div>
 
-            {/* Username + Password */}
             <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1">
-                    <label className={lbl}>Username {requiresAuth && <span className="text-error">*</span>}</label>
-                    <input
+                    <label className={labelClass}>Username {requiresAuth && <span className="text-destructive">*</span>}</label>
+                    <Input
                         name="username"
                         value={formData.username || ''}
                         onChange={onChange}
-                        placeholder={requiresAuth ? DRIVER.POSTGRES : '—'}
+                        placeholder={requiresAuth ? DRIVER.POSTGRES : '-'}
                         disabled={!requiresAuth}
                         autoComplete="username"
-                        className={cn(fi, !requiresAuth && 'opacity-40')}
+                        className={cn(fieldInputClass, !requiresAuth && 'opacity-40')}
                     />
                 </div>
                 <div className="flex-1">
-                    <label className={lbl}>Password</label>
-                    <input
+                    <label className={labelClass}>Password</label>
+                    <Input
                         type="password"
                         name="password"
                         value={formData.password || ''}
                         onChange={onChange}
                         disabled={!requiresAuth}
                         autoComplete="current-password"
-                        className={cn(fi, !requiresAuth && 'opacity-40')}
+                        className={cn(fieldInputClass, !requiresAuth && 'opacity-40')}
                     />
                 </div>
             </div>
 
-            {/* Database + SSL */}
             <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1 sm:basis-2/3">
-                    <label className={lbl}>Database <span className="text-error">*</span></label>
-                    <input
+                    <label className={labelClass}>Database <span className="text-destructive">*</span></label>
+                    <Input
                         name="db_name"
                         value={formData.db_name || ''}
                         onChange={onChange}
                         placeholder={!requiresHost ? '/path/to/file.db' : DRIVER.POSTGRES}
-                        className={fi}
+                        className={fieldInputClass}
                     />
                 </div>
                 {requiresHost && (
                     <div className="sm:basis-1/3">
-                        <label className={lbl}>SSL</label>
+                        <label className={labelClass}>SSL</label>
                         <SelectField
                             name="ssl_mode"
                             value={formData.ssl_mode || 'disable'}
@@ -171,7 +168,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                                     target: { name: 'ssl_mode', value },
                                 } as React.ChangeEvent<HTMLSelectElement>);
                             }}
-                            className={fi}
+                            className={fieldInputClass}
                         >
                             <option value="disable">Disable</option>
                             <option value="require">Require</option>
@@ -182,92 +179,79 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 )}
             </div>
 
-            {/* Checkboxes — common + provider-specific via extraFields */}
             <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-0.5">
                 {requiresHost && (
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                        <input
-                            type="checkbox"
-                            name="show_all_schemas"
+                    <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Checkbox
                             checked={formData.show_all_schemas ?? false}
-                            onChange={onChange}
-                            className="w-3 h-3 cursor-pointer accent-success"
+                            onCheckedChange={(checked) => emitCheckboxChange('show_all_schemas', checked === true)}
                         />
                         Show all schemas
                     </label>
                 )}
-                {/* Provider-specific extra fields from registry */}
-                {extraFields.map(field => (
-                    <label key={field.name as string} className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                        <input
-                            type="checkbox"
-                            name={field.name as string}
+                {extraFields.map((field) => (
+                    <label key={field.name as string} className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Checkbox
                             checked={(formData[field.name] as boolean) ?? false}
-                            onChange={onChange}
-                            className="w-3 h-3 cursor-pointer accent-success"
+                            onCheckedChange={(checked) => emitCheckboxChange(field.name as string, checked === true)}
                         />
                         {field.label}
                     </label>
                 ))}
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                    <input
-                        type="checkbox"
-                        name="save_password"
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Checkbox
                         checked={formData.save_password ?? true}
-                        onChange={onChange}
-                        className="w-3 h-3 cursor-pointer accent-success"
+                        onCheckedChange={(checked) => emitCheckboxChange('save_password', checked === true)}
                     />
                     Save password
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                    <input
-                        type="checkbox"
-                        name="encrypt_password"
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Checkbox
                         checked={formData.encrypt_password ?? true}
-                        onChange={onChange}
+                        onCheckedChange={(checked) => emitCheckboxChange('encrypt_password', checked === true)}
                         disabled={!(formData.save_password ?? true)}
-                        className="w-3 h-3 cursor-pointer accent-success"
                     />
                     Encrypt password
                 </label>
             </div>
 
-            {/* Feedback */}
             {errorMsg && (
-                <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] text-error bg-[#f48771]/10 border border-[#f48771]/20">
-                    <AlertCircle size={12} className="shrink-0 mt-px" />
-                    <span className="wrap-break-word flex-1">{errorMsg}</span>
+                <div className="flex items-start gap-1.5 rounded-md border border-destructive/20 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
+                    <AlertCircle size={12} className="mt-px shrink-0" />
+                    <span className="flex-1 break-words">{errorMsg}</span>
                 </div>
             )}
             {successMsg && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] text-success bg-[#89d185]/10 border border-[#89d185]/20">
+                <div className="flex items-center gap-1.5 rounded-md border border-success/20 bg-success/10 px-2.5 py-1.5 text-[11px] text-success">
                     <CheckCircle size={12} className="shrink-0" />
                     <span className="flex-1">{successMsg}</span>
                 </div>
             )}
 
-            {/* Actions */}
             <div className="mt-auto flex gap-1.5 pt-2.5">
                 <Button
                     type="button"
                     variant="secondary"
                     className={cn(
-                        "transition-all",
-                        testResult === 'ok' && "bg-[#89d185]/15 border-success text-success hover:bg-[#89d185]/20",
-                        testResult === 'error' && "bg-[#f48771]/15 border-error text-error hover:bg-[#f48771]/20"
+                        'transition-all',
+                        testResult === 'ok' && 'border-success bg-success/15 text-success hover:bg-success/20',
+                        testResult === 'error' && 'border-destructive bg-destructive/15 text-destructive hover:bg-destructive/20',
                     )}
                     onClick={onTest}
                     disabled={testing}
                 >
                     {testing
-                        ? <><Spinner size={11} className="mr-1" /> Testing…</>
+                        ? <><Spinner size={11} className="mr-1" /> Testing...</>
                         : testResult === 'ok'
                             ? <><CheckCircle size={11} className="mr-1" /> OK</>
                             : 'Test'}
                 </Button>
                 <div className="flex-1" />
-                <Button type="submit" variant="default" className="w-6/12 min-w-[120px] sm:min-w-0" disabled={saving}>
-                    {saving ? <><Spinner size={11} className="text-white mr-1" /> Saving…</> : 'Save'}
+                <Button type="button" variant="ghost" onClick={onCancel}>
+                    Cancel
+                </Button>
+                <Button type="submit" variant="default" className="min-w-[120px]" disabled={saving}>
+                    {saving ? <><Spinner size={11} className="mr-1 text-white" /> Saving...</> : 'Save'}
                 </Button>
             </div>
         </form>

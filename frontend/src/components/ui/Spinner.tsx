@@ -12,7 +12,7 @@ export const Spinner = React.forwardRef<SVGSVGElement, SpinnerProps>(
             <Loader2
                 ref={ref}
                 size={size}
-                className={cn('animate-spin text-text-secondary', className)}
+                className={cn('animate-spin text-muted-foreground', className)}
                 {...props}
             />
         );

@@ -110,7 +110,7 @@ export const SettingsData: React.FC<Props> = ({
                     label="Strong Confirm From Environment"
                     hint={`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
                 >
-                    <div className="rounded-md border border-border/25 bg-bg-primary/60 px-3 py-3">
+                    <div className="rounded-md border border-border/25 bg-muted/35 px-3 py-3">
                         <input
                             type="range"
                             min={0}
@@ -136,7 +136,7 @@ export const SettingsData: React.FC<Props> = ({
                                 return (
                                     <span
                                         key={key}
-                                        className={`absolute top-0 h-2 w-2 rounded-full border ${alignmentClass} ${isActive ? 'border-accent bg-accent' : 'border-border/60 bg-bg-primary'}`}
+                                        className={`absolute top-0 h-2 w-2 rounded-full border ${alignmentClass} ${isActive ? 'border-accent bg-accent' : 'border-border/60 bg-background'}`}
                                         style={{ left: position }}
                                     />
                                 );
@@ -157,7 +157,7 @@ export const SettingsData: React.FC<Props> = ({
                                         key={key}
                                         type="button"
                                         onClick={() => setStrongConfirmByIndex(index)}
-                                        className={`absolute top-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-text-muted/75'}`}
+                                        className={`absolute top-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
                                         style={{ left: position }}
                                         aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}
                                         title={`Set to ${getEnvironmentMeta(key).label}`}
@@ -174,11 +174,11 @@ export const SettingsData: React.FC<Props> = ({
                     label="Telemetry (Opt-in)"
                     hint="Local metrics always stay on device. Opt-in enables product insights export/share."
                 >
-                    <div className="flex items-center justify-between rounded-md border border-border/25 bg-bg-primary/60 px-3 py-2">
-                        <span className="text-[12px] text-text-primary">Share anonymized product telemetry</span>
+                    <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/35 px-3 py-2">
+                        <span className="text-[12px] text-foreground">Share anonymized product telemetry</span>
                         <SwitchField
                             checked={telemetryOptIn}
-                            onChange={onTelemetryOptInChange}
+                            onCheckedChange={onTelemetryOptInChange}
                             aria-label="Share anonymized product telemetry"
                         />
                     </div>

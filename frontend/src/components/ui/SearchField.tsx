@@ -11,11 +11,11 @@ export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
     ({ className, wrapperClassName, ...props }, ref) => {
         return (
             <div className={cn('relative w-full', wrapperClassName)}>
-                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted/70" />
+                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                     ref={ref}
                     type="text"
-                    className={cn('h-9 pl-8 bg-bg-tertiary/35 border-border/60 focus:bg-bg-primary', className)}
+                    className={cn('h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background', className)}
                     {...props}
                 />
             </div>

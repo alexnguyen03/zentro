@@ -88,6 +88,16 @@ for (const file of files) {
         /<\s*(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b/,
         'no-legacy-ui-components',
       ),
+      ...collectViolations(
+        file,
+        /<\s*SwitchField\b[^>]*\bonChange\s*=/,
+        'switchfield-use-oncheckedchange',
+      ),
+      ...collectViolations(
+        file,
+        /variant\s*=\s*["'](danger|primary)["']/,
+        'no-legacy-confirmation-variants',
+      ),
     );
   }
 

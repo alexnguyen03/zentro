@@ -20,7 +20,7 @@ interface ConfirmationModalProps {
     message: string | React.ReactNode;
     confirmLabel?: string;
     description?: string;
-    variant?: 'destructive' | 'default' | 'danger' | 'primary';
+    variant?: 'destructive' | 'default';
     closeOnConfirm?: boolean;
 }
 
@@ -35,8 +35,6 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     variant = 'default',
     closeOnConfirm = true,
 }) => {
-    const normalizedVariant = variant === 'danger' ? 'destructive' : variant === 'primary' ? 'default' : variant;
-
     return (
         <AlertDialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
             <AlertDialogContent className="max-w-[440px]">
@@ -44,8 +42,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                     <AlertDialogTitle>{title}</AlertDialogTitle>
                     <AlertDialogDescription asChild>
                         <div className="flex items-start gap-4 py-1">
-                            <div className={cn('shrink-0 rounded-full p-2', normalizedVariant === 'destructive' ? 'bg-error/10' : 'bg-accent/10')}>
-                                <AlertCircle size={24} className={normalizedVariant === 'destructive' ? 'text-error' : 'text-accent'} />
+                            <div className={cn('shrink-0 rounded-full p-2', variant === 'destructive' ? 'bg-destructive/10' : 'bg-accent/10')}>
+                                <AlertCircle size={24} className={variant === 'destructive' ? 'text-destructive' : 'text-accent-foreground'} />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <p className="mb-1 text-[14px] font-bold text-foreground">{message}</p>
@@ -63,7 +61,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                         Cancel
                     </AlertDialogCancel>
                     <AlertDialogAction
-                        className={cn('px-4', normalizedVariant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90')}
+                        className={cn('px-4', variant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90')}
                         onClick={(event) => {
                             event.preventDefault();
                             onConfirm();

@@ -35,7 +35,7 @@ describe('shared form controls', () => {
 
     it('renders SwitchField and emits boolean checked state', () => {
         const onChange = vi.fn();
-        render(<SwitchField aria-label="Auto update" checked={false} onChange={onChange} />);
+        render(<SwitchField aria-label="Auto update" checked={false} onCheckedChange={onChange} />);
 
         fireEvent.click(screen.getByLabelText('Auto update'));
         expect(onChange).toHaveBeenCalledWith(true);

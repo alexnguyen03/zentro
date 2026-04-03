@@ -21,19 +21,19 @@ export const SettingsUpdates: React.FC<Props> = ({ autoCheckUpdates, onAutoCheck
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <div className="flex items-center justify-between rounded-md border border-border/25 bg-bg-primary/60 px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/35 px-3 py-2.5">
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-[12px] font-semibold text-text-primary">Auto-Check For Updates</span>
-                        <span className="text-[11px] text-text-muted">Automatically notify when a new version is available.</span>
+                        <span className="text-[12px] font-semibold text-foreground">Auto-Check For Updates</span>
+                        <span className="text-[11px] text-muted-foreground">Automatically notify when a new version is available.</span>
                     </div>
                     <SwitchField
                         checked={autoCheckUpdates}
-                        onChange={onAutoCheckUpdatesChange}
+                        onCheckedChange={onAutoCheckUpdatesChange}
                         aria-label="Auto-Check For Updates"
                     />
                 </div>
                 {autoCheckUpdates && (
-                    <span className="text-[11px] text-text-muted/70">We will check securely when the app is launched.</span>
+                    <span className="text-[11px] text-muted-foreground">We will check securely when the app is launched.</span>
                 )}
             </div>
         </div>
