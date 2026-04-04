@@ -11,32 +11,52 @@ import {
     AlertDialogTitle,
 } from './alert-dialog';
 import { cn } from '../../lib/cn';
+import { buttonVariants } from './Button';
 
 interface ConfirmationModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    isOpen?: boolean;
+    onClose?: () => void;
     onConfirm: () => void;
     title?: string;
     message: string | React.ReactNode;
     confirmLabel?: string;
+    cancelLabel?: string;
     description?: string;
     variant?: 'destructive' | 'default';
     closeOnConfirm?: boolean;
+    confirmClassName?: string;
+    cancelClassName?: string;
 }
 
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
-    isOpen,
+    open,
+    onOpenChange,
+    isOpen = false,
     onClose,
     onConfirm,
     title = 'Confirm Action',
     message,
     description,
     confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
     variant = 'default',
     closeOnConfirm = true,
+    confirmClassName,
+    cancelClassName,
 }) => {
+    const resolvedOpen = open ?? isOpen;
+
+    const setOpen = (nextOpen: boolean) => {
+        onOpenChange?.(nextOpen);
+        if (!nextOpen) {
+            onClose?.();
+        }
+    };
+
     return (
-        <AlertDialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <AlertDialog open={resolvedOpen} onOpenChange={setOpen}>
             <AlertDialogContent className="max-w-[440px]">
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -57,16 +77,22 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={onClose} className="px-4">
-                        Cancel
+                    <AlertDialogCancel onClick={() => setOpen(false)} className={cn('px-4', cancelClassName)}>
+                        {cancelLabel}
                     </AlertDialogCancel>
                     <AlertDialogAction
-                        className={cn('px-4', variant === 'destructive' && 'bg-destructive text-destructive-foreground hover:bg-destructive/90')}
+                        className={cn(
+                            buttonVariants({ variant: variant === 'destructive' ? 'destructive' : 'default' }),
+                            'px-4',
+                            confirmClassName,
+                        )}
                         onClick={(event) => {
-                            event.preventDefault();
+                            if (!closeOnConfirm) {
+                                event.preventDefault();
+                            }
                             onConfirm();
                             if (closeOnConfirm) {
-                                onClose();
+                                setOpen(false);
                             }
                         }}
                     >

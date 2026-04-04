@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Check, CircleAlert, Download } from 'lucide-react';
-import { ConfirmationModal, Button, Spinner, Tooltip } from '../ui';
+import { ConfirmationModal, Button, Spinner, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -309,49 +309,48 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 <div className="grid h-full min-h-0 md:grid-cols-[228px_1fr]">
                     <section className="min-h-0 overflow-y-auto border-r border-border/20 bg-bg-primary/30 px-3 py-3">
                         <div className="space-y-3">
-                            {ENVIRONMENT_KEYS.map((environmentKey) => {
-                                const meta = getEnvironmentMeta(environmentKey);
-                                const isSelected = selectedEnvironmentKey === environmentKey;
-                                const hasBinding = Boolean(
-                                    activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
-                                );
+                            <TooltipProvider delayDuration={120}>
+                                {ENVIRONMENT_KEYS.map((environmentKey) => {
+                                    const meta = getEnvironmentMeta(environmentKey);
+                                    const isSelected = selectedEnvironmentKey === environmentKey;
+                                    const hasBinding = Boolean(
+                                        activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
+                                    );
 
-                                return (
-                                    <button
-                                        key={environmentKey}
-                                        type="button"
-                                        onClick={() => setSelectedEnvironmentKey(environmentKey)}
-                                        className={cn(
-                                            'w-full cursor-pointer rounded-md border px-3 py-3 text-left transition-colors',
-                                            isSelected
-                                                ? 'border-accent/40 bg-accent/8'
-                                                : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="min-w-0 flex items-center gap-2">
-                                                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
-                                                    {environmentKey}
-                                                </span>
-                                                <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
-                                            </div>
-                                            {hasBinding ? (
-                                                <Tooltip content="Bound">
-                                                    <span className="inline-flex items-center text-accent">
-                                                        <Check size={14} />
-                                                    </span>
-                                                </Tooltip>
-                                            ) : (
-                                                <Tooltip content="Need binding">
-                                                    <span className="inline-flex items-center text-text-secondary">
-                                                        <CircleAlert size={14} />
-                                                    </span>
-                                                </Tooltip>
+                                    return (
+                                        <button
+                                            key={environmentKey}
+                                            type="button"
+                                            onClick={() => setSelectedEnvironmentKey(environmentKey)}
+                                            className={cn(
+                                                'w-full cursor-pointer rounded-md border px-3 py-3 text-left transition-colors',
+                                                isSelected
+                                                    ? 'border-accent/40 bg-accent/8'
+                                                    : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
                                             )}
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="min-w-0 flex items-center gap-2">
+                                                    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
+                                                        {environmentKey}
+                                                    </span>
+                                                    <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
+                                                </div>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className={cn('inline-flex items-center', hasBinding ? 'text-accent' : 'text-text-secondary')}>
+                                                            {hasBinding ? <Check size={14} /> : <CircleAlert size={14} />}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {hasBinding ? 'Bound' : 'Need binding'}
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </TooltipProvider>
                         </div>
                     </section>
 

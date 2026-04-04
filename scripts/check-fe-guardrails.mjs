@@ -123,6 +123,11 @@ for (const file of files) {
         /<\s*(FormField|SelectField|SwitchField|SearchField|Divider)\b/,
         'no-legacy-form-wrappers',
       ),
+      ...collectViolations(
+        file,
+        /<\s*Tooltip\b[^>]*\bcontent\s*=/,
+        'no-legacy-tooltip-content-prop',
+      ),
     );
   }
 

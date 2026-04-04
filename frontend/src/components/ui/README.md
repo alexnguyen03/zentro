@@ -21,4 +21,4 @@
 - Legacy wrappers removed: `FormField`, `SelectField`, `SwitchField`, `SearchField`, `Divider`.
 
 ## Guardrails
-- `scripts/check-fe-guardrails.mjs` blocks legacy modal APIs, legacy form wrappers, and domain component imports from `components/ui`.
+- `scripts/check-fe-guardrails.mjs` blocks legacy modal APIs, legacy form wrappers, legacy `Tooltip content=...` usage, and domain component imports from `components/ui`.

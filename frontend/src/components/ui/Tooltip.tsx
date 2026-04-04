@@ -2,40 +2,27 @@ import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { cn } from '@/lib/cn';
 
-type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
+const TooltipProvider = TooltipPrimitive.Provider;
+const Tooltip = TooltipPrimitive.Root;
+const TooltipTrigger = TooltipPrimitive.Trigger;
 
-interface TooltipProps {
-    content: React.ReactNode;
-    children: React.ReactNode;
-    side?: TooltipSide;
-    className?: string;
-}
+const TooltipContent = React.forwardRef<
+    React.ElementRef<typeof TooltipPrimitive.Content>,
+    React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
+>(({ className, sideOffset = 8, ...props }, ref) => (
+    <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
+            ref={ref}
+            sideOffset={sideOffset}
+            className={cn(
+                'z-tooltip rounded-md border border-border bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground shadow-elevation-md',
+                'animate-in fade-in zoom-in-95 duration-100',
+                className,
+            )}
+            {...props}
+        />
+    </TooltipPrimitive.Portal>
+));
+TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-export const Tooltip: React.FC<TooltipProps> = ({
-    content,
-    children,
-    side = 'top',
-    className,
-}) => {
-    return (
-        <TooltipPrimitive.Provider delayDuration={120}>
-            <TooltipPrimitive.Root>
-                <TooltipPrimitive.Trigger asChild>
-                    <span className={cn('inline-flex', className)}>{children}</span>
-                </TooltipPrimitive.Trigger>
-                <TooltipPrimitive.Portal>
-                    <TooltipPrimitive.Content
-                        side={side}
-                        sideOffset={8}
-                        className={cn(
-                            'z-tooltip rounded-md border border-border bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground shadow-elevation-md',
-                            'animate-in fade-in zoom-in-95 duration-100',
-                        )}
-                    >
-                        {content}
-                    </TooltipPrimitive.Content>
-                </TooltipPrimitive.Portal>
-            </TooltipPrimitive.Root>
-        </TooltipPrimitive.Provider>
-    );
-};
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
