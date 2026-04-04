@@ -10,6 +10,7 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
+    Slider,
     Switch,
 } from '../../ui';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
@@ -53,6 +54,7 @@ export const SettingsData: React.FC<Props> = ({
     const strongConfirmIndex = STRONG_CONFIRM_INDEX[strongConfirmFromEnvironment] ?? 0;
     const activeSafetyEnvironmentLabel = getEnvironmentMeta(activeSafetyEnvironment).label;
     const strongConfirmLabel = getEnvironmentMeta(strongConfirmFromEnvironment).label;
+    const sliderValue = [strongConfirmIndex];
     const setStrongConfirmByIndex = (index: number) => {
         const nextEnvironment = STRONG_CONFIRM_SLIDER_KEYS[index];
         if (nextEnvironment) {
@@ -133,18 +135,20 @@ export const SettingsData: React.FC<Props> = ({
                 <div className="space-y-1.5">
                     <Label>Strong Confirm From Environment</Label>
                     <div className="rounded-md border border-border/25 bg-muted/35 px-3 py-3">
-                        <input
-                            type="range"
+                        <Slider
                             min={0}
                             max={maxSliderIndex}
                             step={1}
-                            value={strongConfirmIndex}
-                            onChange={(event) => {
-                                const nextIndex = parseInt(event.target.value, 10);
-                                setStrongConfirmByIndex(nextIndex);
+                            value={sliderValue}
+                            onValueChange={(values) => {
+                                const nextIndex = values[0];
+                                if (typeof nextIndex === 'number') {
+                                    setStrongConfirmByIndex(Math.round(nextIndex));
+                                }
                             }}
-                            className="w-full cursor-pointer accent-accent"
+                            className="w-full cursor-pointer"
                             aria-label="Strong Confirm From Environment"
+                            aria-valuetext={strongConfirmLabel}
                         />
                         <div className="relative mt-1 h-2">
                             {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {

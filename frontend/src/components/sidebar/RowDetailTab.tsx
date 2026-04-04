@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Copy, FileJson, CheckSquare, Braces, RefreshCcw } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useToast } from '../layout/Toast';
 import { JsonViewer } from '../viewers/JsonViewer';
 import { setClipboardText } from '../../services/clipboardService';
+import { Button, Checkbox, Label, Textarea } from '../ui';
 
 const JSON_COLUMN_PATTERNS = [
     /json/i,
@@ -28,7 +29,7 @@ const isJsonColumn = (colName: string, colType?: string): boolean => {
             return true;
         }
     }
-    return JSON_COLUMN_PATTERNS.some(pattern => pattern.test(colName));
+    return JSON_COLUMN_PATTERNS.some((pattern) => pattern.test(colName));
 };
 
 const isJsonValue = (val: string): boolean => {
@@ -36,8 +37,8 @@ const isJsonValue = (val: string): boolean => {
     const trimmed = val.trim();
     if (trimmed.startsWith('data:image/')) return false;
     if (/^[A-Za-z0-9+/=]{20,}$/.test(trimmed)) return false;
-    return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-        (trimmed.startsWith('[') && trimmed.endsWith(']'));
+    return (trimmed.startsWith('{') && trimmed.endsWith('}'))
+        || (trimmed.startsWith('[') && trimmed.endsWith(']'));
 };
 
 export const RowDetailTab: React.FC = () => {
@@ -54,7 +55,7 @@ export const RowDetailTab: React.FC = () => {
 
     const getJsonData = useCallback(() => {
         if (!detail) return {};
-        const obj: Record<string, any> = {};
+        const obj: Record<string, unknown> = {};
         const hasSelection = isSelectMode && selectedFields.size > 0;
 
         detail.columns.forEach((col, idx) => {
@@ -87,7 +88,7 @@ export const RowDetailTab: React.FC = () => {
     }, [detail, getJsonData, toast, isSelectMode, selectedFields.size]);
 
     const toggleFieldSelection = (col: string) => {
-        setSelectedFields(prev => {
+        setSelectedFields((prev) => {
             const next = new Set(prev);
             if (next.has(col)) next.delete(col);
             else next.add(col);
@@ -96,7 +97,7 @@ export const RowDetailTab: React.FC = () => {
     };
 
     const toggleSelectMode = () => {
-        setIsSelectMode(prev => {
+        setIsSelectMode((prev) => {
             if (prev) setSelectedFields(new Set());
             return !prev;
         });
@@ -104,21 +105,21 @@ export const RowDetailTab: React.FC = () => {
 
     const invertSelection = useCallback(() => {
         if (!detail) return;
-        setSelectedFields(prev => {
+        setSelectedFields((prev) => {
             const next = new Set<string>();
-            detail.columns.forEach(col => {
+            detail.columns.forEach((col) => {
                 if (!prev.has(col)) next.add(col);
             });
             return next;
         });
     }, [detail]);
 
-    const actionBtnClass = 'bg-transparent border-none text-muted-foreground cursor-pointer px-1.25 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-muted hover:text-foreground';
-    const actionBtnActiveClass = 'bg-muted text-[#7c6af7]';
+    const actionBtnClass = 'h-6 w-6 text-muted-foreground hover:text-foreground';
+    const actionBtnActiveClass = 'bg-muted text-primary hover:text-primary';
 
     if (!detail) {
         return (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs h-full">
+            <div className="flex h-full flex-1 items-center justify-center text-xs text-muted-foreground">
                 <p>No row selected</p>
             </div>
         );
@@ -139,36 +140,45 @@ export const RowDetailTab: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col overflow-hidden">
-            <div className="flex items-center justify-end gap-1 pb-1 border-b border-border/50 mb-1">
+        <div className="flex h-full flex-col overflow-hidden">
+            <div className="mb-1 flex items-center justify-end gap-1 border-b border-border/50 pb-1">
                 {viewMode === 'form' && isSelectMode && (
-                    <button className={actionBtnClass} title="Invert selection" onClick={invertSelection}>
+                    <Button type="button" variant="ghost" size="icon" className={actionBtnClass} title="Invert selection" onClick={invertSelection}>
                         <RefreshCcw size={13} />
-                    </button>
+                    </Button>
                 )}
                 {viewMode === 'form' && (
-                    <button
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         className={cn(actionBtnClass, isSelectMode && actionBtnActiveClass)}
                         title="Toggle selection mode for custom JSON copy"
                         onClick={toggleSelectMode}
                     >
                         <CheckSquare size={13} />
-                    </button>
+                    </Button>
                 )}
-                <button
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     className={cn(actionBtnClass, viewMode === 'json' && actionBtnActiveClass)}
                     title="Toggle JSON view"
-                    onClick={() => setViewMode(v => v === 'form' ? 'json' : 'form')}
+                    onClick={() => setViewMode((v) => (v === 'form' ? 'json' : 'form'))}
                 >
                     <Braces size={13} />
-                </button>
-                <button
+                </Button>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     className={actionBtnClass}
                     title={isSelectMode && selectedFields.size > 0 ? 'Copy selected fields as JSON' : 'Copy row as JSON'}
                     onClick={handleCopyJson}
                 >
                     <FileJson size={13} />
-                </button>
+                </Button>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -221,10 +231,11 @@ interface RowDetailFieldProps {
 
 const RowDetailField: React.FC<RowDetailFieldProps> = ({
     col, val, isNull, isPK, colIdx, onCopy, onSave,
-    isSelectMode, isSelected, onToggleSelect, isJsonField
+    isSelectMode, isSelected, onToggleSelect, isJsonField,
 }) => {
     const [editVal, setEditVal] = useState(val);
     const [isDirty, setIsDirty] = useState(false);
+    const checkboxId = `row-cb-${colIdx}`;
 
     React.useEffect(() => {
         setEditVal(val);
@@ -242,7 +253,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
         setIsDirty(true);
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             commit();
@@ -253,59 +264,75 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
     };
 
     return (
-        <div className={cn(
-            'flex flex-col gap-1 rounded-md p-0.5 transition-colors duration-150',
-            isDirty && 'bg-warning/10',
-            isSelected && 'bg-success/12'
-        )}>
-            <div className="group text-[11px] text-muted-foreground font-semibold flex items-center justify-between gap-1">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+        <div
+            className={cn(
+                'flex flex-col gap-1 rounded-md p-0.5 transition-colors duration-150',
+                isDirty && 'bg-warning/10',
+                isSelected && 'bg-success/12',
+            )}
+        >
+            <div className="group flex items-center justify-between gap-1 text-[11px] font-semibold text-muted-foreground">
+                <div className="flex items-center gap-1.5 overflow-hidden">
                     {isSelectMode && (
-                        <input
-                            type="checkbox"
-                            id={`row-cb-${colIdx}`}
+                        <Checkbox
+                            id={checkboxId}
                             checked={isSelected}
-                            onChange={onToggleSelect}
-                            className="m-0 cursor-pointer accent-success shrink-0"
+                            onCheckedChange={() => onToggleSelect()}
+                            className="h-3.5 w-3.5 shrink-0"
                         />
                     )}
-                    <label
-                        htmlFor={isSelectMode ? `row-cb-${colIdx}` : undefined}
-                        className={cn('flex items-center gap-1 shrink-0', isPK && 'text-[#7c6af7]')}
-                        style={{ cursor: isSelectMode ? 'pointer' : 'default', margin: 0 }}
+                    <Label
+                        htmlFor={isSelectMode ? checkboxId : undefined}
+                        className={cn(
+                            'm-0 flex items-center gap-1 text-[11px] text-muted-foreground',
+                            isSelectMode ? 'cursor-pointer' : 'cursor-default',
+                            isPK && 'text-primary',
+                        )}
                     >
-                        {isPK && <span className="text-[9px] font-bold tracking-[0.04em] bg-[#7c6af7]/20 text-[#7c6af7] border border-[#7c6af7]/40 rounded-md px-1 py-[1px]">PK</span>}
+                        {isPK && (
+                            <span className="rounded-md border border-primary/35 bg-primary/15 px-1 py-[1px] text-[9px] font-bold tracking-[0.04em] text-primary">
+                                PK
+                            </span>
+                        )}
                         {col}
-                    </label>
+                    </Label>
                 </div>
-                <button
-                    className="bg-transparent border-none text-muted-foreground cursor-pointer p-0.5 rounded-md opacity-0 transition-opacity duration-200 shrink-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground disabled:opacity-0 disabled:cursor-default"
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
                     onClick={onCopy}
                     title="Copy value"
                     disabled={isNull || isJsonField}
                 >
                     <Copy size={11} />
-                </button>
+                </Button>
             </div>
             {isPK || isJsonField ? (
-                <div className={cn(
-                    'bg-background border border-border rounded-md px-2 py-1.5 text-xs font-mono text-foreground whitespace-pre-wrap break-all min-h-[28px] cursor-default opacity-85 select-text overflow-auto',
-                    isNull && 'text-muted-foreground italic bg-muted',
-                    isJsonField && 'max-h-[200px]'
-                )}
-                    style={{
-                        cursor: isSelectMode ? 'pointer' : 'default',
-                    }}>
+                <div
+                    className={cn(
+                        'min-h-[28px] overflow-auto rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground opacity-85',
+                        'whitespace-pre-wrap break-all select-text',
+                        isNull && 'bg-muted italic text-muted-foreground',
+                        isJsonField && 'max-h-[200px]',
+                        isSelectMode && 'cursor-pointer',
+                    )}
+                >
                     {isNull ? 'null' : isJsonField ? (
                         <JsonViewer value={val} showCopy={true} height="180px" useMonaco={true} />
                     ) : val}
                 </div>
             ) : (
-                <textarea
+                <Textarea
                     className={cn(
-                        'bg-background border border-border rounded-md px-2 py-1.5 text-xs font-mono text-foreground whitespace-pre-wrap break-all min-h-[28px] w-full box-border resize-y cursor-text outline-none leading-normal transition-all duration-150 focus:border-[#7c6af7] focus:shadow-[0_0_0_2px_rgba(124,106,247,0.2)] disabled:opacity-70 disabled:cursor-default disabled:resize-none',
-                        isNull && 'text-muted-foreground italic bg-muted',
-                        isDirty && 'border-warning!'
+                        'min-h-[28px] w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground',
+                        'whitespace-pre-wrap break-all leading-normal shadow-none',
+                        'focus-visible:border-primary focus-visible:ring-primary/30 focus-visible:ring-offset-0',
+                        isNull && 'bg-muted italic text-muted-foreground',
+                        isDirty && 'border-warning',
+                        !onSave && 'cursor-default resize-none opacity-70',
+                        isSelectMode && 'cursor-pointer resize-none',
                     )}
                     value={editVal}
                     onChange={(e) => handleChange(e.target.value)}
@@ -314,9 +341,9 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     rows={Math.max(1, Math.min(6, (editVal || '').split('\n').length))}
                     disabled={!onSave || isSelectMode}
                     title={
-                        isSelectMode ? 'Click to select field' :
-                            onSave ? 'Click to edit | Enter to save | Esc to cancel' :
-                                'Read-only (no primary key)'
+                        isSelectMode ? 'Click to select field'
+                            : onSave ? 'Click to edit | Enter to save | Esc to cancel'
+                                : 'Read-only (no primary key)'
                     }
                     onClick={isSelectMode ? (e) => { e.preventDefault(); onToggleSelect(); } : undefined}
                 />
@@ -324,4 +351,3 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
         </div>
     );
 };
-

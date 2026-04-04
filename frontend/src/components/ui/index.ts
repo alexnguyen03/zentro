@@ -11,6 +11,7 @@ export * from './command';
 export * from './tabs';
 export * from './scroll-area';
 export * from './textarea';
+export * from './slider';
 export * from './radio-group';
 export * from './label';
 export * from './Checkbox';

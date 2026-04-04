@@ -143,12 +143,13 @@ describe('SettingsView', () => {
     it('applies write safety level to active environment and updates strong confirm slider', () => {
         const view = render(<SettingsView tabId="settings-tab" />);
 
-        const strongConfirmLabel = screen.getByText('Strong Confirm From Environment');
-        const strongConfirmSlider = strongConfirmLabel.parentElement?.querySelector('input[type="range"]');
-
-        if (!(strongConfirmSlider instanceof HTMLInputElement)) {
-            throw new Error('Write safety fields are not rendered correctly');
-        }
+        const getStrongConfirmSlider = () => {
+            const slider = screen.getByRole('slider');
+            if (!(slider instanceof HTMLElement)) {
+                throw new Error('Write safety fields are not rendered correctly');
+            }
+            return slider;
+        };
 
         const getSafetyTrigger = () => {
             const trigger = screen.getAllByRole('combobox').find((element) => (
@@ -161,7 +162,7 @@ describe('SettingsView', () => {
         };
 
         expect(getSafetyTrigger()).toHaveTextContent(/balanced/i);
-        expect(strongConfirmSlider.value).toBe('0');
+        expect(getStrongConfirmSlider()).toHaveAttribute('aria-valuenow', '0');
 
         fireEvent.click(getSafetyTrigger());
         fireEvent.click(screen.getByRole('option', { name: 'Relaxed' }));
@@ -177,7 +178,7 @@ describe('SettingsView', () => {
         expect(getSafetyTrigger()).toHaveTextContent(/relaxed/i);
 
         fireEvent.click(screen.getByRole('button', { name: 'Set strong confirm threshold to Staging' }));
-        expect(strongConfirmSlider.value).toBe('1');
+        expect(getStrongConfirmSlider()).toHaveAttribute('aria-valuenow', '1');
         expect(localStorage.getItem('zentro:execution-policy-strong-confirm-from:v1')).toBe('"sta"');
         expect(toastSuccessMock).toHaveBeenCalledTimes(1);
     });

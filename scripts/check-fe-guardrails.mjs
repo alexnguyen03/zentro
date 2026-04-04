@@ -9,13 +9,6 @@ const SOURCE_EXT = new Set(['.ts', '.tsx']);
 const NATIVE_CONTROL_ALLOWLIST = [
   'components/ui/Input.tsx',
   'components/ui/textarea.tsx',
-  'components/layout/settings/SettingsData.tsx',
-  'components/layout/settings/SettingsProfiles.tsx',
-  'components/sidebar/RowDetailTab.tsx',
-  'components/editor/resultTable/ResultTableGrid.tsx',
-  'components/editor/resultTable/useResultTableColumns.tsx',
-  'components/editor/TableInfo/ColumnRow.tsx',
-  'components/editor/TableInfo/DataTypeCell.tsx',
   'components/layout/OverlayDialog.test.tsx',
 ];
 
@@ -58,7 +51,6 @@ function collectViolations(filePath, regex, label) {
 
 const files = walkFiles(ROOT);
 const violations = [];
-const warnings = [];
 
 function isNativeControlAllowed(relPath) {
   return NATIVE_CONTROL_ALLOWLIST.includes(relPath);
@@ -158,8 +150,8 @@ for (const file of files) {
     );
 
     if (!isNativeControlAllowed(rel)) {
-      warnings.push(
-        ...collectViolations(file, /<(button|input|textarea)\b/, 'prefer-shadcn-primitives'),
+      violations.push(
+        ...collectViolations(file, /<(button|input|textarea)\b/, 'no-native-controls-outside-allowlist'),
       );
     }
   }
@@ -190,16 +182,6 @@ if (violations.length > 0) {
     );
   }
   process.exit(1);
-}
-
-if (warnings.length > 0) {
-  console.warn('FE guardrails warnings:');
-  for (const warning of warnings) {
-    const displayPath = path.relative(REPO_ROOT, warning.file).replace(/\\/g, '/');
-    console.warn(
-      `- [${warning.rule}] ${displayPath}:${warning.line} -> ${warning.snippet}`,
-    );
-  }
 }
 
 console.log('FE guardrails passed.');

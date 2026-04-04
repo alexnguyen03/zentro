@@ -7,7 +7,7 @@ interface Props {
     profileName: string;
     onProfileNameChange: (val: string) => void;
     onExportProfile: () => void;
-    onImportProfile: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    onImportProfile: (file: File) => Promise<void>;
 }
 
 export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameChange, onExportProfile, onImportProfile }) => {
@@ -50,13 +50,17 @@ export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameCh
                     >
                         Import Profile
                     </Button>
-                    <input
+                    <Input
                         ref={profileInputRef}
                         type="file"
                         accept=".json,.zentro-profile.json"
                         className="hidden"
                         onChange={(e) => {
-                            void onImportProfile(e);
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            void onImportProfile(file).finally(() => {
+                                e.target.value = '';
+                            });
                         }}
                     />
                 </div>

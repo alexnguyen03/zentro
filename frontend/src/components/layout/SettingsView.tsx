@@ -131,10 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         }
     };
 
-    const handleImportProfile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    const handleImportProfile = async (file: File) => {
         try {
             const raw = await file.text();
             const profile = parseProfilePackage(raw);
@@ -143,8 +140,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
             toast.success(`Applied profile: ${profile.metadata.name}`);
         } catch (error) {
             toast.error(`Import failed: ${error}`);
-        } finally {
-            event.target.value = '';
         }
     };
 

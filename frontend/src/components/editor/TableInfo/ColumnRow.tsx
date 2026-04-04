@@ -2,6 +2,7 @@ import React from 'react';
 import { models } from '../../../../wailsjs/go/models';
 import { DataTypeCell } from './DataTypeCell';
 import { RowState } from './types';
+import { Checkbox, Input } from '../../ui';
 
 interface ColumnRowProps {
     row: RowState;
@@ -55,10 +56,10 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* Name */}
                 <td className="p-0 border-b border-border">
                     {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
-                        <input
+                        <Input
                             autoFocus
                             onFocus={e => e.target.select()}
-                            className="rt-cell-input font-mono border-accent!"
+                            className="rt-cell-input font-mono !border-primary"
                             defaultValue={col.Name}
                             onBlur={e => { onUpdate(rowIdx, { Name: e.target.value }); setEditCell(null); }}
                             onKeyDown={e => {
@@ -91,12 +92,11 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* PK */}
                 <td className="w-12 text-center border-b border-border">
                     <div className="rt-cell-content rt-cell-content--compact justify-center">
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             checked={col.IsPrimaryKey}
                             disabled={isDeleted || readOnlyMode}
-                            onChange={e => onUpdate(rowIdx, { IsPrimaryKey: e.target.checked })}
-                            className="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
+                            onCheckedChange={(checked) => onUpdate(rowIdx, { IsPrimaryKey: checked === true })}
+                            className="h-3.5 w-3.5 cursor-pointer rounded-md border-border opacity-80 transition-opacity hover:opacity-100"
                         />
                     </div>
                 </td>
@@ -104,12 +104,11 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* Nullable */}
                 <td className="w-16 text-center border-b border-border">
                     <div className="rt-cell-content rt-cell-content--compact justify-center">
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             checked={col.IsNullable}
                             disabled={isDeleted || readOnlyMode}
-                            onChange={e => onUpdate(rowIdx, { IsNullable: e.target.checked })}
-                            className="w-3.5 h-3.5 rounded-md border-border accent-accent cursor-pointer disabled:cursor-not-allowed opacity-80 hover:opacity-100 transition-opacity"
+                            onCheckedChange={(checked) => onUpdate(rowIdx, { IsNullable: checked === true })}
+                            className="h-3.5 w-3.5 cursor-pointer rounded-md border-border opacity-80 transition-opacity hover:opacity-100"
                         />
                     </div>
                 </td>
@@ -119,10 +118,10 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                     {isDeleted
                         ? <div className="rt-cell-content rt-cell-content--compact font-mono opacity-40 italic">{col.DefaultValue || 'NULL'}</div>
                         : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
-                            ? <input
+                            ? <Input
                                 autoFocus
                                 onFocus={e => e.target.select()}
-                                className="rt-cell-input font-mono text-[11px] border-accent!"
+                                className="rt-cell-input font-mono text-[11px] !border-primary"
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
                                 onKeyDown={e => {

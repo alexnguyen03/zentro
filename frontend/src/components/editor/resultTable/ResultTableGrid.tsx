@@ -14,6 +14,7 @@ import { DisplayRow } from '../../../lib/dataEditing';
 import { parseCellId } from './cellUtils';
 import { SortableHeaderCell } from './SortableHeaderCell';
 import { DataColumnMeta } from './types';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner } from '../../ui';
 
 interface ResultTableGridProps {
     parentRef: React.RefObject<HTMLDivElement>;
@@ -151,27 +152,38 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
                                                             {sorted === 'asc' && <ArrowUp size={11} className="rt-sort-icon" />}
                                                             {sorted === 'desc' && <ArrowDown size={11} className="rt-sort-icon" />}
                                                         </span>
-                                                        <button
-                                                            type="button"
-                                                            className={`rt-th-filter-btn ${isFilterActive ? 'is-active' : ''}`}
-                                                            title="Filter this column"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                setColumnFilterDrafts((prev) => ({
-                                                                    ...prev,
-                                                                    [columnId]: prev[columnId] ?? columnFilterApplied[columnId] ?? '',
-                                                                }));
-                                                                setActiveFilterPopoverColumn(isFilterOpen ? null : columnId);
-                                                            }}
+                                                        <Popover
+                                                            open={isFilterOpen}
+                                                            onOpenChange={(open) => setActiveFilterPopoverColumn(open ? columnId : null)}
                                                         >
-                                                            <Search size={10} />
-                                                        </button>
-                                                        {isFilterOpen && (
-                                                            <div className="rt-th-filter-popover" onClick={(event) => event.stopPropagation()}>
+                                                            <PopoverTrigger asChild>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className={`rt-th-filter-btn ${isFilterActive ? 'is-active' : ''}`}
+                                                                    title="Filter this column"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        setColumnFilterDrafts((prev) => ({
+                                                                            ...prev,
+                                                                            [columnId]: prev[columnId] ?? columnFilterApplied[columnId] ?? '',
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    <Search size={10} />
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent
+                                                                align="end"
+                                                                sideOffset={4}
+                                                                className="rt-th-filter-popover p-2"
+                                                                onClick={(event) => event.stopPropagation()}
+                                                            >
                                                                 <div className="rt-th-filter-input-row">
-                                                                    <input
+                                                                    <Input
                                                                         autoFocus
-                                                                        className="rt-th-filter-input"
+                                                                        className="rt-th-filter-input h-6"
                                                                         value={columnFilterDrafts[columnId] ?? columnFilterApplied[columnId] ?? ''}
                                                                         onChange={(event) => setColumnFilterDrafts((prev) => ({ ...prev, [columnId]: event.target.value }))}
                                                                         onKeyDown={(event) => {
@@ -185,17 +197,19 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
                                                                         }}
                                                                         placeholder={`Contains in ${columnName}`}
                                                                     />
-                                                                    <button
+                                                                    <Button
                                                                         type="button"
-                                                                        className="rt-th-filter-input-clear"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="rt-th-filter-input-clear h-6 w-6 p-0"
                                                                         title="Clear filter"
                                                                         onClick={() => clearHeaderFilter(columnId)}
                                                                     >
                                                                         <X size={10} />
-                                                                    </button>
+                                                                    </Button>
                                                                 </div>
-                                                            </div>
-                                                        )}
+                                                            </PopoverContent>
+                                                        </Popover>
                                                     </div>
                                                 </SortableHeaderCell>
                                             );
@@ -266,28 +280,10 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
                         )}
                         {isFetchingMore && (
                             <tr>
-                                <td
-                                    colSpan={columnsLength + 1}
-                                    style={{
-                                        textAlign: 'center',
-                                        padding: '8px',
-                                        background: 'var(--surface-app)',
-                                    }}
-                                >
-                                    <div
-                                        className="loading-spinner"
-                                        style={{
-                                            display: 'inline-block',
-                                            width: 12,
-                                            height: 12,
-                                            border: '1.5px solid var(--border-default)',
-                                            borderTopColor: 'var(--interactive-primary)',
-                                            borderRadius: '50%',
-                                            animation: 'spin 0.8s linear infinite',
-                                        }}
-                                    />
-                                    <span style={{ marginLeft: 8, color: 'var(--content-secondary)', fontSize: '11px', fontWeight: 500 }}>
-                                        Loading more rows...
+                                <td colSpan={columnsLength + 1} className="bg-background px-2 py-2 text-center">
+                                    <span className="inline-flex items-center text-[11px] font-medium text-muted-foreground">
+                                        <Spinner size={12} tone="primary" />
+                                        <span className="ml-2">Loading more rows...</span>
                                     </span>
                                 </td>
                             </tr>
