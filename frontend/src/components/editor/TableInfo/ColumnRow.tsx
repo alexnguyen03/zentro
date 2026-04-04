@@ -2,7 +2,7 @@ import React from 'react';
 import { models } from '../../../../wailsjs/go/models';
 import { DataTypeCell } from './DataTypeCell';
 import { RowState } from './types';
-import { Checkbox, Input } from '../../ui';
+import { Input, Switch } from '../../ui';
 
 interface ColumnRowProps {
     row: RowState;
@@ -92,11 +92,11 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* PK */}
                 <td className="w-12 text-center border-b border-border">
                     <div className="rt-cell-content rt-cell-content--compact justify-center">
-                        <Checkbox
+                        <Switch
                             checked={col.IsPrimaryKey}
                             disabled={isDeleted || readOnlyMode}
-                            onCheckedChange={(checked) => onUpdate(rowIdx, { IsPrimaryKey: checked === true })}
-                            className="h-3.5 w-3.5 cursor-pointer rounded-md border-border opacity-80 transition-opacity hover:opacity-100"
+                            onCheckedChange={(checked) => onUpdate(rowIdx, { IsPrimaryKey: checked })}
+                            className="scale-75 origin-center"
                         />
                     </div>
                 </td>
@@ -104,11 +104,11 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                 {/* Nullable */}
                 <td className="w-16 text-center border-b border-border">
                     <div className="rt-cell-content rt-cell-content--compact justify-center">
-                        <Checkbox
+                        <Switch
                             checked={col.IsNullable}
                             disabled={isDeleted || readOnlyMode}
-                            onCheckedChange={(checked) => onUpdate(rowIdx, { IsNullable: checked === true })}
-                            className="h-3.5 w-3.5 cursor-pointer rounded-md border-border opacity-80 transition-opacity hover:opacity-100"
+                            onCheckedChange={(checked) => onUpdate(rowIdx, { IsNullable: checked })}
+                            className="scale-75 origin-center"
                         />
                     </div>
                 </td>

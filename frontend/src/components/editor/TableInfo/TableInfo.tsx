@@ -110,7 +110,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
     const [indexTabActions, setIndexTabActions] = useState<TabAction[]>([]);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
-    const [erdRelCount, setErdRelCount] = useState<number | null>(null);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const [fadeInContent, setFadeInContent] = useState(false);
     const prevConnRef = useRef<string>('');
@@ -168,6 +167,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             autoRetryTimerRef.current = null;
         }
     }, []);
+    const handleErdCountChange = useCallback((_count: number | null) => {}, []);
 
     useEffect(() => {
         setIsCreateMode(target.isCreateDraft);
@@ -664,11 +664,11 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         return [
             { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, dirtyCount: columnsDirtyCount },
             { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, dirtyCount: dataDirtyCount },
-            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} />, count: erdRelCount },
+            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
             { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} /> },
             { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} /> },
         ];
-    }, [columnsDirtyCount, dataDirtyCount, erdRelCount, isCreateMode]);
+    }, [columnsDirtyCount, dataDirtyCount, isCreateMode]);
 
     const handleSelectTableFromBreadcrumb = useCallback((nextTableName: string) => {
         const normalized = nextTableName.trim();
@@ -840,7 +840,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 )}
 
                 {activeTab === 'erd' && (
-                    <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={setErdRelCount} />
+                    <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={handleErdCountChange} />
                 )}
 
                 {activeTab === 'indexes' && (
