@@ -14,7 +14,6 @@ import {
     Table2,
     Trash2,
     Type,
-    X,
     Zap,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -148,7 +147,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    'group flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80',
                     expanded && 'sticky top-0 z-[2] -mx-0.5 rounded-none px-2 bg-card',
                 )}
                 onClick={(event) => {
@@ -159,9 +158,6 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                 {expanded ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
                 {renderIcon('schema')}
                 <span className="truncate flex-1">{bucket.schemaName}</span>
-                <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
-                    {bucket.totalCount}
-                </span>
                 {category.allowCreateTable && (
                     <Button
                         type="button"
@@ -171,13 +167,16 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             event.stopPropagation();
                             if (!readOnlyMode) setShowCreateTable(true);
                         }}
-                        className="h-6 w-6 p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted shrink-0 transition-opacity"
+                        className="h-6 w-6 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-muted shrink-0 transition-opacity"
                         title="New Table"
                         disabled={readOnlyMode}
                     >
                         <Plus size={12} />
                     </Button>
                 )}
+                <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                    {bucket.totalCount}
+                </span>
             </div>
 
             {expanded && (
@@ -408,18 +407,6 @@ export const ConnectionTree: React.FC = () => {
                 >
                     <SpellCheck2 size={12} className="opacity-90" />
                 </Button>
-                {filter && (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
-                        onClick={() => updateExplorerUiState({ filter: '' })}
-                        title="Clear filter"
-                    >
-                        <X size={13} />
-                    </Button>
-                )}
             </div>
             <div className="px-2 pb-1 shrink-0 bg-card/70">
                 <div className="flex items-center gap-1.5 justify-between">

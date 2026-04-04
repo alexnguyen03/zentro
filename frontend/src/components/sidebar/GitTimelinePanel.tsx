@@ -177,7 +177,7 @@ export const GitTimelinePanel: React.FC = () => {
                     value={timelinePanelState.eventTypeFilter}
                     onChange={(event) => updateTimelinePanelState({ eventTypeFilter: event.target.value })}
                     onKeyDown={(event) => {
-                        if (event.key === 'Enter') void load();
+                        if (event.key === 'Escape') updateTimelinePanelState({ eventTypeFilter: '' });
                     }}
                 />
                 <Button
@@ -197,24 +197,36 @@ export const GitTimelinePanel: React.FC = () => {
                     placeholder="Object/file contains..."
                     value={timelinePanelState.objectFilter}
                     onChange={(event) => updateTimelinePanelState({ objectFilter: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ objectFilter: '' });
+                    }}
                 />
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Schema..."
                     value={timelinePanelState.schemaFilter}
                     onChange={(event) => updateTimelinePanelState({ schemaFilter: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ schemaFilter: '' });
+                    }}
                 />
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
                     value={timelinePanelState.fromDate}
                     onChange={(event) => updateTimelinePanelState({ fromDate: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ fromDate: '' });
+                    }}
                 />
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
                     value={timelinePanelState.toDate}
                     onChange={(event) => updateTimelinePanelState({ toDate: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ toDate: '' });
+                    }}
                 />
             </div>
 
