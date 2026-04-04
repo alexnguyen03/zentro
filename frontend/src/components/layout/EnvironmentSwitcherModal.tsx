@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Check, CircleAlert, Download } from 'lucide-react';
-import { ConfirmationModal, Button, Spinner, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui';
+import { ConfirmationModal, Button, OverlayDialog, Spinner, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -17,7 +17,6 @@ import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ProviderPickerToolbar } from '../connection/ProviderPickerToolbar';
 import { DatabaseTreePicker } from '../connection/DatabaseTreePicker';
-import { OverlayDialog } from './OverlayDialog';
 import { PanelFrame } from './PanelFrame';
 
 interface EnvironmentSwitcherModalProps {

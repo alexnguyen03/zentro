@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Modal } from './Modal';
+import { Modal } from '../ui';
 import changelogMd from '../../../../CHANGELOG.md?raw';
 
 interface ChangelogModalProps {

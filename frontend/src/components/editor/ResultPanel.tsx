@@ -23,10 +23,10 @@ import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { models } from '../../../wailsjs/go/models';
-import { Modal } from '../layout/Modal';
 import { useToast } from '../layout/Toast';
 import {
     Button,
+    Modal,
     Select,
     SelectContent,
     SelectItem,

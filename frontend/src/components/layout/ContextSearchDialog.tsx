@@ -9,7 +9,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { TAB_TYPE } from '../../lib/constants';
 import { useToast } from './Toast';
 import { getErrorMessage } from '../../lib/errors';
-import { OverlayDialog } from './OverlayDialog';
+import { OverlayDialog } from '../ui';
 
 type ObjectKind =
     | 'table'

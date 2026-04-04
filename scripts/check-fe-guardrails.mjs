@@ -128,6 +128,26 @@ for (const file of files) {
         /<\s*Tooltip\b[^>]*\bcontent\s*=/,
         'no-legacy-tooltip-content-prop',
       ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/layout\/(Modal|OverlayDialog)['"]/,
+        'no-legacy-layout-dialog-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"]\.(\.\/|\/)?(Modal|OverlayDialog)['"]/,
+        'no-legacy-layout-dialog-wrappers',
+      ),
+    );
+  }
+
+  if (!rel.startsWith('components/ui/')) {
+    violations.push(
+      ...collectViolations(
+        file,
+        /from\s+['"]@radix-ui\//,
+        'no-radix-import-outside-ui',
+      ),
     );
   }
 

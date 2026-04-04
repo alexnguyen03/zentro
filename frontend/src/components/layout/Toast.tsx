@@ -1,7 +1,13 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import * as ToastPrimitive from '@radix-ui/react-toast';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import {
+    Toast as ShadcnToast,
+    ToastClose,
+    ToastDescription,
+    ToastProvider as ShadcnToastProvider,
+    ToastViewport,
+} from '../ui/toast';
 
 export type ToastVariant = 'success' | 'error' | 'info';
 
@@ -74,42 +80,36 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
 
     return (
         <ToastContext.Provider value={{ toast }}>
-            <ToastPrimitive.Provider duration={4000}>
+            <ShadcnToastProvider duration={4000}>
                 {children}
                 {toasts.map((t) => {
                     const style = variantStyles[t.variant];
                     const Icon = style.Icon;
                     return (
-                        <ToastPrimitive.Root
+                        <ShadcnToast
                             key={t.id}
                             open
                             onOpenChange={(open) => {
                                 if (!open) dismiss(t.id);
                             }}
                             className={cn(
-                                'pointer-events-auto flex min-w-[250px] max-w-[400px] items-start gap-2.5 rounded-md border border-border border-l-4 bg-background px-4 py-3 text-[13px] shadow-elevation-md',
                                 style.border,
                             )}
                         >
                             <span className={cn('mt-[2px] flex shrink-0', style.icon)}>
                                 <Icon size={15} />
                             </span>
-                            <ToastPrimitive.Description className="flex-1 break-words leading-normal text-foreground">
+                            <ToastDescription>
                                 {t.message}
-                            </ToastPrimitive.Description>
-                            <ToastPrimitive.Close
-                                className="shrink-0 -mt-1 -mr-1 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                aria-label="Close"
-                            >
+                            </ToastDescription>
+                            <ToastClose aria-label="Close">
                                 <X size={14} />
-                            </ToastPrimitive.Close>
-                        </ToastPrimitive.Root>
+                            </ToastClose>
+                        </ShadcnToast>
                     );
                 })}
-                <ToastPrimitive.Viewport
-                    className={cn('pointer-events-none fixed z-toast flex flex-col gap-2.5 outline-none', placementClass)}
-                />
-            </ToastPrimitive.Provider>
+                <ToastViewport className={placementClass} />
+            </ShadcnToastProvider>
         </ToastContext.Provider>
     );
 };

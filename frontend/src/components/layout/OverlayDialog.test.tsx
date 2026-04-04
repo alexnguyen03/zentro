@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { OverlayDialog } from './OverlayDialog';
+import { OverlayDialog } from '../ui/overlay-dialog';
 
 describe('OverlayDialog', () => {
     it('renders overlay content', () => {

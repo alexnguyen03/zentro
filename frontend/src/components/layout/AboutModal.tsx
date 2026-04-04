@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ExternalLink, Github, FileText } from 'lucide-react';
-import { Modal } from './Modal';
+import { Modal } from '../ui';
 import { ChangelogModal } from './ChangelogModal';
 import zentroLogo from '../../assets/images/main-logo.png';
 import pkg from '../../../package.json';

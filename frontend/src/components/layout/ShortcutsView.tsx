@@ -3,8 +3,7 @@ import { Keyboard, RotateCcw, Search } from 'lucide-react';
 import { eventToKeyToken, getCommandRegistry, type CommandId } from '../../lib/shortcutRegistry';
 import { normalizeRuleBinding, type ShortcutRule } from '../../lib/shortcutRules';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { Button, Input } from '../ui';
-import { Modal } from './Modal';
+import { Button, Input, Modal } from '../ui';
 
 type ContextMenuState = {
     x: number;

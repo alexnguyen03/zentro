@@ -13,8 +13,7 @@ import type { GitTimelineItem, GitTrackingStatus } from '../../platform/app-api/
 import { useProjectStore } from '../../stores/projectStore';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
-import { Modal } from '../layout/Modal';
-import { Button, Input } from '../ui';
+import { Button, Input, Modal } from '../ui';
 
 function formatDateTime(iso: string): string {
     try {

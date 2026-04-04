@@ -2,10 +2,9 @@ import React from 'react';
 import { Gift, ArrowRight, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Button } from '../ui';
+import { Button, Modal } from '../ui';
 import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime';
 import pkg from '../../../../package.json';
-import { Modal } from './Modal';
 
 interface UpdateModalProps {
     latestVersion: string;

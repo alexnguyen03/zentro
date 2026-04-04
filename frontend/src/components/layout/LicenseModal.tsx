@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal } from './Modal';
+import { Modal } from '../ui';
 import { getLicenseState } from '../../features/license/service';
 import { FeatureGate } from '../../features/license/featureGate';
 import type { LicenseState } from '../../features/license/types';

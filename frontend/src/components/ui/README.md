@@ -19,6 +19,7 @@
 - `DatabaseTreePicker` moved to `components/connection`.
 - `BaseTable` moved to `components/shared`.
 - Legacy wrappers removed: `FormField`, `SelectField`, `SwitchField`, `SearchField`, `Divider`.
+- Legacy layout wrappers migrated to `components/ui`: `Modal`, `OverlayDialog`.
 
 ## Guardrails
-- `scripts/check-fe-guardrails.mjs` blocks legacy modal APIs, legacy form wrappers, legacy `Tooltip content=...` usage, and domain component imports from `components/ui`.
+- `scripts/check-fe-guardrails.mjs` blocks legacy modal APIs, legacy form wrappers, legacy `Tooltip content=...` usage, legacy layout dialog wrappers, direct Radix imports outside `components/ui`, and domain component imports from `components/ui`.

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Save, Table2 } from 'lucide-react';
-import { Modal } from '../layout/Modal';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
+import { Button, Modal, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
 import { CreateTable } from '../../services/schemaService';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';

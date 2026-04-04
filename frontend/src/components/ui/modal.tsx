@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '../../lib/cn';
+import { cn } from '@/lib/cn';
 import {
     Dialog,
     DialogContent,
@@ -7,11 +7,13 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '../ui/dialog';
+} from './dialog';
 
 interface ModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    isOpen?: boolean;
+    onClose?: () => void;
     title: string | React.ReactNode;
     children: React.ReactNode;
     footer?: React.ReactNode;
@@ -21,20 +23,35 @@ interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = ({
-    isOpen,
+    open,
+    onOpenChange,
+    isOpen = false,
     onClose,
     title,
     children,
     footer,
     width = 600,
     className,
-    layer: _layer = 'modal',
+    layer = 'modal',
 }) => {
+    const resolvedOpen = open ?? isOpen;
+    const isConfirmLayer = layer === 'confirm';
+
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+        <Dialog
+            open={resolvedOpen}
+            onOpenChange={(nextOpen) => {
+                onOpenChange?.(nextOpen);
+                if (!nextOpen) {
+                    onClose?.();
+                }
+            }}
+        >
             <DialogContent
+                overlayClassName={isConfirmLayer ? 'z-modal-confirm bg-overlay-strong' : 'z-modal bg-overlay'}
                 className={cn(
                     'max-h-[90vh] overflow-hidden rounded-md border border-border/30 bg-card p-0 text-card-foreground shadow-elevation-lg',
+                    isConfirmLayer ? 'z-modal-confirm' : 'z-modal',
                     className,
                 )}
                 style={{ width, maxWidth: '90vw' }}

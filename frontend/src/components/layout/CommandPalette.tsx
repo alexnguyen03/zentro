@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { buildCommands, CommandItem, CommandCategory } from '../../lib/commands';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { OverlayDialog } from './OverlayDialog';
+import { OverlayDialog } from '../ui';
 
 const CATEGORY_ORDER: CommandCategory[] = ['Editor', 'View', 'Layout', 'Connection', 'App'];
 

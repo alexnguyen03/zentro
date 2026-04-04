@@ -6,6 +6,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import {
   Button,
   Checkbox,
+  OverlayDialog,
   Select,
   SelectContent,
   SelectItem,
@@ -13,7 +14,6 @@ import {
   SelectValue,
 } from '../ui';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
-import { OverlayDialog } from '../layout/OverlayDialog';
 
 interface QueryCompareModalProps {
   onClose: () => void;

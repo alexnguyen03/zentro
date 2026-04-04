@@ -3,7 +3,7 @@ import { FolderOpen, Plus } from 'lucide-react';
 import { Disconnect } from '../../services/connectionService';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button, ConfirmationModal, Spinner } from '../ui';
+import { Button, ConfirmationModal, OverlayDialog, Spinner } from '../ui';
 import { cn } from '../../lib/cn';
 import { useToast } from './Toast';
 import { sortProjects, getProjectIconKey, buildTagsWithProjectIcon, type ProjectIconKey } from './projectHubMeta';
@@ -12,7 +12,6 @@ import { ProjectCard, ProjectCardEdit, type EditDraft } from './project/ProjectC
 import { GetDefaultProjectStorageRoot, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
 import type { Project } from '../../types/project';
 import appIcon from '../../assets/images/appicon.png';
-import { OverlayDialog } from './OverlayDialog';
 import { PanelFrame } from './PanelFrame';
 
 type Surface = 'entry' | 'wizard';
