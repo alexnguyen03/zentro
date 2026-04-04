@@ -23,7 +23,6 @@ import { FetchDatabaseSchema } from '../../services/schemaService';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/cn';
-import { CreateTableModal } from '../layout/CreateTableModal';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { DropObject } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
@@ -45,6 +44,7 @@ import {
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 import { useSidebarPanelState } from '../../stores/sidebarUiStore';
 import { EXPLORER_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
+import { buildNewTableDraftTarget } from '../../lib/tableTargets';
 
 const iconClass = 'opacity-80 shrink-0';
 const ALL_SCHEMAS_VALUE = '__all_schemas__';
@@ -84,6 +84,7 @@ interface SchemaBucketNodeViewProps {
     expanded: boolean;
     readOnlyMode: boolean;
     onToggle: () => void;
+    onCreateTable: (schemaName: string) => void;
     onOpenDefinition: (schemaName: string, objectName: string) => void;
     onDropObject: (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW') => Promise<void>;
 }
@@ -94,10 +95,10 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
     expanded,
     readOnlyMode,
     onToggle,
+    onCreateTable,
     onOpenDefinition,
     onDropObject,
 }) => {
-    const [showCreateTable, setShowCreateTable] = useState(false);
     const [contextMenuItem, setContextMenuItem] = useState<string | null>(null);
     const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: 'TABLE' | 'VIEW' } | null>(null);
 
@@ -127,11 +128,6 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
     return (
         <div>
-            <CreateTableModal
-                isOpen={showCreateTable}
-                onClose={() => setShowCreateTable(false)}
-                schema={bucket.schemaName}
-            />
             <ConfirmationModal
                 isOpen={Boolean(dropModal)}
                 onClose={() => setDropModal(null)}
@@ -165,7 +161,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         size="icon"
                         onClick={(event) => {
                             event.stopPropagation();
-                            if (!readOnlyMode) setShowCreateTable(true);
+                            if (!readOnlyMode) onCreateTable(bucket.schemaName);
                         }}
                         className="h-6 w-6 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-muted shrink-0 transition-opacity"
                         title="New Table"
@@ -184,8 +180,11 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                     {bucket.items.map((item, index) => (
                         <div
                             key={`${item.id}:${index}`}
-                            className="flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-md transition-colors duration-100 hover:bg-muted/80 overflow-hidden"
-                            onDoubleClick={() => {
+                            className={cn(
+                                'flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-md transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
+                                category.canOpenDefinition && 'cursor-pointer',
+                            )}
+                            onClick={() => {
                                 if (!category.canOpenDefinition) return;
                                 onOpenDefinition(item.schemaName, item.name);
                             }}
@@ -353,6 +352,17 @@ export const ConnectionTree: React.FC = () => {
         });
     };
 
+    const handleCreateTable = useCallback((schemaName: string) => {
+        const defaultTableName = 'new_table';
+        const qualifiedName = schemaName ? `${schemaName}.${defaultTableName}` : defaultTableName;
+        addTab({
+            type: 'table',
+            name: qualifiedName,
+            content: buildNewTableDraftTarget(schemaName, defaultTableName),
+            query: '',
+        });
+    }, [addTab]);
+
     const handleDropObject = async (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW') => {
         if (!activeProfile?.name || !activeProfile?.db_name) return;
         const guard = await writeSafetyGuard.guardOperations(['drop'], `Drop ${objectType}`);
@@ -492,6 +502,7 @@ export const ConnectionTree: React.FC = () => {
                                     expanded={isSchemaExpanded(activeCategory.key, bucket.schemaName)}
                                     readOnlyMode={viewMode}
                                     onToggle={() => toggleSchema(activeCategory.key, bucket.schemaName)}
+                                    onCreateTable={handleCreateTable}
                                     onOpenDefinition={handleOpenDefinition}
                                     onDropObject={handleDropObject}
                                 />

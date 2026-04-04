@@ -62,6 +62,8 @@ import {
     matrixToTsv,
 } from './resultSelectionActions';
 
+const RESULT_TOOLBAR_ICON_SIZE = 12;
+
 export type ResultPanelAction = UiAction;
 
 interface ResultPanelProps {
@@ -371,13 +373,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         return (
             <Button
                 key={action.id}
-                variant={action.danger ? 'destructive' : 'ghost'}
+                variant="ghost"
                 size="icon"
                 onClick={() => action.onClick?.()}
                 disabled={action.disabled || action.loading}
                 title={action.title || action.label}
+                className={action.danger ? 'h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive' : 'h-7 w-7 p-0'}
             >
-                {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
+                {action.loading ? <Loader size={RESULT_TOOLBAR_ICON_SIZE} className="animate-spin" /> : action.icon}
             </Button>
         );
     }, []);
@@ -394,7 +397,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (showRowActions) {
             actions.push({
                 id: 'add-row',
-                icon: <Plus size={11} />,
+                icon: <Plus size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: 'Add Row',
                 title: rowActionDisabledReason || 'Add Row',
                 onClick: handleAddRow,
@@ -402,7 +405,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             });
             actions.push({
                 id: 'duplicate-rows',
-                icon: <Copy size={11} />,
+                icon: <Copy size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: 'Duplicate',
                 title: rowActionDisabledReason || 'Duplicate Selected Rows',
                 onClick: handleDuplicateRows,
@@ -410,7 +413,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             });
             actions.push({
                 id: 'delete-rows',
-                icon: <Trash2 size={11} />,
+                icon: <Trash2 size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: 'Delete',
                 title: rowActionDisabledReason || 'Delete Selected Rows',
                 danger: true,
@@ -420,11 +423,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         }
         if (hasPendingChanges) {
             actions.push({
-                id: 'discard', icon: <RotateCcw size={11} />, label: 'Discard', title: 'Discard', danger: true,
+                id: 'discard', icon: <RotateCcw size={RESULT_TOOLBAR_ICON_SIZE} />, label: 'Discard', title: 'Discard', danger: true,
                 onClick: () => { resetEditState(); setSelectedCells(new Set()); },
             });
             if (!viewMode) {
-                actions.push({ id: 'save', icon: <Save size={11} />, label: 'Save', title: 'Save', onClick: () => { void handleSaveRequest(); }, loading: isSavingDraftRows });
+                actions.push({ id: 'save', icon: <Save size={RESULT_TOOLBAR_ICON_SIZE} />, label: 'Save', title: 'Save', onClick: () => { void handleSaveRequest(); }, loading: isSavingDraftRows });
             }
         }
 
@@ -437,7 +440,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             .filter((contribution) => (contribution.isAvailable ? contribution.isAvailable(resultActionContext) : true))
             .map<ResultPanelAction>((contribution) => ({
                 id: `ext:${contribution.id}`,
-                icon: <Sparkles size={11} />,
+                icon: <Sparkles size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: contribution.title,
                 title: contribution.title,
                 onClick: () => contribution.run(resultActionContext),
@@ -450,7 +453,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             render: () => (
                 <Select value={String(defaultLimit)} onValueChange={handleLimitChange}>
                     <SelectTrigger
-                        className="h-7 min-w-[92px] border-border/40 bg-transparent px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted/70"
+                        className="h-7 w-[112px] border-border/40 bg-transparent px-2 py-0 text-[11px] text-muted-foreground hover:bg-muted/70"
                         title="Row limit for next query"
                     >
                         <SelectValue />
@@ -467,26 +470,18 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         });
 
         actions.push({
-            id: 'export-dropdown',
-            signature: `export:${canUseResultExport ? 1 : 0}:${showExportModal ? 1 : 0}`,
-            render: () => (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleOpenExportModal}
-                    disabled={!canUseResultExport}
-                    title="Export"
-                    className="gap-1"
-                >
-                    <Upload size={13} />
-                </Button>
-            ),
+            id: 'export',
+            icon: <Upload size={RESULT_TOOLBAR_ICON_SIZE} />,
+            label: 'Export',
+            title: 'Export',
+            onClick: handleOpenExportModal,
+            disabled: !canUseResultExport,
         });
 
         if (showMaximizeControl) {
             actions.push({
                 id: 'toggle-maximize',
-                icon: isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />,
+                icon: isMaximized ? <Minimize2 size={RESULT_TOOLBAR_ICON_SIZE} /> : <Maximize2 size={RESULT_TOOLBAR_ICON_SIZE} />,
                 title: isMaximized ? 'Restore result panel size' : 'Maximize result panel',
                 onClick: onToggleMaximize,
                 disabled: !onToggleMaximize,
@@ -497,7 +492,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (exportJob?.status === 'running') {
             actions.push({
                 id: 'cancel-export',
-                icon: <Loader size={12} className="animate-spin" />,
+                icon: <Loader size={RESULT_TOOLBAR_ICON_SIZE} className="animate-spin" />,
                 title: 'Cancel export',
                 onClick: cancelExport,
                 signature: `export-running:${exportJob.progressPct ?? 0}`,
@@ -522,7 +517,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         viewMode,
         defaultLimit,
         canUseResultExport,
-        showExportModal,
         handleOpenExportModal,
         showMaximizeControl,
         isMaximized,

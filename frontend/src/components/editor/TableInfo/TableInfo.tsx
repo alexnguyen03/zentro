@@ -15,7 +15,14 @@ import {
     Table2,
     Trash2,
 } from 'lucide-react';
-import { FetchTableColumns, AlterTableColumn, AddTableColumn, DropTableColumn } from '../../../services/schemaService';
+import {
+    AddTableColumn,
+    AlterTableColumn,
+    CreateTable,
+    DropTableColumn,
+    FetchDatabaseSchema,
+    FetchTableColumns,
+} from '../../../services/schemaService';
 import { ExecuteQuery } from '../../../services/queryService';
 import { models } from '../../../../wailsjs/go/models';
 import { useConnectionStore } from '../../../stores/connectionStore';
@@ -25,7 +32,7 @@ import { useSettingsStore } from '../../../stores/settingsStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
 import { buildFilterQuery } from '../../../lib/queryBuilder';
-import { Button, Input, Spinner } from '../../ui';
+import { Button, Indicator, Input, Spinner } from '../../ui';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { getErrorMessage } from '../../../lib/errors';
 import { useToast } from '../../layout/Toast';
@@ -36,12 +43,14 @@ import {
 } from '../../../features/query/writeSafety';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { resolveQueryPolicy } from '../../../features/query/policy';
+import { parseTableTarget } from '../../../lib/tableTargets';
 
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
 import { RelationshipView } from './RelationshipView';
 import { IndexInfoView } from './IndexInfoView';
 import { DDLInfoView } from './DDLInfoView';
+import { TableSchemaBreadcrumb } from './TableSchemaBreadcrumb';
 import { RowState, TableInfoTab, SortCol, SortDir, TabAction } from './types';
 
 interface TableInfoProps {
@@ -54,7 +63,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
     if (!action.onClick || !action.icon) return null;
     return (
         <Button
-            variant={action.danger ? 'destructive' : 'ghost'}
+            variant="ghost"
             size="icon"
             onClick={() => {
                 const res = action.onClick?.();
@@ -62,19 +71,19 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
             }}
             disabled={action.disabled || action.loading}
             title={action.title || action.label}
+            className={cx(
+                'h-7 w-7 rounded-md p-0',
+                action.danger ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : '',
+            )}
         >
             {action.loading ? <Spinner size={12} /> : action.icon}
         </Button>
     );
 };
 
-function parseTableName(t: string) {
-    const parts = t.split('.');
-    return parts.length > 1 ? { schema: parts[0], table: parts.slice(1).join('.') } : { schema: '', table: t };
-}
-
 const TABLE_INFO_AUTO_RETRY_DELAYS_MS = [250, 500, 900, 1300, 1700, 2200];
 const TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS = 10;
+const TABLE_TAB_ICON_SIZE = 15;
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
@@ -93,6 +102,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [filterCol, setFilterCol] = useState('');
     const filterInputRef = useRef<HTMLInputElement>(null);
+    const createNameInputRef = useRef<HTMLInputElement>(null);
+    const createNameAutoSelectedRef = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
     const [indexTabActions, setIndexTabActions] = useState<TabAction[]>([]);
@@ -112,10 +123,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
-    const { activeGroupId, groups } = useEditorStore();
+    const { activeGroupId, groups, addTab } = useEditorStore();
     const driver = activeProfile?.driver ?? 'sqlserver';
     const types = getTypesForDriver(driver);
-    const { schema, table } = parseTableName(tableName);
+    const target = useMemo(() => parseTableTarget(tableName), [tableName]);
+    const { schema, table } = target;
+    const [isCreateMode, setIsCreateMode] = useState(target.isCreateDraft);
+    const [draftTableName, setDraftTableName] = useState(target.table || 'new_table');
 
     const dataTabId = `data-${tabId}`;
     const dataResult = useResultStore((s) => s.results[dataTabId]);
@@ -153,7 +167,69 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         }
     }, []);
 
+    useEffect(() => {
+        setIsCreateMode(target.isCreateDraft);
+    }, [target.isCreateDraft]);
+
+    useEffect(() => {
+        setDraftTableName(target.table || 'new_table');
+    }, [target.table]);
+
+    useEffect(() => {
+        if (!isCreateMode) {
+            createNameAutoSelectedRef.current = false;
+            return;
+        }
+        if (!isTableTabActive || createNameAutoSelectedRef.current) return;
+
+        const timer = window.setTimeout(() => {
+            const input = createNameInputRef.current;
+            if (!input) return;
+            input.focus();
+            input.select();
+            createNameAutoSelectedRef.current = true;
+        }, 0);
+
+        return () => window.clearTimeout(timer);
+    }, [isCreateMode, isTableTabActive]);
+
+    useEffect(() => {
+        if (isCreateMode && activeTab !== 'columns') {
+            setActiveTab('columns');
+        }
+    }, [activeTab, isCreateMode]);
+
     const loadInfo = useCallback(async (silent = false) => {
+        if (isCreateMode) {
+            setLoading(false);
+            setReloading(false);
+            setFetchError(null);
+            setRows((prev) => {
+                if (prev.length > 0) return prev;
+                const defaultIdType = driver === 'postgres'
+                    ? 'SERIAL'
+                    : driver === 'sqlite'
+                        ? 'INTEGER'
+                        : 'INT';
+                const initialColumn: models.ColumnDef = {
+                    Name: 'id',
+                    DataType: defaultIdType,
+                    DefaultValue: '',
+                    IsNullable: false,
+                    IsPrimaryKey: true,
+                };
+                return [{
+                    id: 'new-id',
+                    original: { ...initialColumn },
+                    current: { ...initialColumn },
+                    deleted: false,
+                    isNew: true,
+                }];
+            });
+            setRowErrors({});
+            return;
+        }
+
         try {
             if (silent) setReloading(true);
             else setLoading(true);
@@ -175,15 +251,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             setLoading(false);
             setReloading(false);
         }
-    }, [schema, table, triggerContentFadeIn]);
+    }, [driver, isCreateMode, schema, table, triggerContentFadeIn]);
 
     const loadData = useCallback(async (filter?: string) => {
+        if (isCreateMode) return;
         if (!activeGroupId) return;
         const baseTableQuery = `SELECT * FROM "${schema}"."${table}"`;
         const query = filter?.trim() ? buildFilterQuery(baseTableQuery, filter) : baseTableQuery;
         useResultStore.getState().setLastExecutedQuery(dataTabId, baseTableQuery);
         ExecuteQuery(dataTabId, query).catch(console.error);
-    }, [schema, table, activeGroupId, dataTabId]);
+    }, [isCreateMode, schema, table, activeGroupId, dataTabId]);
 
     useEffect(() => {
         if (activeTab === 'data' && !dataResult) loadData();
@@ -333,6 +410,52 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const performSave = useCallback(async () => {
         if (viewMode) return;
+
+        if (isCreateMode) {
+            if (!activeProfile?.name) {
+                toast.error('No active connection');
+                return;
+            }
+            const nextTableName = draftTableName.trim();
+            if (!schema || !nextTableName) {
+                toast.error('Invalid table target');
+                return;
+            }
+            const nextQualifiedName = `${schema}.${nextTableName}`;
+
+            const createColumns = rows
+                .filter((row) => !row.deleted)
+                .map((row) => row.current)
+                .filter((column) => column.Name.trim().length > 0);
+
+            if (createColumns.length === 0) {
+                toast.error('At least one column is required');
+                return;
+            }
+
+            setSaving(true);
+            try {
+                await CreateTable(activeProfile.name, schema, nextTableName, createColumns);
+                if (activeProfile.db_name) {
+                    await FetchDatabaseSchema(activeProfile.name, activeProfile.db_name);
+                }
+                addTab({
+                    id: tabId,
+                    type: 'table',
+                    name: nextQualifiedName,
+                    content: nextQualifiedName,
+                    query: '',
+                });
+                setIsCreateMode(false);
+                toast.success(`Table "${nextQualifiedName}" created successfully`);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error));
+            } finally {
+                setSaving(false);
+            }
+            return;
+        }
+
         setSaving(true);
         const errs: Record<number, string> = {};
         for (let i = 0; i < rows.length; i++) {
@@ -348,9 +471,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         setRowErrors(errs);
         if (!Object.keys(errs).length) await loadInfo(true);
         setSaving(false);
-    }, [rows, schema, table, loadInfo, viewMode]);
+    }, [activeProfile?.db_name, activeProfile?.name, addTab, draftTableName, isCreateMode, loadInfo, rows, schema, tabId, toast, viewMode]);
 
     const collectWriteOperations = useCallback((): WriteOperationKind[] => {
+        if (isCreateMode) {
+            return ['create'];
+        }
         const operations: WriteOperationKind[] = [];
         rows.forEach((row) => {
             if (row.deleted) {
@@ -366,7 +492,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             }
         });
         return operations;
-    }, [rows]);
+    }, [isCreateMode, rows]);
 
     const confirmSafetyAndSave = useCallback(async () => {
         const operations = collectWriteOperations();
@@ -382,6 +508,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     const saveAll = useCallback(async () => {
         if (viewMode) return;
+        if (isCreateMode) {
+            await confirmSafetyAndSave();
+            return;
+        }
         const operations = collectWriteOperations();
         const deletedCount = rows.filter((r) => r.deleted).length;
         if (deletedCount > 0) {
@@ -400,7 +530,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             }
         }
         await confirmSafetyAndSave();
-    }, [rows, collectWriteOperations, activeEnvironmentKey, confirmSafetyAndSave, viewMode]);
+    }, [rows, collectWriteOperations, activeEnvironmentKey, confirmSafetyAndSave, isCreateMode, viewMode]);
 
     const hasChanges = useMemo(() => rows.some((r) => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
 
@@ -423,6 +553,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             }
 
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                if (isCreateMode) return;
                 if (!filterTabs.has(activeTab)) return;
                 const activeEl = document.activeElement;
                 if (activeEl?.closest('.sidebar')) return;
@@ -432,7 +563,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         };
         window.addEventListener('keydown', h);
         return () => window.removeEventListener('keydown', h);
-    }, [groups, activeGroupId, tabId, activeTab, tabReload, hasChanges, saving, saveAll, viewMode, filterTabs]);
+    }, [groups, activeGroupId, tabId, activeTab, tabReload, hasChanges, isCreateMode, saving, saveAll, viewMode, filterTabs]);
 
     const displayIds = useMemo(() => {
         let rs = rows;
@@ -505,7 +636,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             ...(!viewMode && selectedRows.size > 0 ? [{ id: 'delete', icon: <Trash2 size={12} />, label: 'Delete', onClick: toggleDeleteRows, disabled: saving, danger: true }] : []),
             ...(hasChanges ? [
                 { id: 'discard', icon: <RotateCcw size={12} />, label: 'Discard', onClick: discardAll, disabled: saving, danger: true },
-                ...(!viewMode ? [{ id: 'save', icon: <Save size={12} />, label: 'Save Change', onClick: saveAll, disabled: saving, loading: saving }] : []),
+                ...(!viewMode ? [{
+                    id: 'save',
+                    icon: <Save size={12} />,
+                    label: isCreateMode ? 'Create Table' : 'Save Change',
+                    title: isCreateMode ? 'Create Table' : 'Save Change',
+                    onClick: saveAll,
+                    disabled: saving,
+                    loading: saving,
+                }] : []),
             ] : []),
             reloadAction,
         ],
@@ -515,13 +654,30 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         ddl: [...ddlTabActions, reloadAction],
     };
 
-    const tabs: Array<{ key: TableInfoTab; label: string; icon: React.ReactNode; isModified: boolean; count?: number | null }> = [
-        { key: 'columns', label: 'Columns', icon: <Table2 size={13} />, isModified: hasChanges },
-        { key: 'data', label: 'Data', icon: <Database size={13} />, isModified: hasDataChanges },
-        { key: 'erd', label: 'Erd', icon: <Network size={13} />, isModified: false, count: erdRelCount },
-        { key: 'indexes', label: 'Indexes', icon: <Hash size={13} />, isModified: false },
-        { key: 'ddl', label: 'DDL', icon: <FileCode2 size={13} />, isModified: false },
-    ];
+    const tabs: Array<{ key: TableInfoTab; label: string; icon: React.ReactNode; isModified: boolean; count?: number | null }> = useMemo(() => {
+        if (isCreateMode) {
+            return [{ key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, isModified: hasChanges }];
+        }
+        return [
+            { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, isModified: hasChanges },
+            { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, isModified: hasDataChanges },
+            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} />, isModified: false, count: erdRelCount },
+            { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} />, isModified: false },
+            { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} />, isModified: false },
+        ];
+    }, [erdRelCount, hasChanges, hasDataChanges, isCreateMode]);
+
+    const handleSelectTableFromBreadcrumb = useCallback((nextTableName: string) => {
+        const normalized = nextTableName.trim();
+        if (!normalized || normalized === table) return;
+        const nextQualifiedName = schema ? `${schema}.${normalized}` : normalized;
+        addTab({
+            type: 'table',
+            name: nextQualifiedName,
+            content: nextQualifiedName,
+            query: '',
+        });
+    }, [addTab, schema, table]);
 
     if (loading) {
         return (
@@ -547,72 +703,86 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-background outline-none">
-            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-background grid grid-cols-10 items-center gap-2">
-                <div className="col-span-4 flex items-center gap-2 min-w-0 overflow-hidden">
+            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                <div className="min-w-0 overflow-x-auto whitespace-nowrap">
+                    <TableSchemaBreadcrumb
+                        dbName={activeProfile?.db_name || ''}
+                        schema={schema}
+                        table={table}
+                        onSelectTable={handleSelectTableFromBreadcrumb}
+                        isCreateMode={isCreateMode}
+                        draftTableName={draftTableName}
+                        onDraftTableNameChange={setDraftTableName}
+                        onDraftTableNameReset={() => setDraftTableName(target.table || 'new_table')}
+                        tableInputRef={createNameInputRef}
+                    />
+                </div>
+
+                <div className="justify-self-center flex items-center gap-1 min-w-0 overflow-visible">
                     {tabs.map(({ key, label, icon, isModified, count }) => (
                         <Button
                             key={key}
                             variant="ghost"
                             type="button"
+                            title={count !== undefined && count !== null ? `${label} (${count})` : label}
                             onClick={() => {
                                 setActiveTab(key);
                                 setFilterCol('');
                             }}
                             className={cx(
-                                'relative h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-bold transition-colors outline-none',
+                                'relative h-8 w-8 shrink-0 rounded-md p-0 transition-colors outline-none',
                                 activeTab === key
-                                    ? 'text-foreground bg-card/70'
-                                    : 'text-muted-foreground hover:text-muted-foreground hover:bg-card/30',
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground/70 hover:text-foreground',
                             )}
                         >
-                            <span className={cx(activeTab === key ? 'text-accent' : 'opacity-60')}>{icon}</span>
-                            <span className="uppercase tracking-wider">{label}</span>
-                            {count !== undefined && count !== null && <span className="text-[10px] opacity-55">{count}</span>}
-                            {isModified && <span className="w-1.5 h-1.5 rounded-full bg-success ml-0.5" />}
+                            <span className={cx('transition-opacity', activeTab === key ? 'opacity-100' : 'opacity-75')}>{icon}</span>
+                            {count !== undefined && count !== null && (
+                                <Indicator
+                                    mode="count"
+                                    value={count}
+                                    className="absolute -right-1 -top-1 z-[70] h-4 min-w-[16px] bg-muted px-1 text-[9px] text-foreground"
+                                />
+                            )}
+                            {isModified && (
+                                <Indicator
+                                    mode="dot"
+                                    color="var(--status-success)"
+                                    className="absolute right-0 -top-1 z-[70] h-2 w-2"
+                                />
+                            )}
                         </Button>
                     ))}
                 </div>
 
-                {filterTabs.has(activeTab) ? (
-                    <>
-                        <div className="col-span-2 flex items-center justify-center gap-1 min-w-0">
-                            {actionsByTab[activeTab].map((action) => (
-                                <ToolbarButton key={action.id} action={action} />
-                            ))}
+                <div className="min-w-0 justify-self-end flex items-center gap-1">
+                    {actionsByTab[activeTab].map((action) => (
+                        <ToolbarButton key={action.id} action={action} />
+                    ))}
+
+                    {!isCreateMode && filterTabs.has(activeTab) && (
+                        <div className="relative group flex items-center w-[180px] min-w-[180px]">
+                            <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent transition-colors" />
+                            <Input
+                                ref={filterInputRef}
+                                type="text"
+                                placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
+                                value={filterCol}
+                                onChange={(e) => {
+                                    if (activeTab === 'columns') {
+                                        setSortCol('idx');
+                                        setSortDir('asc');
+                                    }
+                                    setFilterCol(e.target.value);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setFilterCol('');
+                                }}
+                                className="h-7 w-full border-border/30 bg-muted/40 pl-8 pr-3 text-[11px] transition-all placeholder:text-muted-foreground/40 focus:bg-muted/60"
+                            />
                         </div>
-                        <div className="col-span-4 flex items-center justify-end min-w-0">
-                            <div className="relative group flex items-center w-full max-w-[28rem]">
-                                <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent transition-colors" />
-                                <Input
-                                    ref={filterInputRef}
-                                    type="text"
-                                    placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
-                                    value={filterCol}
-                                    onChange={(e) => {
-                                        if (activeTab === 'columns') {
-                                            setSortCol('idx');
-                                            setSortDir('asc');
-                                        }
-                                        setFilterCol(e.target.value);
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Escape') setFilterCol('');
-                                    }}
-                                    className="h-7 w-full border-border/30 bg-muted/40 pl-8 pr-3 text-[11px] transition-all placeholder:text-muted-foreground/40 focus:bg-muted/60"
-                                />
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <div className="col-span-2" />
-                        <div className="col-span-4 flex items-center justify-end gap-1 min-w-0">
-                            {actionsByTab[activeTab].map((action) => (
-                                <ToolbarButton key={action.id} action={action} />
-                            ))}
-                        </div>
-                    </>
-                )}
+                    )}
+                </div>
             </div>
 
             <main className={`flex-1 flex flex-col min-h-0 relative ${fadeInContent ? 'ti-fade-in' : ''}`}>
