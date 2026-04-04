@@ -6,6 +6,8 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { cn } from '../../lib/cn';
 import { TAB_TYPE } from '../../lib/constants';
 import { Button, Input } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { HISTORY_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 interface HistoryEntry {
     id: string;
@@ -30,8 +32,9 @@ function formatDuration(ms: number): string {
 
 export const HistoryPanel: React.FC = () => {
     const [entries, setEntries] = useState<HistoryEntry[]>([]);
-    const [search, setSearch] = useState('');
     const [confirmClear, setConfirmClear] = useState(false);
+    const [historyPanelState, setHistoryPanelState] = useSidebarPanelState('primary', 'history', HISTORY_PANEL_STATE_DEFAULT);
+    const search = historyPanelState.search;
     const { groups, activeGroupId, addTab, setTabQuery } = useEditorStore();
 
     const load = useCallback(async () => {
@@ -97,9 +100,9 @@ export const HistoryPanel: React.FC = () => {
                         className="h-7 w-full border-border bg-background py-1 pl-[22px] pr-1.5 text-[11px]"
                         placeholder="Filter history..."
                         value={search}
-                        onChange={(event) => setSearch(event.target.value)}
+                        onChange={(event) => setHistoryPanelState((state) => ({ ...state, search: event.target.value }))}
                         onKeyDown={(event) => {
-                            if (event.key === 'Escape') setSearch('');
+                            if (event.key === 'Escape') setHistoryPanelState((state) => ({ ...state, search: '' }));
                         }}
                     />
                 </div>

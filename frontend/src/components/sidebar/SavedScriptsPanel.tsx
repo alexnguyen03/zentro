@@ -7,6 +7,8 @@ import { useProjectStore } from '../../stores/projectStore';
 import { cn } from '../../lib/cn';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { Button, Input } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { SCRIPTS_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 function formatDate(iso: string): string {
     try {
@@ -21,8 +23,9 @@ export const SavedScriptsPanel: React.FC = () => {
     const { activeProfile } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
     const { addTab, groups, setActiveGroupId, setActiveTabId } = useEditorStore();
-    const [search, setSearch] = useState('');
     const [pendingDeleteScript, setPendingDeleteScript] = useState<{ id: string; name: string } | null>(null);
+    const [scriptsPanelState, setScriptsPanelState] = useSidebarPanelState('primary', 'scripts', SCRIPTS_PANEL_STATE_DEFAULT);
+    const search = scriptsPanelState.search;
 
     const projectId = activeProject?.id ?? '';
     const connectionName = activeProfile?.name ?? '';
@@ -100,7 +103,7 @@ export const SavedScriptsPanel: React.FC = () => {
                         className="h-7 w-full border-border bg-background py-1 pl-[22px] pr-1.5 text-[11px]"
                         placeholder="Filter scripts..."
                         value={search}
-                        onChange={(event) => setSearch(event.target.value)}
+                        onChange={(event) => setScriptsPanelState((state) => ({ ...state, search: event.target.value }))}
                     />
                 </div>
             </div>

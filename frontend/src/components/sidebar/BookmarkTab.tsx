@@ -9,6 +9,8 @@ import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
 import { cn } from '../../lib/cn';
 import { Button } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { BOOKMARK_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 type BookmarkItem = {
     bookmarkKey: string;
@@ -29,8 +31,16 @@ export const BookmarkTab: React.FC = () => {
     const activeProject = useProjectStore((state) => state.activeProject);
     const { byTab, byKey, labelByKey, loadBookmarks, hydrateTabFromKey } = useBookmarkStore();
     const { activeConnection: activeScriptConnection, activeProjectId: activeScriptProjectId, loadScripts, getContent } = useScriptStore();
-    const [scope, setScope] = React.useState<'current' | 'global'>('current');
-    const [collapsedKeys, setCollapsedKeys] = React.useState<Record<string, boolean>>({});
+    const [bookmarkPanelState, setBookmarkPanelState] = useSidebarPanelState('secondary', 'bookmark', BOOKMARK_PANEL_STATE_DEFAULT);
+    const scope = bookmarkPanelState.scope;
+    const collapsedKeys = bookmarkPanelState.collapsedKeys;
+
+    const updateBookmarkPanelState = React.useCallback((next: Partial<typeof bookmarkPanelState>) => {
+        setBookmarkPanelState((current) => ({
+            ...current,
+            ...next,
+        }));
+    }, [setBookmarkPanelState]);
 
     const activeGroup = groups.find((g) => g.id === activeGroupId);
     const activeTabId = activeGroup?.activeTabId || '';
@@ -216,7 +226,7 @@ export const BookmarkTab: React.FC = () => {
                             'h-auto px-2 py-0.5 text-[11px] transition-colors',
                             scope === 'current' ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-foreground',
                         )}
-                        onClick={() => setScope('current')}
+                        onClick={() => updateBookmarkPanelState({ scope: 'current' })}
                     >
                         Current ({bookmarks.length})
                     </Button>
@@ -228,7 +238,7 @@ export const BookmarkTab: React.FC = () => {
                             'h-auto px-2 py-0.5 text-[11px] transition-colors',
                             scope === 'global' ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-foreground',
                         )}
-                        onClick={() => setScope('global')}
+                        onClick={() => updateBookmarkPanelState({ scope: 'global' })}
                     >
                         Global ({globalBookmarks.length})
                     </Button>
@@ -243,13 +253,15 @@ export const BookmarkTab: React.FC = () => {
                             className="h-7 w-7 px-1.5 py-1 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                             title={collapseAllState === 'all' ? 'Expand all bookmark groups' : 'Collapse all bookmark groups'}
                             onClick={() => {
-                                setCollapsedKeys((prev) => {
-                                    const next = { ...prev };
-                                    const shouldCollapse = collapseAllState !== 'all';
-                                    groupedGlobalBookmarks.forEach((group) => {
-                                        next[group.bookmarkKey] = shouldCollapse;
-                                    });
-                                    return next;
+                                updateBookmarkPanelState({
+                                    collapsedKeys: (() => {
+                                        const next = { ...collapsedKeys };
+                                        const shouldCollapse = collapseAllState !== 'all';
+                                        groupedGlobalBookmarks.forEach((group) => {
+                                            next[group.bookmarkKey] = shouldCollapse;
+                                        });
+                                        return next;
+                                    })(),
                                 });
                             }}
                         >
@@ -314,10 +326,12 @@ export const BookmarkTab: React.FC = () => {
                                             title={isCollapsed ? 'Expand group' : 'Collapse group'}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setCollapsedKeys((prev) => ({
-                                                    ...prev,
-                                                    [group.bookmarkKey]: !isCollapsed,
-                                                }));
+                                                updateBookmarkPanelState({
+                                                    collapsedKeys: {
+                                                        ...collapsedKeys,
+                                                        [group.bookmarkKey]: !isCollapsed,
+                                                    },
+                                                });
                                             }}
                                         >
                                             {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}

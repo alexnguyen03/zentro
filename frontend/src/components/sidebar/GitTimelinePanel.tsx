@@ -14,6 +14,8 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
 import { Button, Input, Modal } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { TIMELINE_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 function formatDateTime(iso: string): string {
     try {
@@ -37,23 +39,26 @@ export const GitTimelinePanel: React.FC = () => {
     const [status, setStatus] = React.useState<GitTrackingStatus | null>(null);
     const [timelineRaw, setTimelineRaw] = React.useState<GitTimelineItem[]>([]);
     const [loading, setLoading] = React.useState(false);
-    const [eventTypeFilter, setEventTypeFilter] = React.useState('');
-    const [objectFilter, setObjectFilter] = React.useState('');
-    const [schemaFilter, setSchemaFilter] = React.useState('');
-    const [fromDate, setFromDate] = React.useState('');
-    const [toDate, setToDate] = React.useState('');
-    const [selectedHash, setSelectedHash] = React.useState<string | null>(null);
+    const [timelinePanelState, setTimelinePanelState] = useSidebarPanelState('primary', 'timeline', TIMELINE_PANEL_STATE_DEFAULT);
     const [selectedDiff, setSelectedDiff] = React.useState('');
     const [pendingFiles, setPendingFiles] = React.useState<string[]>([]);
     const [isManualCommitOpen, setIsManualCommitOpen] = React.useState(false);
     const [manualCommitMessage, setManualCommitMessage] = React.useState('');
+    const selectedHash = timelinePanelState.selectedHash || null;
+
+    const updateTimelinePanelState = React.useCallback((next: Partial<typeof timelinePanelState>) => {
+        setTimelinePanelState((current) => ({
+            ...current,
+            ...next,
+        }));
+    }, [setTimelinePanelState]);
 
     const applyTimelineFilters = React.useCallback(
         (rows: GitTimelineItem[]): GitTimelineItem[] => {
-            const objectToken = objectFilter.trim().toLowerCase();
-            const schemaToken = schemaFilter.trim().toLowerCase();
-            const fromAt = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : 0;
-            const toAt = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : Number.MAX_SAFE_INTEGER;
+            const objectToken = timelinePanelState.objectFilter.trim().toLowerCase();
+            const schemaToken = timelinePanelState.schemaFilter.trim().toLowerCase();
+            const fromAt = timelinePanelState.fromDate ? new Date(`${timelinePanelState.fromDate}T00:00:00`).getTime() : 0;
+            const toAt = timelinePanelState.toDate ? new Date(`${timelinePanelState.toDate}T23:59:59.999`).getTime() : Number.MAX_SAFE_INTEGER;
 
             return (rows || []).filter((item) => {
                 if (objectToken) {
@@ -79,7 +84,7 @@ export const GitTimelinePanel: React.FC = () => {
                 return true;
             });
         },
-        [fromDate, objectFilter, schemaFilter, toDate],
+        [timelinePanelState.fromDate, timelinePanelState.objectFilter, timelinePanelState.schemaFilter, timelinePanelState.toDate],
     );
 
     const load = React.useCallback(async () => {
@@ -93,7 +98,7 @@ export const GitTimelinePanel: React.FC = () => {
         try {
             const [trackingStatus, rows, pending] = await Promise.all([
                 GetGitTrackingStatus(),
-                ListGitTimeline(150, eventTypeFilter.trim()),
+                ListGitTimeline(150, timelinePanelState.eventTypeFilter.trim()),
                 GetGitPendingChanges(),
             ]);
             setStatus(trackingStatus);
@@ -104,7 +109,7 @@ export const GitTimelinePanel: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeProject?.id, eventTypeFilter, toast]);
+    }, [activeProject?.id, timelinePanelState.eventTypeFilter, toast]);
 
     const timeline = React.useMemo(() => applyTimelineFilters(timelineRaw), [applyTimelineFilters, timelineRaw]);
 
@@ -129,7 +134,7 @@ export const GitTimelinePanel: React.FC = () => {
     }, [load, status, toast]);
 
     const handleOpenDiff = React.useCallback(async (hash: string) => {
-        setSelectedHash(hash);
+        updateTimelinePanelState({ selectedHash: hash });
         setSelectedDiff('Loading diff...');
         try {
             const diff = await GetGitCommitDiff(hash);
@@ -137,7 +142,7 @@ export const GitTimelinePanel: React.FC = () => {
         } catch (error) {
             setSelectedDiff(`Failed to load diff: ${error}`);
         }
-    }, []);
+    }, [updateTimelinePanelState]);
 
     const handleManualCommit = React.useCallback(async (message: string) => {
         try {
@@ -169,8 +174,8 @@ export const GitTimelinePanel: React.FC = () => {
                 <Input
                     className="h-7 flex-1 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Filter by event type (e.g. script.save)"
-                    value={eventTypeFilter}
-                    onChange={(event) => setEventTypeFilter(event.target.value)}
+                    value={timelinePanelState.eventTypeFilter}
+                    onChange={(event) => updateTimelinePanelState({ eventTypeFilter: event.target.value })}
                     onKeyDown={(event) => {
                         if (event.key === 'Enter') void load();
                     }}
@@ -190,26 +195,26 @@ export const GitTimelinePanel: React.FC = () => {
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Object/file contains..."
-                    value={objectFilter}
-                    onChange={(event) => setObjectFilter(event.target.value)}
+                    value={timelinePanelState.objectFilter}
+                    onChange={(event) => updateTimelinePanelState({ objectFilter: event.target.value })}
                 />
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Schema..."
-                    value={schemaFilter}
-                    onChange={(event) => setSchemaFilter(event.target.value)}
+                    value={timelinePanelState.schemaFilter}
+                    onChange={(event) => updateTimelinePanelState({ schemaFilter: event.target.value })}
                 />
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
-                    value={fromDate}
-                    onChange={(event) => setFromDate(event.target.value)}
+                    value={timelinePanelState.fromDate}
+                    onChange={(event) => updateTimelinePanelState({ fromDate: event.target.value })}
                 />
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
-                    value={toDate}
-                    onChange={(event) => setToDate(event.target.value)}
+                    value={timelinePanelState.toDate}
+                    onChange={(event) => updateTimelinePanelState({ toDate: event.target.value })}
                 />
             </div>
 

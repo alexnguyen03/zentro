@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RowDetailTab } from './RowDetailTab';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
+import { useSidebarUiStore } from '../../stores/sidebarUiStore';
+import { STORAGE_KEY } from '../../lib/constants';
 
 const { toastSuccessMock, toastErrorMock, setClipboardTextMock } = vi.hoisted(() => ({
     toastSuccessMock: vi.fn(),
@@ -31,6 +33,8 @@ describe('RowDetailTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         useRowDetailStore.setState({ detail: null });
+        localStorage.removeItem(STORAGE_KEY.SIDEBAR_UI);
+        useSidebarUiStore.setState({ contextStates: {} });
     });
 
     it('edits and commits field values, then disables editor in select mode', () => {

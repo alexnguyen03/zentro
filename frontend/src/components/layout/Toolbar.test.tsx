@@ -88,6 +88,7 @@ vi.mock('../../../wailsjs/go/app/App', async (importOriginal) => {
 vi.mock('../../../wailsjs/runtime/runtime', () => ({
     WindowMinimise: vi.fn(),
     WindowToggleMaximise: vi.fn(),
+    WindowIsMaximised: vi.fn(async () => false),
     Quit: vi.fn(),
     WindowReload: mocks.windowReload,
     WindowReloadApp: mocks.windowReloadApp,

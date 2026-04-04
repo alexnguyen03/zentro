@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ChevronDown,
     ChevronRight,
@@ -44,6 +44,8 @@ import {
     SelectValue,
 } from '../ui';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { EXPLORER_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 const iconClass = 'opacity-80 shrink-0';
 const ALL_SCHEMAS_VALUE = '__all_schemas__';
@@ -201,9 +203,10 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                                         if (!open) setContextMenuItem(null);
                                     }}
                                 >
-                                    <DropdownMenuTrigger asChild>
-                                        <span className="h-0 w-0 overflow-hidden" />
-                                    </DropdownMenuTrigger>
+                                    <DropdownMenuTrigger
+                                        aria-label={`Actions for ${item.name}`}
+                                        className="h-0 w-0 overflow-hidden border-0 p-0 opacity-0 pointer-events-none"
+                                    />
                                     <DropdownMenuContent align="end" sideOffset={4} className="min-w-[160px]">
                                         <DropdownMenuItem
                                             onSelect={(event) => {
@@ -233,14 +236,22 @@ export const ConnectionTree: React.FC = () => {
     const addTab = useEditorStore((state) => state.addTab);
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
-    const [filter, setFilter] = useState('');
-    const [fuzzyMatch, setFuzzyMatch] = useState(false);
-    const [activeCategoryKey, setActiveCategoryKey] = useState<string>('tables');
-    const [selectedSchema, setSelectedSchema] = useState<string>(ALL_SCHEMAS_VALUE);
-    const [showMoreCategories, setShowMoreCategories] = useState(false);
+    const [explorerUiState, setExplorerUiState] = useSidebarPanelState('primary', 'explorer', EXPLORER_PANEL_STATE_DEFAULT);
+    const filter = explorerUiState.filter;
+    const fuzzyMatch = explorerUiState.fuzzyMatch;
+    const activeCategoryKey = explorerUiState.activeCategoryKey;
+    const selectedSchema = explorerUiState.selectedSchema;
+    const showMoreCategories = explorerUiState.showMoreCategories;
     const filterInputRef = useRef<HTMLInputElement>(null);
     const schemaTreeKey = activeProfile?.name && activeProfile?.db_name ? `${activeProfile.name}:${activeProfile.db_name}` : '';
     const schemas = useSchemaStore((state) => (schemaTreeKey ? state.trees[schemaTreeKey] : undefined));
+
+    const updateExplorerUiState = useCallback((next: Partial<typeof explorerUiState>) => {
+        setExplorerUiState((current) => ({
+            ...current,
+            ...next,
+        }));
+    }, [setExplorerUiState]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -257,8 +268,8 @@ export const ConnectionTree: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        setSelectedSchema(ALL_SCHEMAS_VALUE);
-    }, [schemaTreeKey]);
+        updateExplorerUiState({ selectedSchema: ALL_SCHEMAS_VALUE });
+    }, [schemaTreeKey, updateExplorerUiState]);
 
     if (!isConnected || !activeProfile || !activeProfile.db_name || !activeProfile.name) {
         return null;
@@ -321,18 +332,18 @@ export const ConnectionTree: React.FC = () => {
         const hasActive = scopedCategories.some((category) => category.key === activeCategoryKey);
         if (!hasActive) {
             const tablesCategory = scopedCategories.find((category) => category.key === 'tables');
-            setActiveCategoryKey((tablesCategory || scopedCategories[0]).key);
+            updateExplorerUiState({ activeCategoryKey: (tablesCategory || scopedCategories[0]).key });
         }
-    }, [activeCategoryKey, scopedCategories]);
+    }, [activeCategoryKey, scopedCategories, updateExplorerUiState]);
     useEffect(() => {
         if (visibleCategories.length === 0) return;
         const hasVisibleActive = visibleCategories.some((category) => category.key === activeCategoryKey);
         if (!hasVisibleActive) {
             const tablesCategory = visibleCategories.find((category) => category.key === 'tables');
             const viewsCategory = visibleCategories.find((category) => category.key === 'views');
-            setActiveCategoryKey((tablesCategory || viewsCategory || visibleCategories[0]).key);
+            updateExplorerUiState({ activeCategoryKey: (tablesCategory || viewsCategory || visibleCategories[0]).key });
         }
-    }, [activeCategoryKey, visibleCategories]);
+    }, [activeCategoryKey, updateExplorerUiState, visibleCategories]);
 
     const handleOpenDefinition = (schemaName: string, objectName: string) => {
         addTab({
@@ -377,9 +388,9 @@ export const ConnectionTree: React.FC = () => {
                         className="h-7 w-full rounded-md border-border/70 bg-background/90 py-[5px] pl-[22px] pr-1.5 text-[11px]"
                         placeholder="Filter objects..."
                         value={filter}
-                        onChange={(event) => setFilter(event.target.value)}
+                        onChange={(event) => updateExplorerUiState({ filter: event.target.value })}
                         onKeyDown={(event) => {
-                            if (event.key === 'Escape') setFilter('');
+                            if (event.key === 'Escape') updateExplorerUiState({ filter: '' });
                         }}
                     />
                 </div>
@@ -393,7 +404,7 @@ export const ConnectionTree: React.FC = () => {
                     title={fuzzyMatch ? 'Fuzzy match: On' : 'Fuzzy match: Off'}
                     aria-label="Toggle fuzzy match"
                     aria-pressed={fuzzyMatch}
-                    onClick={() => setFuzzyMatch((value) => !value)}
+                    onClick={() => updateExplorerUiState({ fuzzyMatch: !fuzzyMatch })}
                 >
                     <SpellCheck2 size={12} className="opacity-90" />
                 </Button>
@@ -403,7 +414,7 @@ export const ConnectionTree: React.FC = () => {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
-                        onClick={() => setFilter('')}
+                        onClick={() => updateExplorerUiState({ filter: '' })}
                         title="Clear filter"
                     >
                         <X size={13} />
@@ -416,7 +427,7 @@ export const ConnectionTree: React.FC = () => {
                     <div className="min-w-0">
                         <Select
                             value={selectedSchema}
-                            onValueChange={(value) => setSelectedSchema(value)}
+                            onValueChange={(value) => updateExplorerUiState({ selectedSchema: value })}
                         >
                             <SelectTrigger
                                 aria-label="Select schema"
@@ -443,7 +454,7 @@ export const ConnectionTree: React.FC = () => {
                                 'h-7 w-7 p-0 text-muted-foreground hover:text-foreground',
                                 showMoreCategories && 'text-accent bg-muted/50',
                             )}
-                            onClick={() => setShowMoreCategories((current) => !current)}
+                            onClick={() => updateExplorerUiState({ showMoreCategories: !showMoreCategories })}
                             aria-expanded={showMoreCategories}
                             title={showMoreCategories ? 'Show fewer actions' : 'Show more actions'}
                         >
@@ -464,7 +475,7 @@ export const ConnectionTree: React.FC = () => {
                                 'h-auto w-full justify-start gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
-                            onClick={() => setActiveCategoryKey(category.key)}
+                            onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
                         >
                             {renderIcon(category.icon, 12)}
                             <span className="text-xs truncate">{category.label}</span>

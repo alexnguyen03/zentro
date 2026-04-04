@@ -156,6 +156,13 @@ for (const file of files) {
     }
   }
 
+  if (rel === 'components/sidebar/Sidebar.tsx' || rel === 'components/sidebar/SecondarySidebar.tsx') {
+    violations.push(
+      ...collectViolations(file, /\buseState<SidebarTab>\b/, 'sidebar-shell-registry-only'),
+      ...collectViolations(file, /\bconst\s+tabs\s*=\s*\[/, 'sidebar-shell-registry-only'),
+    );
+  }
+
   if (!rel.startsWith('components/ui/')) {
     violations.push(
       ...collectViolations(

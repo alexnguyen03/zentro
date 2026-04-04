@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { appLogger } from '../../lib/logger';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -18,6 +18,7 @@ import {
     serializeProjectEditorSession,
     withProjectLayoutState,
 } from './projectSessionCodec';
+import { type SidebarSide, useSidebarSideState } from '../../stores/sidebarUiStore';
 
 export function useProjectLifecycle() {
     const bootstrapProjects = useProjectStore((state) => state.bootstrap);
@@ -233,22 +234,34 @@ export function useProjectLifecycle() {
     }, [activeProfile?.name, activeProject?.id, loadScripts]);
 }
 
-export function useSidebarResize(initialWidth = 250) {
-    const [sidebarWidth, setSidebarWidth] = useState(initialWidth);
+export function useSidebarResize(initialWidth = 250, side: SidebarSide = 'primary') {
+    const { width: sidebarWidth, setWidth: setSidebarWidth } = useSidebarSideState(side, {
+        width: initialWidth,
+        activePanelId: side === 'primary' ? 'explorer' : 'detail',
+    });
     const isResizing = useRef(false);
 
-    const startResizing = () => {
+    const startResizing = useCallback(() => {
         isResizing.current = true;
-    };
+    }, []);
+
+    const stopResizing = useCallback(() => {
+        isResizing.current = false;
+    }, []);
 
     useEffect(() => {
         const resize = (e: MouseEvent) => {
-            if (isResizing.current && e.clientX > 150 && e.clientX < 800) {
-                setSidebarWidth(e.clientX);
+            if (!isResizing.current) return;
+            if (side === 'primary') {
+                if (e.clientX > 150 && e.clientX < 800) {
+                    setSidebarWidth(e.clientX);
+                }
+                return;
             }
-        };
-        const stopResizing = () => {
-            isResizing.current = false;
+            const nextWidth = window.innerWidth - e.clientX;
+            if (nextWidth > 200 && nextWidth < 1000) {
+                setSidebarWidth(nextWidth);
+            }
         };
 
         window.addEventListener('mousemove', resize);
@@ -257,7 +270,7 @@ export function useSidebarResize(initialWidth = 250) {
             window.removeEventListener('mousemove', resize);
             window.removeEventListener('mouseup', stopResizing);
         };
-    }, []);
+    }, [setSidebarWidth, side, stopResizing]);
 
     return {
         sidebarWidth,

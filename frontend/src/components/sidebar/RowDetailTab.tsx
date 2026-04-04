@@ -6,6 +6,8 @@ import { useToast } from '../layout/Toast';
 import { JsonViewer } from '../viewers/JsonViewer';
 import { setClipboardText } from '../../services/clipboardService';
 import { Button, Checkbox, Label, Textarea } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { ROW_DETAIL_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 const JSON_COLUMN_PATTERNS = [
     /json/i,
@@ -45,9 +47,17 @@ export const RowDetailTab: React.FC = () => {
     const { detail } = useRowDetailStore();
     const { toast } = useToast();
 
-    const [viewMode, setViewMode] = useState<'form' | 'json'>('form');
-    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [rowDetailPanelState, setRowDetailPanelState] = useSidebarPanelState('secondary', 'detail', ROW_DETAIL_PANEL_STATE_DEFAULT);
+    const viewMode = rowDetailPanelState.viewMode;
+    const isSelectMode = rowDetailPanelState.isSelectMode;
     const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+
+    const updateRowDetailPanelState = useCallback((next: Partial<typeof rowDetailPanelState>) => {
+        setRowDetailPanelState((current) => ({
+            ...current,
+            ...next,
+        }));
+    }, [setRowDetailPanelState]);
 
     React.useEffect(() => {
         setSelectedFields(new Set());
@@ -97,10 +107,9 @@ export const RowDetailTab: React.FC = () => {
     };
 
     const toggleSelectMode = () => {
-        setIsSelectMode((prev) => {
-            if (prev) setSelectedFields(new Set());
-            return !prev;
-        });
+        const nextValue = !isSelectMode;
+        if (!nextValue) setSelectedFields(new Set());
+        updateRowDetailPanelState({ isSelectMode: nextValue });
     };
 
     const invertSelection = useCallback(() => {
@@ -165,7 +174,7 @@ export const RowDetailTab: React.FC = () => {
                     size="icon"
                     className={cn(actionBtnClass, viewMode === 'json' && actionBtnActiveClass)}
                     title="Toggle JSON view"
-                    onClick={() => setViewMode((v) => (v === 'form' ? 'json' : 'form'))}
+                    onClick={() => updateRowDetailPanelState({ viewMode: viewMode === 'form' ? 'json' : 'form' })}
                 >
                     <Braces size={13} />
                 </Button>
