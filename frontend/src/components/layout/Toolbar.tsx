@@ -258,8 +258,20 @@ export const Toolbar: React.FC = () => {
         }
     };
 
+    const handleToolbarDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        const target = event.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest('button, a, input, textarea, select, [role="button"], [data-no-window-dblclick="true"]')) {
+            return;
+        }
+        WindowToggleMaximise();
+    };
+
     return (
-        <div className="h-8 grid grid-cols-10 items-center flex-shrink-0 px-3 gap-2 bg-card border-b border-border">
+        <div
+            className="h-10 grid grid-cols-10 items-center flex-shrink-0 px-3 gap-2 bg-card border-b border-border"
+            onDoubleClick={handleToolbarDoubleClick}
+        >
             {/* Left: 3/10 */}
             <div
                 className="col-span-3 min-w-0 flex items-center"

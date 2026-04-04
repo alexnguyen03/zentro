@@ -32,7 +32,7 @@ describe('shortcutRules', () => {
         const mirror = buildLegacyBindingMirror(userRules);
 
         expect(effective.find((rule) => rule.commandId === 'editor.newTab')?.source).toBe('user');
-        expect(mirror['editor.newTab']).toBe('alt+ctrl+t');
+        expect(mirror['editor.newTab']).toBe('ctrl+alt+t');
     });
 
     it('detects cross-command conflict by normalized binding', () => {

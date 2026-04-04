@@ -57,6 +57,13 @@ export interface CommandRegistryEntry {
 
 export type ShortcutRegistryEntry = CommandRegistryEntry;
 
+const MODIFIER_ORDER: Record<string, number> = {
+  ctrl: 0,
+  shift: 1,
+  alt: 2,
+  meta: 3,
+};
+
 async function switchProjectEnvironmentShortcut(environmentKey: EnvironmentKey) {
   const projectStore = useProjectStore.getState();
   const environmentStore = useEnvironmentStore.getState();
@@ -429,22 +436,45 @@ export function getDefaultShortcutMap(): Record<CommandId, string> {
 }
 
 function normalizeKeyToken(key: string): string {
-  const k = key.toLowerCase();
+  const k = key.trim().toLowerCase();
   if (k === 'control') return 'ctrl';
-  if (k === 'command') return 'meta';
+  if (k === 'cmd' || k === 'command') return 'meta';
+  if (k === 'option') return 'alt';
   return k;
+}
+
+function sortChordTokens(tokens: string[]): string[] {
+  const normalized = tokens.map(normalizeKeyToken).filter(Boolean);
+  const modifiers: string[] = [];
+  const keys: string[] = [];
+  const seen = new Set<string>();
+
+  normalized.forEach((token) => {
+    if (seen.has(token)) return;
+    seen.add(token);
+    if (MODIFIER_ORDER[token] !== undefined) {
+      modifiers.push(token);
+      return;
+    }
+    keys.push(token);
+  });
+
+  modifiers.sort((a, b) => MODIFIER_ORDER[a] - MODIFIER_ORDER[b]);
+  return [...modifiers, ...keys];
 }
 
 export function normalizeBinding(binding: string): string {
   return binding
     .trim()
-    .split(' ')
+    .split(/\s+/)
+    .filter(Boolean)
     .map(part =>
-      part
-        .split('+')
-        .map(token => normalizeKeyToken(token))
-        .sort()
-        .join('+'),
+      sortChordTokens(
+        part
+          .split('+')
+          .map(token => token.trim())
+          .filter(Boolean),
+      ).join('+'),
     )
     .join(' ');
 }
@@ -452,11 +482,11 @@ export function normalizeBinding(binding: string): string {
 export function eventToKeyToken(e: KeyboardEvent): string {
   const parts: string[] = [];
   if (e.ctrlKey || e.metaKey) parts.push('ctrl');
-  if (e.altKey) parts.push('alt');
   if (e.shiftKey) parts.push('shift');
+  if (e.altKey) parts.push('alt');
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
   if (key !== 'control' && key !== 'shift' && key !== 'alt' && key !== 'meta') {
     parts.push(key);
   }
-  return parts.sort().join('+');
+  return sortChordTokens(parts).join('+');
 }
