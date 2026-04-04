@@ -7,6 +7,7 @@ import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dn
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
+import { Button, Input } from '../ui';
 
 interface TabBarProps {
     groupId: string;
@@ -71,15 +72,15 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {...attributes}
             {...listeners}
             className={cn(
-                'group flex items-center h-full gap-1.5 px-2.5 pl-3.5 cursor-pointer border-r border-r-border text-xs text-text-secondary select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-text-primary',
-                isActive && 'bg-bg-primary text-text-primary border-t-success -mb-px border-b border-b-bg-primary'
+                'group flex items-center h-full gap-1.5 px-2.5 pl-3.5 cursor-pointer border-r border-r-border text-xs text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground',
+                isActive && 'bg-background text-foreground border-t-success -mb-px border-b border-b-bg-primary'
             )}
             onClick={onActivate}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
         >
             {renamingId === tab.id ? (
-                <input
+                <Input
                     ref={renameInputRef}
                     className="rt-cell-input h-[24px]! px-1.5! text-xs! min-w-[120px] font-sans"
                     value={renameValue}
@@ -96,14 +97,17 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
                 </span>
             )}
             {tab.isRunning && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0 animate-pulse" title="Running" />}
-            <button
-                className="bg-transparent border-none text-text-secondary cursor-pointer flex items-center p-0.5 rounded-md opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-bg-tertiary hover:text-text-primary"
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 p-0.5 text-muted-foreground opacity-0 transition-opacity duration-100 shrink-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground"
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
                 onPointerDown={(e) => e.stopPropagation()} // Prevent drag start when clicking close
                 title="Close tab"
             >
                 <X size={12} />
-            </button>
+            </Button>
         </div>
     );
 };
@@ -145,8 +149,8 @@ export const TabBar: React.FC<TabBarProps> = ({
     // Auto-scroll active tab into view
     useEffect(() => {
         if (!activeTabId || !tabsScrollRef.current) return;
-        // active tab now has 'bg-bg-primary' class instead of 'active'
-        const activeEl = tabsScrollRef.current.querySelector<HTMLElement>('.bg-bg-primary');
+        // active tab now has 'bg-background' class instead of 'active'
+        const activeEl = tabsScrollRef.current.querySelector<HTMLElement>('.bg-background');
         activeEl?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }, [activeTabId]);
 
@@ -217,7 +221,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     };
 
     return (
-        <div className="flex items-center bg-bg-secondary border-b border-border h-9 shrink-0 overflow-hidden">
+        <div className="flex items-center bg-card border-b border-border h-9 shrink-0 overflow-hidden">
             <div
                 className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-md [&:hover::-webkit-scrollbar-thumb]:bg-border"
                 ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
@@ -244,14 +248,21 @@ export const TabBar: React.FC<TabBarProps> = ({
                 </SortableContext>
             </div>
 
-            <button className="bg-transparent border-none text-text-secondary cursor-pointer px-2.5 py-1.5 flex items-center shrink-0 transition-colors duration-100 hover:text-text-primary" onClick={onNewTab} title="New Tab (Ctrl+T)">
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-full w-9 shrink-0 rounded-none px-2.5 py-1.5 text-muted-foreground transition-colors duration-100 hover:text-foreground"
+                onClick={onNewTab}
+                title="New Tab (Ctrl+T)"
+            >
                 <Plus size={14} />
-            </button>
+            </Button>
 
 
             {contextMenu && (
                 <div
-                    className="fixed z-popover min-w-[150px] rounded-md border border-border bg-bg-secondary py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                    className="fixed z-popover min-w-[150px] rounded-md border border-border bg-card py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >

@@ -14,6 +14,7 @@ import { useEnvironmentStore } from '../../stores/environmentStore';
 import { emitCommand } from '../../lib/commandBus';
 import { DOM_EVENT, CONNECTION_STATUS } from '../../lib/constants';
 import { getErrorMessage } from '../../lib/errors';
+import { Button } from '../ui';
 
 type SidebarTab = 'explorer' | 'history' | 'scripts' | 'timeline';
 
@@ -74,22 +75,24 @@ export const Sidebar: React.FC = () => {
     const lockExplorerScroll = activeTab === 'explorer' && isConnected;
 
     return (
-        <div ref={sidebarRef} className="flex flex-col h-full w-full overflow-hidden bg-bg-secondary select-none">
+        <div ref={sidebarRef} className="flex flex-col h-full w-full overflow-hidden bg-card select-none">
             {/* Ultra-Flat Tab Switcher */}
             <div className={cn(
-                "flex items-center h-11 bg-bg-secondary transition-all",
+                "flex items-center h-11 bg-card transition-all",
                 isCompact ? "px-2 justify-around gap-0" : "px-4 gap-4"
             )}>
                 {tabs.map((tab) => (
-                    <button
+                    <Button
                         key={tab.id}
+                        variant="ghost"
+                        type="button"
                         onClick={() => setActiveTab(tab.id)}
                         title={isCompact ? tab.label : undefined}
                         className={cn(
-                            "relative flex items-center gap-1.5 h-full text-[11px] font-bold transition-all duration-200 cursor-pointer",
+                            "relative h-full items-center gap-1.5 text-[11px] font-bold transition-all duration-200",
                             activeTab === tab.id 
-                                ? "text-text-primary"
-                                : "text-text-muted hover:text-text-secondary"
+                                ? "text-foreground"
+                                : "text-muted-foreground hover:text-muted-foreground"
                         )}
                     >
                         <span className={cn(activeTab === tab.id ? "text-accent" : "")}>{tab.icon}</span>
@@ -99,7 +102,7 @@ export const Sidebar: React.FC = () => {
                         {activeTab === tab.id && (
                             <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent rounded-t-full" />
                         )}
-                    </button>
+                    </Button>
                 ))}
             </div>
 
@@ -117,9 +120,9 @@ export const Sidebar: React.FC = () => {
                             isCompact ? "p-4 items-center" : "p-8"
                         )}>
                              <div className={cn("mb-8", isCompact && "text-center")}>
-                                <h3 className="text-[15px] font-bold text-text-primary tracking-tight">Explorer</h3>
+                                <h3 className="text-[15px] font-bold text-foreground tracking-tight">Explorer</h3>
                                 {!isCompact && (
-                                    <p className="text-[12px] text-text-muted mt-1">
+                                    <p className="text-[12px] text-muted-foreground mt-1">
                                         {activeProject
                                             ? `${activeProject.name} / ${getEnvironmentLabel(activeEnvironmentKey || activeProject.default_environment_key)}`
                                             : 'Project foundation loaded'}
@@ -128,10 +131,12 @@ export const Sidebar: React.FC = () => {
                              </div>
 
                              <div className="space-y-6 w-full">
-                                <button 
+                                <Button
+                                    type="button"
+                                    variant="ghost"
                                     onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
                                     className={cn(
-                                        "flex items-center group cursor-pointer",
+                                        "group items-center",
                                         isCompact ? "justify-center" : "gap-4"
                                     )}
                                     title="New Connection"
@@ -141,24 +146,24 @@ export const Sidebar: React.FC = () => {
                                     </div>
                                     {!isCompact && (
                                         <div className="text-left">
-                                            <div className="text-[12px] font-bold text-text-primary">New Connection</div>
-                                            <div className="text-[10px] text-text-muted mt-0.5">Ctrl+Shift+C</div>
+                                            <div className="text-[12px] font-bold text-foreground">New Connection</div>
+                                            <div className="text-[10px] text-muted-foreground mt-0.5">Ctrl+Shift+C</div>
                                         </div>
                                     )}
-                                </button>
+                                </Button>
 
                                 {!isCompact && (
                                     <div className="pt-6 border-t border-border/40">
                                         <div className="flex items-center gap-2 mb-4">
                                             <Zap size={12} className="text-accent" />
-                                            <span className="text-[10px] font-bold uppercase text-text-muted tracking-widest">Workflow</span>
+                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Workflow</span>
                                         </div>
                                         <ul className="space-y-4">
                                             <li className="flex items-start gap-3">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5" />
                                                 <div>
-                                                    <div className="text-[12px] text-text-secondary">Bind Environments</div>
-                                                    <div className="text-[10px] text-text-muted">Attach saved profiles to each target once</div>
+                                                    <div className="text-[12px] text-muted-foreground">Bind Environments</div>
+                                                    <div className="text-[10px] text-muted-foreground">Attach saved profiles to each target once</div>
                                                 </div>
                                             </li>
                                         </ul>

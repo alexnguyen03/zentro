@@ -191,7 +191,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                         {tabs.map(tab => (
                             <div
                                 key={tab.id}
-                                className={cn('h-full flex-col bg-bg-primary', tab.id === activeTabId ? 'flex' : 'hidden')}
+                                className={cn('h-full flex-col bg-background', tab.id === activeTabId ? 'flex' : 'hidden')}
                             >
                                 {tab.type === 'table' ? (
                                     <TableInfo tabId={tab.id} tableName={tab.content || ''} />

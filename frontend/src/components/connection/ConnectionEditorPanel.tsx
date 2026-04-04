@@ -59,14 +59,14 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
     return (
         <div
             className={cn(
-                'grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md bg-bg-primary/20',
+                'grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md bg-background/20',
                 className,
             )}
         >
-            <div className="flex items-center justify-between border-b border-border/20 bg-bg-primary/20 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border/20 bg-background/20 px-4 py-3">
                 <div>
-                    <div className="text-[11px] font-semibold text-text-secondary">Provider</div>
-                    <div className="mt-0.5 text-[12px] text-text-primary">
+                    <div className="text-[11px] font-semibold text-muted-foreground">Provider</div>
+                    <div className="mt-0.5 text-[12px] text-foreground">
                         {isSelectingProvider ? 'Choose a database driver to continue' : 'Driver selected'}
                     </div>
                 </div>
@@ -80,22 +80,24 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                             void handleImportConnection();
                         }}
                         disabled={form.isEditing || importing}
-                        className="h-9 w-9 rounded-md border-border/40 bg-bg-primary/60 text-text-secondary hover:bg-bg-primary hover:text-text-primary"
+                        className="h-9 w-9 rounded-md border-border/40 bg-background/60 text-muted-foreground hover:bg-background hover:text-foreground"
                         title={form.isEditing ? 'Import disabled while editing' : 'Import connection package'}
                     >
                         {importing ? <Spinner size={13} /> : <Upload size={14} />}
                     </Button>
 
                     {!isSelectingProvider && (
-                        <button
+                        <Button
                             type="button"
+                            variant="secondary"
+                            size="icon"
                             onClick={handleOpenProviderPicker}
                             disabled={form.isEditing}
                             className={cn(
-                                'flex h-9 w-9 items-center justify-center rounded-md border border-border/40 bg-bg-primary/60 transition-colors',
+                                'h-9 w-9 rounded-md border border-border/40 bg-background/60 transition-colors',
                                 form.isEditing
                                     ? 'cursor-not-allowed opacity-50'
-                                    : 'cursor-pointer hover:border-border hover:bg-bg-primary',
+                                    : 'cursor-pointer hover:border-border hover:bg-background',
                             )}
                             title={form.isEditing ? selectedProvider?.label || 'Provider' : 'Change provider'}
                         >
@@ -108,12 +110,12 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                             ) : (
                                 <ChevronsUpDown size={14} />
                             )}
-                        </button>
+                        </Button>
                     )}
                 </div>
 
                 {isSelectingProvider && (
-                    <div className="flex h-9 items-center gap-2 rounded-md border border-border/30 bg-bg-primary/50 px-2.5 text-[11px] text-text-secondary">
+                    <div className="flex h-9 items-center gap-2 rounded-md border border-border/30 bg-background/50 px-2.5 text-[11px] text-muted-foreground">
                         {selectedProvider ? (
                             <img
                                 src={selectedProvider.icon}
@@ -131,7 +133,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
             <div className="min-h-0 overflow-hidden">
                 {isSelectingProvider ? (
                     <div className="mx-auto flex h-full w-full flex-col px-4 py-4">
-                        <div className="pb-3 text-[12px] text-text-secondary">
+                        <div className="pb-3 text-[12px] text-muted-foreground">
                             Select one driver, then the connection form will appear.
                         </div>
                         <ProviderGrid

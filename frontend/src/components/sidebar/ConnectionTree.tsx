@@ -30,7 +30,19 @@ import { DropObject } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
 import { useConnectionTreeModel } from './useConnectionTreeModel';
 import type { CategoryGroupNode, ConnectionTreeIcon, SchemaBucketNode } from './connectionTreeTypes';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
+import {
+    Button,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../ui';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 
 const iconClass = 'opacity-80 shrink-0';
@@ -85,31 +97,25 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
     onDropObject,
 }) => {
     const [showCreateTable, setShowCreateTable] = useState(false);
-    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: string } | null>(null);
+    const [contextMenuItem, setContextMenuItem] = useState<string | null>(null);
     const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: 'TABLE' | 'VIEW' } | null>(null);
-
-    useEffect(() => {
-        const close = () => setContextMenu(null);
-        document.addEventListener('click', close);
-        return () => document.removeEventListener('click', close);
-    }, []);
 
     const canDrop = Boolean(category.dropObjectType) && !readOnlyMode;
 
     const handleContextMenu = (event: React.MouseEvent, itemName: string) => {
         if (!canDrop) return;
         event.preventDefault();
-        setContextMenu({ x: event.clientX, y: event.clientY, item: itemName });
+        setContextMenuItem(itemName);
     };
 
     const requestDrop = () => {
-        if (!contextMenu || !category.dropObjectType) return;
+        if (!contextMenuItem || !category.dropObjectType) return;
         setDropModal({
             schema: bucket.schemaName,
-            item: contextMenu.item,
+            item: contextMenuItem,
             type: category.dropObjectType,
         });
-        setContextMenu(null);
+        setContextMenuItem(null);
     };
 
     const confirmDrop = async () => {
@@ -140,8 +146,8 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] text-text-primary transition-colors duration-100 hover:bg-bg-tertiary/80',
-                    expanded && 'sticky top-0 z-[2] -mx-0.5 rounded-none px-2 bg-bg-secondary',
+                    'group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    expanded && 'sticky top-0 z-[2] -mx-0.5 rounded-none px-2 bg-card',
                 )}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -151,21 +157,24 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                 {expanded ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
                 {renderIcon('schema')}
                 <span className="truncate flex-1">{bucket.schemaName}</span>
-                <span className="text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                     {bucket.totalCount}
                 </span>
                 {category.allowCreateTable && (
-                    <button
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={(event) => {
                             event.stopPropagation();
                             if (!readOnlyMode) setShowCreateTable(true);
                         }}
-                        className="opacity-0 group-hover:opacity-100 hover:bg-bg-tertiary p-0.5 rounded-md shrink-0 transition-opacity"
+                        className="h-6 w-6 p-0.5 opacity-0 group-hover:opacity-100 hover:bg-muted shrink-0 transition-opacity"
                         title="New Table"
                         disabled={readOnlyMode}
                     >
                         <Plus size={12} />
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -174,7 +183,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                     {bucket.items.map((item, index) => (
                         <div
                             key={`${item.id}:${index}`}
-                            className="flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-text-primary rounded-md transition-colors duration-100 hover:bg-bg-tertiary/80 overflow-hidden"
+                            className="flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-md transition-colors duration-100 hover:bg-muted/80 overflow-hidden"
                             onDoubleClick={() => {
                                 if (!category.canOpenDefinition) return;
                                 onOpenDefinition(item.schemaName, item.name);
@@ -185,23 +194,32 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             <span className="w-[13px] shrink-0 inline-block" />
                             {renderIcon(category.itemIcon, 12)}
                             <span className="truncate flex-1">{item.name}</span>
+                            {canDrop && (
+                                <DropdownMenu
+                                    open={contextMenuItem === item.name}
+                                    onOpenChange={(open) => {
+                                        if (!open) setContextMenuItem(null);
+                                    }}
+                                >
+                                    <DropdownMenuTrigger asChild>
+                                        <span className="h-0 w-0 overflow-hidden" />
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" sideOffset={4} className="min-w-[160px]">
+                                        <DropdownMenuItem
+                                            onSelect={(event) => {
+                                                event.preventDefault();
+                                                requestDrop();
+                                            }}
+                                            className="text-destructive focus:text-destructive"
+                                        >
+                                            <Trash2 size={14} />
+                                            Drop {category.dropObjectType === 'TABLE' ? 'Table' : 'View'}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
                     ))}
-                    {contextMenu && canDrop && (
-                        <div
-                            className="fixed z-popover min-w-[160px] rounded-md border border-border bg-bg-secondary py-1 shadow-lg"
-                            style={{ left: contextMenu.x, top: contextMenu.y }}
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            <button
-                                className="w-full px-3 py-1.5 text-left text-[12px] text-error hover:bg-error/10 flex items-center gap-2"
-                                onClick={requestDrop}
-                            >
-                                <Trash2 size={14} />
-                                Drop {category.dropObjectType === 'TABLE' ? 'Table' : 'View'}
-                            </button>
-                        </div>
-                    )}
                 </div>
             )}
         </div>
@@ -349,14 +367,14 @@ export const ConnectionTree: React.FC = () => {
     }, [activeCategory, hasLoadedSchemas, isFiltering, isLoading]);
 
     return (
-        <div className="flex flex-col h-full overflow-hidden bg-bg-secondary/80">
-            <div className="flex items-center gap-1.5 px-2 py-1 shrink-0 bg-bg-secondary/70">
+        <div className="flex flex-col h-full overflow-hidden bg-card/80">
+            <div className="flex items-center gap-1.5 px-2 py-1 shrink-0 bg-card/70">
                 <div className="flex-1 relative flex items-center min-w-0">
-                    <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
-                    <input
+                    <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
+                    <Input
                         ref={filterInputRef}
                         type="text"
-                        className="w-full bg-bg-primary/90 border border-border/70 text-text-primary text-[11px] py-[5px] pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
+                        className="h-7 w-full rounded-md border-border/70 bg-background/90 py-[5px] pl-[22px] pr-1.5 text-[11px]"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(event) => setFilter(event.target.value)}
@@ -369,8 +387,8 @@ export const ConnectionTree: React.FC = () => {
                     variant="ghost"
                     size="icon"
                     className={cn(
-                        'p-0 text-text-secondary hover:text-text-primary',
-                        fuzzyMatch && 'bg-bg-tertiary/80 text-accent',
+                        'p-0 text-muted-foreground hover:text-foreground',
+                        fuzzyMatch && 'bg-muted/80 text-accent',
                     )}
                     title={fuzzyMatch ? 'Fuzzy match: On' : 'Fuzzy match: Off'}
                     aria-label="Toggle fuzzy match"
@@ -380,16 +398,19 @@ export const ConnectionTree: React.FC = () => {
                     <SpellCheck2 size={12} className="opacity-90" />
                 </Button>
                 {filter && (
-                    <button
-                        className="bg-transparent border-none text-text-secondary cursor-pointer p-1 rounded-md flex items-center justify-center hover:bg-error/10 hover:text-error shrink-0 transition-colors"
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
                         onClick={() => setFilter('')}
                         title="Clear filter"
                     >
                         <X size={13} />
-                    </button>
+                    </Button>
                 )}
             </div>
-            <div className="px-2 pb-1 shrink-0 bg-bg-secondary/70">
+            <div className="px-2 pb-1 shrink-0 bg-card/70">
                 <div className="flex items-center gap-1.5 justify-between">
                     <span className='text-xs'>Schema</span>
                     <div className="min-w-0">
@@ -400,7 +421,7 @@ export const ConnectionTree: React.FC = () => {
                             <SelectTrigger
                                 aria-label="Select schema"
                                 title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
-                                className="h-7 w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-bg-tertiary/70 focus:ring-0"
+                                className="h-7 w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-muted/70 focus:ring-0"
                             >
                                 <SelectValue />
                             </SelectTrigger>
@@ -419,8 +440,8 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             size="icon"
                             className={cn(
-                                'h-7 w-7 p-0 text-text-secondary hover:text-text-primary',
-                                showMoreCategories && 'text-accent bg-bg-tertiary/50',
+                                'h-7 w-7 p-0 text-muted-foreground hover:text-foreground',
+                                showMoreCategories && 'text-accent bg-muted/50',
                             )}
                             onClick={() => setShowMoreCategories((current) => !current)}
                             aria-expanded={showMoreCategories}
@@ -435,31 +456,32 @@ export const ConnectionTree: React.FC = () => {
             <div className="flex-1 min-h-0 flex flex-col p-1.5 gap-1.5 overflow-hidden">
                 <div className="shrink-0 pb-1 border-b border-border/70 ">
                     {visibleCategories.map((category) => (
-                        <button
+                        <Button
                             key={category.id}
+                            variant="ghost"
                             type="button"
                             className={cn(
-                                'w-full flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[13px] text-text-primary transition-colors duration-100 hover:bg-bg-tertiary/80',
-                                activeCategory?.key === category.key && 'bg-bg-tertiary/90 text-text-primary'
+                                'h-auto w-full justify-start gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => setActiveCategoryKey(category.key)}
                         >
                             {renderIcon(category.icon, 12)}
                             <span className="text-xs truncate">{category.label}</span>
-                            <span className="ml-auto text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                                 {category.totalCount}
                             </span>
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-bg-secondary/45 p-0">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-card/45 p-0">
                     {!activeCategory ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-text-secondary rounded-md')}>
+                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-md')}>
                             {emptyMessage}
                         </div>
                     ) : activeCategory.schemas.length === 0 ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-text-secondary rounded-md')}>
+                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-md')}>
                             {emptyMessage}
                         </div>
                     ) : (

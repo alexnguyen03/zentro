@@ -156,7 +156,7 @@ export const GitTimelinePanel: React.FC = () => {
 
     if (!activeProject?.id) {
         return (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-text-secondary text-xs gap-2">
+            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-xs gap-2">
                 <GitCommitHorizontal size={24} className="opacity-30" />
                 <p className="m-0">Open a project to see Git timeline.</p>
             </div>
@@ -165,9 +165,9 @@ export const GitTimelinePanel: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="px-2 py-1.5 border-b border-border bg-bg-secondary flex items-center gap-1.5">
-                <input
-                    className="flex-1 bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+            <div className="px-2 py-1.5 border-b border-border bg-card flex items-center gap-1.5">
+                <Input
+                    className="h-7 flex-1 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Filter by event type (e.g. script.save)"
                     value={eventTypeFilter}
                     onChange={(event) => setEventTypeFilter(event.target.value)}
@@ -175,44 +175,49 @@ export const GitTimelinePanel: React.FC = () => {
                         if (event.key === 'Enter') void load();
                     }}
                 />
-                <button
-                    className="cursor-pointer bg-transparent border-none text-text-secondary hover:text-text-primary p-1 rounded"
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={() => void load()}
                     title="Refresh"
                 >
                     <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
-                </button>
+                </Button>
             </div>
-            <div className="px-2 py-1 border-b border-border/40 bg-bg-secondary grid grid-cols-2 gap-1 text-[11px]">
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+            <div className="px-2 py-1 border-b border-border/40 bg-card grid grid-cols-2 gap-1 text-[11px]">
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Object/file contains..."
                     value={objectFilter}
                     onChange={(event) => setObjectFilter(event.target.value)}
                 />
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Schema..."
                     value={schemaFilter}
                     onChange={(event) => setSchemaFilter(event.target.value)}
                 />
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
                     value={fromDate}
                     onChange={(event) => setFromDate(event.target.value)}
                 />
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
                     value={toDate}
                     onChange={(event) => setToDate(event.target.value)}
                 />
             </div>
 
-            <div className="px-2 py-1 border-b border-border/40 bg-bg-secondary flex items-center gap-2 text-[11px]">
-                <button
-                    className="cursor-pointer bg-transparent border border-border rounded px-2 py-0.5 text-text-primary hover:bg-bg-tertiary"
+            <div className="px-2 py-1 border-b border-border/40 bg-card flex items-center gap-2 text-[11px]">
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 px-2 py-0.5 text-[11px]"
                     onClick={() => void handleToggleTracking()}
                     title={status?.enabled ? 'Disable tracking' : 'Enable tracking'}
                 >
@@ -220,9 +225,11 @@ export const GitTimelinePanel: React.FC = () => {
                         {status?.enabled ? <ShieldCheck size={12} /> : <ShieldX size={12} />}
                         {status?.enabled ? 'Tracking On' : 'Tracking Off'}
                     </span>
-                </button>
-                <button
-                    className="cursor-pointer bg-transparent border border-border rounded px-2 py-0.5 text-text-primary hover:bg-bg-tertiary"
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 px-2 py-0.5 text-[11px]"
                     onClick={() => {
                         setManualCommitMessage('');
                         setIsManualCommitOpen(true);
@@ -230,10 +237,10 @@ export const GitTimelinePanel: React.FC = () => {
                     title="Commit pending SQL changes now"
                 >
                     Commit Now
-                </button>
-                <span className="text-[10px] text-text-secondary whitespace-nowrap">Pending: {status?.pending_count ?? pendingFiles.length}</span>
+                </Button>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Pending: {status?.pending_count ?? pendingFiles.length}</span>
                 {status?.repo_path && (
-                    <span className="text-[10px] text-text-secondary truncate" title={status.repo_path}>
+                    <span className="text-[10px] text-muted-foreground truncate" title={status.repo_path}>
                         {status.repo_path}
                     </span>
                 )}
@@ -241,30 +248,34 @@ export const GitTimelinePanel: React.FC = () => {
 
             <div className="flex-1 min-h-0 grid grid-cols-1">
                 {timeline.length === 0 ? (
-                    <div className="flex items-center justify-center text-text-secondary text-xs">No timeline entries.</div>
+                    <div className="flex items-center justify-center text-muted-foreground text-xs">No timeline entries.</div>
                 ) : (
                     <div className="flex flex-col min-h-0">
                         <div className="flex-1 overflow-y-auto border-b border-border/40">
                             {timeline.map((item) => (
-                                <button
+                                <Button
                                     key={item.hash}
+                                    type="button"
+                                    variant="ghost"
                                     className={cn(
-                                        'w-full text-left px-2.5 py-1.5 border-b border-white/5 cursor-pointer hover:bg-bg-tertiary transition-colors',
-                                        selectedHash === item.hash && 'bg-bg-tertiary',
+                                        'h-auto w-full justify-start border-b border-white/5 px-2.5 py-1.5 text-left transition-colors hover:bg-muted',
+                                        selectedHash === item.hash && 'bg-muted',
                                     )}
                                     onClick={() => void handleOpenDiff(item.hash)}
                                 >
-                                    <div className="text-[10px] text-accent font-mono">{item.event_type}</div>
-                                    <div className="text-[11px] text-text-primary truncate" title={item.message}>{item.message}</div>
-                                    <div className="text-[10px] text-text-secondary flex items-center gap-2">
-                                        <span className="font-mono">{item.hash.slice(0, 8)}</span>
-                                        <span>{formatDateTime(item.when)}</span>
+                                    <div className="w-full">
+                                        <div className="text-[10px] text-accent font-mono">{item.event_type}</div>
+                                        <div className="text-[11px] text-foreground truncate" title={item.message}>{item.message}</div>
+                                        <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                                            <span className="font-mono">{item.hash.slice(0, 8)}</span>
+                                            <span>{formatDateTime(item.when)}</span>
+                                        </div>
                                     </div>
-                                </button>
+                                </Button>
                             ))}
                         </div>
-                        <div className="h-48 overflow-auto bg-bg-primary px-2 py-1.5">
-                            <pre className="text-[11px] text-text-secondary whitespace-pre-wrap break-words m-0">{selectedDiff || 'Select a commit to view diff.'}</pre>
+                        <div className="h-48 overflow-auto bg-background px-2 py-1.5">
+                            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap break-words m-0">{selectedDiff || 'Select a commit to view diff.'}</pre>
                         </div>
                     </div>
                 )}
@@ -293,7 +304,7 @@ export const GitTimelinePanel: React.FC = () => {
                 )}
             >
                 <div className="space-y-3">
-                    <p className="text-[13px] text-text-primary">
+                    <p className="text-[13px] text-foreground">
                         Enter an optional commit message for pending SQL changes.
                     </p>
                     <Input

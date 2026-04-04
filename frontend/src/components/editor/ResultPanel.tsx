@@ -26,7 +26,12 @@ import { models } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
 import {
     Button,
+    Checkbox,
+    Input,
+    Label,
     Modal,
+    RadioGroup,
+    RadioGroupItem,
     Select,
     SelectContent,
     SelectItem,
@@ -919,7 +924,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // ── Early renders ─────────────────────────────────────────────────────────
     if (!result) {
         return (
-            <div className="flex items-center justify-center h-full text-[13px] text-text-secondary">
+            <div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
                 <span>Run a query (Ctrl+Enter) to see results</span>
             </div>
         );
@@ -927,7 +932,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     if (result.error) {
         if (shouldShowResultFilterBar) {
             return (
-                <div className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden">
+                <div className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden">
                     {resultFilterBar}
                     <div className="flex items-center justify-center flex-1 text-error gap-2">
                         <AlertCircle size={16} /><span>{result.error}</span>
@@ -999,7 +1004,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // ── Main render ───────────────────────────────────────────────────────────
     return (
         <div
-            className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden"
+            className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden"
             ref={containerRef}
             tabIndex={-1}
             onKeyDown={handleKeyDown}
@@ -1014,7 +1019,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
                             <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border shrink-0">
                                 <Loader size={14} className="animate-spin" />
-                                <span className="text-text-secondary">
+                                <span className="text-muted-foreground">
                                     {result.rows.length > 0
                                         ? `Streaming… ${result.rows.length.toLocaleString()} rows`
                                         : 'Executing query…'}
@@ -1073,56 +1078,61 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             {contextMenu && contextMenuPosition && (
                 <div
                     ref={contextMenuRef}
-                    className="fixed z-panel-overlay min-w-40 rounded-md border border-border bg-bg-primary py-1 shadow-lg"
+                    className="fixed z-panel-overlay min-w-40 rounded-md border border-border bg-background py-1 shadow-lg"
                     style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <button
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateCells || !hasEditableCellSelection}
                         onClick={handleContextSetNull}
                     >
                         Set NULL
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!hasEditableCellSelection}
                         onClick={handleContextCopy}
                     >
                         Copy
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateCells || !hasEditableCellSelection}
                         onClick={handleContextPaste}
                     >
                         Paste
-                    </button>
+                    </Button>
                     <div className="my-1 h-px bg-border/70" />
-                    <button
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDeleteRows ? 'text-error hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDeleteRows ? 'text-destructive hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateRows || !canDeleteRows}
                         onClick={handleContextDelete}
                     >
                         Delete
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDuplicateRows ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDuplicateRows ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateRows || !canDuplicateRows}
                         onClick={handleContextDuplicate}
                     >
                         Duplicate
-                    </button>
+                    </Button>
                 </div>
             )}
 
             {/* Status bar (info only) */}
-            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
+            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-muted-foreground border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                         {displayTotalCount !== undefined ? (
@@ -1187,13 +1197,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <div className="flex items-start gap-4 mb-4">
                         <div className="shrink-0 p-2 rounded-full bg-accent/10"><AlertCircle size={20} className="text-accent" /></div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium text-text-primary mb-1">Review generated script</p>
-                            <p className="text-[12px] leading-relaxed text-text-secondary">
+                            <p className="text-[13px] font-medium text-foreground mb-1">Review generated script</p>
+                            <p className="text-[12px] leading-relaxed text-muted-foreground">
                                 Updates and deletes require confirmation. Pending inserts will be executed together with this script for <strong>{qualifiedTableName || result?.tableName}</strong>.
                             </p>
                         </div>
                     </div>
-                    <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-md font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
+                    <div className="p-3 bg-muted/50 border border-border/40 rounded-md font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-muted-foreground select-text">
                         {generatePendingScript()}
                     </div>
                 </div>
@@ -1216,32 +1226,34 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 <div className="grid grid-cols-12 gap-4">
                     <section className="col-span-12 lg:col-span-5 space-y-4">
                         <div>
-                            <p className="text-[12px] font-semibold text-text-primary mb-2">Extraction</p>
-                            <label className="flex items-center gap-2 text-[12px] text-text-primary">
-                                <input
-                                    type="radio"
-                                    checked={exportScope === 'all'}
-                                    onChange={() => setExportScope('all')}
-                                />
-                                Query the database (no paging)
-                            </label>
-                            <label className="flex items-center gap-2 text-[12px] text-text-primary mt-1.5">
-                                <input
-                                    type="radio"
-                                    checked={exportScope === 'view'}
-                                    onChange={() => setExportScope('view')}
-                                />
-                                Use fetched rows (current table view)
-                            </label>
+                            <p className="text-[12px] font-semibold text-foreground mb-2">Extraction</p>
+                            <RadioGroup
+                                value={exportScope}
+                                onValueChange={(value) => setExportScope(value as 'all' | 'view')}
+                                className="gap-2"
+                            >
+                                <div className="flex items-center gap-2 text-[12px] text-foreground">
+                                    <RadioGroupItem value="all" id="export_scope_all" />
+                                    <Label htmlFor="export_scope_all" className="text-[12px] font-normal text-foreground">
+                                        Query the database (no paging)
+                                    </Label>
+                                </div>
+                                <div className="flex items-center gap-2 text-[12px] text-foreground">
+                                    <RadioGroupItem value="view" id="export_scope_view" />
+                                    <Label htmlFor="export_scope_view" className="text-[12px] font-normal text-foreground">
+                                        Use fetched rows (current table view)
+                                    </Label>
+                                </div>
+                            </RadioGroup>
                         </div>
 
                         <div>
-                            <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Format</label>
+                            <label className="block text-[12px] font-semibold text-foreground mb-1.5">Format</label>
                             <Select
                                 value={exportFormat}
                                 onValueChange={(value) => setExportFormat(value as 'csv' | 'json' | 'sql')}
                             >
-                                <SelectTrigger className="w-full bg-bg-primary text-[13px]">
+                                <SelectTrigger className="w-full bg-background text-[13px]">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1254,15 +1266,15 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                         {exportFormat === 'sql' && (
                             <div>
-                                <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Table Name</label>
-                                <input
+                                <label className="block text-[12px] font-semibold text-foreground mb-1.5">Table Name</label>
+                                <Input
                                     type="text"
-                                    className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                                    className="h-9 w-full bg-background text-[13px]"
                                     placeholder={result?.tableName || 'my_table'}
                                     value={exportTableName}
                                     onChange={(event) => setExportTableName(event.target.value)}
                                 />
-                                <p className="text-[11px] text-text-muted mt-1.5">
+                                <p className="text-[11px] text-muted-foreground mt-1.5">
                                     Leave empty to use "{result?.tableName || 'my_table'}"
                                 </p>
                             </div>
@@ -1270,28 +1282,29 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-[12px] font-semibold text-text-primary">Columns</label>
-                                <button
+                                <label className="text-[12px] font-semibold text-foreground">Columns</label>
+                                <Button
                                     type="button"
-                                    className="text-[11px] text-text-secondary hover:text-text-primary"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
                                     onClick={toggleAllExportColumns}
                                 >
                                     {areAllExportColumnsSelected ? 'Clear all' : 'Select all'}
-                                </button>
+                                </Button>
                             </div>
-                            <div className="max-h-44 overflow-auto rounded-md border border-border/50 bg-bg-primary p-2 space-y-1">
+                            <div className="max-h-44 overflow-auto rounded-md border border-border/50 bg-background p-2 space-y-1">
                                 {allExportColumns.map((column) => (
-                                    <label key={column} className="flex items-center gap-2 text-[12px] text-text-primary">
-                                        <input
-                                            type="checkbox"
+                                    <label key={column} className="flex items-center gap-2 text-[12px] text-foreground">
+                                        <Checkbox
                                             checked={selectedExportColumnSet.has(column)}
-                                            onChange={() => toggleExportColumn(column)}
+                                            onCheckedChange={() => toggleExportColumn(column)}
                                         />
                                         <span className="truncate" title={column}>{column}</span>
                                     </label>
                                 ))}
                             </div>
-                            <p className="text-[11px] text-text-muted mt-1.5">
+                            <p className="text-[11px] text-muted-foreground mt-1.5">
                                 {orderedSelectedExportColumns.length}/{allExportColumns.length} columns selected
                             </p>
                         </div>
@@ -1299,23 +1312,23 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                     <section className="col-span-12 lg:col-span-7">
                         <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-[12px] font-semibold text-text-primary">Preview (10 rows)</p>
-                            <p className="text-[11px] text-text-muted">
+                            <p className="text-[12px] font-semibold text-foreground">Preview (10 rows)</p>
+                            <p className="text-[11px] text-muted-foreground">
                                 Showing loaded rows preview only
                             </p>
                         </div>
-                        <div className="rounded-md border border-border/50 bg-bg-primary overflow-auto max-h-[360px]">
+                        <div className="rounded-md border border-border/50 bg-background overflow-auto max-h-[360px]">
                             {orderedSelectedExportColumns.length === 0 ? (
-                                <div className="px-3 py-8 text-[12px] text-text-muted text-center">
+                                <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
                                     Select at least one column to preview.
                                 </div>
                             ) : previewExportRows.length === 0 ? (
-                                <div className="px-3 py-8 text-[12px] text-text-muted text-center">
+                                <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
                                     No loaded rows to preview.
                                 </div>
                             ) : (
                                 <table className="w-full text-[11px] border-collapse">
-                                    <thead className="sticky top-0 bg-bg-secondary">
+                                    <thead className="sticky top-0 bg-card">
                                         <tr>
                                             {orderedSelectedExportColumns.map((column) => (
                                                 <th key={column} className="text-left px-2 py-1.5 border-b border-border/60 whitespace-nowrap">
@@ -1326,7 +1339,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     </thead>
                                     <tbody>
                                         {previewExportRows.map((row, rowIdx) => (
-                                            <tr key={`preview_${rowIdx}`} className="odd:bg-bg-primary even:bg-bg-secondary/30">
+                                            <tr key={`preview_${rowIdx}`} className="odd:bg-background even:bg-card/30">
                                                 {row.map((cell, cellIdx) => (
                                                     <td key={`preview_${rowIdx}_${cellIdx}`} className="px-2 py-1.5 border-b border-border/20 whitespace-nowrap max-w-[220px] overflow-hidden text-ellipsis">
                                                         {cell}

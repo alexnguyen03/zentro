@@ -138,7 +138,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
 
     const content = (
         <div className={cn(
-            'overflow-hidden bg-bg-secondary text-text-primary transition-all duration-200',
+            'overflow-hidden bg-card text-foreground transition-all duration-200',
             overlay
                 ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-md'
                 : 'h-full w-full',
@@ -159,13 +159,13 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                             </aside>
 
                             <section className="h-full">
-                                <div className="text-[11px] text-text-secondary">Recent Projects</div>
+                                <div className="text-[11px] text-muted-foreground">Recent Projects</div>
                                 {visibleProjects.length === 0 && !isLoading ? (
-                                    <div className="mt-3 flex items-center justify-center rounded-md border border-dashed border-border/45 bg-bg-secondary/35 px-4 text-center">
+                                    <div className="mt-3 flex items-center justify-center rounded-md border border-dashed border-border/45 bg-card/35 px-4 text-center">
                                         <div className="max-w-70">
-                                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-bg-secondary text-text-primary"><Plus size={16} /></div>
-                                            <div className="mt-3 text-[14px] font-semibold text-text-primary">No project</div>
-                                            <div className="mt-1 text-[11px] text-text-secondary">Create one to get started.</div>
+                                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-card text-foreground"><Plus size={16} /></div>
+                                            <div className="mt-3 text-[14px] font-semibold text-foreground">No project</div>
+                                            <div className="mt-1 text-[11px] text-muted-foreground">Create one to get started.</div>
                                         </div>
                                     </div>
                                 ) : (
@@ -211,7 +211,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center ">
-                                    <div className="text-[11px] text-text-secondary">{visibleProjects.length} projects</div>
+                                    <div className="text-[11px] text-muted-foreground">{visibleProjects.length} projects</div>
                                     <div className="flex items-center gap-2">
                                         <Button
                                             variant="ghost"

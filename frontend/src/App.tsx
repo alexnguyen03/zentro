@@ -16,6 +16,7 @@ import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { DOM_EVENT } from './lib/constants';
 import { emitCommand, onCommand } from './lib/commandBus';
 import { Disconnect } from './services/connectionService';
+import { Button } from './components/ui';
 import { useGlobalShortcuts } from './features/shortcuts/useGlobalShortcuts';
 import { useAppEventBridge } from './features/app-runtime/useAppEventBridge';
 import { useBeforeCloseGuard } from './features/app-runtime/useBeforeCloseGuard';
@@ -81,7 +82,7 @@ function App() {
 
     if (!activeProject) {
         return (
-            <div className="h-full w-full bg-bg-primary">
+            <div className="h-full w-full bg-background">
                 <ProjectHub overlay startupMode onClose={() => { void handleStartupClose(); }} />
             </div>
         );
@@ -117,16 +118,19 @@ function App() {
                     </>
                 )}
                 <div className="flex flex-1 flex-col overflow-hidden">
-                    <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
+                    <div className="flex-1 flex flex-col bg-background overflow-hidden">
                         {!isConnected && activeProject && (
-                            <div className="flex items-center justify-between px-4 py-1.5 bg-bg-tertiary border-b border-border text-[11px] text-text-secondary shrink-0">
+                            <div className="flex items-center justify-between px-4 py-1.5 bg-muted border-b border-border text-[11px] text-muted-foreground shrink-0">
                                 <span>No active connection - switch environment to connect.</span>
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
                                     onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
-                                    className="text-accent font-semibold hover:underline"
+                                    className="h-auto px-0 py-0 text-accent font-semibold"
                                 >
                                     Switch env
-                                </button>
+                                </Button>
                             </div>
                         )}
                         <QueryTabs />

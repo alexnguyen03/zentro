@@ -5,7 +5,7 @@ import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
-import { Button } from '../../ui';
+import { Button, Checkbox, Input, Label } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { type TabAction } from './types';
@@ -180,40 +180,39 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     }
 
     const renderCreateForm = () => (
-        <div className="bg-bg-secondary p-4 border-b border-border/50 shrink-0 space-y-3">
-            <h3 className="text-[12px] font-bold text-text-primary uppercase tracking-wider mb-2">Create New Index</h3>
+        <div className="bg-card p-4 border-b border-border/50 shrink-0 space-y-3">
+            <h3 className="text-[12px] font-bold text-foreground uppercase tracking-wider mb-2">Create New Index</h3>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-[11px] font-medium text-text-secondary mb-1">Index Name</label>
-                    <input
+                    <label className="block text-[11px] font-medium text-muted-foreground mb-1">Index Name</label>
+                    <Input
                         type="text"
                         value={newIndexName}
                         onChange={(e) => setNewIndexName(e.target.value)}
                         placeholder="idx_name"
-                        className="w-full bg-bg-primary border border-border/40 text-text-primary text-[12px] px-2.5 py-1.5 rounded-md outline-none focus:border-accent"
+                        className="h-8 w-full border-border/40 bg-background px-2.5 py-1.5 text-[12px]"
                     />
                 </div>
                 <div>
-                    <label className="block text-[11px] font-medium text-text-secondary mb-1">Columns (comma-separated)</label>
-                    <input
+                    <label className="block text-[11px] font-medium text-muted-foreground mb-1">Columns (comma-separated)</label>
+                    <Input
                         type="text"
                         value={newIndexColumns}
                         onChange={(e) => setNewIndexColumns(e.target.value)}
                         placeholder="col1, col2"
-                        className="w-full bg-bg-primary border border-border/40 text-text-primary text-[12px] px-2.5 py-1.5 rounded-md outline-none focus:border-accent"
+                        className="h-8 w-full border-border/40 bg-background px-2.5 py-1.5 text-[12px]"
                     />
                 </div>
             </div>
             <div className="flex items-center justify-between mt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
+                <div className="flex items-center gap-2">
+                    <Checkbox
+                        id="new_index_unique"
                         checked={newIndexUnique}
-                        onChange={(e) => setNewIndexUnique(e.target.checked)}
-                        className="rounded-md cursor-pointer"
+                        onCheckedChange={(checked) => setNewIndexUnique(checked === true)}
                     />
-                    <span className="text-[11px] font-medium text-text-secondary">Unique Index</span>
-                </label>
+                    <Label htmlFor="new_index_unique" className="cursor-pointer text-[11px] font-medium text-muted-foreground">Unique Index</Label>
+                </div>
                 {showInlineActions && (
                     <div className="flex gap-2">
                         <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(false)} className="h-7 text-[11px]">Cancel</Button>
@@ -229,11 +228,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     if (indexes.length === 0 && !loading && !showCreateForm && readOnlyMode) {
         return (
             <div className="flex flex-col items-center justify-center p-12 h-full text-center">
-                <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mb-6">
-                    <Hash size={32} className="text-text-muted" />
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
+                    <Hash size={32} className="text-muted-foreground" />
                 </div>
-                <h2 className="text-lg font-bold text-text-primary mb-2">No Indexes Found</h2>
-                <p className="text-[13px] text-text-secondary max-w-sm mb-6">
+                <h2 className="text-lg font-bold text-foreground mb-2">No Indexes Found</h2>
+                <p className="text-[13px] text-muted-foreground max-w-sm mb-6">
                     This table does not have any indexes.
                 </p>
             </div>
@@ -243,11 +242,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     if (indexes.length === 0 && !loading && !showCreateForm) {
         return (
             <div className="flex flex-col items-center justify-center p-12 h-full text-center">
-                <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mb-6">
-                    <Hash size={32} className="text-text-muted" />
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
+                    <Hash size={32} className="text-muted-foreground" />
                 </div>
-                <h2 className="text-lg font-bold text-text-primary mb-2">No Indexes Found</h2>
-                <p className="text-[13px] text-text-secondary max-w-sm mb-6">
+                <h2 className="text-lg font-bold text-foreground mb-2">No Indexes Found</h2>
+                <p className="text-[13px] text-muted-foreground max-w-sm mb-6">
                     This table does not have any indexes.
                 </p>
                 {showInlineActions && (
@@ -260,7 +259,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
     }
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-auto">
+        <div className="flex flex-col h-full bg-background overflow-auto">
             <ConfirmationModal
                 isOpen={!!dropIndexTarget}
                 onClose={() => setDropIndexTarget(null)}
@@ -277,7 +276,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
 
             {!showCreateForm && indexes.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 shrink-0">
-                    <span className="text-[11px] font-medium text-text-secondary">{indexes.length} index(es)</span>
+                    <span className="text-[11px] font-medium text-muted-foreground">{indexes.length} index(es)</span>
                     {showInlineActions && (
                         <Button variant="ghost" size="sm" onClick={() => setShowCreateForm(true)} className="h-7 px-2 text-[11px]" disabled={readOnlyMode}>
                             <Plus size={13} className="mr-1.5" />
@@ -289,7 +288,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
 
             <div className="flex-1 w-full min-w-[700px] overflow-auto">
                 {indexes.length > 0 && (
-                    <div className="sticky top-0 z-sticky grid grid-cols-[auto_1fr_auto_40px] items-center gap-4 bg-bg-secondary px-4 py-2 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border/50">
+                    <div className="sticky top-0 z-sticky grid grid-cols-[auto_1fr_auto_40px] items-center gap-4 bg-card px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b border-border/50">
                         <div className="w-8 text-center">#</div>
                         <div>Name</div>
                         <div className="w-[300px]">Columns</div>
@@ -299,8 +298,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
 
                 <div className="divide-y divide-border/20">
                     {filteredIndexes.map((idx, i) => (
-                        <div key={idx.Name} className="grid grid-cols-[auto_1fr_auto_40px] items-center gap-4 px-4 py-2.5 text-[12px] text-text-primary hover:bg-bg-secondary/40 transition-colors group">
-                            <div className="w-8 text-center text-text-muted">{i + 1}</div>
+                        <div key={idx.Name} className="grid grid-cols-[auto_1fr_auto_40px] items-center gap-4 px-4 py-2.5 text-[12px] text-foreground hover:bg-card/40 transition-colors group">
+                            <div className="w-8 text-center text-muted-foreground">{i + 1}</div>
                             <div className="flex items-center gap-2 truncate">
                                 <span className="font-medium truncate" title={idx.Name}>{idx.Name}</span>
                                 {idx.Unique && (
@@ -309,23 +308,26 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({ schema, tableName,
                                     </span>
                                 )}
                             </div>
-                            <div className="w-[300px] text-text-secondary truncate font-mono text-[11px]" title={idx.Columns.join(', ')}>
+                            <div className="w-[300px] text-muted-foreground truncate font-mono text-[11px]" title={idx.Columns.join(', ')}>
                                 {idx.Columns.join(', ')}
                             </div>
                             <div className="w-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => setDropIndexTarget(idx.Name)}
-                                    className="text-text-muted hover:text-error hover:bg-error/10 p-1.5 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="h-7 w-7 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:cursor-not-allowed"
                                     title="Drop Index"
                                     disabled={readOnlyMode}
                                 >
                                     <Trash2 size={13} />
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
                     {indexes.length > 0 && filteredIndexes.length === 0 && filterText && (
-                        <div className="py-8 text-center text-text-secondary text-[12px]">
+                        <div className="py-8 text-center text-muted-foreground text-[12px]">
                             No indexes match "{filterText}"
                         </div>
                     )}

@@ -25,7 +25,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     }, [onRun]);
 
     return (
-        <div className="flex-1 h-full flex flex-col min-h-0 bg-bg-primary">
+        <div className="flex-1 h-full flex flex-col min-h-0 bg-background">
             <ResultPanel
                 tabId={tabId}
                 onRun={onRun}

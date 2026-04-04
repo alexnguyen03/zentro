@@ -39,15 +39,15 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
     const envMeta = getEnvironmentMeta(envKey);
 
     return (
-        <div className="rounded-md bg-bg-primary/50 px-5 py-5">
+        <div className="rounded-md bg-background/50 px-5 py-5">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-bg-secondary text-text-primary">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-card text-foreground">
                         {React.createElement(PROJECT_ICON_MAP[editDraft.iconKey].icon, { size: 16 })}
                     </div>
                     <div>
-                        <div className="text-[14px] font-semibold text-text-primary">Edit project details</div>
-                        <div className="text-[11px] text-text-secondary">Update name, description, and icon</div>
+                        <div className="text-[14px] font-semibold text-foreground">Edit project details</div>
+                        <div className="text-[11px] text-muted-foreground">Update name, description, and icon</div>
                     </div>
                 </div>
                 <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>{envKey}</span>
@@ -55,29 +55,30 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
 
             <div className="mt-4 grid gap-3">
                 <div>
-                    <label className="mb-1.5 block text-[12px] font-semibold text-text-primary">Project name</label>
-                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} className="h-10 rounded-md bg-bg-secondary" placeholder="Project name" autoFocus />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Project name</label>
+                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} className="h-10 rounded-md bg-card" placeholder="Project name" autoFocus />
                 </div>
                 <div>
-                    <label className="mb-1.5 block text-[12px] font-semibold text-text-primary">Description</label>
-                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} className="h-10 rounded-md bg-bg-secondary" placeholder="Short context about this project" />
+                    <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Description</label>
+                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} className="h-10 rounded-md bg-card" placeholder="Short context about this project" />
                 </div>
             </div>
 
             <div className="mt-4">
-                <div className="text-[12px] font-semibold text-text-primary">Project icon by domain</div>
+                <div className="text-[12px] font-semibold text-foreground">Project icon by domain</div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {PROJECT_ICON_OPTIONS.map((option) => {
                         const OptionIcon = option.icon;
                         const active = editDraft.iconKey === option.key;
                         return (
-                            <button
+                            <Button
                                 key={option.key} type="button"
+                                variant="outline"
                                 onClick={() => setEditDraft((c) => ({ ...c, iconKey: option.key }))}
-                                className={cn('cursor-pointer flex items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'border-accent/50 bg-accent/10 text-text-primary' : 'border-border/30 bg-bg-secondary text-text-secondary hover:text-text-primary')}
+                                className={cn('h-auto w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'border-accent/50 bg-accent/10 text-foreground' : 'border-border/30 bg-card text-muted-foreground hover:text-foreground')}
                             >
                                 <OptionIcon size={14} /><span>{option.label}</span>
-                            </button>
+                            </Button>
                         );
                     })}
                 </div>
@@ -132,7 +133,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 }
             }}
             className={cn(
-                'group relative w-full cursor-pointer rounded-md bg-bg-primary/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-bg-primary/60',
+                'group relative w-full cursor-pointer rounded-md bg-background/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-background/60',
                 disabled && 'cursor-not-allowed opacity-70',
                 isCurrentProject && 'border border-accent/45',
             )}
@@ -149,38 +150,42 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
             </div>
 
             <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-bg-secondary text-text-primary">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-card text-foreground">
                     <ProjectIcon size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="truncate text-[15px] font-semibold text-text-primary">{project.name}</div>
+                    <div className="truncate text-[15px] font-semibold text-foreground">{project.name}</div>
                     {project.description && (
-                        <p className="m-0 mt-1 line-clamp-1 text-[12px] text-text-secondary">{project.description}</p>
+                        <p className="m-0 mt-1 line-clamp-1 text-[12px] text-muted-foreground">{project.description}</p>
                     )}
-                    <div className="mt-3 flex items-center gap-3 text-[11px] text-text-secondary">
+                    <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
                         <span>{project.environments?.length ?? 0} environments</span>
                         <span>{project.connections?.length ?? 0} bindings</span>
                         <span>{formatDateLabel(project.updated_at)}</span>
                     </div>
                 </div>
                 <div className="absolute right-3 bottom-3 shrink-0 flex items-center gap-2">
-                    <button
+                    <Button
                         type="button" onClick={onEdit}
+                        variant="ghost"
+                        size="icon"
                         disabled={isDeleting || isOpening}
-                        className="cursor-pointer rounded-md p-1.5 text-text-secondary opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
+                        className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
                         title="Edit project"
                     >
                         <Pencil size={14} />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button" onClick={onDelete}
+                        variant="ghost"
+                        size="icon"
                         disabled={isDeleting || isOpening}
-                        className="cursor-pointer rounded-md p-1.5 text-text-secondary opacity-0 transition-all hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
+                        className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
                         title="Delete project"
                     >
                         {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}
-                    </button>
-                    {isOpening && <Spinner size={14} className="text-text-secondary" />}
+                    </Button>
+                    {isOpening && <Spinner size={14} className="text-muted-foreground" />}
                 </div>
             </div>
         </div>

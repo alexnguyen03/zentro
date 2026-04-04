@@ -25,7 +25,7 @@ import { useSettingsStore } from '../../../stores/settingsStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
 import { buildFilterQuery } from '../../../lib/queryBuilder';
-import { Button, Spinner } from '../../ui';
+import { Button, Input, Spinner } from '../../ui';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { getErrorMessage } from '../../../lib/errors';
 import { useToast } from '../../layout/Toast';
@@ -525,49 +525,51 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center gap-4 h-full bg-bg-primary">
+            <div className="flex flex-col items-center justify-center gap-4 h-full bg-background">
                 <Loader size={24} className="animate-spin text-accent" />
-                <span className="text-sm text-text-secondary font-medium animate-pulse">Fetching table schema...</span>
+                <span className="text-sm text-muted-foreground font-medium animate-pulse">Fetching table schema...</span>
             </div>
         );
     }
 
     if (fetchError) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 h-full bg-bg-primary text-center">
+            <div className="flex flex-col items-center justify-center p-12 h-full bg-background text-center">
                 <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6">
                     <Info size={32} className="text-error" />
                 </div>
-                <h2 className="text-xl font-bold text-text-primary mb-2">Failed to load table</h2>
-                <p className="text-text-secondary max-w-md mb-8">{fetchError}</p>
+                <h2 className="text-xl font-bold text-foreground mb-2">Failed to load table</h2>
+                <p className="text-muted-foreground max-w-md mb-8">{fetchError}</p>
                 <Button onClick={() => loadInfo()} variant="secondary" className="rounded-md px-8">Try Again</Button>
             </div>
         );
     }
 
     return (
-        <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-bg-primary outline-none">
-            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-bg-primary grid grid-cols-10 items-center gap-2">
+        <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-background outline-none">
+            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-background grid grid-cols-10 items-center gap-2">
                 <div className="col-span-4 flex items-center gap-2 min-w-0 overflow-hidden">
                     {tabs.map(({ key, label, icon, isModified, count }) => (
-                        <button
+                        <Button
                             key={key}
+                            variant="ghost"
+                            type="button"
                             onClick={() => {
                                 setActiveTab(key);
                                 setFilterCol('');
                             }}
                             className={cx(
-                                'relative flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-bold transition-colors cursor-pointer outline-none shrink-0',
+                                'relative h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-bold transition-colors outline-none',
                                 activeTab === key
-                                    ? 'text-text-primary bg-bg-secondary/70'
-                                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-secondary/30',
+                                    ? 'text-foreground bg-card/70'
+                                    : 'text-muted-foreground hover:text-muted-foreground hover:bg-card/30',
                             )}
                         >
                             <span className={cx(activeTab === key ? 'text-accent' : 'opacity-60')}>{icon}</span>
                             <span className="uppercase tracking-wider">{label}</span>
                             {count !== undefined && count !== null && <span className="text-[10px] opacity-55">{count}</span>}
                             {isModified && <span className="w-1.5 h-1.5 rounded-full bg-success ml-0.5" />}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
@@ -580,8 +582,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         </div>
                         <div className="col-span-4 flex items-center justify-end min-w-0">
                             <div className="relative group flex items-center w-full max-w-[28rem]">
-                                <Search size={11} className="absolute left-3 text-text-muted group-focus-within:text-accent transition-colors" />
-                                <input
+                                <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent transition-colors" />
+                                <Input
                                     ref={filterInputRef}
                                     type="text"
                                     placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
@@ -596,7 +598,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                     onKeyDown={(e) => {
                                         if (e.key === 'Escape') setFilterCol('');
                                     }}
-                                    className="w-full h-7 pl-8 pr-3 bg-bg-tertiary/40 border border-border/30 rounded-md text-[11px] outline-none focus:border-accent/40 focus:bg-bg-tertiary/60 transition-all placeholder:text-text-muted/40"
+                                    className="h-7 w-full border-border/30 bg-muted/40 pl-8 pr-3 text-[11px] transition-all placeholder:text-muted-foreground/40 focus:bg-muted/60"
                                 />
                             </div>
                         </div>

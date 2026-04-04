@@ -341,39 +341,40 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                         <div className="">
                             <div className="grid gap-3">
                                 <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project name</label>
-                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-md bg-bg-secondary" autoFocus />
+                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Project name</label>
+                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-md bg-card" autoFocus />
                                 </div>
                                 <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Description</label>
-                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" className="h-11 rounded-md bg-bg-secondary" />
+                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Description</label>
+                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" className="h-11 rounded-md bg-card" />
                                 </div>
                                 <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Icon</label>
+                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Icon</label>
                                     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                                         {PROJECT_ICON_OPTIONS.map((option) => {
                                             const OptionIcon = option.icon;
                                             const active = draft.iconKey === option.key;
                                             return (
-                                                <button
+                                                <Button
                                                     key={option.key} type="button"
+                                                    variant="ghost"
                                                     onClick={() => setDraft((c) => ({ ...c, iconKey: option.key }))}
-                                                    className={cn('cursor-pointer flex items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'bg-accent/10 text-text-primary' : 'bg-bg-secondary text-text-secondary hover:text-text-primary')}
+                                                    className={cn('h-auto w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'bg-accent/10 text-foreground' : 'bg-card text-muted-foreground hover:text-foreground')}
                                                 >
                                                     <OptionIcon size={14} /><span>{option.label}</span>
-                                                </button>
+                                                </Button>
                                             );
                                         })}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-text-primary">Project data location</label>
+                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Project data location</label>
                                     <div className="flex items-center gap-2">
                                         <Input
                                             value={storageParentPath}
                                             onChange={(e) => setStorageParentPath(e.target.value)}
                                             placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
-                                            className="h-11 rounded-md bg-bg-secondary"
+                                            className="h-11 rounded-md bg-card"
                                         />
                                         <Button
                                             type="button"
@@ -388,7 +389,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                             <FolderOpen size={14} />
                                         </Button>
                                     </div>
-                                    <div className="mt-1 text-[11px] text-text-secondary truncate" title={storagePathPreview || undefined}>
+                                    <div className="mt-1 text-[11px] text-muted-foreground truncate" title={storagePathPreview || undefined}>
                                         {storagePathPreview || 'Project folder will use the app default location.'}
                                     </div>
                                 </div>
@@ -404,18 +405,19 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                             const meta = getEnvironmentMeta(envKey);
                             const active = draft.starterEnv === envKey;
                             return (
-                                <button
+                                <Button
                                     key={envKey} type="button"
+                                    variant="outline"
                                     onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
-                                    className={cn('cursor-pointer rounded-md px-4 py-4 text-left transition-colors', envKey === ENVIRONMENT_KEY.PRODUCTION && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40')}
+                                    className={cn('h-auto w-full justify-start rounded-md px-4 py-4 text-left transition-colors', envKey === ENVIRONMENT_KEY.PRODUCTION && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40')}
                                 >
                                     <div className="flex items-center justify-between gap-3">
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>{envKey}</span>
                                         {active && <BadgeCheck size={16} className="text-accent" />}
                                     </div>
-                                    <div className="mt-4 text-[16px] font-semibold text-text-primary">{meta.label}</div>
-                                    <p className="mt-2 text-[12px] leading-5 text-text-secondary">{meta.description}</p>
-                                </button>
+                                    <div className="mt-4 text-[16px] font-semibold text-foreground">{meta.label}</div>
+                                    <p className="mt-2 text-[12px] leading-5 text-muted-foreground">{meta.description}</p>
+                                </Button>
                             );
                         })}
                     </div>
@@ -424,7 +426,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 {/* Step: connection */}
                 {step === 'connection' && (
                     <div className=" w-full max-w-245">
-                        <div className="flex min-h-130 flex-col rounded-md bg-bg-primary/20">
+                        <div className="flex min-h-130 flex-col rounded-md bg-background/20">
                             {connectionMode === 'existing' ? (
                                 <div className="flex-1 overflow-hidden">
                                     <DatabaseTreePicker
@@ -451,7 +453,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         importingConnection={importingFormConnection}
                                     />
                                     {isSelectingProvider ? (
-                                        <div className="h-full min-h-0 rounded-md bg-bg-primary/15 p-2">
+                                        <div className="h-full min-h-0 rounded-md bg-background/15 p-2">
                                             <ProviderGrid selected={form.selectedProvider} locked={form.isEditing} filterText={providerFilter} onSelect={handleProviderSelect} />
                                         </div>
                                     ) : (
@@ -482,34 +484,34 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                 {/* Step: review */}
                 {step === 'review' && (
                     <div className="mx-auto flex max-w-190 flex-col gap-4">
-                        <div className="rounded-md bg-bg-primary/20 p-5">
+                        <div className="rounded-md bg-background/20 p-5">
                             <div className="space-y-3">
-                                <div className="rounded-md bg-bg-secondary px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Project</div>
+                                <div className="rounded-md bg-card px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Project</div>
                                     <div className="mt-2 flex items-center gap-2">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-bg-primary/30">
-                                            <DraftIcon size={14} className="text-text-primary" />
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-background/30">
+                                            <DraftIcon size={14} className="text-foreground" />
                                         </div>
-                                        <div className="text-[16px] font-semibold text-text-primary">{draft.name.trim()}</div>
+                                        <div className="text-[16px] font-semibold text-foreground">{draft.name.trim()}</div>
                                     </div>
-                                    <div className="mt-1 text-[12px] text-text-secondary">{draft.description.trim() || draftIconLabel}</div>
+                                    <div className="mt-1 text-[12px] text-muted-foreground">{draft.description.trim() || draftIconLabel}</div>
                                 </div>
-                                <div className="rounded-md bg-bg-secondary px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Starter environment</div>
+                                <div className="rounded-md bg-card px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Starter environment</div>
                                     <div className="mt-2 flex items-center gap-2">
                                         <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>{draft.starterEnv}</span>
-                                        <span className="text-[16px] font-semibold text-text-primary">{getEnvironmentMeta(draft.starterEnv).label}</span>
+                                        <span className="text-[16px] font-semibold text-foreground">{getEnvironmentMeta(draft.starterEnv).label}</span>
                                     </div>
-                                    <div className="mt-1 text-[12px] text-text-secondary">The first project session will open in this context.</div>
+                                    <div className="mt-1 text-[12px] text-muted-foreground">The first project session will open in this context.</div>
                                 </div>
-                                <div className="rounded-md bg-bg-secondary px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Connection</div>
-                                    <div className="mt-2 text-[16px] font-semibold text-text-primary">{selectedProfileName || 'Missing connection'}</div>
-                                    <div className="mt-1 text-[12px] text-text-secondary">{selectedDatabase || 'Pick a database'}</div>
+                                <div className="rounded-md bg-card px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Connection</div>
+                                    <div className="mt-2 text-[16px] font-semibold text-foreground">{selectedProfileName || 'Missing connection'}</div>
+                                    <div className="mt-1 text-[12px] text-muted-foreground">{selectedDatabase || 'Pick a database'}</div>
                                 </div>
-                                <div className="rounded-md bg-bg-secondary px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-secondary">Storage</div>
-                                    <div className="mt-2 text-[12px] text-text-primary break-all">{storagePathPreview || 'App default location'}</div>
+                                <div className="rounded-md bg-card px-4 py-4">
+                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Storage</div>
+                                    <div className="mt-2 text-[12px] text-foreground break-all">{storagePathPreview || 'App default location'}</div>
                                 </div>
                             </div>
                         </div>

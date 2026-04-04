@@ -167,11 +167,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
+        <div className="flex flex-col h-full bg-background overflow-hidden">
             {/* Minimal Flat Header */}
-            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
+            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-background px-10">
                 {/* Logo/Title Section */}
-                <div className="flex items-center gap-3 text-text-primary">
+                <div className="flex items-center gap-3 text-foreground">
                     <div className="p-2 rounded-md bg-accent/5 text-accent">
                         <SettingsIcon size={18} />
                     </div>

@@ -45,7 +45,7 @@ export function useResultTableColumns({
                 >
                     {isEditable
                         ? <Unlock size={10} className="text-success" />
-                        : <Lock size={10} className="text-text-muted" />}
+                        : <Lock size={10} className="text-muted-foreground" />}
                 </div>
             ),
             enableSorting: false,

@@ -39,7 +39,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
     };
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 bg-bg-primary">
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div
                     ref={tableContainerRef}
@@ -51,7 +51,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                     >
                         <thead>
                             <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 font-mono text-[10px] text-text-muted">
+                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
                                 </th>
                                 <th
@@ -122,7 +122,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                             })}
                             {rows.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="py-24 text-center text-text-muted italic bg-bg-primary/50 text-sm">
+                                    <td colSpan={6} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
                                         No columns found for this table.
                                     </td>
                                 </tr>

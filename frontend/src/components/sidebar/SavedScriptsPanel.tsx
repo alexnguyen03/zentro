@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import { FileCode, Search, Trash2, BookMarked } from 'lucide-react';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -6,6 +6,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { cn } from '../../lib/cn';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { Button, Input } from '../ui';
 
 function formatDate(iso: string): string {
     try {
@@ -26,61 +27,62 @@ export const SavedScriptsPanel: React.FC = () => {
     const projectId = activeProject?.id ?? '';
     const connectionName = activeProfile?.name ?? '';
 
-    // Load scripts whenever active connection changes
     useEffect(() => {
         if (projectId && connectionName) {
             loadScripts(projectId, connectionName);
         }
     }, [connectionName, loadScripts, projectId]);
 
-    const handleOpen = useCallback(async (scriptId: string, scriptName: string) => {
-        if (!projectId || !connectionName) return;
-        const existing = groups.find((group) =>
-            group.tabs.some((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId)
-        );
-        if (existing) {
-            const existingTab = existing.tabs.find((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId);
-            if (existingTab) {
-                setActiveGroupId(existing.id);
-                setActiveTabId(existingTab.id, existing.id);
-                return;
-            }
-        }
-
-        try {
-            const content = await getContent(projectId, connectionName, scriptId);
-            addTab({
-                name: scriptName,
-                query: content,
-                context: {
-                    savedScriptId: scriptId,
-                    scriptProjectId: projectId,
-                    scriptConnectionName: connectionName,
-                },
-            });
-        } catch (e) {
-            console.error('Failed to load script content', e);
-        }
-    }, [addTab, connectionName, getContent, groups, projectId, setActiveGroupId, setActiveTabId]);
-
-    const handleDelete = useCallback(async (scriptId: string) => {
-        try {
+    const handleOpen = useCallback(
+        async (scriptId: string, scriptName: string) => {
             if (!projectId || !connectionName) return;
-            await deleteScript(projectId, connectionName, scriptId);
-        } catch (e) {
-            console.error('Failed to delete script', e);
-        }
-        setPendingDeleteScript(null);
-    }, [connectionName, deleteScript, projectId]);
+            const existing = groups.find((group) => group.tabs.some((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId));
+            if (existing) {
+                const existingTab = existing.tabs.find((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId);
+                if (existingTab) {
+                    setActiveGroupId(existing.id);
+                    setActiveTabId(existingTab.id, existing.id);
+                    return;
+                }
+            }
 
-    const filtered = scripts.filter(s =>
-        s.name.toLowerCase().includes(search.toLowerCase())
+            try {
+                const content = await getContent(projectId, connectionName, scriptId);
+                addTab({
+                    name: scriptName,
+                    query: content,
+                    context: {
+                        savedScriptId: scriptId,
+                        scriptProjectId: projectId,
+                        scriptConnectionName: connectionName,
+                    },
+                });
+            } catch (error) {
+                console.error('Failed to load script content', error);
+            }
+        },
+        [addTab, connectionName, getContent, groups, projectId, setActiveGroupId, setActiveTabId],
     );
+
+    const handleDelete = useCallback(
+        async (scriptId: string) => {
+            try {
+                if (!projectId || !connectionName) return;
+                await deleteScript(projectId, connectionName, scriptId);
+            } catch (error) {
+                console.error('Failed to delete script', error);
+            }
+            setPendingDeleteScript(null);
+        },
+        [connectionName, deleteScript, projectId],
+    );
+
+    const filtered = scripts.filter((script) => script.name.toLowerCase().includes(search.toLowerCase()));
 
     if (!projectId || !connectionName) {
         return (
             <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs text-center">
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-xs text-muted-foreground">
                     <BookMarked size={24} className="opacity-30" />
                     <p className="m-0">No active connection</p>
                     <p className="m-0 text-[11px] opacity-60">Connect to a database to manage saved scripts</p>
@@ -91,55 +93,58 @@ export const SavedScriptsPanel: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0 bg-bg-secondary">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0 bg-card">
                 <div className="flex-1 relative flex items-center min-w-0">
-                    <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
-                    <input
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-md outline-none focus:border-success transition-colors"
-                        placeholder="Filter scripts…"
+                    <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
+                    <Input
+                        className="h-7 w-full border-border bg-background py-1 pl-[22px] pr-1.5 text-[11px]"
+                        placeholder="Filter scripts..."
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={(event) => setSearch(event.target.value)}
                     />
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs text-center">
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-xs text-muted-foreground">
                         <FileCode size={24} className="opacity-30" />
                         <p className="m-0">{search ? 'No matches' : 'No saved scripts'}</p>
                         {!search && (
                             <p className="m-0 text-[11px] opacity-60">
-                                Right-click a tab → "Save Script" to save your query
+                                Right-click a tab -&gt; &quot;Save Script&quot; to save your query
                             </p>
                         )}
                     </div>
                 ) : (
-                    filtered.map(script => (
+                    filtered.map((script) => (
                         <div
                             key={script.id}
-                            className="group flex items-center px-2.5 py-1.5 border-b border-white/5 cursor-pointer transition-colors duration-100 gap-1.5 hover:bg-bg-tertiary"
+                            className="group flex items-center gap-1.5 border-b border-white/5 px-2.5 py-1.5 transition-colors duration-100 hover:bg-muted"
                             onClick={() => handleOpen(script.id, script.name)}
                             title={`Open "${script.name}" in new tab`}
                         >
-                            <FileCode size={13} className="text-success shrink-0 opacity-70" />
+                            <FileCode size={13} className="shrink-0 text-success opacity-70" />
                             <div className="flex-1 overflow-hidden">
-                                <div className="text-xs text-text-primary whitespace-nowrap overflow-hidden text-ellipsis font-medium">{script.name}</div>
-                                <div className="text-[10px] text-text-secondary mt-0.5">{formatDate(String(script.updated_at ?? ''))}</div>
+                                <div className="text-xs font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">{script.name}</div>
+                                <div className="mt-0.5 text-[10px] text-muted-foreground">{formatDate(String(script.updated_at ?? ''))}</div>
                             </div>
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
                                 className={cn(
-                                    "bg-transparent border-none text-text-secondary cursor-pointer p-[3px] rounded-md flex items-center shrink-0 transition-all duration-100 hover:text-error hover:bg-[#f48771]/10",
-                                    "opacity-0 group-hover:opacity-100"
+                                    'h-6 w-6 p-[3px] text-muted-foreground transition-all duration-100 hover:bg-destructive/10 hover:text-destructive',
+                                    'shrink-0 opacity-0 group-hover:opacity-100',
                                 )}
-                                title='Delete script'
-                                onClick={(e) => {
-                                    e.stopPropagation();
+                                title="Delete script"
+                                onClick={(event) => {
+                                    event.stopPropagation();
                                     setPendingDeleteScript({ id: script.id, name: script.name });
                                 }}
                             >
                                 <Trash2 size={12} />
-                            </button>
+                            </Button>
                         </div>
                     ))
                 )}

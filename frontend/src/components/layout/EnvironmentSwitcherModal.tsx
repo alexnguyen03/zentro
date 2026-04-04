@@ -306,7 +306,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 )}
             >
                 <div className="grid h-full min-h-0 md:grid-cols-[228px_1fr]">
-                    <section className="min-h-0 overflow-y-auto border-r border-border/20 bg-bg-primary/30 px-3 py-3">
+                    <section className="min-h-0 overflow-y-auto border-r border-border/20 bg-background/30 px-3 py-3">
                         <div className="space-y-3">
                             <TooltipProvider delayDuration={120}>
                                 {ENVIRONMENT_KEYS.map((environmentKey) => {
@@ -317,15 +317,16 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                     );
 
                                     return (
-                                        <button
+                                        <Button
                                             key={environmentKey}
                                             type="button"
+                                            variant="outline"
                                             onClick={() => setSelectedEnvironmentKey(environmentKey)}
                                             className={cn(
-                                                'w-full cursor-pointer rounded-md border px-3 py-3 text-left transition-colors',
+                                                'h-auto w-full justify-start rounded-md border px-3 py-3 text-left transition-colors',
                                                 isSelected
                                                     ? 'border-accent/40 bg-accent/8'
-                                                    : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
+                                                    : 'border-border/25 bg-background/20 hover:bg-background/40',
                                             )}
                                         >
                                             <div className="flex items-center justify-between gap-3">
@@ -333,11 +334,11 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                     <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
                                                         {environmentKey}
                                                     </span>
-                                                    <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
+                                                    <span className="text-[13px] font-semibold text-foreground">{meta.label}</span>
                                                 </div>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
-                                                        <span className={cn('inline-flex items-center', hasBinding ? 'text-accent' : 'text-text-secondary')}>
+                                                        <span className={cn('inline-flex items-center', hasBinding ? 'text-accent' : 'text-muted-foreground')}>
                                                             {hasBinding ? <Check size={14} /> : <CircleAlert size={14} />}
                                                         </span>
                                                     </TooltipTrigger>
@@ -346,7 +347,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </div>
-                                        </button>
+                                        </Button>
                                     );
                                 })}
                             </TooltipProvider>
@@ -355,7 +356,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
                     <section className="min-h-0 px-3 py-2.5">
                         {mode === 'choose' ? (
-                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-md bg-bg-primary/20">
+                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-md bg-background/20">
                                 <div className="min-h-0 px-2.5 py-2">
                                     <DatabaseTreePicker
                                         onSelect={handleSelectFromTree}
@@ -394,7 +395,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 />
 
                                 {isSelectingProvider ? (
-                                    <div className="h-full min-h-0 rounded-md bg-bg-primary/15 p-2">
+                                    <div className="h-full min-h-0 rounded-md bg-background/15 p-2">
                                         <ProviderGrid
                                             selected={form.selectedProvider}
                                             locked={form.isEditing}

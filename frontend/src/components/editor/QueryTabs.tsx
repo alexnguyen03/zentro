@@ -26,6 +26,7 @@ import { splitLastQuery } from '../../lib/queryBuilder';
 import { getErrorMessage } from '../../lib/errors';
 import { applyPreExecuteFilterPolicy, type QueryExecutionSource, resolveExecuteQuery } from '../../features/query/executionRouting';
 import { saveQueryTabById } from '../../features/editor/scriptAutosave';
+import { Button } from '../ui';
 
 export const QueryTabs: React.FC = () => {
     const {
@@ -346,19 +347,21 @@ export const QueryTabs: React.FC = () => {
 
     if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
         return (
-            <div className="flex items-center justify-center h-full text-text-secondary">
+            <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center max-w-[320px]">
-                    <h2 className="text-base font-medium mb-2 text-text-primary">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-bg-tertiary border border-border rounded-md px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <h2 className="text-base font-medium mb-2 text-foreground">No open queries</h2>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-muted border border-border rounded-md px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
                         <p className="text-xs">Connect to a database using the sidebar first.</p>
                     )}
-                    <button
-                        className="mt-4 bg-success text-white px-3 py-1.5 rounded-md text-[13px] cursor-pointer hover:opacity-90 transition-opacity border-none"
+                    <Button
+                        type="button"
+                        variant="default"
+                        className="mt-4 h-8 rounded-md bg-success px-3 py-1.5 text-[13px] text-white transition-opacity hover:opacity-90"
                         onClick={() => addTab()}
                     >
                         New Query
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
@@ -374,7 +377,7 @@ export const QueryTabs: React.FC = () => {
             <div className="flex flex-col h-full w-full overflow-hidden">
                 {tabSwitcher.open && tabSwitcher.orderedIds.length > 0 && (
                     <div className="fixed left-1/2 top-40 z-topmost -translate-x-1/2 pointer-events-none">
-                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-md border border-border/60 bg-bg-secondary/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
+                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-md border border-border/60 bg-card/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
                             {tabSwitcher.orderedIds.map((id, index) => {
                                 const meta = tabMetaById.get(id);
                                 if (!meta) return null;
@@ -384,11 +387,11 @@ export const QueryTabs: React.FC = () => {
                                         key={id}
                                         className={cn(
                                             'flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px]',
-                                            isSelected ? 'bg-accent/25 text-text-primary' : 'text-text-secondary',
+                                            isSelected ? 'bg-accent/25 text-foreground' : 'text-muted-foreground',
                                         )}
                                     >
                                         <span className="truncate flex-1">{meta.tab.name}</span>
-                                        <span className="text-[10px] text-text-muted">{meta.tab.type || 'query'}</span>
+                                        <span className="text-[10px] text-muted-foreground">{meta.tab.type || 'query'}</span>
                                     </div>
                                 );
                             })}
@@ -421,7 +424,7 @@ export const QueryTabs: React.FC = () => {
                     >
                         <div className="h-full border-t border-border flex flex-col">
                             {globalActiveResultKeys.length > 1 && (
-                                <div className="flex bg-bg-secondary border-b border-border overflow-x-auto">
+                                <div className="flex bg-card border-b border-border overflow-x-auto">
                                     {globalActiveResultKeys.map((subTabId) => {
                                         let label = 'Result 1';
                                         if (subTabId !== globalActiveTabId) {
@@ -435,19 +438,21 @@ export const QueryTabs: React.FC = () => {
 
                                         const isActive = subTabId === currentResultTabId;
                                         return (
-                                            <button
+                                            <Button
                                                 key={subTabId}
+                                                type="button"
+                                                variant="ghost"
                                                 onClick={() => setActiveSubTabId(subTabId)}
                                                 className={cn(
-                                                    "px-3 py-1.5 text-[11px] whitespace-nowrap border-r border-border truncate max-w-[150px] transition-colors focus:outline-none",
+                                                    'h-auto max-w-[150px] rounded-none border-r border-border px-3 py-1.5 text-[11px] whitespace-nowrap truncate transition-colors',
                                                     isActive 
-                                                        ? "bg-bg-primary text-text-primary border-t-[3px] border-t-success font-medium" 
-                                                        : "bg-bg-tertiary text-text-secondary hover:bg-bg-primary hover:text-text-primary border-t-[3px] border-t-transparent"
+                                                        ? 'bg-background text-foreground border-t-[3px] border-t-success font-medium'
+                                                        : 'bg-muted text-muted-foreground hover:bg-background hover:text-foreground border-t-[3px] border-t-transparent',
                                                 )}
                                                 title={label}
                                             >
                                                 {label}
-                                            </button>
+                                            </Button>
                                         );
                                     })}
                                 </div>
@@ -476,7 +481,7 @@ export const QueryTabs: React.FC = () => {
             {/* Drag Overlay for smooth visual feedback while dragging outside the flow */}
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
                 {activeDragTab ? (
-                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-bg-primary text-text-primary border-t-2 border-t-success border-b border-b-bg-primary text-xs cursor-grabbing opacity-90 w-[120px]">
+                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-background text-foreground border-t-2 border-t-success border-b border-b-bg-primary text-xs cursor-grabbing opacity-90 w-[120px]">
                         <span className="overflow-hidden text-ellipsis whitespace-nowrap">{activeDragTab.name}</span>
                     </div>
                 ) : null}

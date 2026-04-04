@@ -74,7 +74,7 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-10 h-full gap-2 text-text-secondary">
+            <div className="flex flex-col items-center justify-center p-10 h-full gap-2 text-muted-foreground">
                 <Loader size={20} className="animate-spin text-accent" />
                 <span className="text-[12px] animate-pulse mt-2">Generating DDL...</span>
             </div>
@@ -84,11 +84,11 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
     if (!ddl) {
         return (
             <div className="flex flex-col items-center justify-center p-12 h-full text-center">
-                <div className="w-16 h-16 rounded-full bg-bg-tertiary flex items-center justify-center mb-6">
-                    <FileCode2 size={32} className="text-text-muted" />
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-6">
+                    <FileCode2 size={32} className="text-muted-foreground" />
                 </div>
-                <h2 className="text-lg font-bold text-text-primary mb-2">No DDL Available</h2>
-                <p className="text-[13px] text-text-secondary max-w-sm">
+                <h2 className="text-lg font-bold text-foreground mb-2">No DDL Available</h2>
+                <p className="text-[13px] text-muted-foreground max-w-sm">
                     Unable to generate CREATE script for this table.
                 </p>
             </div>
@@ -96,17 +96,17 @@ export const DDLInfoView: React.FC<DDLInfoViewProps> = ({ schema, tableName, ref
     }
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            <div className="flex items-center px-4 py-2 bg-bg-secondary border-b border-border/50 shrink-0">
-                <div className="flex items-center gap-2 text-[12px] font-medium text-text-primary">
+        <div className="flex flex-col h-full bg-background overflow-hidden">
+            <div className="flex items-center px-4 py-2 bg-card border-b border-border/50 shrink-0">
+                <div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
                     <FileCode2 size={14} className="text-accent" />
                     <span>CREATE Script - {schema}.{tableName}</span>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-4 bg-bg-primary">
+            <div className="flex-1 overflow-auto p-4 bg-background">
                 <pre
-                    className="text-[12px] font-mono leading-loose text-text-primary select-text"
+                    className="text-[12px] font-mono leading-loose text-foreground select-text"
                     // eslint-disable-next-line react/no-danger
                     dangerouslySetInnerHTML={{ __html: highlighted }}
                 />

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { models } from '../../../wailsjs/go/models';
 import { BaseTable, type BaseTableColumn } from '../shared/BaseTable';
+import { Button } from '../ui';
 
 interface ObjectQuickViewPanelProps {
     title: string;
@@ -70,15 +71,17 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
             }}
         >
             <div className="min-w-0 flex-1">
-                <button
+                <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     className="m-0 border-0 bg-transparent p-0 text-left text-[13px] font-bold text-[var(--content-primary)] whitespace-nowrap overflow-hidden text-ellipsis enabled:cursor-pointer enabled:hover:text-[var(--interactive-primary)] enabled:hover:underline enabled:hover:underline-offset-2 disabled:cursor-default"
                     title={onOpenDefinition ? 'Go to table info' : title}
                     onClick={() => onOpenDefinition?.()}
                     disabled={!onOpenDefinition}
                 >
                     {title}
-                </button>
+                </Button>
             </div>
             <div className="ml-2.5 whitespace-nowrap text-[11px] text-[var(--content-secondary)]">
                 {!loading && !message && columns.length > 0 ? `${columns.length} columns` : ''}

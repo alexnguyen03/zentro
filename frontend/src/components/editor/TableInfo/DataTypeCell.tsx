@@ -86,7 +86,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
             <div
                 ref={listRef}
                 data-dtype-drop
-                className="fixed z-panel-overlay overflow-y-auto bg-bg-secondary border border-border/40 rounded-md"
+                className="fixed z-panel-overlay overflow-y-auto bg-card border border-border/40 rounded-md"
                 style={{
                     top: dropPos.top,
                     left: dropPos.left,
@@ -103,7 +103,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                             onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
                             className={`px-4 py-2 text-xs font-mono cursor-pointer transition-colors ${isSelected
                                     ? 'bg-accent text-bg-primary font-bold'
-                                    : 'text-text-primary/80 hover:bg-bg-tertiary hover:text-text-primary'
+                                    : 'text-foreground/80 hover:bg-muted hover:text-foreground'
                                 }`}
                         >
                             {t}

@@ -1,25 +1,39 @@
-# UI Component Policy (shadcn-first)
+﻿# UI Component Policy (shadcn-first)
 
-`components/ui` is reserved for reusable, design-system primitives.
+`components/ui` is reserved for reusable design-system primitives (shadcn + Radix composition).
 
-## Allowed in `components/ui`
-- shadcn/radix primitives (`Button`, `Input`, `Dialog`, `AlertDialog`, `Tooltip`, `Checkbox`, etc.)
-- tiny presentation wrappers that only compose primitives and do not contain product/domain logic
+## Rules
+- Feature components must consume UI from `@/components/ui`.
+- Do not import `@radix-ui/*` directly outside `components/ui`.
+- Do not use legacy layout wrappers from `components/layout/Modal` or `components/layout/OverlayDialog`.
+- Prefer `Button`, `Input`, `Select`, `Checkbox`, `Switch`, `Dialog/Modal`, `Tooltip`, `DropdownMenu`, `Command`, `Tabs`, `ScrollArea`, `Sheet`, `Textarea`, `RadioGroup`.
 
-## Not allowed in `components/ui`
-- feature/domain components (database trees, result-table logic, editor-specific widgets)
-- components that depend on app stores/services/business rules
+## Not Allowed In `components/ui`
+- Domain components (connection tree, result tables, editor business widgets).
+- Components tied to app stores/services/business logic.
 
-## Current direction
-- Prefer direct primitive composition from `@/components/ui/*`.
-- Move domain-heavy components to feature folders (`components/connection`, `components/editor`, `components/shared`, ...).
-- Avoid adding compatibility wrappers when a primitive composition is enough.
+## Native Controls Policy
+Native `<button>`, `<input>`, `<textarea>` are blocked by policy for feature UI unless explicitly allowlisted.
 
-## Existing migrations done
-- `DatabaseTreePicker` moved to `components/connection`.
-- `BaseTable` moved to `components/shared`.
-- Legacy wrappers removed: `FormField`, `SelectField`, `SwitchField`, `SearchField`, `Divider`.
-- Legacy layout wrappers migrated to `components/ui`: `Modal`, `OverlayDialog`.
+Current allowlist (performance/third-party/specialized editors):
+- `components/sidebar/RowDetailTab.tsx`
+- `components/editor/resultTable/ResultTableGrid.tsx`
+- `components/editor/resultTable/useResultTableColumns.tsx`
+- `components/editor/TableInfo/ColumnRow.tsx`
+- `components/editor/TableInfo/DataTypeCell.tsx`
+- `components/layout/settings/SettingsData.tsx` (range slider)
+- `components/layout/settings/SettingsProfiles.tsx` (hidden file input)
+- `components/layout/OverlayDialog.test.tsx`
+- `components/ui/Input.tsx`
+- `components/ui/textarea.tsx`
 
 ## Guardrails
-- `scripts/check-fe-guardrails.mjs` blocks legacy modal APIs, legacy form wrappers, legacy `Tooltip content=...` usage, legacy layout dialog wrappers, direct Radix imports outside `components/ui`, and domain component imports from `components/ui`.
+Run:
+- `npm run check:guardrails`
+
+Guardrails enforce:
+- No legacy modal APIs
+- No legacy form wrappers
+- No direct Radix imports outside `components/ui`
+- No legacy layout dialog wrappers
+- Native-control warnings for non-allowlisted files

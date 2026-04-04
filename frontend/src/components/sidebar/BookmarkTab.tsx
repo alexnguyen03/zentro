@@ -8,6 +8,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
 import { cn } from '../../lib/cn';
+import { Button } from '../ui';
 
 type BookmarkItem = {
     bookmarkKey: string;
@@ -207,30 +208,39 @@ export const BookmarkTab: React.FC = () => {
         <div className="h-full flex flex-col overflow-hidden">
             <div className="flex items-center justify-between pb-1 border-b border-border/50 mb-1">
                 <div className="flex items-center gap-1">
-                    <button
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         className={cn(
-                            'px-2 py-0.5 text-[11px] rounded-md border border-border bg-transparent cursor-pointer transition-colors',
-                            scope === 'current' ? 'text-text-primary bg-bg-tertiary' : 'text-text-secondary hover:text-text-primary'
+                            'h-auto px-2 py-0.5 text-[11px] transition-colors',
+                            scope === 'current' ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-foreground',
                         )}
                         onClick={() => setScope('current')}
                     >
                         Current ({bookmarks.length})
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         className={cn(
-                            'px-2 py-0.5 text-[11px] rounded-md border border-border bg-transparent cursor-pointer transition-colors',
-                            scope === 'global' ? 'text-text-primary bg-bg-tertiary' : 'text-text-secondary hover:text-text-primary'
+                            'h-auto px-2 py-0.5 text-[11px] transition-colors',
+                            scope === 'global' ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-foreground',
                         )}
                         onClick={() => setScope('global')}
                     >
                         Global ({globalBookmarks.length})
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="flex items-center gap-1">
                     {scope === 'global' && groupedGlobalBookmarks.length > 0 && (
-                        <button
-                            className="bg-transparent border-none text-text-muted cursor-pointer px-1.5 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary"
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 px-1.5 py-1 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                             title={collapseAllState === 'all' ? 'Expand all bookmark groups' : 'Collapse all bookmark groups'}
                             onClick={() => {
                                 setCollapsedKeys((prev) => {
@@ -244,11 +254,14 @@ export const BookmarkTab: React.FC = () => {
                             }}
                         >
                             {collapseAllState === 'all' ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                        </button>
+                        </Button>
                     )}
 
-                    <button
-                        className="bg-transparent border-none text-text-muted cursor-pointer px-1.5 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary"
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 px-1.5 py-1 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                         title={scope === 'global' ? 'Refresh global bookmarks' : 'Refresh current tab bookmarks'}
                         onClick={() => {
                             if (scope === 'global') refreshAll();
@@ -256,33 +269,35 @@ export const BookmarkTab: React.FC = () => {
                         }}
                     >
                         <RefreshCcw size={13} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             <div className="flex-1 overflow-auto p-2">
                 {scope === 'current' ? (
                     bookmarks.length === 0 ? (
-                        <div className="text-[12px] text-text-secondary px-2 py-2 rounded-md">No bookmarks for this tab.</div>
+                        <div className="text-[12px] text-muted-foreground px-2 py-2 rounded-md">No bookmarks for this tab.</div>
                     ) : (
                         <div className="space-y-0.5">
                             {bookmarks.map((item) => (
-                                <button
+                                <Button
                                     key={item.id || item.line}
-                                    className="flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-auto w-full justify-start gap-1.5 overflow-hidden rounded-md px-2 py-1 text-left text-[12px] text-foreground transition-colors duration-100 hover:bg-muted"
                                     onClick={() => {
                                         emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: activeTabId, line: item.line });
                                     }}
                                 >
                                     <span className="w-[13px] shrink-0 inline-block" />
                                     <span className="truncate flex-1">Line {item.line}</span>
-                                    <span className="ml-auto text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">#saved</span>
-                                </button>
+                                    <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">#saved</span>
+                                </Button>
                             ))}
                         </div>
                     )
                 ) : groupedGlobalBookmarks.length === 0 ? (
-                    <div className="text-[12px] text-text-secondary px-2 py-2 rounded-md">No global bookmarks yet.</div>
+                    <div className="text-[12px] text-muted-foreground px-2 py-2 rounded-md">No global bookmarks yet.</div>
                 ) : (
                     <div className="space-y-1">
                         {groupedGlobalBookmarks.map((group) => {
@@ -291,8 +306,11 @@ export const BookmarkTab: React.FC = () => {
                             return (
                                 <section key={group.bookmarkKey} className="overflow-hidden">
                                     <div className="flex items-stretch">
-                                        <button
-                                            className="flex items-center justify-center shrink-0 w-[18px] border-none bg-transparent text-text-secondary cursor-pointer hover:text-text-primary transition-colors"
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-auto w-[18px] shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                                             title={isCollapsed ? 'Expand group' : 'Collapse group'}
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -303,10 +321,12 @@ export const BookmarkTab: React.FC = () => {
                                             }}
                                         >
                                             {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                                        </button>
+                                        </Button>
 
-                                        <button
-                                            className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-1 cursor-pointer text-[13px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent"
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="h-auto min-w-0 flex-1 items-center gap-1.5 overflow-hidden rounded-md px-2 py-1 text-[13px] text-foreground transition-colors duration-100 hover:bg-muted"
                                             onClick={() => {
                                                 void restoreAndOpen({
                                                     bookmarkKey: group.bookmarkKey,
@@ -316,10 +336,10 @@ export const BookmarkTab: React.FC = () => {
                                             }}
                                         >
                                             <span className="truncate flex-1 font-medium">{group.tabName}</span>
-                                            <span className="ml-auto text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                                            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                                                 {group.items.length}
                                             </span>
-                                        </button>
+                                        </Button>
                                     </div>
 
                                     {!isCollapsed && (
@@ -327,11 +347,13 @@ export const BookmarkTab: React.FC = () => {
                                             <div className="relative pl-4">
                                                 <div className="absolute left-[10px] top-0 bottom-1 w-px bg-border/70" />
                                                 {group.items.map((item, index) => (
-                                                    <button
+                                                    <Button
                                                         key={`${group.bookmarkKey}-${item.id || item.line}`}
+                                                        type="button"
+                                                        variant="ghost"
                                                         className={cn(
-                                                            'group flex items-center gap-1.5 w-full text-left px-2 py-1 cursor-pointer text-[12px] text-text-primary select-none rounded-md transition-colors duration-100 hover:bg-bg-tertiary outline-none overflow-hidden border-none bg-transparent',
-                                                            index === 0 && 'mt-0'
+                                                            'group h-auto w-full justify-start gap-1.5 overflow-hidden rounded-md px-2 py-1 text-left text-[12px] text-foreground transition-colors duration-100 hover:bg-muted',
+                                                            index === 0 && 'mt-0',
                                                         )}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -344,10 +366,10 @@ export const BookmarkTab: React.FC = () => {
                                                             </span>
                                                             <span className="truncate flex-1">Line {item.line}</span>
                                                         </span>
-                                                        <span className="ml-auto text-[10px] text-text-secondary bg-bg-tertiary rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                                                        <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                                                             #saved
                                                         </span>
-                                                    </button>
+                                                    </Button>
                                                 ))}
                                             </div>
                                         </div>

@@ -131,7 +131,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                                 }}
                             />
                             : <div
-                                className={`rt-cell-content rt-cell-content--compact font-mono ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''} ${col.DefaultValue ? 'text-text-secondary' : 'text-text-muted'}`}
+                                className={`rt-cell-content rt-cell-content--compact font-mono ${isDirty && col.DefaultValue !== row.original.DefaultValue ? 'rt-cell-dirty' : ''} ${col.DefaultValue ? 'text-muted-foreground' : 'text-muted-foreground'}`}
                                 onDoubleClick={() => !readOnlyMode && setEditCell({ rowIdx, field: 'DefaultValue' })}
                                 title={col.DefaultValue || 'None'}
                             >

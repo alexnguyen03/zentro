@@ -175,17 +175,19 @@ export const SettingsData: React.FC<Props> = ({
                                         : '-translate-x-1/2';
 
                                 return (
-                                    <button
+                                    <Button
                                         key={key}
                                         type="button"
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => setStrongConfirmByIndex(index)}
-                                        className={`absolute top-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
+                                        className={`absolute top-0 h-auto px-1 py-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
                                         style={{ left: position }}
                                         aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}
                                         title={`Set to ${getEnvironmentMeta(key).label}`}
                                     >
                                         {getEnvironmentMeta(key).label}
-                                    </button>
+                                    </Button>
                                 );
                             })}
                         </div>

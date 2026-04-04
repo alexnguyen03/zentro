@@ -6,6 +6,7 @@ import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { RowDetailTab } from './RowDetailTab';
 import { BookmarkTab } from './BookmarkTab';
+import { Button } from '../ui';
 
 type SidebarTab = 'detail' | 'bookmark';
 
@@ -45,44 +46,51 @@ export const SecondarySidebar: React.FC = () => {
     return (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar flex flex-col h-full bg-bg-secondary border-l border-border shrink-0" style={{ width }}>
-                <div className="flex items-center justify-between pr-2 border-b border-border bg-bg-secondary min-h-[35px]">
+            <div className="sidebar flex flex-col h-full bg-card border-l border-border shrink-0" style={{ width }}>
+                <div className="flex items-center justify-between pr-2 border-b border-border bg-card min-h-[35px]">
                     <div className="flex items-center">
-                        <button
+                        <Button
+                            variant="ghost"
+                            type="button"
                             className={cn(
-                                'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-transparent border-0 border-b-2 cursor-pointer',
+                                'h-auto items-center gap-1.5 border-0 border-b-2 px-2.5 py-1.5 text-[11px]',
                                 activeTab === 'detail'
-                                    ? 'text-text-primary border-success'
-                                    : 'text-text-secondary border-transparent hover:text-text-primary'
+                                    ? 'text-foreground border-success'
+                                    : 'text-muted-foreground border-transparent hover:text-foreground'
                             )}
                             onClick={() => setActiveTab('detail')}
                             title="Row Detail"
                         >
                             <AlignLeft size={13} className="shrink-0" />
                             <span>Row Detail</span>
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            type="button"
                             className={cn(
-                                'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-transparent border-0 border-b-2 cursor-pointer',
+                                'h-auto items-center gap-1.5 border-0 border-b-2 px-2.5 py-1.5 text-[11px]',
                                 activeTab === 'bookmark'
-                                    ? 'text-text-primary border-success'
-                                    : 'text-text-secondary border-transparent hover:text-text-primary'
+                                    ? 'text-foreground border-success'
+                                    : 'text-muted-foreground border-transparent hover:text-foreground'
                             )}
                             onClick={() => setActiveTab('bookmark')}
                             title="Bookmarks"
                         >
                             <Bookmark size={13} className="shrink-0" />
                             <span>Bookmarks ({bookmarkCount})</span>
-                        </button>
+                        </Button>
                     </div>
 
-                    <button
-                        className="bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary"
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
                         onClick={() => setShowRightSidebar(false)}
                         title="Close right sidebar"
                     >
                         <X size={14} />
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="flex-1 overflow-hidden p-1">

@@ -83,7 +83,7 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
     return (
         <div ref={parentRef} className="result-virtual-scroll">
             {(isDeferredSorting || isDeferredFiltering) && (
-                <div className="px-3 py-1 text-[11px] text-text-secondary border-b border-border bg-bg-secondary/50">
+                <div className="px-3 py-1 text-[11px] text-muted-foreground border-b border-border bg-card/50">
                     {isDeferredFiltering
                         ? 'Applying incremental filter for loaded rows...'
                         : 'Applying incremental sort for large result set...'}
