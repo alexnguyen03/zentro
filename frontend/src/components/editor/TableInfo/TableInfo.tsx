@@ -52,6 +52,7 @@ import { IndexInfoView } from './IndexInfoView';
 import { DDLInfoView } from './DDLInfoView';
 import { TableSchemaBreadcrumb } from './TableSchemaBreadcrumb';
 import { RowState, TableInfoTab, SortCol, SortDir, TabAction } from './types';
+import { getColumnsDirtyCount, getDataDirtyCount } from './changeBadge';
 
 interface TableInfoProps {
     tabId: string;
@@ -84,6 +85,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
 const TABLE_INFO_AUTO_RETRY_DELAYS_MS = [250, 500, 900, 1300, 1700, 2200];
 const TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS = 10;
 const TABLE_TAB_ICON_SIZE = 15;
+const TABLE_TAB_BADGE_CLASSNAME = 'absolute -right-1 -top-1 z-[70] h-4 min-w-[16px] border border-warning/35 bg-warning/15 px-1 text-[9px] text-warning';
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
@@ -532,7 +534,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         await confirmSafetyAndSave();
     }, [rows, collectWriteOperations, activeEnvironmentKey, confirmSafetyAndSave, isCreateMode, viewMode]);
 
-    const hasChanges = useMemo(() => rows.some((r) => r.isNew || r.deleted || JSON.stringify(r.original) !== JSON.stringify(r.current)), [rows]);
+    const columnsDirtyCount = useMemo(() => getColumnsDirtyCount(rows), [rows]);
+    const hasChanges = columnsDirtyCount > 0;
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
@@ -620,7 +623,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         }]);
     };
 
-    const hasDataChanges = (dataResult?.pendingEdits?.size ?? 0) > 0 || (dataResult?.pendingDeletions?.size ?? 0) > 0;
+    const dataDirtyCount = useMemo(() => getDataDirtyCount(dataResult), [dataResult]);
     const reloadAction: TabAction = {
         id: 'reload',
         icon: <RefreshCw size={12} />,
@@ -654,18 +657,18 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         ddl: [...ddlTabActions, reloadAction],
     };
 
-    const tabs: Array<{ key: TableInfoTab; label: string; icon: React.ReactNode; isModified: boolean; count?: number | null }> = useMemo(() => {
+    const tabs: Array<{ key: TableInfoTab; label: string; icon: React.ReactNode; dirtyCount?: number; count?: number | null }> = useMemo(() => {
         if (isCreateMode) {
-            return [{ key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, isModified: hasChanges }];
+            return [{ key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, dirtyCount: columnsDirtyCount }];
         }
         return [
-            { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, isModified: hasChanges },
-            { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, isModified: hasDataChanges },
-            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} />, isModified: false, count: erdRelCount },
-            { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} />, isModified: false },
-            { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} />, isModified: false },
+            { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, dirtyCount: columnsDirtyCount },
+            { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, dirtyCount: dataDirtyCount },
+            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} />, count: erdRelCount },
+            { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} /> },
+            { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} /> },
         ];
-    }, [erdRelCount, hasChanges, hasDataChanges, isCreateMode]);
+    }, [columnsDirtyCount, dataDirtyCount, erdRelCount, isCreateMode]);
 
     const handleSelectTableFromBreadcrumb = useCallback((nextTableName: string) => {
         const normalized = nextTableName.trim();
@@ -719,12 +722,18 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 </div>
 
                 <div className="justify-self-center flex items-center gap-1 min-w-0 overflow-visible">
-                    {tabs.map(({ key, label, icon, isModified, count }) => (
+                    {tabs.map(({ key, label, icon, dirtyCount, count }) => (
                         <Button
                             key={key}
                             variant="ghost"
                             type="button"
-                            title={count !== undefined && count !== null ? `${label} (${count})` : label}
+                            title={
+                                count !== undefined && count !== null
+                                    ? `${label} (${count})`
+                                    : (dirtyCount ?? 0) > 0
+                                        ? `${label} (${dirtyCount} unsaved)`
+                                        : label
+                            }
                             onClick={() => {
                                 setActiveTab(key);
                                 setFilterCol('');
@@ -741,14 +750,14 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 <Indicator
                                     mode="count"
                                     value={count}
-                                    className="absolute -right-1 -top-1 z-[70] h-4 min-w-[16px] bg-muted px-1 text-[9px] text-foreground"
+                                    className={TABLE_TAB_BADGE_CLASSNAME}
                                 />
                             )}
-                            {isModified && (
+                            {(dirtyCount ?? 0) > 0 && (
                                 <Indicator
-                                    mode="dot"
-                                    color="var(--status-success)"
-                                    className="absolute right-0 -top-1 z-[70] h-2 w-2"
+                                    mode="count"
+                                    value={dirtyCount}
+                                    className={TABLE_TAB_BADGE_CLASSNAME}
                                 />
                             )}
                         </Button>
