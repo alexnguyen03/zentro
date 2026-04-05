@@ -4,6 +4,7 @@ import { cn } from '../../../lib/cn';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useSchemaStore } from '../../../stores/schemaStore';
 import {
+    Button,
     Breadcrumb,
     BreadcrumbItem,
     BreadcrumbLink,
@@ -97,19 +98,20 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
                         <DropdownMenu open={tableMenuOpen} onOpenChange={setTableMenuOpen}>
                             <DropdownMenuTrigger asChild>
                                 <BreadcrumbLink asChild>
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="ghost"
+                                        size="sm"
                                         className={cn(
-                                            'inline-flex h-6 max-w-[260px] items-center gap-1 rounded-sm px-1.5 text-[11px] font-semibold text-foreground',
-                                            'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                            !hasTableOptions && 'cursor-default opacity-80',
+                                            'h-6 max-w-[260px] items-center gap-1 rounded-sm px-1.5 text-[11px] font-semibold text-foreground',
+                                            !hasTableOptions && 'opacity-80',
                                         )}
                                         disabled={!hasTableOptions}
                                     >
                                         <Table2 size={12} className="shrink-0 text-muted-foreground" />
                                         <span className="truncate">{table || 'N/A'}</span>
                                         <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
-                                    </button>
+                                    </Button>
                                 </BreadcrumbLink>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="max-h-64 min-w-[220px] overflow-y-auto">

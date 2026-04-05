@@ -357,7 +357,7 @@ export const QueryTabs: React.FC = () => {
                     <Button
                         type="button"
                         variant="default"
-                        className="mt-4 h-8 rounded-md bg-success px-3 py-1.5 text-[13px] text-white transition-opacity hover:opacity-90"
+                        className="mt-4 h-8 px-3 text-[13px]"
                         onClick={() => addTab()}
                     >
                         New Query

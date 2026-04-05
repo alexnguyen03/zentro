@@ -38,14 +38,14 @@ export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameCh
                 <div className="flex flex-wrap items-center gap-2.5">
                     <Button
                         onClick={onExportProfile}
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                     >
                         Export Profile
                     </Button>
                     <Button
                         onClick={() => profileInputRef.current?.click()}
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                     >
                         Import Profile

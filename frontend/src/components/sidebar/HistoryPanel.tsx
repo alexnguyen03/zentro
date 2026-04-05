@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState, useCallback } from 'react';
-import { Clock, Trash2, Search, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { Clock, Search, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
 import { GetHistory, ClearHistory } from '../../services/historyService';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
@@ -116,11 +116,13 @@ export const HistoryPanel: React.FC = () => {
                     </div>
                 ) : (
                     filtered.map((entry) => (
-                        <div
+                        <Button
                             key={entry.id}
+                            type="button"
+                            variant="ghost"
                             className={cn(
-                                'group px-2.5 py-1.5 border-b border-white/5 cursor-pointer transition-colors duration-100 hover:bg-muted',
-                                entry.error && 'border-l-2 border-l-error',
+                                'group h-auto w-full justify-start rounded-none border-b border-white/5 px-2.5 py-1.5 text-left transition-colors duration-100 last:border-none',
+                                entry.error ? 'border-l-2 border-l-error' : 'text-foreground',
                             )}
                             onClick={() => pasteQuery(entry.query)}
                             title="Click to paste into editor"
@@ -141,7 +143,7 @@ export const HistoryPanel: React.FC = () => {
                             {entry.error && (
                                 <div className="text-[10px] text-error mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{entry.error}</div>
                             )}
-                        </div>
+                        </Button>
                     ))
                 )}
             </div>

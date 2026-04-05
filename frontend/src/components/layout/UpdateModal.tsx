@@ -41,7 +41,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 <Button variant="ghost" className="h-11 rounded-md px-6 text-[13px]" onClick={onClose}>
                     Later
                 </Button>
-                <Button className="flex h-11 gap-2 rounded-md bg-success px-8 text-[13px] font-bold text-white hover:bg-success/90" onClick={handleDownload}>
+                <Button variant="default" className="h-11 gap-2 px-8 text-[13px] font-semibold" onClick={handleDownload}>
                     <Download size={16} />
                     Download Now
                 </Button>

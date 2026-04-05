@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, X, BookMarked, SplitSquareHorizontal, Table2 } from 'lucide-react';
+import { Plus, X, SplitSquareHorizontal, Table2 } from 'lucide-react';
 import { Tab } from '../../stores/editorStore';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
@@ -220,6 +220,8 @@ export const TabBar: React.FC<TabBarProps> = ({
         setContextMenu(null);
     };
 
+    const contextMenuItemClass = 'h-auto w-full justify-start rounded-none px-4 py-1.5 text-[13px]';
+
     return (
         <div className="flex items-center bg-card h-9 shrink-0 overflow-hidden">
             <div
@@ -270,38 +272,57 @@ export const TabBar: React.FC<TabBarProps> = ({
                         const contextTab = tabs.find((tab) => tab.id === contextMenu.tabId);
                         if (!contextTab || !canRenameTab(contextTab)) return null;
                         return (
-                            <div
-                                className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white"
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className={contextMenuItemClass}
                                 onClick={() => { startRename(contextTab); setContextMenu(null); }}
                             >
                                 Rename
-                            </div>
+                            </Button>
                         );
                     })()}
 
                     {onSplit && (
-                        <div
-                            className="px-4 py-1.5 text-[13px] cursor-pointer flex items-center hover:bg-success hover:text-white"
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className={cn(contextMenuItemClass, 'gap-1.5')}
                             onClick={() => { onSplit(contextMenu!.tabId); setContextMenu(null); }}
                         >
-                            <SplitSquareHorizontal size={11} style={{ marginRight: 5 }} />
+                            <SplitSquareHorizontal size={11} />
                             Split Right
-                        </div>
+                        </Button>
                     )}
 
 
 
                     <div className="h-px bg-border my-1" />
 
-                    <div className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white" onClick={() => { onClose(contextMenu!.tabId); setContextMenu(null); }}>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={contextMenuItemClass}
+                        onClick={() => { onClose(contextMenu!.tabId); setContextMenu(null); }}
+                    >
                         Close
-                    </div>
-                    <div className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white" onClick={() => closeOthers(contextMenu!.tabId)}>
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={contextMenuItemClass}
+                        onClick={() => closeOthers(contextMenu!.tabId)}
+                    >
                         Close Others
-                    </div>
-                    <div className="px-4 py-1.5 text-[13px] cursor-pointer hover:bg-success hover:text-white" onClick={closeAll}>
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={contextMenuItemClass}
+                        onClick={closeAll}
+                    >
                         Close All
-                    </div>
+                    </Button>
                 </div>
             )}
         </div>

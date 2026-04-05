@@ -119,37 +119,23 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
     return (
         <div
-            role="button"
-            tabIndex={disabled ? -1 : 0}
-            aria-disabled={disabled}
-            onClick={() => {
-                if (!disabled) onClick();
-            }}
-            onKeyDown={(event) => {
-                if (disabled) return;
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onClick();
-                }
-            }}
             className={cn(
-                'group relative w-full cursor-pointer rounded-md bg-background/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-background/60',
-                disabled && 'cursor-not-allowed opacity-70',
-                isCurrentProject && 'border border-accent/45',
+                'group relative w-full',
+                disabled && 'opacity-70'
             )}
         >
-            <div className="absolute top-3 right-3">
-                <div className="gap-1 flex">
-                    {!ready && (
-                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', ready ? 'border-success/30 bg-success/10 text-success' : 'border-amber-400/30 bg-amber-400/10 text-amber-300')}>
-                            Needs setup
-                        </span>
-                    )}
-                    <span title='Last used' className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>{envKey}</span>
-                </div>
-            </div>
-
-            <div className="flex items-start gap-4">
+            <Button
+                type="button"
+                variant="ghost"
+                className={cn(
+                    'relative h-auto w-full justify-start rounded-md bg-background/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-background/60',
+                    isCurrentProject && 'border border-accent/45',
+                    disabled && 'cursor-not-allowed',
+                )}
+                onClick={onClick}
+                disabled={disabled}
+                title={`Open project ${project.name}`}
+            >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-card text-foreground">
                     <ProjectIcon size={16} />
                 </div>
@@ -164,29 +150,42 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         <span>{formatDateLabel(project.updated_at)}</span>
                     </div>
                 </div>
-                <div className="absolute right-3 bottom-3 shrink-0 flex items-center gap-2">
-                    <Button
-                        type="button" onClick={onEdit}
-                        variant="ghost"
-                        size="icon"
-                        disabled={isDeleting || isOpening}
-                        className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
-                        title="Edit project"
-                    >
-                        <Pencil size={14} />
-                    </Button>
-                    <Button
-                        type="button" onClick={onDelete}
-                        variant="ghost"
-                        size="icon"
-                        disabled={isDeleting || isOpening}
-                        className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
-                        title="Delete project"
-                    >
-                        {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}
-                    </Button>
-                    {isOpening && <Spinner size={14} className="text-muted-foreground" />}
+                <div className="absolute top-3 right-3">
+                    <div className="gap-1 flex">
+                        {!ready && (
+                            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', ready ? 'border-success/30 bg-success/10 text-success' : 'border-amber-400/30 bg-amber-400/10 text-amber-300')}>
+                                Needs setup
+                            </span>
+                        )}
+                        <span title='Last used' className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', envMeta.colorClass)}>{envKey}</span>
+                    </div>
                 </div>
+            </Button>
+
+            <div className="absolute right-3 bottom-3 z-[2] flex shrink-0 items-center gap-2">
+                <Button
+                    type="button"
+                    onClick={onEdit}
+                    variant="ghost"
+                    size="icon"
+                    disabled={isDeleting || isOpening}
+                    className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
+                    title="Edit project"
+                >
+                    <Pencil size={14} />
+                </Button>
+                <Button
+                    type="button"
+                    onClick={onDelete}
+                    variant="ghost"
+                    size="icon"
+                    disabled={isDeleting || isOpening}
+                    className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
+                    title="Delete project"
+                >
+                    {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}
+                </Button>
+                {isOpening && <Spinner size={14} className="text-muted-foreground" />}
             </div>
         </div>
     );

@@ -88,7 +88,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
     const top = anchorRect ? anchorRect.bottom + 8 : 40;
     const left = anchorRect ? anchorRect.left + anchorRect.width / 2 : '50%';
 
-    const itemBaseClass = "px-3.5 py-2 text-[13px] cursor-pointer border-b border-white/5 text-foreground transition-colors duration-100 whitespace-nowrap overflow-hidden text-ellipsis last:border-none hover:bg-muted";
+    const listItemClass = 'group flex items-center gap-2 border-b border-white/5 last:border-none';
 
     return (
         <>
@@ -112,22 +112,32 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                 <div
                                     key={conn.name}
                                     className={cn(
-                                        itemBaseClass,
-                                        "group flex items-center gap-2",
-                                        isSelected && "bg-white/5",
-                                        isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
+                                        listItemClass,
+                                        isSelected && 'bg-muted/40',
+                                        isActive && 'border-l-2 border-l-accent bg-accent/10',
                                     )}
-                                    onClick={() => handleSelectConn(conn.name)}
                                 >
-                                    <span className="min-w-0 flex-1 truncate">{conn.name}</span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className={cn(
+                                            'h-auto flex-1 justify-start rounded-none px-3.5 py-2 text-[13px] font-normal',
+                                            isActive ? 'text-foreground' : 'text-muted-foreground',
+                                        )}
+                                        onClick={() => {
+                                            void handleSelectConn(conn.name);
+                                        }}
+                                    >
+                                        <span className="min-w-0 truncate">{conn.name}</span>
+                                    </Button>
                                     {(onEditConnection || onDeleteConnection) && (
-                                        <span className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                                        <span className="mr-1 flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
                                             {onEditConnection && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-5 w-5 text-muted-foreground hover:bg-background/65 hover:text-foreground"
+                                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={(event) => handleEditConnection(event, conn.name)}
                                                     title={`Edit ${conn.name}`}
                                                 >
@@ -139,7 +149,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-5 w-5 text-muted-foreground transition-colors hover:bg-destructive/12 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
+                                                    className="h-5 w-5 text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
                                                     onClick={(event) => {
                                                         void handleDeleteConnection(event, conn.name);
                                                     }}
@@ -179,16 +189,20 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                             pickerDbs.map((db) => {
                                 const isActive = activeProfile?.db_name === db;
                                 return (
-                                    <div
+                                    <Button
                                         key={db}
+                                        type="button"
+                                        variant="ghost"
                                         className={cn(
-                                            itemBaseClass,
-                                            isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
+                                            'h-auto w-full justify-start rounded-none border-b border-white/5 px-3.5 py-2 text-[13px] font-normal last:border-none',
+                                            isActive ? 'border-l-2 border-l-accent bg-accent/10 text-foreground' : 'text-muted-foreground',
                                         )}
-                                        onClick={() => handleSelectDb(db)}
+                                        onClick={() => {
+                                            void handleSelectDb(db);
+                                        }}
                                     >
                                         {db}
-                                    </div>
+                                    </Button>
                                 );
                             })
                         )}

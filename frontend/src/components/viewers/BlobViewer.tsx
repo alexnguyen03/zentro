@@ -1,5 +1,5 @@
 ﻿import React, { useState, useMemo } from 'react';
-import { Download, File, Image as ImageIcon } from 'lucide-react';
+import { Download, File, Image as ImageIcon, X } from 'lucide-react';
 import { Button } from '../ui';
 
 interface BlobViewerProps {
@@ -79,14 +79,19 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ value, onDownload }) => {
 
     return (
         <div className="blob-image-container">
-            <div className="blob-image-wrapper" onClick={() => setShowFull(true)}>
+            <Button
+                type="button"
+                variant="ghost"
+                className="blob-image-wrapper h-auto w-auto p-0 hover:bg-transparent"
+                onClick={() => setShowFull(true)}
+            >
                 <img
                     src={src}
                     alt="Preview"
                     className="blob-image-preview"
                     onError={() => setError(true)}
                 />
-            </div>
+            </Button>
             <Button
                 type="button"
                 variant="ghost"
@@ -156,8 +161,8 @@ export const BlobViewer: React.FC<BlobViewerProps> = ({ value, columnType, class
                         <div className="blob-modal-content" onClick={(event) => event.stopPropagation()}>
                             <div className="blob-modal-header">
                                 <span>Image Preview</span>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => setShowPreview(false)}>
-                                    x
+                                <Button type="button" variant="ghost" size="icon" onClick={() => setShowPreview(false)} title="Close preview">
+                                    <X size={14} />
                                 </Button>
                             </div>
                             <ImagePreview value={value} onDownload={handleDownload} />
