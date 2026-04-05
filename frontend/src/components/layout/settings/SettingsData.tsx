@@ -150,24 +150,6 @@ export const SettingsData: React.FC<Props> = ({
                             aria-label="Strong Confirm From Environment"
                             aria-valuetext={strongConfirmLabel}
                         />
-                        <div className="relative mt-1 h-2">
-                            {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {
-                                const isActive = key === strongConfirmFromEnvironment;
-                                const position = `${(index / maxSliderIndex) * 100}%`;
-                                const alignmentClass = index === 0
-                                    ? 'left-0 translate-x-0'
-                                    : index === maxSliderIndex
-                                        ? 'left-full -translate-x-full'
-                                        : '-translate-x-1/2';
-                                return (
-                                    <span
-                                        key={key}
-                                        className={`absolute top-0 h-2 w-2 rounded-full border ${alignmentClass} ${isActive ? 'border-accent bg-accent' : 'border-border/60 bg-background'}`}
-                                        style={{ left: position }}
-                                    />
-                                );
-                            })}
-                        </div>
                         <div className="relative mt-2 h-7">
                             {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {
                                 const isActive = key === strongConfirmFromEnvironment;
@@ -179,19 +161,16 @@ export const SettingsData: React.FC<Props> = ({
                                         : '-translate-x-1/2';
 
                                 return (
-                                    <Button
+                                    <div
                                         key={key}
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
                                         onClick={() => setStrongConfirmByIndex(index)}
-                                        className={`absolute top-0 h-auto px-1 py-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
+                                        className={` cursor-pointer absolute top-2 h-auto px-1 py-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
                                         style={{ left: position }}
                                         aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}
                                         title={`Set to ${getEnvironmentMeta(key).label}`}
                                     >
                                         {getEnvironmentMeta(key).label}
-                                    </Button>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -218,9 +197,11 @@ export const SettingsData: React.FC<Props> = ({
 
                 <div className="space-y-1.5">
                     <Label>Export Telemetry Bundle</Label>
-                    <Button type="button" variant="secondary" size="sm" className="w-fit" onClick={onExportTelemetry}>
-                        Export Pipeline Bundle
-                    </Button>
+                    <div className="mt-1">
+                        <Button type="button" variant="ghost" size="sm" className="w-fit" onClick={onExportTelemetry}>
+                            Export Pipeline Bundle
+                        </Button>
+                    </div>
                     <p className="text-[11px] text-muted-foreground">
                         Exports local metrics + anonymized analytics outbox (if opted-in).
                     </p>

@@ -706,7 +706,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-background outline-none">
-            <div className="shrink-0 h-10 px-4 border-b border-border/40 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <div className="shrink-0 h-12 px-4 border-b border-border/40 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                 <div className="min-w-0 overflow-x-auto whitespace-nowrap">
                     <TableSchemaBreadcrumb
                         dbName={activeProfile?.db_name || ''}

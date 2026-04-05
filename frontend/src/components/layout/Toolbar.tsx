@@ -7,7 +7,6 @@ import {
     PanelLeft,
     PanelBottom,
     PanelRight,
-    Layers3,
     SlidersHorizontal,
     Server,
     Database,
@@ -38,6 +37,7 @@ import { emitCommand, onCommand } from '../../lib/commandBus';
 import { WindowControls } from './toolbar/WindowControls';
 import { AppMenu } from './toolbar/AppMenu';
 import { Reconnect } from '../../services/connectionService';
+import { PROJECT_ICON_MAP, getProjectIconKey } from './projectHubMeta';
 
 export const Toolbar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
@@ -73,6 +73,8 @@ export const Toolbar: React.FC = () => {
 
     const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
     const databaseLabel = activeProfile?.db_name || 'No database';
+    const activeProjectIconKey = getProjectIconKey(activeProject);
+    const ActiveProjectIcon = PROJECT_ICON_MAP[activeProjectIconKey].icon;
     const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
     const envToolbarTone = useMemo(() => {
@@ -345,7 +347,7 @@ export const Toolbar: React.FC = () => {
                             title="Open Project Hub"
                             onClick={() => { setQuickEnvOpen(false); emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); }}
                         >
-                            <Layers3
+                            <ActiveProjectIcon
                                 size={14}
                                 className={cn(
                                     'shrink-0 translate-y-[0.5px]',
