@@ -1,21 +1,9 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import React, { createContext, useContext, useMemo } from 'react';
+import { CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import {
-    Toast as ShadcnToast,
-    ToastClose,
-    ToastDescription,
-    ToastProvider as ShadcnToastProvider,
-    ToastViewport,
-} from '../ui/toast';
+import { toast as sonnerToast, Toaster, type ToasterProps } from 'sonner';
 
 export type ToastVariant = 'success' | 'error' | 'info';
-
-interface ToastItem {
-    id: string;
-    message: string;
-    variant: ToastVariant;
-}
 
 interface ToastContextValue {
     toast: {
@@ -43,17 +31,19 @@ interface ToastProviderProps {
 }
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placement = 'bottom-left' }) => {
-    const [toasts, setToasts] = useState<ToastItem[]>([]);
+    const addToast = React.useCallback((message: string, variant: ToastVariant) => {
+        const variantStyle = {
+            success: { icon: 'text-success', Icon: CheckCircle },
+            error: { icon: 'text-error', Icon: AlertCircle },
+            info: { icon: 'text-accent', Icon: Info },
+        }[variant];
+        const Icon = variantStyle.Icon;
 
-    const dismiss = useCallback((id: string) => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, []);
-
-    const addToast = useCallback((message: string, variant: ToastVariant) => {
-        const id = crypto.randomUUID();
-        setToasts((prev) => {
-            const next = [...prev, { id, message, variant }];
-            return next.slice(-3);
+        sonnerToast(message, {
+            icon: <Icon size={18} className={cn('mt-[1px] shrink-0', variantStyle.icon)} />,
+            className: cn(
+                'relative pointer-events-auto flex min-w-[280px] max-w-[520px] items-start gap-3 rounded-2xl border border-border/70 bg-card px-6 py-5 pr-12 text-[15px] shadow-elevation-md',
+            ),
         });
     }, []);
 
@@ -63,53 +53,25 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
         info: (msg: string) => addToast(msg, 'info'),
     }), [addToast]);
 
-    const placementClass = {
-        'bottom-left': 'bottom-9 left-4',
-        'bottom-right': 'bottom-9 right-4',
-        'bottom-center': 'bottom-9 left-1/2 -translate-x-1/2',
-        'top-left': 'top-14 left-4',
-        'top-right': 'top-14 right-4',
-        'top-center': 'top-14 left-1/2 -translate-x-1/2',
-    }[placement];
-
-    const variantStyles = {
-        success: { border: 'border-l-success', icon: 'text-success', Icon: CheckCircle },
-        error: { border: 'border-l-error', icon: 'text-error', Icon: AlertCircle },
-        info: { border: 'border-l-accent', icon: 'text-accent', Icon: Info },
-    };
+    const position = placement as NonNullable<ToasterProps['position']>;
 
     return (
         <ToastContext.Provider value={{ toast }}>
-            <ShadcnToastProvider duration={4000}>
-                {children}
-                {toasts.map((t) => {
-                    const style = variantStyles[t.variant];
-                    const Icon = style.Icon;
-                    return (
-                        <ShadcnToast
-                            key={t.id}
-                            open
-                            onOpenChange={(open) => {
-                                if (!open) dismiss(t.id);
-                            }}
-                            className={cn(
-                                style.border,
-                            )}
-                        >
-                            <span className={cn('mt-[2px] flex shrink-0', style.icon)}>
-                                <Icon size={15} />
-                            </span>
-                            <ToastDescription>
-                                {t.message}
-                            </ToastDescription>
-                            <ToastClose aria-label="Close">
-                                <X size={14} />
-                            </ToastClose>
-                        </ShadcnToast>
-                    );
-                })}
-                <ToastViewport className={placementClass} />
-            </ShadcnToastProvider>
+            {children}
+            <Toaster
+                position={position}
+                className="z-toast"
+                visibleToasts={3}
+                duration={4000}
+                closeButton
+                offset={{ top: 56, right: 16, bottom: 36, left: 16 }}
+                toastOptions={{
+                    classNames: {
+                        title: 'flex-1 break-words pr-1 leading-[1.35] text-[15px] font-semibold text-foreground',
+                        closeButton: 'absolute !left-auto !right-0 !top-3 !translate-x-0 !translate-y-0 p-2 !border-none text-muted-foreground hover:bg-muted hover:text-foreground',
+                    },
+                }}
+            />
         </ToastContext.Provider>
     );
 };

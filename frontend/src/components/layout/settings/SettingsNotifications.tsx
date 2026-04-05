@@ -2,14 +2,15 @@ import React from 'react';
 import { Bell } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
 import type { ToastPlacement } from '../Toast';
-import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
+import { Button, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
 
 interface Props {
     toastPlacement: ToastPlacement;
     onToastPlacementChange: (val: ToastPlacement) => void;
+    onTestNotification: (variant: 'success' | 'error' | 'info') => void;
 }
 
-export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToastPlacementChange }) => {
+export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToastPlacementChange, onTestNotification }) => {
     return (
         <div className={SettingsClasses.section}>
             <div className={SettingsClasses.sectionInfo}>
@@ -41,6 +42,21 @@ export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToast
                         </SelectContent>
                     </Select>
                     <p className="text-[11px] text-muted-foreground">Where success and error messages will emerge.</p>
+                </div>
+                <div className="space-y-1.5">
+                    <Label>Preview Notification</Label>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" size="sm" variant="secondary" onClick={() => onTestNotification('success')}>
+                            Test Success
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => onTestNotification('error')}>
+                            Test Error
+                        </Button>
+                        <Button type="button" size="sm" variant="secondary" onClick={() => onTestNotification('info')}>
+                            Test Info
+                        </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Send a sample toast to verify placement and style.</p>
                 </div>
             </div>
         </div>

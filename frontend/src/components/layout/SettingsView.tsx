@@ -221,6 +221,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                 <SettingsNotifications
                                     toastPlacement={formToastPlacement}
                                     onToastPlacementChange={setFormToastPlacement}
+                                    onTestNotification={(variant) => {
+                                        if (variant === 'success') {
+                                            toast.success('This is a success notification preview.');
+                                            return;
+                                        }
+                                        if (variant === 'error') {
+                                            toast.error('This is an error notification preview.');
+                                            return;
+                                        }
+                                        toast.info('This is an info notification preview.');
+                                    }}
                                 />
                             )}
 
