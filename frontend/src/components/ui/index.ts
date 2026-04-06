@@ -26,3 +26,4 @@ export * from './Badge';
 export * from './Spinner';
 export * from './ConfirmationModal';
 export * from './Tooltip';
+export * from './table';

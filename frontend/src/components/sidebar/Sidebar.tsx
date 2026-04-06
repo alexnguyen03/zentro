@@ -59,9 +59,9 @@ export const Sidebar: React.FC = () => {
     }
 
     return (
-        <div className="sidebar flex h-full w-full select-none flex-col overflow-hidden border-r border-border bg-card">
+        <div className="sidebar flex h-full w-full select-none flex-col overflow-hidden border-r border-border">
             <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
-                <div className="shrink-0 bg-card px-2">
+                <div className="shrink-0 px-2 pt-1">
                     <TabsList
                         className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
                     >

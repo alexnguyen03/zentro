@@ -20,7 +20,7 @@ export const PrimaryExplorerPanel: React.FC = () => {
 
     return (
         <div className="flex h-full flex-col gap-4 bg-background p-4">
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="rounded-lg border border-border p-4">
                 <div className="mb-3 flex items-center gap-2">
                     <Layers3 size={16} className="text-primary" />
                     <h3 className="text-sm font-semibold text-foreground">Explorer</h3>
@@ -41,7 +41,7 @@ export const PrimaryExplorerPanel: React.FC = () => {
                 </Button>
             </div>
 
-            <div className="rounded-lg border border-dashed border-border bg-muted/25 p-4">
+            <div className="rounded-lg border border-dashed border-border p-4">
                 <div className="mb-2 flex items-center gap-2">
                     <Sparkles size={14} className="text-primary" />
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

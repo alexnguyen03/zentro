@@ -116,16 +116,22 @@ class InlineTableNavigationWidget implements MonacoEditor.IContentWidget {
 
         const header = document.createElement('div');
         header.className = 'zentro-table-nav-widget__header';
-        header.textContent = 'Chon table';
+        header.textContent = 'Choose table';
         this.domNode.appendChild(header);
 
         const list = document.createElement('div');
         list.className = 'zentro-table-nav-widget__list';
+        list.setAttribute('role', 'listbox');
+        list.setAttribute('aria-label', 'Table list');
+        list.setAttribute('tabindex', '-1');
 
         this.matches.forEach((match, index) => {
             const button = document.createElement('button');
             button.type = 'button';
+            button.id = `zentro-table-nav-option-${index}`;
             button.className = 'zentro-table-nav-widget__item';
+            button.setAttribute('role', 'option');
+            button.setAttribute('aria-selected', index === this.selectedIndex ? 'true' : 'false');
             if (index === this.selectedIndex) {
                 button.classList.add('is-active');
             }
@@ -141,6 +147,9 @@ class InlineTableNavigationWidget implements MonacoEditor.IContentWidget {
             });
             list.appendChild(button);
         });
+
+        const activeOptionId = `zentro-table-nav-option-${this.selectedIndex}`;
+        list.setAttribute('aria-activedescendant', activeOptionId);
 
         this.domNode.appendChild(list);
     }

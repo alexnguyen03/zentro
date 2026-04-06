@@ -93,7 +93,7 @@ export const HistoryPanel: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0 bg-card">
+            <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0">
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
                     <Input
@@ -108,7 +108,7 @@ export const HistoryPanel: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-card">
+            <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 px-4 py-8 text-muted-foreground text-xs">
                         <Clock size={24} className="opacity-30" />

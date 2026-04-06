@@ -170,7 +170,7 @@ export const GitTimelinePanel: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="px-2 py-1.5 border-b border-border bg-card flex items-center gap-1.5">
+            <div className="px-2 py-1.5 border-b border-border flex items-center gap-1.5">
                 <Input
                     className="h-7 flex-1 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Filter by event type (e.g. script.save)"
@@ -191,7 +191,7 @@ export const GitTimelinePanel: React.FC = () => {
                     <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
                 </Button>
             </div>
-            <div className="px-2 py-1 border-b border-border/40 bg-card grid grid-cols-2 gap-1 text-[11px]">
+            <div className="px-2 py-1 border-b border-border/40 grid grid-cols-2 gap-1 text-[11px]">
                 <Input
                     className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Object/file contains..."
@@ -230,7 +230,7 @@ export const GitTimelinePanel: React.FC = () => {
                 />
             </div>
 
-            <div className="px-2 py-1 border-b border-border/40 bg-card flex items-center gap-2 text-[11px]">
+            <div className="px-2 py-1 border-b border-border/40 flex items-center gap-2 text-[11px]">
                 <Button
                     type="button"
                     variant="outline"

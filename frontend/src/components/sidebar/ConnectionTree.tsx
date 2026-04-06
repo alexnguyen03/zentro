@@ -144,7 +144,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
             <div
                 className={cn(
                     'group flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80',
-                    expanded && 'sticky top-0 z-[2] -mx-0.5 rounded-none px-2 bg-card',
+                    expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none bg-background/85 px-2 shadow-xs backdrop-blur-[2px]',
                 )}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -387,8 +387,8 @@ export const ConnectionTree: React.FC = () => {
     }, [activeCategory, hasLoadedSchemas, isFiltering, isLoading]);
 
     return (
-        <div className="flex flex-col h-full overflow-hidden bg-card/80">
-            <div className="flex items-center gap-1.5 px-2 py-1 shrink-0 bg-card/70">
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex items-center gap-1.5 px-2 py-1 shrink-0">
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
                     <Input
@@ -418,7 +418,7 @@ export const ConnectionTree: React.FC = () => {
                     <SpellCheck2 size={12} className="opacity-90" />
                 </Button>
             </div>
-            <div className="px-2 pb-1 shrink-0 bg-card/70">
+            <div className="px-2 pb-1 shrink-0">
                 <div className="flex items-center gap-1.5 justify-between">
                     <span className='text-xs'>Schema</span>
                     <div className="min-w-0">
@@ -469,7 +469,7 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'h-auto w-full justify-start gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'h-auto w-full justify-start gap-1.5 rounded-md py-2 text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
@@ -483,7 +483,7 @@ export const ConnectionTree: React.FC = () => {
                     ))}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md bg-card/45 p-0">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md p-0">
                     {!activeCategory ? (
                         <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-md')}>
                             {emptyMessage}

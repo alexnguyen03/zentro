@@ -35,9 +35,9 @@ export const SecondarySidebar: React.FC = () => {
     return (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar flex h-full shrink-0 flex-col border-l border-border bg-card" style={{ width: sidebarWidth }}>
+            <div className="sidebar flex h-full shrink-0 flex-col border-l border-border" style={{ width: sidebarWidth }}>
                 <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
-                    <div className="flex items-center gap-2 border-b border-border/40 bg-card px-2 py-1">
+                    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1">
                         <TabsList
                             className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
                         >
