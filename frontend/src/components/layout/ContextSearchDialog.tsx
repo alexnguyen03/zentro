@@ -40,6 +40,14 @@ interface SearchItem {
     keywords: string;
 }
 
+type ItemAction = 'browse' | 'select' | 'insert' | 'update' | 'alter' | 'open';
+
+interface ItemContextMenu {
+    x: number;
+    y: number;
+    item: SearchItem;
+}
+
 const KIND_LABEL: Record<ObjectKind, string> = {
     table: 'Table',
     foreign_table: 'Foreign Table',
@@ -130,6 +138,16 @@ function buildSelectTemplate(item: SearchItem, driver: string | undefined): stri
 function buildInsertTemplate(item: SearchItem, columns: models.ColumnDef[], driver: string | undefined): string {
     const s = quoteIdent(item.schema, driver);
     const n = quoteIdent(item.name, driver);
+    if (columns.length === 0) {
+        return [
+            `INSERT INTO ${s}.${n} (`,
+            '    -- column1, column2',
+            ') VALUES (',
+            '    -- value1, value2',
+            ');',
+            '',
+        ].join('\n');
+    }
     const cols = columns.map((c) => quoteIdent(c.Name, driver)).join(', ');
     const vals = columns.map((c) => `-- ${c.Name} (${c.DataType})`).join(',\n    ');
     return [
@@ -162,6 +180,20 @@ function buildUpdateTemplate(item: SearchItem, columns: models.ColumnDef[], driv
         '',
     ].join('\n');
 }
+
+function buildAlterTemplate(item: SearchItem, driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+
+    return [
+        `ALTER TABLE ${s}.${n}`,
+        'ADD COLUMN -- new_column data_type;',
+        '',
+    ].join('\n');
+}
+
+const isTableLike = (kind: ObjectKind) =>
+    kind === 'table' || kind === 'view' || kind === 'materialized_view' || kind === 'foreign_table';
 
 function buildItems(schemas: SchemaNode[] | undefined): SearchItem[] {
     if (!schemas) return [];
@@ -245,9 +277,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     const [query, setQuery] = React.useState('');
     const [enabledKinds, setEnabledKinds] = React.useState<Set<ObjectKind>>(new Set(DEFAULT_ENABLED_KINDS));
     const [showAllKinds, setShowAllKinds] = React.useState(false);
-    const [pendingItem, setPendingItem] = React.useState<SearchItem | null>(null);
-    const [pendingColumns, setPendingColumns] = React.useState<models.ColumnDef[]>([]);
-    const [columnsLoading, setColumnsLoading] = React.useState(false);
+    const [contextMenu, setContextMenu] = React.useState<ItemContextMenu | null>(null);
 
     React.useEffect(() => {
         if (!isConnected || !profileName || !dbName || schemas || isLoading) return;
@@ -285,23 +315,73 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             .slice(0, 400);
     }, [allItems, enabledKinds, query]);
 
-    const isTableLike = (kind: ObjectKind) =>
-        kind === 'table' || kind === 'view' || kind === 'materialized_view' || kind === 'foreign_table';
+    React.useEffect(() => {
+        const closeContextMenu = () => setContextMenu(null);
+        window.addEventListener('click', closeContextMenu);
+        window.addEventListener('scroll', closeContextMenu, true);
+        return () => {
+            window.removeEventListener('click', closeContextMenu);
+            window.removeEventListener('scroll', closeContextMenu, true);
+        };
+    }, []);
 
-    const openItem = React.useCallback(
-        (item: SearchItem) => {
+    const runItemAction = React.useCallback(
+        async (item: SearchItem, action: ItemAction) => {
             const displayName = `${item.schema}.${item.name}`;
             if (isTableLike(item.kind)) {
-                setPendingItem(item);
-                setColumnsLoading(true);
-                FetchTableColumns(item.schema, item.name)
-                    .then((cols) => { setPendingColumns(cols); })
-                    .catch(() => { setPendingColumns([]); })
-                    .finally(() => { setColumnsLoading(false); });
+                const driver = activeProfile?.driver;
+
+                if (action === 'browse' || action === 'open') {
+                    addTab({ type: TAB_TYPE.TABLE, name: displayName, content: displayName, query: '' });
+                    onClose();
+                    return;
+                }
+
+                if (action === 'select') {
+                    addTab({ type: TAB_TYPE.QUERY, name: displayName, query: buildSelectTemplate(item, driver) });
+                    onClose();
+                    return;
+                }
+
+                if (action === 'alter') {
+                    addTab({
+                        type: TAB_TYPE.QUERY,
+                        name: `ALTER ${displayName}`,
+                        query: buildAlterTemplate(item, driver),
+                    });
+                    onClose();
+                    return;
+                }
+
+                const columns = await FetchTableColumns(item.schema, item.name).catch(() => []);
+                if ((action === 'insert' || action === 'update') && columns.length === 0) {
+                    toast.info(`Could not load columns for ${displayName}. Generated a generic template.`);
+                }
+
+                if (action === 'insert') {
+                    addTab({
+                        type: TAB_TYPE.QUERY,
+                        name: `INSERT ${displayName}`,
+                        query: buildInsertTemplate(item, columns, driver),
+                    });
+                    onClose();
+                    return;
+                }
+
+                if (action === 'update') {
+                    addTab({
+                        type: TAB_TYPE.QUERY,
+                        name: `UPDATE ${displayName}`,
+                        query: buildUpdateTemplate(item, columns, driver),
+                    });
+                    onClose();
+                    return;
+                }
+
                 return;
             }
 
-            if (item.kind === 'function') {
+            if (item.kind === 'function' && (action === 'browse' || action === 'open')) {
                 addTab({
                     type: TAB_TYPE.QUERY,
                     name: displayName,
@@ -319,27 +399,16 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             });
             onClose();
         },
-        [activeProfile?.driver, addTab, onClose],
+        [activeProfile?.driver, addTab, onClose, toast],
     );
 
-    const commitTableAction = React.useCallback(
-        (action: 'browse' | 'select' | 'insert' | 'update') => {
-            if (!pendingItem) return;
-            const displayName = `${pendingItem.schema}.${pendingItem.name}`;
-            const driver = activeProfile?.driver;
-            if (action === 'browse') {
-                addTab({ type: TAB_TYPE.TABLE, name: displayName, content: displayName, query: '' });
-            } else if (action === 'select') {
-                addTab({ type: TAB_TYPE.QUERY, name: displayName, query: buildSelectTemplate(pendingItem, driver) });
-            } else if (action === 'insert') {
-                addTab({ type: TAB_TYPE.QUERY, name: `INSERT ${displayName}`, query: buildInsertTemplate(pendingItem, pendingColumns, driver) });
-            } else if (action === 'update') {
-                addTab({ type: TAB_TYPE.QUERY, name: `UPDATE ${displayName}`, query: buildUpdateTemplate(pendingItem, pendingColumns, driver) });
-            }
-            onClose();
-        },
-        [activeProfile?.driver, addTab, onClose, pendingColumns, pendingItem],
-    );
+    const handleEnterBrowseFirst = React.useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter') return;
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void runItemAction(filtered[0], 'browse');
+    }, [filtered, runItemAction]);
 
     const toggleKind = (kind: ObjectKind) => {
         setEnabledKinds((prev) => {
@@ -371,6 +440,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             onValueChange={setQuery}
                             placeholder="Search tables, views, functions..."
                             className="pr-28"
+                            onKeyDown={handleEnterBrowseFirst}
                         />
                         <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-muted-foreground inline-flex items-center gap-1">
                             <Database size={11} />
@@ -429,7 +499,12 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <CommandItem
                                 key={item.id}
                                 value={`${item.qualifiedName} ${KIND_LABEL[item.kind]} ${item.schema}`}
-                                onSelect={() => openItem(item)}
+                                onSelect={() => void runItemAction(item, 'browse')}
+                                onContextMenu={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setContextMenu({ x: event.clientX, y: event.clientY, item });
+                                }}
                                 className="group flex items-center justify-between px-4 py-2 text-[13px] data-[selected=true]:bg-success/10"
                             >
                                 <span className="flex min-w-0 items-center gap-2">
@@ -445,61 +520,87 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             </CommandItem>
                         ))}
                     </CommandList>
-
-                    {pendingItem && (
-                        <div className="border-t border-border bg-background/60 px-4 py-3 flex items-center gap-3">
-                            <span className="flex-1 min-w-0 text-[12px] text-muted-foreground truncate">
-                                <span className="text-foreground font-medium">{pendingItem.schema}.{pendingItem.name}</span>
-                                {columnsLoading && <span className="ml-2 opacity-60">loading columns…</span>}
-                            </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 px-2.5 text-[11px]"
-                                    onClick={() => commitTableAction('browse')}
-                                >
-                                    Browse
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 px-2.5 text-[11px]"
-                                    onClick={() => commitTableAction('select')}
-                                >
-                                    SELECT
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 px-2.5 text-[11px]"
-                                    disabled={columnsLoading}
-                                    onClick={() => commitTableAction('insert')}
-                                >
-                                    INSERT
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 px-2.5 text-[11px]"
-                                    disabled={columnsLoading}
-                                    onClick={() => commitTableAction('update')}
-                                >
-                                    UPDATE
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 px-2 text-[11px] text-muted-foreground"
-                                    onClick={() => setPendingItem(null)}
-                                >
-                                    ✕
-                                </Button>
-                            </div>
-                        </div>
-                    )}
                 </Command>
             </div>
+            {contextMenu && (
+                <div
+                    className="fixed z-popover min-w-[160px] rounded-md border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    {isTableLike(contextMenu.item.kind) ? (
+                        <>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'browse');
+                                }}
+                            >
+                                Browse
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'select');
+                                }}
+                            >
+                                Select
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'insert');
+                                }}
+                            >
+                                Insert
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'update');
+                                }}
+                            >
+                                Update
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'alter');
+                                }}
+                            >
+                                Alter
+                            </Button>
+                        </>
+                    ) : (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                            onClick={() => {
+                                setContextMenu(null);
+                                void runItemAction(contextMenu.item, 'open');
+                            }}
+                        >
+                            Open
+                        </Button>
+                    )}
+                </div>
+            )}
         </OverlayDialog>
     );
 };
