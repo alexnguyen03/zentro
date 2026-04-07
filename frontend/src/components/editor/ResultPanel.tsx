@@ -44,7 +44,7 @@ import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
 import type { UiAction } from '../../types/uiAction';
-import { LIMIT_OPTIONS, formatDuration, makeCellId } from './resultPanelUtils';
+import { LIMIT_OPTIONS, formatDuration, makeCellId, parseCellId } from './resultPanelUtils';
 import { utils } from '../../../wailsjs/go/models';
 import { FetchTotalRowCount } from '../../services/queryService';
 import { useResultEditing } from './useResultEditing';
@@ -633,6 +633,97 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         closeContextMenu();
     }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, rowOrder, toast]);
 
+    const handleContextCopyCellValue = React.useCallback(() => {
+        if (!contextMenu) {
+            closeContextMenu();
+            return;
+        }
+        const { rowKey, colIdx } = contextMenu;
+        const row = displayRowsByKey.get(rowKey);
+        let value = '';
+        if (row) {
+            if (row.kind === 'persisted') {
+                value = editedCells.get(`${row.persistedIndex}:${colIdx}`) ?? row.values[colIdx] ?? '';
+            } else {
+                value = row.values[colIdx] ?? '';
+            }
+        }
+        void setClipboardText(value)
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, contextMenu, displayRowsByKey, editedCells, toast]);
+
+    const getSelectionColumnRange = React.useCallback((effectiveSelection: Set<string>): { minCol: number; maxCol: number } | null => {
+        let minCol = Infinity;
+        let maxCol = -Infinity;
+        effectiveSelection.forEach((cellId) => {
+            const { colIdx } = parseCellId(cellId);
+            if (!Number.isNaN(colIdx)) {
+                minCol = Math.min(minCol, colIdx);
+                maxCol = Math.max(maxCol, colIdx);
+            }
+        });
+        if (!Number.isFinite(minCol)) return null;
+        return { minCol, maxCol };
+    }, []);
+
+    const handleContextCopyWithHeaders = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one cell to copy.');
+            closeContextMenu();
+            return;
+        }
+        const matrix = buildSelectionMatrix({
+            selectedCells: effectiveSelection,
+            displayRows,
+            rowOrder,
+            editedCells,
+        });
+        if (matrix.length === 0) {
+            toast.info('No copyable cells in current selection.');
+            closeContextMenu();
+            return;
+        }
+        const colRange = getSelectionColumnRange(effectiveSelection);
+        const columns = result?.columns ?? [];
+        const headers = colRange ? columns.slice(colRange.minCol, colRange.maxCol + 1) : [];
+        void setClipboardText(matrixToTsv([headers, ...matrix]))
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, getSelectionColumnRange, result?.columns, rowOrder, toast]);
+
+    const handleContextCopyAsJson = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one cell to copy.');
+            closeContextMenu();
+            return;
+        }
+        const matrix = buildSelectionMatrix({
+            selectedCells: effectiveSelection,
+            displayRows,
+            rowOrder,
+            editedCells,
+        });
+        if (matrix.length === 0) {
+            toast.info('No copyable cells in current selection.');
+            closeContextMenu();
+            return;
+        }
+        const colRange = getSelectionColumnRange(effectiveSelection);
+        const columns = result?.columns ?? [];
+        const headers = colRange ? columns.slice(colRange.minCol, colRange.maxCol + 1) : [];
+        const jsonRows = matrix.map((row) => {
+            const obj: Record<string, string> = {};
+            headers.forEach((col, i) => { obj[col] = row[i] ?? ''; });
+            return obj;
+        });
+        void setClipboardText(JSON.stringify(jsonRows, null, 2))
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, getSelectionColumnRange, result?.columns, rowOrder, toast]);
+
     const handleContextPaste = React.useCallback(() => {
         if (!canMutateCells) {
             toast.error('Result is read-only. Paste is unavailable.');
@@ -877,8 +968,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
     const contextMenuPosition = React.useMemo(() => {
         if (!contextMenu || typeof window === 'undefined') return null;
-        const estimatedWidth = 164;
-        const estimatedHeight = 182;
+        const estimatedWidth = 180;
+        const estimatedHeight = 268;
         const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
         const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
         return {
@@ -1079,11 +1170,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <Button
                         type="button"
                         variant="ghost"
-                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
-                        disabled={!canMutateCells || !hasEditableCellSelection}
-                        onClick={handleContextSetNull}
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] text-foreground hover:bg-muted"
+                        onClick={handleContextCopyCellValue}
                     >
-                        Set NULL
+                        Copy Cell Value
                     </Button>
                     <Button
                         type="button"
@@ -1092,7 +1182,35 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         disabled={!hasEditableCellSelection}
                         onClick={handleContextCopy}
                     >
-                        Copy
+                        Copy (TSV)
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                        disabled={!hasEditableCellSelection}
+                        onClick={handleContextCopyWithHeaders}
+                    >
+                        Copy with Headers
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                        disabled={!hasEditableCellSelection}
+                        onClick={handleContextCopyAsJson}
+                    >
+                        Copy as JSON
+                    </Button>
+                    <div className="my-1 h-px bg-border/70" />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                        disabled={!canMutateCells || !hasEditableCellSelection}
+                        onClick={handleContextSetNull}
+                    >
+                        Set NULL
                     </Button>
                     <Button
                         type="button"
@@ -1111,7 +1229,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         disabled={!canMutateRows || !canDeleteRows}
                         onClick={handleContextDelete}
                     >
-                        Delete
+                        Delete Row
                     </Button>
                     <Button
                         type="button"
@@ -1120,7 +1238,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         disabled={!canMutateRows || !canDuplicateRows}
                         onClick={handleContextDuplicate}
                     >
-                        Duplicate
+                        Duplicate Row
                     </Button>
                 </div>
             )}

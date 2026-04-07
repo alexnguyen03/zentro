@@ -196,14 +196,24 @@ export function useResultTableInteractions({
         if (!displayRow) return;
 
         const nextValue = editValueRef.current;
+        const originalValue = displayRow.values[colIdx] ?? '';
         if (displayRow.kind === 'persisted') {
             setEditedCells((prev) => {
+                const key = `${displayRow.persistedIndex}:${colIdx}`;
+                if (nextValue === originalValue) {
+                    if (!prev.has(key)) return prev;
+                    const next = new Map(prev);
+                    next.delete(key);
+                    return next;
+                }
                 const next = new Map(prev);
-                next.set(`${displayRow.persistedIndex}:${colIdx}`, nextValue);
+                next.set(key, nextValue);
                 return next;
             });
         } else {
-            applyDraftRowValueChanges(setDraftRows, [{ rowKey: displayRow.key, colIdx, value: nextValue }]);
+            if (nextValue !== originalValue) {
+                applyDraftRowValueChanges(setDraftRows, [{ rowKey: displayRow.key, colIdx, value: nextValue }]);
+            }
         }
 
         const currentRowOrder = rowOrder.get(rowKey);

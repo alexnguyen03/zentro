@@ -109,6 +109,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
     const [indexTabActions, setIndexTabActions] = useState<TabAction[]>([]);
+    const [indexDirtyCount, setIndexDirtyCount] = useState(0);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const [fadeInContent, setFadeInContent] = useState(false);
@@ -665,10 +666,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, dirtyCount: columnsDirtyCount },
             { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, dirtyCount: dataDirtyCount },
             { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
-            { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} /> },
+            { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} />, dirtyCount: indexDirtyCount },
             { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} /> },
         ];
-    }, [columnsDirtyCount, dataDirtyCount, isCreateMode]);
+    }, [columnsDirtyCount, dataDirtyCount, indexDirtyCount, isCreateMode]);
 
     const handleSelectTableFromBreadcrumb = useCallback((nextTableName: string) => {
         const normalized = nextTableName.trim();
@@ -843,18 +844,20 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={handleErdCountChange} />
                 )}
 
-                {activeTab === 'indexes' && (
-                    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                        <IndexInfoView
-                            schema={schema}
-                            tableName={table}
-                            filterText={filterCol}
-                            refreshKey={infoRefreshKey}
-                            readOnlyMode={viewMode}
-                            onActionsChange={setIndexTabActions}
-                        />
-                    </div>
-                )}
+                {/* Always rendered to preserve batch-edit state across tab switches */}
+                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'indexes' ? 'flex' : 'hidden'}`}>
+                    <IndexInfoView
+                        schema={schema}
+                        tableName={table}
+                        filterText={filterCol}
+                        refreshKey={infoRefreshKey}
+                        readOnlyMode={viewMode}
+                        isActive={activeTab === 'indexes'}
+                        tableColumns={rows.map((r) => r.current.Name)}
+                        onActionsChange={setIndexTabActions}
+                        onDirtyCountChange={setIndexDirtyCount}
+                    />
+                </div>
 
                 {activeTab === 'ddl' && (
                     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
