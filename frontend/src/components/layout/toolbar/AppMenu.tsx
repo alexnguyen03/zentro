@@ -7,6 +7,7 @@ import { useUpdateCheck } from '../../../hooks/useUpdateCheck';
 import { useToast } from '../Toast';
 import { AppMenuItem, AppMenuSection, buildAppMenuSections } from './appMenuSections';
 import type { CommandId } from '../../../lib/shortcutRegistry';
+import { Button } from '../../ui';
 
 interface AppMenuProps {
     /** Logo element placed as the trigger button content */
@@ -179,9 +180,11 @@ export const AppMenu: React.FC<AppMenuProps> = ({
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div ref={menuRef} className="relative">
-            <button
+            <Button
                 type="button"
-                className={cn('flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative rounded-md', open && 'bg-bg-primary/60')}
+                variant="ghost"
+                size="icon"
+                className={cn('flex items-center justify-center w-6 h-6 mr-1 cursor-pointer hover:opacity-80 transition-opacity relative rounded-md', open && 'bg-background/60')}
                 title="Open app menu"
                 aria-haspopup="menu"
                 aria-expanded={open}
@@ -200,14 +203,14 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                 {hasUpdate && (
                     <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success rounded-full border border-bg-secondary animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                 )}
-            </button>
+            </Button>
 
             {open && (
                 <div className="absolute left-0 top-[calc(100%+6px)] z-toolbar">
                     {/* Section list */}
                     <div
                         ref={parentPanelRef}
-                        className="w-[190px] rounded-md bg-bg-secondary/95 shadow-2xl p-2"
+                        className="w-[190px] rounded-md bg-card/95 shadow-2xl p-2"
                         onMouseEnter={clearHideTimer}
                         onMouseLeave={scheduleHide}
                     >
@@ -215,21 +218,22 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                             {sections.map((section, sectionIndex) => {
                                 const isActive = sectionIndex === activeSectionIndex;
                                 return (
-                                    <button
+                                    <Button
                                         ref={(el) => { sectionButtonRefs.current[sectionIndex] = el; }}
                                         key={section.id}
                                         type="button"
+                                        variant="ghost"
                                         className={cn(
-                                            'cursor-pointer w-full flex items-center justify-between rounded-md px-2 py-1.5 text-[13px] transition-colors',
-                                            isActive ? 'bg-accent/12 text-text-primary' : 'text-text-secondary hover:bg-bg-secondary/80 hover:text-text-primary',
+                                            'h-auto w-full items-center justify-between rounded-md px-2 py-1.5 text-[13px] transition-colors',
+                                            isActive ? 'bg-accent/12 text-foreground' : 'text-muted-foreground hover:bg-card/80 hover:text-foreground',
                                         )}
                                         onMouseEnter={(e) => { clearHideTimer(); activateSection(sectionIndex, e.currentTarget); }}
                                         onFocus={(e) => activateSection(sectionIndex, e.currentTarget)}
                                         onClick={(e) => activateSection(sectionIndex, e.currentTarget)}
                                     >
                                         <span>{section.title}</span>
-                                        <ChevronRight size={12} className={cn(isActive ? 'text-accent' : 'text-text-muted')} />
-                                    </button>
+                                        <ChevronRight size={12} className={cn(isActive ? 'text-accent' : 'text-muted-foreground')} />
+                                    </Button>
                                 );
                             })}
                         </div>
@@ -238,7 +242,7 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                     {/* Submenu */}
                     {activeSection && (
                         <div
-                            className="absolute left-[194px] z-toolbar w-[320px] rounded-md bg-bg-secondary/95 shadow-2xl p-2"
+                            className="absolute left-[194px] z-toolbar w-[320px] rounded-md bg-card/95 shadow-2xl p-2"
                             style={{ top: submenuTop }}
                             onMouseEnter={clearHideTimer}
                             onMouseLeave={scheduleHide}
@@ -247,17 +251,18 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                                 {activeSection.items.map((item, itemIndex) => {
                                     const isHighlighted = itemIndex === highlightedIndex;
                                     return (
-                                        <button
+                                        <Button
                                             key={item.id}
                                             type="button"
+                                            variant="ghost"
                                             disabled={item.disabled}
                                             className={cn(
-                                                'cursor-pointer w-full flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors',
+                                                'h-auto w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors',
                                                 item.disabled
-                                                    ? 'opacity-45 cursor-not-allowed text-text-secondary'
+                                                    ? 'opacity-45 cursor-not-allowed text-muted-foreground'
                                                     : isHighlighted
-                                                        ? item.danger ? 'bg-error/15 text-error' : 'bg-accent/10 text-text-primary'
-                                                        : item.danger ? 'text-error/80 hover:bg-error/10 hover:text-error' : 'text-text-secondary hover:bg-bg-secondary/80 hover:text-text-primary',
+                                                        ? item.danger ? 'bg-error/15 text-error' : 'bg-accent/10 text-foreground'
+                                                        : item.danger ? 'text-error/80 hover:bg-error/10 hover:text-error' : 'text-muted-foreground hover:bg-card/80 hover:text-foreground',
                                             )}
                                             onMouseEnter={() => setHighlightedIndex(itemIndex)}
                                             onClick={() => selectItem(item)}
@@ -266,8 +271,8 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                                                 <span>{item.label}</span>
                                                 {item.hasBadge && <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />}
                                             </span>
-                                            {item.shortcut && <span className="text-[10px] font-mono text-text-muted">{item.shortcut}</span>}
-                                        </button>
+                                            {item.shortcut && <span className="text-[10px] font-mono text-muted-foreground">{item.shortcut}</span>}
+                                        </Button>
                                     );
                                 })}
                             </div>

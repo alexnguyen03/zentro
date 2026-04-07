@@ -139,6 +139,73 @@ export function applyClipboardPaste(params: {
     return { nextEdited, nextDraftRows, pastedCells };
 }
 
+function quoteIdent(name: string, driver: string | undefined): string {
+    if (driver === 'mysql') return `\`${name.replace(/`/g, '``')}\``;
+    if (driver === 'sqlserver') return `[${name.replace(/]/g, ']]')}]`;
+    return `"${name.replace(/"/g, '""')}"`;
+}
+
+function quoteLiteral(value: string): string {
+    if (value === '') return 'NULL';
+    return `'${value.replace(/'/g, "''")}'`;
+}
+
+export function buildRowsAsInsertStatements(params: {
+    selectedCells: Set<string>;
+    displayRows: DisplayRowLike[];
+    rowOrder: Map<string, number>;
+    editedCells: Map<string, string>;
+    columns: string[];
+    tableName: string;
+    driver: string | undefined;
+}): string {
+    const { columns, tableName, driver } = params;
+    const matrix = buildSelectionMatrix(params);
+    if (matrix.length === 0) return '';
+
+    const tbl = quoteIdent(tableName, driver);
+    const cols = columns.map((c) => quoteIdent(c, driver)).join(', ');
+    return matrix
+        .map((row) => {
+            const vals = row.map(quoteLiteral).join(', ');
+            return `INSERT INTO ${tbl} (${cols}) VALUES (${vals});`;
+        })
+        .join('\n');
+}
+
+export function buildRowAsUpdateStatement(params: {
+    selectedCells: Set<string>;
+    displayRows: DisplayRowLike[];
+    rowOrder: Map<string, number>;
+    editedCells: Map<string, string>;
+    columns: string[];
+    pkColumns: string[];
+    tableName: string;
+    driver: string | undefined;
+}): string {
+    const { columns, pkColumns, tableName, driver } = params;
+    const matrix = buildSelectionMatrix(params);
+    if (matrix.length === 0) return '';
+
+    const tbl = quoteIdent(tableName, driver);
+    return matrix
+        .map((row) => {
+            const setClauses = columns
+                .map((col, i) => `${quoteIdent(col, driver)} = ${quoteLiteral(row[i] ?? '')}`)
+                .join(',\n    ');
+            const whereClauses = pkColumns.length > 0
+                ? pkColumns
+                    .map((pkCol) => {
+                        const i = columns.indexOf(pkCol);
+                        return `${quoteIdent(pkCol, driver)} = ${quoteLiteral(i >= 0 ? (row[i] ?? '') : '')}`;
+                    })
+                    .join('\n    AND ')
+                : '/* add WHERE condition */';
+            return `UPDATE ${tbl}\nSET\n    ${setClauses}\nWHERE\n    ${whereClauses};`;
+        })
+        .join('\n\n');
+}
+
 export function applySetNullToSelection(params: {
     selectedCells: Set<string>;
     displayRowsByKey: Map<string, DisplayRowLike>;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
-import { FormField, SelectField } from '../../ui';
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
 
 export const SettingsRegion: React.FC = () => {
     return (
@@ -16,11 +16,18 @@ export const SettingsRegion: React.FC = () => {
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <FormField label="Preferred Language" hint="Zentro is currently optimized for English.">
-                    <SelectField disabled>
-                        <option value="en">English (United States)</option>
-                    </SelectField>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Preferred Language</Label>
+                    <Select value="en" disabled>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="en">English (United States)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Zentro is currently optimized for English.</p>
+                </div>
             </div>
         </div>
     );

@@ -3,8 +3,7 @@ import { Keyboard, RotateCcw, Search } from 'lucide-react';
 import { eventToKeyToken, getCommandRegistry, type CommandId } from '../../lib/shortcutRegistry';
 import { normalizeRuleBinding, type ShortcutRule } from '../../lib/shortcutRules';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { AlertModal, Button, SearchField } from '../ui';
-import { Modal } from './Modal';
+import { Button, Input, Modal } from '../ui';
 
 type ContextMenuState = {
     x: number;
@@ -92,7 +91,7 @@ const BindingCaptureModal: React.FC<{
                 <>
                     <Button variant="ghost" onClick={onCancel}>Cancel</Button>
                     <Button
-                        variant="primary"
+                        variant="default"
                         onClick={() => onConfirm(normalizeRuleBinding(binding))}
                         disabled={!binding.trim()}
                     >
@@ -102,31 +101,33 @@ const BindingCaptureModal: React.FC<{
             )}
         >
             <div className="space-y-3" data-shortcut-capture="true">
-                <p className="text-[13px] text-text-primary">
+                <p className="text-[13px] text-foreground">
                     Press desired key combination. Press <kbd className="font-mono text-[11px]">Enter</kbd> to confirm.
                 </p>
                 {!useTextInput ? (
                     <div
                         ref={captureRef}
                         tabIndex={0}
-                        className="h-11 rounded-md border border-border bg-bg-primary px-3 flex items-center justify-between outline-none focus:border-success"
+                        className="h-11 rounded-md border border-border bg-background px-3 flex items-center justify-between outline-none focus:border-success"
                         onKeyDown={handleCaptureKeyDown}
                         data-shortcut-capture="true"
                     >
-                        <span className="font-mono text-[12px] text-text-primary">
+                        <span className="font-mono text-[12px] text-foreground">
                             {binding || 'Press keys...'}
                         </span>
-                        <button
+                        <Button
                             type="button"
-                            className="text-[11px] text-text-muted hover:text-text-primary"
+                            variant="ghost"
+                            size="sm"
+                            className="text-[11px] text-muted-foreground hover:text-foreground"
                             onClick={() => setUseTextInput(true)}
                         >
                             Use text input
-                        </button>
+                        </Button>
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        <input
+                        <Input
                             autoFocus
                             value={binding}
                             onChange={(event) => setBinding(event.target.value)}
@@ -137,16 +138,18 @@ const BindingCaptureModal: React.FC<{
                                 }
                             }}
                             placeholder="Ctrl+K Ctrl+B"
-                            className="w-full h-10 rounded-md border border-border bg-bg-primary px-3 text-[12px] font-mono outline-none focus:border-success"
+                            className="h-10 w-full font-mono text-[12px]"
                             data-shortcut-capture="true"
                         />
-                        <button
+                        <Button
                             type="button"
-                            className="text-[11px] text-text-muted hover:text-text-primary"
+                            variant="ghost"
+                            size="sm"
+                            className="text-[11px] text-muted-foreground hover:text-foreground"
                             onClick={() => setUseTextInput(false)}
                         >
                             Back to key recording
-                        </button>
+                        </Button>
                     </div>
                 )}
             </div>
@@ -277,9 +280,9 @@ export const ShortcutsView: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-6">
-                <div className="flex items-center gap-3 text-text-primary">
+        <div className="flex flex-col h-full bg-background overflow-hidden">
+            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-background px-6">
+                <div className="flex items-center gap-3 text-foreground">
                     <div className="p-2 rounded-md bg-accent/5 text-accent">
                         <Keyboard size={18} />
                     </div>
@@ -287,18 +290,21 @@ export const ShortcutsView: React.FC = () => {
                 </div>
 
                 <div className="flex-1 flex justify-center max-w-2xl px-6">
-                    <SearchField
-                        ref={searchInputRef}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search commands, keybindings, when..."
-                        wrapperClassName="max-w-xl"
-                    />
+                    <div className="relative w-full max-w-xl">
+                        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            ref={searchInputRef}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search commands, keybindings, when..."
+                            className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                        />
+                    </div>
                 </div>
 
                 <Button
                     variant="ghost"
-                    size="md"
+                    size="default"
                     className="gap-2 font-bold text-[11px] tracking-widest uppercase"
                     onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                     title="Reset all shortcuts to default"
@@ -311,19 +317,19 @@ export const ShortcutsView: React.FC = () => {
             <div className="flex-1 overflow-auto p-5">
                 <div className="rounded-md border border-border/30 overflow-hidden">
                     <table className="w-full text-[12px] table-fixed">
-                        <thead className="bg-bg-secondary/70 border-b border-border/30">
+                        <thead className="bg-card/70 border-b border-border/30">
                             <tr>
-                                <th className="text-left px-3 py-2 font-semibold text-text-secondary w-[34%]">Command</th>
-                                <th className="text-left px-3 py-2 font-semibold text-text-secondary w-[22%]">Keybinding</th>
-                                <th className="text-left px-3 py-2 font-semibold text-text-secondary w-[30%]">When</th>
-                                <th className="text-left px-3 py-2 font-semibold text-text-secondary w-[14%]">Source</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[34%]">Command</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[22%]">Keybinding</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[30%]">When</th>
+                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[14%]">Source</th>
                             </tr>
                         </thead>
                         <tbody>
                             {rows.map((row) => (
                                 <tr
                                     key={row.rule.id}
-                                    className="border-b border-border/20 hover:bg-bg-secondary/30"
+                                    className="border-b border-border/20 hover:bg-card/30"
                                     onContextMenu={(event) => {
                                         event.preventDefault();
                                         setContextMenu({
@@ -335,21 +341,21 @@ export const ShortcutsView: React.FC = () => {
                                     }}
                                 >
                                     <td className="px-3 py-2">
-                                        <div className="truncate text-text-primary font-medium">{row.commandLabel}</div>
-                                        <div className="truncate text-[11px] text-text-muted">{row.commandId}</div>
+                                        <div className="truncate text-foreground font-medium">{row.commandLabel}</div>
+                                        <div className="truncate text-[11px] text-muted-foreground">{row.commandId}</div>
                                         {row.customized && (
                                             <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning">Customized</span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-2 text-text-primary">
-                                        <span className="font-mono text-[11px] rounded border border-border bg-bg-secondary px-1.5 py-0.5">
+                                    <td className="px-3 py-2 text-foreground">
+                                        <span className="font-mono text-[11px] rounded border border-border bg-card px-1.5 py-0.5">
                                             {row.rule.binding || '-'}
                                         </span>
                                     </td>
-                                    <td className="px-3 py-2 text-text-secondary font-mono text-[11px] truncate">
+                                    <td className="px-3 py-2 text-muted-foreground font-mono text-[11px] truncate">
                                         {row.rule.when || '-'}
                                     </td>
-                                    <td className="px-3 py-2 text-text-secondary">{row.source}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{row.source}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -357,7 +363,7 @@ export const ShortcutsView: React.FC = () => {
                 </div>
 
                 {rows.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-24 text-text-muted/40">
+                    <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
                         <Search size={42} strokeWidth={1} className="mb-4 opacity-20" />
                         <p className="text-[14px] font-medium">No shortcuts match "{searchQuery}"</p>
                     </div>
@@ -366,18 +372,19 @@ export const ShortcutsView: React.FC = () => {
 
             {contextMenu && (
                 <div
-                    className="fixed z-modal bg-bg-secondary border border-border rounded-md shadow-elevation-lg min-w-[220px] py-1"
+                    className="fixed z-modal bg-card border border-border rounded-md shadow-elevation-lg min-w-[220px] py-1"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <button className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary" onClick={() => copyText(contextMenu.rule.binding)}>Copy</button>
-                    <button className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary" onClick={() => copyText(contextMenu.rule.commandId)}>Copy Command ID</button>
-                    <button className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary" onClick={() => copyText(contextMenu.commandLabel)}>Copy Command Title</button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => copyText(contextMenu.rule.binding)}>Copy</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => copyText(contextMenu.rule.commandId)}>Copy Command ID</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => copyText(contextMenu.commandLabel)}>Copy Command Title</Button>
                     <div className="h-px bg-border/40 my-1" />
-                    <button className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary" onClick={() => openChangeBinding(contextMenu.rule, contextMenu.commandLabel)}>Change Keybinding...</button>
-                    <button className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary" onClick={() => openAddBinding(contextMenu.rule, contextMenu.commandLabel)}>Add Keybinding...</button>
-                    <button
-                        className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary disabled:opacity-40 disabled:cursor-not-allowed"
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => openChangeBinding(contextMenu.rule, contextMenu.commandLabel)}>Change Keybinding...</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => openAddBinding(contextMenu.rule, contextMenu.commandLabel)}>Add Keybinding...</Button>
+                    <Button
+                        variant="ghost"
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed"
                         onClick={() => {
                             void removeRule(contextMenu.rule.id);
                             setContextMenu(null);
@@ -385,16 +392,17 @@ export const ShortcutsView: React.FC = () => {
                         disabled={contextMenu.rule.source !== 'user'}
                     >
                         Remove Keybinding
-                    </button>
-                    <button
-                        className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-bg-tertiary"
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
                         onClick={() => {
                             void restoreBinding(contextMenu.rule.commandId);
                             setContextMenu(null);
                         }}
                     >
                         Reset Keybinding
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -406,12 +414,20 @@ export const ShortcutsView: React.FC = () => {
                 onConfirm={(binding) => { void handleConfirmBinding(binding); }}
             />
 
-            <AlertModal
+            <Modal
                 isOpen={Boolean(conflictMessage)}
-                title="Shortcut Conflict"
-                message={conflictMessage}
                 onClose={() => setConflictMessage('')}
-            />
+                title="Shortcut Conflict"
+                width={420}
+                layer="confirm"
+                footer={(
+                    <Button variant="default" autoFocus onClick={() => setConflictMessage('')} className="px-4">
+                        OK
+                    </Button>
+                )}
+            >
+                <p className="text-[13px] leading-relaxed text-foreground">{conflictMessage}</p>
+            </Modal>
         </div>
     );
 };

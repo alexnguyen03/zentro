@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, Check, CircleAlert, Download } from 'lucide-react';
-import { ConfirmationModal, ModalBackdrop, ModalFrame, Button, Spinner, Tooltip } from '../ui';
+import { ConfirmationModal, Button, OverlayDialog, Spinner, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -16,7 +16,8 @@ import { useConnectionForm } from '../../hooks/useConnectionForm';
 import { ConnectionForm } from '../connection/ConnectionForm';
 import { ProviderGrid } from '../connection/ProviderGrid';
 import { ProviderPickerToolbar } from '../connection/ProviderPickerToolbar';
-import { DatabaseTreePicker } from '../ui/DatabaseTreePicker';
+import { DatabaseTreePicker } from '../connection/DatabaseTreePicker';
+import { PanelFrame } from './PanelFrame';
 
 interface EnvironmentSwitcherModalProps {
     onClose: () => void;
@@ -249,7 +250,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
     const applyDisabled = saving || mode === 'add';
 
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
+        <OverlayDialog onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
             <ConfirmationModal
                 isOpen={Boolean(pendingDeleteProfile)}
                 onClose={() => {
@@ -263,9 +264,9 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 message={`Delete "${pendingDeleteProfile?.name || ''}"?`}
                 description="This action removes the saved connection profile."
                 confirmLabel={deletingConnectionName ? 'Deleting...' : 'Delete'}
-                variant="danger"
+                variant="destructive"
             />
-            <ModalFrame
+            <PanelFrame
                 title={activeProject.name}
                 subtitle="Project"
                 onClose={onClose}
@@ -288,7 +289,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             {exporting ? <Spinner size={13} /> : <Download size={14} />}
                         </Button>
                         <Button
-                            variant="primary"
+                            variant="default"
                             onClick={() => void handleApply()}
                             disabled={applyDisabled}
                             className="rounded-md"
@@ -305,57 +306,57 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 )}
             >
                 <div className="grid h-full min-h-0 md:grid-cols-[228px_1fr]">
-                    <section className="min-h-0 overflow-y-auto border-r border-border/20 bg-bg-primary/30 px-3 py-3">
+                    <section className="min-h-0 overflow-y-auto border-r border-border/20 bg-background/30 px-3 py-3">
                         <div className="space-y-3">
-                            {ENVIRONMENT_KEYS.map((environmentKey) => {
-                                const meta = getEnvironmentMeta(environmentKey);
-                                const isSelected = selectedEnvironmentKey === environmentKey;
-                                const hasBinding = Boolean(
-                                    activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
-                                );
+                            <TooltipProvider delayDuration={120}>
+                                {ENVIRONMENT_KEYS.map((environmentKey) => {
+                                    const meta = getEnvironmentMeta(environmentKey);
+                                    const isSelected = selectedEnvironmentKey === environmentKey;
+                                    const hasBinding = Boolean(
+                                        activeProject.connections?.find((connection) => connection.environment_key === environmentKey),
+                                    );
 
-                                return (
-                                    <button
-                                        key={environmentKey}
-                                        type="button"
-                                        onClick={() => setSelectedEnvironmentKey(environmentKey)}
-                                        className={cn(
-                                            'w-full cursor-pointer rounded-md border px-3 py-3 text-left transition-colors',
-                                            isSelected
-                                                ? 'border-accent/40 bg-accent/8'
-                                                : 'border-border/25 bg-bg-primary/20 hover:bg-bg-primary/40',
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="min-w-0 flex items-center gap-2">
-                                                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
-                                                    {environmentKey}
-                                                </span>
-                                                <span className="text-[13px] font-semibold text-text-primary">{meta.label}</span>
-                                            </div>
-                                            {hasBinding ? (
-                                                <Tooltip content="Bound">
-                                                    <span className="inline-flex items-center text-accent">
-                                                        <Check size={14} />
-                                                    </span>
-                                                </Tooltip>
-                                            ) : (
-                                                <Tooltip content="Need binding">
-                                                    <span className="inline-flex items-center text-text-secondary">
-                                                        <CircleAlert size={14} />
-                                                    </span>
-                                                </Tooltip>
+                                    return (
+                                        <Button
+                                            key={environmentKey}
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setSelectedEnvironmentKey(environmentKey)}
+                                            className={cn(
+                                                'h-auto w-full justify-start rounded-md border px-3 py-3 text-left transition-colors',
+                                                isSelected
+                                                    ? 'border-accent/40 bg-accent/8'
+                                                    : 'border-border/25 bg-background/20 hover:bg-background/40',
                                             )}
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                                        >
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="min-w-0 flex items-center gap-2">
+                                                    <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
+                                                        {environmentKey}
+                                                    </span>
+                                                    <span className="text-[13px] font-semibold text-foreground">{meta.label}</span>
+                                                </div>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className={cn('inline-flex items-center', hasBinding ? 'text-accent' : 'text-muted-foreground')}>
+                                                            {hasBinding ? <Check size={14} /> : <CircleAlert size={14} />}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        {hasBinding ? 'Bound' : 'Need binding'}
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </div>
+                                        </Button>
+                                    );
+                                })}
+                            </TooltipProvider>
                         </div>
                     </section>
 
                     <section className="min-h-0 px-3 py-2.5">
                         {mode === 'choose' ? (
-                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-md bg-bg-primary/20">
+                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-md bg-background/20">
                                 <div className="min-h-0 px-2.5 py-2">
                                     <DatabaseTreePicker
                                         onSelect={handleSelectFromTree}
@@ -394,7 +395,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 />
 
                                 {isSelectingProvider ? (
-                                    <div className="h-full min-h-0 rounded-md bg-bg-primary/15 p-2">
+                                    <div className="h-full min-h-0 rounded-md bg-background/15 p-2">
                                         <ProviderGrid
                                             selected={form.selectedProvider}
                                             locked={form.isEditing}
@@ -435,8 +436,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                         )}
                     </section>
                 </div>
-            </ModalFrame>
-        </ModalBackdrop>
+            </PanelFrame>
+        </OverlayDialog>
     );
 };
-

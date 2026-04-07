@@ -4,6 +4,7 @@ import { Copy, Check } from 'lucide-react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { setClipboardText } from '../../services/clipboardService';
+import { Button } from '../ui';
 
 interface JsonViewerProps {
     value: string;
@@ -51,13 +52,16 @@ const SimpleJsonView: React.FC<{ value: string; showCopy?: boolean }> = ({ value
     return (
         <div className="simple-json-view">
             {showCopy && (
-                <button 
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     className="json-copy-btn" 
                     onClick={handleCopy}
                     title="Copy JSON"
                 >
                     {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-                </button>
+                </Button>
             )}
             <pre className="simple-json-content">{value}</pre>
         </div>
@@ -104,13 +108,16 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', s
         <div className={`json-viewer ${className}`} style={{ height }}>
             {showCopy && (
                 <div className="json-toolbar">
-                    <button 
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         className="json-copy-btn" 
                         onClick={handleCopy}
                         title="Copy JSON"
                     >
                         {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
-                    </button>
+                    </Button>
                 </div>
             )}
             <div className="json-content" style={{ height: showCopy ? 'calc(100% - 32px)' : '100%' }}>

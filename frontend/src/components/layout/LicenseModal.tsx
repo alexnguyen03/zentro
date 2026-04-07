@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ModalBackdrop, ModalFrame } from '../ui';
+import { Modal } from '../ui';
 import { getLicenseState } from '../../features/license/service';
 import { FeatureGate } from '../../features/license/featureGate';
 import type { LicenseState } from '../../features/license/types';
@@ -49,28 +49,30 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
     }, []);
 
     return (
-        <ModalBackdrop onClose={onClose} contentClassName="flex w-full items-center justify-center p-3">
-            <ModalFrame
-                title="License"
-                subtitle="MIT License"
-                onClose={onClose}
-                className="w-[720px] max-w-[calc(100vw-32px)] max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
-                headerClassName="px-6 py-4"
-                titleClassName="m-0 text-[16px] font-bold"
-                subtitleClassName="text-[11px] text-text-secondary"
-                bodyClassName="min-h-0 overflow-y-auto px-5 py-4"
-            >
+        <Modal
+            isOpen
+            onClose={onClose}
+            title={(
+                <div className="flex flex-col">
+                    <span className="text-[16px] font-bold">License</span>
+                    <span className="text-[11px] text-muted-foreground">MIT License</span>
+                </div>
+            )}
+            width={720}
+            className="max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
+        >
+            <div className="min-h-0 overflow-y-auto px-1 py-1">
                 <div className="text-left">
                     {licenseState && (
-                        <div className="mb-3 rounded-md border border-border/30 bg-bg-primary/30 p-3 text-[11px] text-text-secondary">
-                            <div>Status: <span className="font-semibold text-text-primary">{licenseState.status}</span></div>
+                        <div className="mb-3 rounded-md border border-border/30 bg-background/30 p-3 text-[11px] text-muted-foreground">
+                            <div>Status: <span className="font-semibold text-foreground">{licenseState.status}</span></div>
                             <div>
                                 Plugin Commands: {new FeatureGate(licenseState).canUse('plugin.ui.commands') ? 'Enabled' : 'Disabled'}
                             </div>
                         </div>
                     )}
                     {isLoading && (
-                        <div className="text-[12px] text-text-secondary">Loading license...</div>
+                        <div className="text-[12px] text-muted-foreground">Loading license...</div>
                     )}
                     {!isLoading && error && (
                         <div className="text-[12px] text-error">
@@ -78,12 +80,12 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                         </div>
                     )}
                     {!isLoading && !error && (
-                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-text-secondary font-mono bg-bg-primary/40 rounded-md border border-border/20 p-4">
+                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-muted-foreground font-mono bg-background/40 rounded-md border border-border/20 p-4">
                             {licenseText}
                         </pre>
                     )}
                 </div>
-            </ModalFrame>
-        </ModalBackdrop>
+            </div>
+        </Modal>
     );
 };

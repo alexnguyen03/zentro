@@ -6,6 +6,7 @@ export const STORAGE_KEY = {
     EDITOR_SESSION: 'zentro:editor-session-v4',
     PROJECT_STORE: 'zentro:project-store-v2',
     LAYOUT_STORE: 'zentro:layout-store-v2',
+    SIDEBAR_UI: 'zentro:sidebar-ui-v1',
     CONNECTION_TREE_UI: 'zentro:connection-tree-ui-v1',
     DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version-v2',
     TELEMETRY_CONSENT: 'zentro:telemetry-consent:v2',

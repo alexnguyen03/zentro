@@ -116,16 +116,22 @@ class InlineTableNavigationWidget implements MonacoEditor.IContentWidget {
 
         const header = document.createElement('div');
         header.className = 'zentro-table-nav-widget__header';
-        header.textContent = 'Chon table';
+        header.textContent = 'Choose table';
         this.domNode.appendChild(header);
 
         const list = document.createElement('div');
         list.className = 'zentro-table-nav-widget__list';
+        list.setAttribute('role', 'listbox');
+        list.setAttribute('aria-label', 'Table list');
+        list.setAttribute('tabindex', '-1');
 
         this.matches.forEach((match, index) => {
             const button = document.createElement('button');
             button.type = 'button';
+            button.id = `zentro-table-nav-option-${index}`;
             button.className = 'zentro-table-nav-widget__item';
+            button.setAttribute('role', 'option');
+            button.setAttribute('aria-selected', index === this.selectedIndex ? 'true' : 'false');
             if (index === this.selectedIndex) {
                 button.classList.add('is-active');
             }
@@ -141,6 +147,9 @@ class InlineTableNavigationWidget implements MonacoEditor.IContentWidget {
             });
             list.appendChild(button);
         });
+
+        const activeOptionId = `zentro-table-nav-option-${this.selectedIndex}`;
+        list.setAttribute('aria-activedescendant', activeOptionId);
 
         this.domNode.appendChild(list);
     }
@@ -517,6 +526,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     addTabRef.current = addTab;
     const navWidgetRef = useRef<InlineTableNavigationWidget | null>(null);
     const quickViewWidgetRef = useRef<InlineObjectQuickViewWidget | null>(null);
+    const definitionProviderRef = useRef<{ dispose: () => void } | null>(null);
 
     const applyBookmarkDecorations = useCallback(() => {
         const editor = editorRef.current;
@@ -666,6 +676,25 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         registerSqlCompletionSchemaContextCommand(monacoInstance);
         registerContextAwareSQLCompletion(monacoInstance);
         registerSqlFolding(monacoInstance);
+
+        // Register F12 / Go To Definition provider (stored in ref for cleanup)
+        definitionProviderRef.current?.dispose();
+        definitionProviderRef.current = monacoInstance.languages.registerDefinitionProvider('sql', {
+            provideDefinition(model, position) {
+                const profile = activeProfileRef.current;
+                const profileName = profile?.name || '';
+                const dbName = profile?.db_name || '';
+                if (!profileName || !dbName) return null;
+                const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
+                const navigation = resolveTableNavigationAtPosition(model, position, schemas);
+                if (navigation.kind === 'not_found') return null;
+                // Unwrap the match and trigger openDefinition as a side-effect
+                const target = navigation.kind === 'single_match' ? navigation.match : navigation.matches[0];
+                if (target) setTimeout(() => openDefinition(target), 0);
+                // Return null — Monaco won't show "no definition found" for null
+                return null;
+            },
+        });
 
         // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
         // because Monaco's abstraction sometimes fails to capture in specific environments
@@ -904,6 +933,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             offToggle();
             offNext();
             offJump();
+            definitionProviderRef.current?.dispose();
+            definitionProviderRef.current = null;
         };
     }, [activeProfile?.driver, activeProfile?.name, nextLine, onChange, resolveRunnableQueryTarget, tabId, toggleLine]);
 

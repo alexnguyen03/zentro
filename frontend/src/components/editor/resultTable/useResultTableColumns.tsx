@@ -11,6 +11,7 @@ import {
     toDatetimeLocalValue,
 } from './cellUtils';
 import { DataColumnMeta, TableMeta } from './types';
+import { Input } from '../../ui';
 
 interface UseResultTableColumnsArgs {
     dataColumns: DataColumnMeta[];
@@ -45,7 +46,7 @@ export function useResultTableColumns({
                 >
                     {isEditable
                         ? <Unlock size={10} className="text-success" />
-                        : <Lock size={10} className="text-text-muted" />}
+                        : <Lock size={10} className="text-muted-foreground" />}
                 </div>
             ),
             enableSorting: false,
@@ -92,7 +93,7 @@ export function useResultTableColumns({
                 if (isEditing) {
                     const dtLike = isDatetimeLike(baseValue || value);
                     return (
-                        <input
+                        <Input
                             autoFocus
                             className="rt-cell-input"
                             type={dtLike ? 'datetime-local' : 'text'}

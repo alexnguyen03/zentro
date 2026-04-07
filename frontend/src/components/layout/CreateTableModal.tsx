@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Save, Table2 } from 'lucide-react';
-import { Modal } from '../layout/Modal';
-import { Button } from '../ui';
+import { Button, Checkbox, Input, Modal, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
 import { CreateTable } from '../../services/schemaService';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -137,7 +136,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         <Button variant="ghost" onClick={onClose}>
                             Cancel
                         </Button>
-                        <Button variant="primary" onClick={handleSubmit} disabled={loading || viewMode}>
+                        <Button variant="default" onClick={handleSubmit} disabled={loading || viewMode}>
                             <Save size={14} className="mr-1.5" />
                             {loading ? 'Creating...' : 'Create'}
                         </Button>
@@ -146,20 +145,20 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
             >
                 <div className="space-y-4">
                 <div>
-                    <label className="block text-xs font-medium text-text-secondary mb-1">Table Name</label>
-                    <input
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Table Name</label>
+                    <Input
                         type="text"
                         value={tableName}
                         onChange={(e) => setTableName(e.target.value)}
                         placeholder="Enter table name"
                         disabled={viewMode}
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                        className="h-9 w-full bg-background text-[13px]"
                     />
                 </div>
 
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-medium text-text-secondary">Columns</label>
+                        <label className="text-xs font-medium text-muted-foreground">Columns</label>
                         <Button variant="ghost" size="sm" onClick={handleAddColumn} disabled={viewMode}>
                             <Plus size={14} className="mr-1" />
                             Add Column
@@ -168,54 +167,59 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
 
                     <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                         {columns.map((col, idx) => (
-                            <div key={idx} className="flex items-center gap-2 bg-bg-primary p-2 rounded-md border border-border">
-                                <input
+                            <div key={idx} className="flex items-center gap-2 bg-background p-2 rounded-md border border-border">
+                                <Input
                                     type="text"
                                     value={col.Name}
                                     onChange={(e) => handleColumnChange(idx, 'Name', e.target.value)}
                                     placeholder="Column name"
                                     disabled={viewMode}
-                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[100px]"
+                                    className="h-8 min-w-[100px] flex-1 bg-card px-2 py-1 text-[12px]"
                                 />
-                                <select
+                                <Select
                                     value={col.DataType}
-                                    onChange={(e) => handleColumnChange(idx, 'DataType', e.target.value)}
-                                    disabled={viewMode}
-                                    className="flex-1 bg-bg-secondary border border-border text-text-primary text-[12px] px-2 py-1 rounded-md outline-none focus:border-accent min-w-[120px]"
+                                    onValueChange={(value) => handleColumnChange(idx, 'DataType', value)}
                                 >
-                                    {DATA_TYPES.map(dt => (
-                                        <option key={dt} value={dt}>{dt}</option>
-                                    ))}
-                                </select>
-                                <label className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap">
-                                    <input
-                                        type="checkbox"
-                                        checked={col.IsNullable}
-                                        onChange={(e) => handleColumnChange(idx, 'IsNullable', e.target.checked)}
+                                    <SelectTrigger
                                         disabled={viewMode}
-                                        className="rounded-md"
+                                        className="min-w-[120px] flex-1 bg-card px-2 py-1 text-[12px]"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {DATA_TYPES.map((dt) => (
+                                            <SelectItem key={dt} value={dt}>{dt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <label className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                                    <Checkbox
+                                        checked={col.IsNullable}
+                                        onCheckedChange={(checked) => handleColumnChange(idx, 'IsNullable', checked === true)}
+                                        disabled={viewMode}
                                     />
                                     Null
                                 </label>
-                                <label className="flex items-center gap-1 text-[11px] text-text-secondary whitespace-nowrap">
-                                    <input
-                                        type="checkbox"
+                                <label className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                                    <Checkbox
                                         checked={col.IsPrimaryKey}
-                                        onChange={(e) => handleColumnChange(idx, 'IsPrimaryKey', e.target.checked)}
+                                        onCheckedChange={(checked) => handleColumnChange(idx, 'IsPrimaryKey', checked === true)}
                                         disabled={viewMode}
-                                        className="rounded-md"
                                     />
                                     PK
                                 </label>
                                 {columns.length > 1 && (
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => handleRemoveColumn(idx)}
                                         disabled={viewMode}
-                                        className="text-text-secondary hover:text-error p-1"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive p-1"
                                         title="Remove column"
                                     >
                                         <Trash2 size={14} />
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         ))}
@@ -227,4 +231,3 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
         </>
     );
 };
-

@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Download, Eye, File, Image as ImageIcon } from 'lucide-react';
+﻿import React, { useState, useMemo } from 'react';
+import { Download, File, Image as ImageIcon, X } from 'lucide-react';
+import { Button } from '../ui';
 
 interface BlobViewerProps {
     value: string;
@@ -13,20 +14,20 @@ const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'imag
 const detectImageType = (value: string, columnType?: string): boolean => {
     const lowerType = columnType?.toLowerCase() || '';
     const lowerVal = value.toLowerCase().trim();
-    
-    if (IMAGE_MIMES.some(m => lowerType.includes(m))) return true;
+
+    if (IMAGE_MIMES.some((mime) => lowerType.includes(mime))) return true;
     if (lowerType.includes('bytea') || lowerType.includes('blob') || lowerType.includes('binary')) {
         const base64Match = value.match(/^data:([^;]+);base64,/);
-        if (base64Match && IMAGE_MIMES.some(m => base64Match[1].includes(m.split('/')[1]))) {
+        if (base64Match && IMAGE_MIMES.some((mime) => base64Match[1].includes(mime.split('/')[1]))) {
             return true;
         }
     }
-    
+
     if (value.length > 8 && !value.includes(' ') && !value.includes('\n')) {
         const ext = lowerVal.split('.').pop();
         if (ext && IMAGE_EXTENSIONS.includes(ext)) return true;
     }
-    
+
     return false;
 };
 
@@ -47,7 +48,7 @@ const formatBytes = (bytes: number): string => {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
 interface ImagePreviewProps {
@@ -78,25 +79,33 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ value, onDownload }) => {
 
     return (
         <div className="blob-image-container">
-            <div 
-                className="blob-image-wrapper"
+            <Button
+                type="button"
+                variant="ghost"
+                className="blob-image-wrapper h-auto w-auto p-0 hover:bg-transparent"
                 onClick={() => setShowFull(true)}
             >
-                <img 
-                    src={src} 
-                    alt="Preview" 
+                <img
+                    src={src}
+                    alt="Preview"
                     className="blob-image-preview"
                     onError={() => setError(true)}
                 />
-            </div>
-            <button 
-                className="blob-download-btn" 
-                onClick={(e) => { e.stopPropagation(); onDownload(); }}
+            </Button>
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="blob-download-btn"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onDownload();
+                }}
                 title="Download"
             >
                 <Download size={12} />
-            </button>
-            
+            </Button>
+
             {showFull && (
                 <div className="blob-image-modal" onClick={() => setShowFull(false)}>
                     <img src={src} alt="Full size" className="blob-image-full" />
@@ -135,21 +144,26 @@ export const BlobViewer: React.FC<BlobViewerProps> = ({ value, columnType, class
     if (isImage) {
         return (
             <div className={`blob-viewer ${className}`}>
-                <button 
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     className="blob-preview-btn"
                     onClick={() => setShowPreview(true)}
                     title="Preview image"
                 >
                     <ImageIcon size={14} />
                     <span>{formatBytes(byteSize)}</span>
-                </button>
-                
+                </Button>
+
                 {showPreview && (
                     <div className="blob-modal-overlay" onClick={() => setShowPreview(false)}>
-                        <div className="blob-modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="blob-modal-content" onClick={(event) => event.stopPropagation()}>
                             <div className="blob-modal-header">
                                 <span>Image Preview</span>
-                                <button onClick={() => setShowPreview(false)}>×</button>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => setShowPreview(false)} title="Close preview">
+                                    <X size={14} />
+                                </Button>
                             </div>
                             <ImagePreview value={value} onDownload={handleDownload} />
                         </div>
@@ -165,13 +179,16 @@ export const BlobViewer: React.FC<BlobViewerProps> = ({ value, columnType, class
                 <File size={14} />
                 <span>{formatBytes(byteSize)}</span>
             </div>
-            <button 
-                className="blob-download-btn" 
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="blob-download-btn"
                 onClick={handleDownload}
                 title="Download binary data"
             >
                 <Download size={12} />
-            </button>
+            </Button>
         </div>
     );
 };

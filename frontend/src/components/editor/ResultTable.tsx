@@ -41,6 +41,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     onHeaderFilterRun,
     onViewStatsChange,
     onCellContextMenu,
+    columnVisibility: externalColumnVisibility,
+    onColumnVisibilityChange: externalSetColumnVisibility,
 }) => {
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
@@ -117,6 +119,9 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         emitSaveShortcut: interactions.emitSaveShortcut,
     });
 
+    const activeColumnVisibility = externalColumnVisibility ?? columnState.columnVisibility;
+    const activeSetColumnVisibility = externalSetColumnVisibility ?? columnState.setColumnVisibility;
+
     const table = useReactTable<DisplayRow>({
         data: dataModel.tableData,
         columns: tableColumns,
@@ -124,10 +129,12 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             sorting: dataModel.sorting,
             columnOrder: columnState.tableColumnOrder,
             columnSizing: columnState.columnSizing,
+            columnVisibility: activeColumnVisibility,
         },
         meta: interactions.tableMeta,
         onSortingChange: dataModel.canSortClientSide ? dataModel.setSorting : undefined,
         onColumnSizingChange: columnState.setColumnSizing,
+        onColumnVisibilityChange: activeSetColumnVisibility,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: dataModel.shouldUseDeferredSort ? undefined : getSortedRowModel(),
         enableSorting: dataModel.canSortClientSide,

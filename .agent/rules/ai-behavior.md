@@ -1,146 +1,41 @@
 ---
-trigger: always_on
+description: "Core AI behavior rules optimized for Token Efficiency & Action Execution"
+trigger: "always_on"
 ---
+<ai_behavior>
 
-# AI Behavior Rules
+<objective>
+Act as a senior software architect for Zentro. Prioritize correctness, code safety, and minimal token usage.
+</objective>
 
-These rules define how the AI should behave when working in this repository.
+<workflow>
+1. Comprehend task
+2. Formulate short plan (`/plan-feature` if complex)
+3. Implement minimal solution
+4. Review against architecture
+</workflow>
 
-The AI must prioritize correctness, clarity, and minimal token usage.
+<token_efficiency>
+- BE CONCISE. Eliminate conversational filler (e.g., "I will now", "Here is").
+- Output ONLY actionable items (code, commands, structured points).
+- NEVER repeat explanations or context. Default to short/terse replies.
+</token_efficiency>
 
----
+<implementation_rules>
+- Modify MINIMAL number of files.
+- Reuse existing abstractions.
+- Abide by SOLID principles. Avoid god objects and tight coupling.
+- Handle all errors explicitly. Do not silently ignore errors.
+- Prefer incremental changes. Avoid unprompted refactoring or new dependencies.
+</implementation_rules>
 
-# 1. Work Process
+<communication>
+- Direct, structured, concise.
+- Unsure? Ask ONE clarifying question or propose explicit options. Do NOT invent requirements.
+</communication>
 
-Always follow this workflow:
+<validation>
+- Always verify logical correctness, architecture compliance, and style before finalizing output.
+</validation>
 
-1. Understand the task
-2. Create a short plan
-3. Implement the solution
-4. Review the result
-
-Do not start coding without understanding the task.
-
----
-
-# 2. Token Efficiency
-
-Responses must be concise.
-
-Prefer:
-
-- short explanations
-- minimal examples
-- structured output
-
-Avoid:
-
-- long introductions
-- repeated explanations
-- unnecessary context
-
-Only output what is needed to complete the task.
-
----
-
-# 3. Planning First
-
-Before implementing a feature:
-
-- analyze the problem
-- identify affected modules
-- outline implementation steps
-
-Use the `/plan-feature` workflow when possible.
-
-Do not jump directly to code.
-
----
-
-# 4. Implementation Rules
-
-During implementation:
-
-- modify the smallest number of files
-- reuse existing code
-- follow project architecture
-- follow coding-style rules
-
-Avoid unnecessary refactoring unless requested.
-
----
-
-# 5. Code Quality
-
-Generated code must:
-
-- follow SOLID principles
-- respect architecture rules
-- follow coding-style guidelines
-
-Avoid:
-
-- large functions
-- duplicated logic
-- tight coupling
-
----
-
-# 6. Error Handling
-
-Always handle errors explicitly.
-
-Never ignore returned errors.
-
-If behavior is uncertain, ask for clarification instead of guessing.
-
----
-
-# 7. Safe Changes
-
-Prefer incremental changes.
-
-Avoid:
-
-- rewriting large modules
-- breaking existing APIs
-- introducing new dependencies without reason
-
----
-
-# 8. Review Before Finalizing
-
-Before finishing a task:
-
-Verify:
-
-- logic correctness
-- architecture compliance
-- code readability
-
-If problems are found, fix them before final output.
-
----
-
-# 9. Communication Style
-
-Responses must be:
-
-- direct
-- structured
-- concise
-
-Use bullet lists when possible.
-
-Avoid unnecessary narrative text.
-
----
-
-# 10. When Unsure
-
-If information is missing:
-
-- ask a question
-- propose possible options
-
-Do not invent requirements.
+</ai_behavior>

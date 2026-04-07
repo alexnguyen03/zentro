@@ -7,7 +7,6 @@ import {
     PanelLeft,
     PanelBottom,
     PanelRight,
-    Layers3,
     SlidersHorizontal,
     Server,
     Database,
@@ -38,6 +37,7 @@ import { emitCommand, onCommand } from '../../lib/commandBus';
 import { WindowControls } from './toolbar/WindowControls';
 import { AppMenu } from './toolbar/AppMenu';
 import { Reconnect } from '../../services/connectionService';
+import { PROJECT_ICON_MAP, getProjectIconKey } from './projectHubMeta';
 
 export const Toolbar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
@@ -73,6 +73,8 @@ export const Toolbar: React.FC = () => {
 
     const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
     const databaseLabel = activeProfile?.db_name || 'No database';
+    const activeProjectIconKey = getProjectIconKey(activeProject);
+    const ActiveProjectIcon = PROJECT_ICON_MAP[activeProjectIconKey].icon;
     const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
     const envToolbarTone = useMemo(() => {
@@ -258,8 +260,20 @@ export const Toolbar: React.FC = () => {
         }
     };
 
+    const handleToolbarDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        const target = event.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest('button, a, input, textarea, select, [role="button"], [data-no-window-dblclick="true"]')) {
+            return;
+        }
+        WindowToggleMaximise();
+    };
+
     return (
-        <div className="h-8 grid grid-cols-10 items-center flex-shrink-0 px-3 gap-2 bg-bg-secondary border-b border-border">
+        <div
+            className="h-10 grid grid-cols-10 items-center shrink-0 px-3 gap-2 border-b border-border"
+            onDoubleClick={handleToolbarDoubleClick}
+        >
             {/* Left: 3/10 */}
             <div
                 className="col-span-3 min-w-0 flex items-center"
@@ -314,9 +328,9 @@ export const Toolbar: React.FC = () => {
                     <div
                         ref={quickEnvRef}
                         className={cn(
-                            'relative flex items-stretch w-full rounded-full text-xs font-medium text-text-secondary select-none transition-all duration-200',
+                            'relative flex items-stretch w-full rounded-full text-xs font-medium text-muted-foreground select-none transition-all duration-200',
                             envToolbarTone.base,
-                            (quickEnvOpen || environmentSwitcherOpen) && cn(envToolbarTone.active, 'text-text-primary'),
+                            (quickEnvOpen || environmentSwitcherOpen) && cn(envToolbarTone.active, 'text-foreground'),
                         )}
                         onMouseLeave={scheduleQuickEnvClose}
                         onBlurCapture={(event) => {
@@ -326,29 +340,31 @@ export const Toolbar: React.FC = () => {
                         }}
                     >
                         {/* Project button */}
-                        <button
+                        <Button
                             type="button"
-                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-bg-secondary/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
+                            variant="ghost"
+                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-card/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
                             title="Open Project Hub"
                             onClick={() => { setQuickEnvOpen(false); emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); }}
                         >
-                            <Layers3
+                            <ActiveProjectIcon
                                 size={14}
                                 className={cn(
                                     'shrink-0 translate-y-[0.5px]',
-                                    connectionStatus === CONNECTION_STATUS.CONNECTED ? 'text-success' : connectionStatus === CONNECTION_STATUS.ERROR ? 'text-red-500 animate-pulse' : 'text-text-secondary',
+                                    connectionStatus === CONNECTION_STATUS.CONNECTED ? 'text-success' : connectionStatus === CONNECTION_STATUS.ERROR ? 'text-red-500 animate-pulse' : 'text-muted-foreground',
                                 )}
                             />
-                            <span className="truncate max-w-[170px] text-text-primary font-semibold leading-none">{activeProject?.name || 'No Project'}</span>
-                        </button>
+                            <span className="truncate max-w-[170px] text-foreground font-semibold leading-none">{activeProject?.name || 'No Project'}</span>
+                        </Button>
 
                         {/* Connection info / env switcher trigger */}
-                        <button
+                        <Button
                             type="button"
+                            variant="ghost"
                             className={cn(
                                 'relative z-[1] h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
                                 connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
-                                !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-text-primary hover:border-border',
+                                !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-foreground hover:border-border',
                             )}
                             onClick={() => openQuickEnv(true)}
                             onMouseEnter={() => openQuickEnv(false)}
@@ -357,9 +373,9 @@ export const Toolbar: React.FC = () => {
                             title="Switch environment"
                         >
                             <span className="sr-only">Switch environment</span>
-                        </button>
+                        </Button>
 
-                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-[11px] leading-none text-text-secondary">
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-[11px] leading-none text-muted-foreground">
                             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-1.5">
                                 <span className="truncate text-end leading-none">{serverLabel}</span>
                                 <Server size={13} className="shrink-0 translate-y-[0.5px]" />
@@ -369,9 +385,10 @@ export const Toolbar: React.FC = () => {
                         </div>
 
                         {/* Environment config button */}
-                        <button
+                        <Button
                             type="button"
-                            className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-bg-secondary/40 transition-colors leading-none"
+                            variant="ghost"
+                            className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-card/40 transition-colors leading-none"
                             title="Configure environment bindings"
                             onClick={() => {
                                 setQuickEnvOpen(false);
@@ -384,12 +401,12 @@ export const Toolbar: React.FC = () => {
                                     {activeEnvironmentKey || activeProject.default_environment_key}
                                 </span>
                             )}
-                        </button>
+                        </Button>
 
                         {/* Quick env dropdown */}
                         {quickEnvOpen && activeProject && (
                             <div
-                                className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-bg-secondary shadow-xl p-2"
+                                className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-card shadow-xl p-2"
                                 onMouseEnter={clearQuickEnvCloseTimer}
                             >
                                 <div className="space-y-1">
@@ -399,11 +416,12 @@ export const Toolbar: React.FC = () => {
                                         const isHighlighted = index === quickEnvHighlightedIndex;
                                         const details = quickEnvConnectionDetails.get(envKey);
                                         return (
-                                            <button
+                                            <Button
                                                 key={envKey} type="button"
+                                                variant="ghost"
                                                 className={cn(
-                                                    'relative w-full cursor-pointer rounded-md px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
-                                                    isActive ? 'bg-accent/10 border border-accent/35 text-text-primary' : isHighlighted ? 'bg-bg-primary/60 text-text-primary' : 'hover:bg-bg-primary/50 text-text-secondary',
+                                                    'relative h-auto w-full justify-start rounded-md px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
+                                                    isActive ? 'bg-accent/10 border border-accent/35 text-foreground' : isHighlighted ? 'bg-background/60 text-foreground' : 'hover:bg-background/50 text-muted-foreground',
                                                 )}
                                                 onClick={() => void handleQuickSwitchEnv(envKey)}
                                                 onMouseEnter={() => setQuickEnvHighlightedIndex(index)}
@@ -413,7 +431,7 @@ export const Toolbar: React.FC = () => {
                                                         <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
                                                         <span className="truncate font-semibold">{meta.label}</span>
                                                     </div>
-                                                    <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-text-secondary">
+                                                    <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-muted-foreground">
                                                         <span className="inline-flex min-w-0 w-full items-center gap-1">
                                                             <Server size={11} className="shrink-0" />
                                                             <span className="truncate" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
@@ -429,7 +447,7 @@ export const Toolbar: React.FC = () => {
                                                         Active
                                                     </span>
                                                 )}
-                                            </button>
+                                            </Button>
                                         );
                                     })}
                                 </div>

@@ -71,7 +71,7 @@ export const StatusBar: React.FC = () => {
         [CONNECTION_STATUS.ERROR]: 'bg-red-500',
         [CONNECTION_STATUS.FAILED]: 'bg-red-500',
         [CONNECTION_STATUS.DISCONNECTED]: 'bg-yellow-500',
-    }[status as string] ?? 'bg-bg-tertiary';
+    }[status as string] ?? 'bg-muted';
 
     const txLabel = {
         [TRANSACTION_STATUS.NONE]: 'TX: none',

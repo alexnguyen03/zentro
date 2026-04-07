@@ -1,36 +1,28 @@
-import React from 'react';
-import { cn } from '../../lib/cn';
+import * as React from 'react';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { cn } from '@/lib/cn';
 
-type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
+const TooltipProvider = TooltipPrimitive.Provider;
+const Tooltip = TooltipPrimitive.Root;
+const TooltipTrigger = TooltipPrimitive.Trigger;
 
-interface TooltipProps {
-    content: React.ReactNode;
-    children: React.ReactNode;
-    side?: TooltipSide;
-    className?: string;
-}
+const TooltipContent = React.forwardRef<
+    React.ElementRef<typeof TooltipPrimitive.Content>,
+    React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
+>(({ className, sideOffset = 8, ...props }, ref) => (
+    <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
+            ref={ref}
+            sideOffset={sideOffset}
+            className={cn(
+                'z-tooltip rounded-md border border-border bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground shadow-elevation-md',
+                'animate-in fade-in zoom-in-95 duration-100',
+                className,
+            )}
+            {...props}
+        />
+    </TooltipPrimitive.Portal>
+));
+TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-const sideClasses: Record<TooltipSide, string> = {
-    top: 'bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2',
-    bottom: 'top-[calc(100%+8px)] left-1/2 -translate-x-1/2',
-    left: 'right-[calc(100%+8px)] top-1/2 -translate-y-1/2',
-    right: 'left-[calc(100%+8px)] top-1/2 -translate-y-1/2',
-};
-
-export const Tooltip: React.FC<TooltipProps> = ({ content, children, side = 'top', className }) => {
-    return (
-        <span className={cn('group relative inline-flex', className)}>
-            {children}
-            <span
-                role="tooltip"
-                className={cn(
-                    'pointer-events-none absolute z-tooltip whitespace-nowrap rounded-md bg-bg-primary px-2 py-1 text-[11px] font-medium text-text-primary shadow-elevation-md opacity-0 transition-opacity duration-150',
-                    'group-hover:opacity-100 group-focus-within:opacity-100',
-                    sideClasses[side],
-                )}
-            >
-                {content}
-            </span>
-        </span>
-    );
-};
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

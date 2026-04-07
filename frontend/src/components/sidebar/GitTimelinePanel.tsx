@@ -13,7 +13,9 @@ import type { GitTimelineItem, GitTrackingStatus } from '../../platform/app-api/
 import { useProjectStore } from '../../stores/projectStore';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
-import { PromptModal } from '../ui';
+import { Button, Input, Modal } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { TIMELINE_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 function formatDateTime(iso: string): string {
     try {
@@ -37,22 +39,26 @@ export const GitTimelinePanel: React.FC = () => {
     const [status, setStatus] = React.useState<GitTrackingStatus | null>(null);
     const [timelineRaw, setTimelineRaw] = React.useState<GitTimelineItem[]>([]);
     const [loading, setLoading] = React.useState(false);
-    const [eventTypeFilter, setEventTypeFilter] = React.useState('');
-    const [objectFilter, setObjectFilter] = React.useState('');
-    const [schemaFilter, setSchemaFilter] = React.useState('');
-    const [fromDate, setFromDate] = React.useState('');
-    const [toDate, setToDate] = React.useState('');
-    const [selectedHash, setSelectedHash] = React.useState<string | null>(null);
+    const [timelinePanelState, setTimelinePanelState] = useSidebarPanelState('primary', 'timeline', TIMELINE_PANEL_STATE_DEFAULT);
     const [selectedDiff, setSelectedDiff] = React.useState('');
     const [pendingFiles, setPendingFiles] = React.useState<string[]>([]);
     const [isManualCommitOpen, setIsManualCommitOpen] = React.useState(false);
+    const [manualCommitMessage, setManualCommitMessage] = React.useState('');
+    const selectedHash = timelinePanelState.selectedHash || null;
+
+    const updateTimelinePanelState = React.useCallback((next: Partial<typeof timelinePanelState>) => {
+        setTimelinePanelState((current) => ({
+            ...current,
+            ...next,
+        }));
+    }, [setTimelinePanelState]);
 
     const applyTimelineFilters = React.useCallback(
         (rows: GitTimelineItem[]): GitTimelineItem[] => {
-            const objectToken = objectFilter.trim().toLowerCase();
-            const schemaToken = schemaFilter.trim().toLowerCase();
-            const fromAt = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : 0;
-            const toAt = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : Number.MAX_SAFE_INTEGER;
+            const objectToken = timelinePanelState.objectFilter.trim().toLowerCase();
+            const schemaToken = timelinePanelState.schemaFilter.trim().toLowerCase();
+            const fromAt = timelinePanelState.fromDate ? new Date(`${timelinePanelState.fromDate}T00:00:00`).getTime() : 0;
+            const toAt = timelinePanelState.toDate ? new Date(`${timelinePanelState.toDate}T23:59:59.999`).getTime() : Number.MAX_SAFE_INTEGER;
 
             return (rows || []).filter((item) => {
                 if (objectToken) {
@@ -78,7 +84,7 @@ export const GitTimelinePanel: React.FC = () => {
                 return true;
             });
         },
-        [fromDate, objectFilter, schemaFilter, toDate],
+        [timelinePanelState.fromDate, timelinePanelState.objectFilter, timelinePanelState.schemaFilter, timelinePanelState.toDate],
     );
 
     const load = React.useCallback(async () => {
@@ -92,7 +98,7 @@ export const GitTimelinePanel: React.FC = () => {
         try {
             const [trackingStatus, rows, pending] = await Promise.all([
                 GetGitTrackingStatus(),
-                ListGitTimeline(150, eventTypeFilter.trim()),
+                ListGitTimeline(150, timelinePanelState.eventTypeFilter.trim()),
                 GetGitPendingChanges(),
             ]);
             setStatus(trackingStatus);
@@ -103,7 +109,7 @@ export const GitTimelinePanel: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeProject?.id, eventTypeFilter, toast]);
+    }, [activeProject?.id, timelinePanelState.eventTypeFilter, toast]);
 
     const timeline = React.useMemo(() => applyTimelineFilters(timelineRaw), [applyTimelineFilters, timelineRaw]);
 
@@ -128,7 +134,7 @@ export const GitTimelinePanel: React.FC = () => {
     }, [load, status, toast]);
 
     const handleOpenDiff = React.useCallback(async (hash: string) => {
-        setSelectedHash(hash);
+        updateTimelinePanelState({ selectedHash: hash });
         setSelectedDiff('Loading diff...');
         try {
             const diff = await GetGitCommitDiff(hash);
@@ -136,7 +142,7 @@ export const GitTimelinePanel: React.FC = () => {
         } catch (error) {
             setSelectedDiff(`Failed to load diff: ${error}`);
         }
-    }, []);
+    }, [updateTimelinePanelState]);
 
     const handleManualCommit = React.useCallback(async (message: string) => {
         try {
@@ -155,7 +161,7 @@ export const GitTimelinePanel: React.FC = () => {
 
     if (!activeProject?.id) {
         return (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-text-secondary text-xs gap-2">
+            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-xs gap-2">
                 <GitCommitHorizontal size={24} className="opacity-30" />
                 <p className="m-0">Open a project to see Git timeline.</p>
             </div>
@@ -164,54 +170,71 @@ export const GitTimelinePanel: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="px-2 py-1.5 border-b border-border bg-bg-secondary flex items-center gap-1.5">
-                <input
-                    className="flex-1 bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+            <div className="px-2 py-1.5 border-b border-border flex items-center gap-1.5">
+                <Input
+                    className="h-7 flex-1 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Filter by event type (e.g. script.save)"
-                    value={eventTypeFilter}
-                    onChange={(event) => setEventTypeFilter(event.target.value)}
+                    value={timelinePanelState.eventTypeFilter}
+                    onChange={(event) => updateTimelinePanelState({ eventTypeFilter: event.target.value })}
                     onKeyDown={(event) => {
-                        if (event.key === 'Enter') void load();
+                        if (event.key === 'Escape') updateTimelinePanelState({ eventTypeFilter: '' });
                     }}
                 />
-                <button
-                    className="cursor-pointer bg-transparent border-none text-text-secondary hover:text-text-primary p-1 rounded"
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={() => void load()}
                     title="Refresh"
                 >
                     <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
-                </button>
+                </Button>
             </div>
-            <div className="px-2 py-1 border-b border-border/40 bg-bg-secondary grid grid-cols-2 gap-1 text-[11px]">
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+            <div className="px-2 py-1 border-b border-border/40 grid grid-cols-2 gap-1 text-[11px]">
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Object/file contains..."
-                    value={objectFilter}
-                    onChange={(event) => setObjectFilter(event.target.value)}
+                    value={timelinePanelState.objectFilter}
+                    onChange={(event) => updateTimelinePanelState({ objectFilter: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ objectFilter: '' });
+                    }}
                 />
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     placeholder="Schema..."
-                    value={schemaFilter}
-                    onChange={(event) => setSchemaFilter(event.target.value)}
+                    value={timelinePanelState.schemaFilter}
+                    onChange={(event) => updateTimelinePanelState({ schemaFilter: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ schemaFilter: '' });
+                    }}
                 />
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
-                    value={fromDate}
-                    onChange={(event) => setFromDate(event.target.value)}
+                    value={timelinePanelState.fromDate}
+                    onChange={(event) => updateTimelinePanelState({ fromDate: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ fromDate: '' });
+                    }}
                 />
-                <input
-                    className="bg-bg-primary border border-border text-text-primary text-[11px] py-1 px-2 rounded-md outline-none focus:border-success"
+                <Input
+                    className="h-7 border-border bg-background px-2 py-1 text-[11px]"
                     type="date"
-                    value={toDate}
-                    onChange={(event) => setToDate(event.target.value)}
+                    value={timelinePanelState.toDate}
+                    onChange={(event) => updateTimelinePanelState({ toDate: event.target.value })}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Escape') updateTimelinePanelState({ toDate: '' });
+                    }}
                 />
             </div>
 
-            <div className="px-2 py-1 border-b border-border/40 bg-bg-secondary flex items-center gap-2 text-[11px]">
-                <button
-                    className="cursor-pointer bg-transparent border border-border rounded px-2 py-0.5 text-text-primary hover:bg-bg-tertiary"
+            <div className="px-2 py-1 border-b border-border/40 flex items-center gap-2 text-[11px]">
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 px-2 py-0.5 text-[11px]"
                     onClick={() => void handleToggleTracking()}
                     title={status?.enabled ? 'Disable tracking' : 'Enable tracking'}
                 >
@@ -219,17 +242,22 @@ export const GitTimelinePanel: React.FC = () => {
                         {status?.enabled ? <ShieldCheck size={12} /> : <ShieldX size={12} />}
                         {status?.enabled ? 'Tracking On' : 'Tracking Off'}
                     </span>
-                </button>
-                <button
-                    className="cursor-pointer bg-transparent border border-border rounded px-2 py-0.5 text-text-primary hover:bg-bg-tertiary"
-                    onClick={() => setIsManualCommitOpen(true)}
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 px-2 py-0.5 text-[11px]"
+                    onClick={() => {
+                        setManualCommitMessage('');
+                        setIsManualCommitOpen(true);
+                    }}
                     title="Commit pending SQL changes now"
                 >
                     Commit Now
-                </button>
-                <span className="text-[10px] text-text-secondary whitespace-nowrap">Pending: {status?.pending_count ?? pendingFiles.length}</span>
+                </Button>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Pending: {status?.pending_count ?? pendingFiles.length}</span>
                 {status?.repo_path && (
-                    <span className="text-[10px] text-text-secondary truncate" title={status.repo_path}>
+                    <span className="text-[10px] text-muted-foreground truncate" title={status.repo_path}>
                         {status.repo_path}
                     </span>
                 )}
@@ -237,44 +265,78 @@ export const GitTimelinePanel: React.FC = () => {
 
             <div className="flex-1 min-h-0 grid grid-cols-1">
                 {timeline.length === 0 ? (
-                    <div className="flex items-center justify-center text-text-secondary text-xs">No timeline entries.</div>
+                    <div className="flex items-center justify-center text-muted-foreground text-xs">No timeline entries.</div>
                 ) : (
                     <div className="flex flex-col min-h-0">
                         <div className="flex-1 overflow-y-auto border-b border-border/40">
                             {timeline.map((item) => (
-                                <button
+                                <Button
                                     key={item.hash}
+                                    type="button"
+                                    variant="ghost"
                                     className={cn(
-                                        'w-full text-left px-2.5 py-1.5 border-b border-white/5 cursor-pointer hover:bg-bg-tertiary transition-colors',
-                                        selectedHash === item.hash && 'bg-bg-tertiary',
+                                        'h-auto w-full justify-start border-b border-white/5 px-2.5 py-1.5 text-left transition-colors hover:bg-muted',
+                                        selectedHash === item.hash && 'bg-muted',
                                     )}
                                     onClick={() => void handleOpenDiff(item.hash)}
                                 >
-                                    <div className="text-[10px] text-accent font-mono">{item.event_type}</div>
-                                    <div className="text-[11px] text-text-primary truncate" title={item.message}>{item.message}</div>
-                                    <div className="text-[10px] text-text-secondary flex items-center gap-2">
-                                        <span className="font-mono">{item.hash.slice(0, 8)}</span>
-                                        <span>{formatDateTime(item.when)}</span>
+                                    <div className="w-full">
+                                        <div className="text-[10px] text-accent font-mono">{item.event_type}</div>
+                                        <div className="text-[11px] text-foreground truncate" title={item.message}>{item.message}</div>
+                                        <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                                            <span className="font-mono">{item.hash.slice(0, 8)}</span>
+                                            <span>{formatDateTime(item.when)}</span>
+                                        </div>
                                     </div>
-                                </button>
+                                </Button>
                             ))}
                         </div>
-                        <div className="h-48 overflow-auto bg-bg-primary px-2 py-1.5">
-                            <pre className="text-[11px] text-text-secondary whitespace-pre-wrap break-words m-0">{selectedDiff || 'Select a commit to view diff.'}</pre>
+                        <div className="h-48 overflow-auto bg-background px-2 py-1.5">
+                            <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap break-words m-0">{selectedDiff || 'Select a commit to view diff.'}</pre>
                         </div>
                     </div>
                 )}
             </div>
-            <PromptModal
+            <Modal
                 isOpen={isManualCommitOpen}
+                onClose={() => setIsManualCommitOpen(false)}
                 title="Manual Commit"
-                message="Enter an optional commit message for pending SQL changes."
-                placeholder="manual.commit: your message"
-                confirmLabel="Commit"
-                cancelLabel="Cancel"
-                onCancel={() => setIsManualCommitOpen(false)}
-                onConfirm={(value) => handleManualCommit(value)}
-            />
+                width={520}
+                layer="confirm"
+                footer={(
+                    <>
+                        <Button variant="ghost" onClick={() => setIsManualCommitOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="default"
+                            onClick={() => {
+                                void handleManualCommit(manualCommitMessage);
+                            }}
+                            autoFocus
+                        >
+                            Commit
+                        </Button>
+                    </>
+                )}
+            >
+                <div className="space-y-3">
+                    <p className="text-[13px] text-foreground">
+                        Enter an optional commit message for pending SQL changes.
+                    </p>
+                    <Input
+                        value={manualCommitMessage}
+                        placeholder="manual.commit: your message"
+                        onChange={(event) => setManualCommitMessage(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                void handleManualCommit(manualCommitMessage);
+                            }
+                        }}
+                    />
+                </div>
+            </Modal>
         </div>
     );
 };

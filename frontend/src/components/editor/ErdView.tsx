@@ -311,31 +311,32 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
             const allRelsMap = new Map<string, TableRelationship>();
             (initialRels || []).forEach((relation) => allRelsMap.set(relation.ConstraintName, relation));
 
-            for (const currentTable of Array.from(relatedTables)) {
-                if (currentTable === table || !isMounted.current) continue;
-
-                let relationSchema = schema;
-                const relationOfTable = initialRels?.find((relation) =>
-                    relation.SourceTable === currentTable || relation.TargetTable === currentTable
-                );
-                if (relationOfTable) {
-                    relationSchema = relationOfTable.SourceTable === currentTable
-                        ? relationOfTable.SourceSchema
-                        : relationOfTable.TargetSchema;
-                }
-
-                try {
-                    const neighborRels = await FetchTableRelationships(relationSchema, currentTable);
-                    if (!isMounted.current) return;
-                    (neighborRels || []).forEach((neighborRelation) => {
-                        if (relatedTables.has(neighborRelation.SourceTable) && relatedTables.has(neighborRelation.TargetTable)) {
-                            allRelsMap.set(neighborRelation.ConstraintName, neighborRelation);
-                        }
+            const neighborTables = Array.from(relatedTables).filter((t) => t !== table);
+            const neighborRelResults = await Promise.all(
+                neighborTables.map((currentTable) => {
+                    let relationSchema = schema;
+                    const relationOfTable = initialRels?.find((relation) =>
+                        relation.SourceTable === currentTable || relation.TargetTable === currentTable
+                    );
+                    if (relationOfTable) {
+                        relationSchema = relationOfTable.SourceTable === currentTable
+                            ? relationOfTable.SourceSchema
+                            : relationOfTable.TargetSchema;
+                    }
+                    return FetchTableRelationships(relationSchema, currentTable).catch((error) => {
+                        console.warn(`Failed to fetch rels for ${currentTable}`, error);
+                        return [] as TableRelationship[];
                     });
-                } catch (error) {
-                    console.warn(`Failed to fetch rels for ${currentTable}`, error);
-                }
-            }
+                })
+            );
+            if (!isMounted.current) return;
+            neighborRelResults.forEach((neighborRels) => {
+                (neighborRels || []).forEach((neighborRelation) => {
+                    if (relatedTables.has(neighborRelation.SourceTable) && relatedTables.has(neighborRelation.TargetTable)) {
+                        allRelsMap.set(neighborRelation.ConstraintName, neighborRelation);
+                    }
+                });
+            });
 
             const finalRels = Array.from(allRelsMap.values());
             if (onCountChange && isMounted.current) {
@@ -343,9 +344,8 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
             }
 
             const columnsMap = new Map<string, ErdColumn[]>();
-            for (const currentTable of Array.from(relatedTables)) {
-                if (!isMounted.current) return;
-
+            const allTablesList = Array.from(relatedTables);
+            const colFetchEntries = allTablesList.map((currentTable) => {
                 let relationSchema = schema;
                 if (currentTable !== table) {
                     const relationOfTable = finalRels.find((relation) =>
@@ -357,28 +357,31 @@ export const ErdView: React.FC<ErdViewProps> = ({ schema, table, onCountChange }
                             : relationOfTable.TargetSchema;
                     }
                 }
-
-                try {
-                    const cols = await FetchTableColumns(relationSchema, currentTable);
-                    if (!isMounted.current) return;
-
-                    const tableFks = new Set(
-                        finalRels
-                            .filter((relation) => relation.SourceTable === currentTable)
-                            .map((relation) => relation.SourceColumn)
-                    );
-
-                    columnsMap.set(currentTable, (cols || []).map((column) => ({
-                        name: column.Name,
-                        type: column.DataType,
-                        isPk: column.IsPrimaryKey,
-                        isFk: tableFks.has(column.Name),
-                    })));
-                } catch (error) {
-                    console.error(`Failed to fetch columns for ${currentTable} in schema ${relationSchema}`, error);
-                    columnsMap.set(currentTable, []);
-                }
-            }
+                return { currentTable, relationSchema };
+            });
+            const colResults = await Promise.all(
+                colFetchEntries.map(({ currentTable, relationSchema }) =>
+                    FetchTableColumns(relationSchema, currentTable).catch((error) => {
+                        console.error(`Failed to fetch columns for ${currentTable} in schema ${relationSchema}`, error);
+                        return [];
+                    })
+                )
+            );
+            if (!isMounted.current) return;
+            colFetchEntries.forEach(({ currentTable }, i) => {
+                const cols = colResults[i] || [];
+                const tableFks = new Set(
+                    finalRels
+                        .filter((relation) => relation.SourceTable === currentTable)
+                        .map((relation) => relation.SourceColumn)
+                );
+                columnsMap.set(currentTable, cols.map((column) => ({
+                    name: column.Name,
+                    type: column.DataType,
+                    isPk: column.IsPrimaryKey,
+                    isFk: tableFks.has(column.Name),
+                })));
+            });
 
             if (!isMounted.current) return;
 

@@ -1,93 +1,88 @@
-import React, { useRef, useState, useCallback } from 'react';
-import { X, AlignLeft, Bookmark } from 'lucide-react';
-import { cn } from '../../lib/cn';
+import React from 'react';
+import { X } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { useBookmarkStore } from '../../stores/bookmarkStore';
-import { useEditorStore } from '../../stores/editorStore';
-import { RowDetailTab } from './RowDetailTab';
-import { BookmarkTab } from './BookmarkTab';
-
-type SidebarTab = 'detail' | 'bookmark';
+import { useSidebarPanels } from './sidebarPanelRegistry';
+import { registerBuiltInSidebarPanels } from './sidebarPanels';
+import { useSidebarSideState } from '../../stores/sidebarUiStore';
+import { useSidebarResize } from '../../features/project/useProjectLifecycle';
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui';
 
 export const SecondarySidebar: React.FC = () => {
-    const { setShowRightSidebar } = useLayoutStore();
-    const { groups, activeGroupId } = useEditorStore();
-    const { byTab } = useBookmarkStore();
+    const setShowRightSidebar = useLayoutStore((state) => state.setShowRightSidebar);
+    const panels = useSidebarPanels('secondary');
+    const {
+        activePanelId,
+        setActivePanelId,
+    } = useSidebarSideState('secondary', { activePanelId: 'detail', width: 300 });
+    const { sidebarWidth, startResizing } = useSidebarResize(300, 'secondary');
 
-    const activeGroup = groups.find(g => g.id === activeGroupId);
-    const activeTabId = activeGroup?.activeTabId || '';
-    const bookmarkCount = (byTab[activeTabId] || []).length;
-
-    const [width, setWidth] = useState(300);
-    const isResizing = useRef(false);
-    const [activeTab, setActiveTab] = useState<SidebarTab>('detail');
-
-    const startResizing = useCallback(() => { isResizing.current = true; }, []);
-    const stopResizing = useCallback(() => { isResizing.current = false; }, []);
-
-    const resize = useCallback((e: MouseEvent) => {
-        if (!isResizing.current) return;
-        const newWidth = window.innerWidth - e.clientX;
-        if (newWidth > 200 && newWidth < 1000) {
-            setWidth(newWidth);
-        }
+    React.useEffect(() => {
+        registerBuiltInSidebarPanels();
     }, []);
 
     React.useEffect(() => {
-        window.addEventListener('mousemove', resize);
-        window.addEventListener('mouseup', stopResizing);
-        return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
-        };
-    }, [resize, stopResizing]);
+        if (panels.length === 0) return;
+        const hasActivePanel = panels.some((panel) => panel.id === activePanelId);
+        if (!hasActivePanel) {
+            setActivePanelId(panels[0].id);
+        }
+    }, [activePanelId, panels, setActivePanelId]);
+
+    if (panels.length === 0) {
+        return null;
+    }
 
     return (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar flex flex-col h-full bg-bg-secondary border-l border-border shrink-0" style={{ width }}>
-                <div className="flex items-center justify-between pr-2 border-b border-border bg-bg-secondary min-h-[35px]">
-                    <div className="flex items-center">
-                        <button
-                            className={cn(
-                                'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-transparent border-0 border-b-2 cursor-pointer',
-                                activeTab === 'detail'
-                                    ? 'text-text-primary border-success'
-                                    : 'text-text-secondary border-transparent hover:text-text-primary'
-                            )}
-                            onClick={() => setActiveTab('detail')}
-                            title="Row Detail"
+            <div className="sidebar flex h-full shrink-0 flex-col border-l border-border" style={{ width: sidebarWidth }}>
+                <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
+                    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1">
+                        <TabsList
+                            className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
                         >
-                            <AlignLeft size={13} className="shrink-0" />
-                            <span>Row Detail</span>
-                        </button>
-                        <button
-                            className={cn(
-                                'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] bg-transparent border-0 border-b-2 cursor-pointer',
-                                activeTab === 'bookmark'
-                                    ? 'text-text-primary border-success'
-                                    : 'text-text-secondary border-transparent hover:text-text-primary'
-                            )}
-                            onClick={() => setActiveTab('bookmark')}
-                            title="Bookmarks"
+                            {panels.map((panel) => {
+                                const Icon = panel.icon;
+                                const badge = panel.getBadge?.();
+                                return (
+                                    <TabsTrigger
+                                        key={panel.id}
+                                        value={panel.id}
+                                        className="relative h-8 w-8 cursor-pointer rounded-none bg-transparent p-0 text-muted-foreground opacity-55 transition hover:opacity-80 data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:opacity-100 data-[state=active]:shadow-none"
+                                        title={panel.label}
+                                        aria-label={panel.label}
+                                    >
+                                        <Icon size={14} className="shrink-0" />
+                                        {badge !== undefined && badge !== null && badge !== 0 && (
+                                            <span className="absolute right-[-2px] top-[-1px] inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-semibold leading-none text-white">
+                                                {badge}
+                                            </span>
+                                        )}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="ml-auto h-7 w-7 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                            onClick={() => setShowRightSidebar(false)}
+                            title="Close right sidebar"
                         >
-                            <Bookmark size={13} className="shrink-0" />
-                            <span>Bookmarks ({bookmarkCount})</span>
-                        </button>
+                            <X size={14} />
+                        </Button>
                     </div>
 
-                    <button
-                        className="bg-transparent border-none text-text-muted cursor-pointer px-1.25 py-1 rounded-md flex items-center justify-center transition-colors duration-150 hover:bg-bg-tertiary hover:text-text-primary"
-                        onClick={() => setShowRightSidebar(false)}
-                        title="Close right sidebar"
-                    >
-                        <X size={14} />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-hidden p-1">
-                    {activeTab === 'detail' ? <RowDetailTab /> : <BookmarkTab />}
-                </div>
+                    <div className="min-h-0 flex-1 overflow-hidden bg-background p-1.5">
+                        {panels.map((panel) => (
+                            <TabsContent key={panel.id} value={panel.id} className="mt-0 h-full outline-none">
+                                {panel.render()}
+                            </TabsContent>
+                        ))}
+                    </div>
+                </Tabs>
             </div>
         </>
     );

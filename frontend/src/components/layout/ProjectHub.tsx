@@ -3,7 +3,7 @@ import { FolderOpen, Plus } from 'lucide-react';
 import { Disconnect } from '../../services/connectionService';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button, ConfirmationModal, ModalBackdrop, ModalFrame, Spinner } from '../ui';
+import { Button, ConfirmationModal, OverlayDialog, Spinner } from '../ui';
 import { cn } from '../../lib/cn';
 import { useToast } from './Toast';
 import { sortProjects, getProjectIconKey, buildTagsWithProjectIcon, type ProjectIconKey } from './projectHubMeta';
@@ -12,6 +12,7 @@ import { ProjectCard, ProjectCardEdit, type EditDraft } from './project/ProjectC
 import { GetDefaultProjectStorageRoot, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
 import type { Project } from '../../types/project';
 import appIcon from '../../assets/images/appicon.png';
+import { PanelFrame } from './PanelFrame';
 
 type Surface = 'entry' | 'wizard';
 
@@ -137,14 +138,14 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
 
     const content = (
         <div className={cn(
-            'overflow-hidden bg-bg-secondary text-text-primary transition-all duration-200',
+            'overflow-hidden bg-card text-foreground transition-all duration-200',
             overlay
                 ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-md'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (
                 <div className="h-full min-h-0">
-                    <ModalFrame
+                    <PanelFrame
                         title="Projects"
                         onClose={overlay && onClose ? onClose : undefined}
                         className="h-full"
@@ -158,13 +159,13 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                             </aside>
 
                             <section className="h-full">
-                                <div className="text-[11px] text-text-secondary">Recent Projects</div>
+                                <div className="text-[11px] text-muted-foreground">Recent Projects</div>
                                 {visibleProjects.length === 0 && !isLoading ? (
-                                    <div className="mt-3 flex items-center justify-center rounded-md border border-dashed border-border/45 bg-bg-secondary/35 px-4 text-center">
+                                    <div className="mt-3 flex items-center justify-center rounded-md border border-dashed border-border/45 bg-card/35 px-4 text-center">
                                         <div className="max-w-70">
-                                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-bg-secondary text-text-primary"><Plus size={16} /></div>
-                                            <div className="mt-3 text-[14px] font-semibold text-text-primary">No project</div>
-                                            <div className="mt-1 text-[11px] text-text-secondary">Create one to get started.</div>
+                                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-card text-foreground"><Plus size={16} /></div>
+                                            <div className="mt-3 text-[14px] font-semibold text-foreground">No project</div>
+                                            <div className="mt-1 text-[11px] text-muted-foreground">Create one to get started.</div>
                                         </div>
                                     </div>
                                 ) : (
@@ -210,7 +211,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center ">
-                                    <div className="text-[11px] text-text-secondary">{visibleProjects.length} projects</div>
+                                    <div className="text-[11px] text-muted-foreground">{visibleProjects.length} projects</div>
                                     <div className="flex items-center gap-2">
                                         <Button
                                             variant="ghost"
@@ -225,7 +226,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                             {openingFolder ? <Spinner size={12} /> : <FolderOpen size={14} />}
                                         </Button>
                                         <Button
-                                            variant="primary"
+                                            variant="default"
                                             onClick={() => setSurface('wizard')}
                                             size="sm"
                                             className="rounded-md px-4"
@@ -236,7 +237,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                 </div>
                             </section>
                         </div>
-                    </ModalFrame>
+                    </PanelFrame>
                 </div>
             ) : (
                 <ProjectWizard
@@ -255,16 +256,16 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                 message={`Remove "${projectToDelete?.name || 'this project'}" from launcher?`}
                 description="Project data on disk will be kept."
                 confirmLabel="Remove"
-                variant="danger"
+                variant="destructive"
             />
         </div>
     );
 
     if (overlay) {
         return (
-            <ModalBackdrop onClose={onClose} contentClassName="flex items-center justify-center">
+            <OverlayDialog onClose={onClose} contentClassName="flex items-center justify-center">
                 {content}
-            </ModalBackdrop>
+            </OverlayDialog>
         );
     }
     return content;

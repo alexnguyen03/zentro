@@ -4,7 +4,8 @@ import { useTemplateStore } from '../../stores/templateStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { models } from '../../../wailsjs/go/models';
-import { BaseTable, Button, ConfirmationModal, Input, Spinner, type BaseTableColumn } from '../ui';
+import { Button, ConfirmationModal, Input, Spinner } from '../ui';
+import { BaseTable, type BaseTableColumn } from '../shared/BaseTable';
 
 type Template = models.Template;
 type EditableField = 'name' | 'trigger' | 'content';
@@ -295,7 +296,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
             header: '#',
             width: '40px',
             align: 'center',
-            cellClassName: 'font-mono text-[11px] text-text-muted',
+            cellClassName: 'font-mono text-[11px] text-muted-foreground',
             renderCell: (_row, index) => index + 1,
         },
         {
@@ -306,8 +307,8 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 renderEditableCell(
                     row,
                     'name',
-                    'truncate px-1.5 py-1 text-[12px] text-text-primary',
-                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] focus:border-border focus:bg-bg-primary',
+                    'truncate px-1.5 py-1 text-[12px] text-foreground',
+                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] focus:border-border focus:bg-background',
                     row.name || '',
                 )
             ),
@@ -321,7 +322,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                     row,
                     'trigger',
                     'truncate px-1.5 py-1 text-[12px] font-mono text-warning',
-                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] font-mono text-warning focus:border-border focus:bg-bg-primary',
+                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] font-mono text-warning focus:border-border focus:bg-background',
                     row.trigger || '',
                 )
             ),
@@ -334,8 +335,8 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 renderEditableCell(
                     row,
                     'content',
-                    'truncate px-1.5 py-1 text-[12px] font-mono text-text-primary',
-                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] font-mono focus:border-border focus:bg-bg-primary',
+                    'truncate px-1.5 py-1 text-[12px] font-mono text-foreground',
+                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] font-mono focus:border-border focus:bg-background',
                     row.content || '',
                 )
             ),
@@ -388,18 +389,18 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
         <div
             ref={containerRef}
             style={popoverStyle}
-            className="z-popover flex flex-col overflow-hidden rounded-md border border-border bg-bg-secondary shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="z-popover flex flex-col overflow-hidden rounded-md border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
-                    <h3 className="truncate text-[12px] font-bold text-text-primary">TEMPLATES</h3>
-                    <span className="rounded-md border border-border bg-bg-primary px-1.5 py-0.5 text-[10px] text-text-muted">
+                    <h3 className="truncate text-[12px] font-bold text-foreground">TEMPLATES</h3>
+                    <span className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
                         {templates.length}
                     </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <div className="relative w-[200px]">
-                        <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-text-muted" size={13} />
+                        <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
                         <Input
                             value={filter}
                             onChange={(event) => setFilter(event.target.value)}
@@ -435,7 +436,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                         )}
                     />
                 ) : (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 text-text-muted">
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                         <AlertCircle size={28} strokeWidth={1.4} className="opacity-60" />
                         <span className="text-[12px]">No templates found.</span>
                     </div>
@@ -482,7 +483,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 message={`Delete ${pendingDeleteIds.length} selected ${pendingDeleteIds.length === 1 ? 'template' : 'templates'}?`}
                 description="This action cannot be undone."
                 confirmLabel="Delete"
-                variant="danger"
+                variant="destructive"
             />
         </div>
     );

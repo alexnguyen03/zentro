@@ -1,5 +1,14 @@
-import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { cn } from '../../../lib/cn';
+import {
+    Command,
+    CommandItem,
+    CommandList,
+    Input,
+    Popover,
+    PopoverAnchor,
+    PopoverContent,
+} from '../../ui';
 
 interface DataTypeCellProps {
     value: string;
@@ -12,113 +21,76 @@ interface DataTypeCellProps {
 export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirty, disabled, onCommit }) => {
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(value);
-    const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
     const [selectedIndex, setSelectedIndex] = useState(-1);
     const wrapRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const listRef = useRef<HTMLDivElement>(null);
 
-    const filtered = text
-        ? types.filter(t => t.toLowerCase().includes(text.toLowerCase()))
-        : types;
-
-    useEffect(() => {
-        setSelectedIndex(-1);
-    }, [text]);
-
-    useEffect(() => {
-        if (selectedIndex >= 0 && listRef.current) {
-            const el = listRef.current.children[selectedIndex] as HTMLDivElement;
-            if (el) el.scrollIntoView({ block: 'nearest' });
-        }
-    }, [selectedIndex]);
+    const filtered = useMemo(() => (
+        text ? types.filter((t) => t.toLowerCase().includes(text.toLowerCase())) : types
+    ), [text, types]);
 
     useEffect(() => {
         if (!editing) return;
-        const handler = (e: MouseEvent) => {
-            const target = e.target as Node;
-            const insideWrap = wrapRef.current?.contains(target);
-            const insideDrop = (target as Element).closest?.('[data-dtype-drop]');
-            if (!insideWrap && !insideDrop) commitAndClose(text);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [editing, text]);
+        setSelectedIndex(-1);
+    }, [text, editing]);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!editing || !inputRef.current) return;
-        const r = inputRef.current.getBoundingClientRect();
-        setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 220) });
+        requestAnimationFrame(() => {
+            if (!inputRef.current) return;
+            inputRef.current.focus();
+            inputRef.current.select();
+        });
     }, [editing]);
+
+    useEffect(() => {
+        if (!editing) return;
+        const handleOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            const insideWrap = wrapRef.current?.contains(target);
+            const insidePopover = (target as Element).closest?.('[data-dtype-popover]');
+            if (!insideWrap && !insidePopover) {
+                closeEditor('commit');
+            }
+        };
+        document.addEventListener('mousedown', handleOutside);
+        return () => document.removeEventListener('mousedown', handleOutside);
+    }, [editing, text, value]);
 
     const openEditor = () => {
         if (disabled) return;
         setText(value);
+        setSelectedIndex(-1);
         setEditing(true);
     };
 
-    const commitAndClose = (v: string) => {
-        const trimmed = v.trim();
-        if (trimmed && trimmed !== value) onCommit(trimmed);
+    const closeEditor = (intent: 'commit' | 'discard') => {
+        if (intent === 'commit') {
+            const trimmed = text.trim();
+            if (trimmed && trimmed !== value) onCommit(trimmed);
+        } else {
+            setText(value);
+        }
         setEditing(false);
-        setDropPos(null);
     };
 
-    const closeWithoutCommit = () => {
-        setEditing(false);
-        setDropPos(null);
+    const handleSuggestionPick = (suggestion: string) => {
+        setText(suggestion);
+        setSelectedIndex(-1);
+        if (inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
     };
-
-    const handleSuggestionClick = (t: string) => {
-        setText(t);
-        requestAnimationFrame(() => {
-            if (inputRef.current) {
-                inputRef.current.focus();
-                inputRef.current.select();
-                const r = inputRef.current.getBoundingClientRect();
-                setDropPos({ top: r.bottom + 2, left: r.left, width: Math.max(r.width, 220) });
-            }
-        });
-    };
-
-    const dropdown = dropPos && filtered.length > 0
-        ? ReactDOM.createPortal(
-            <div
-                ref={listRef}
-                data-dtype-drop
-                className="fixed z-panel-overlay overflow-y-auto bg-bg-secondary border border-border/40 rounded-md"
-                style={{
-                    top: dropPos.top,
-                    left: dropPos.left,
-                    width: dropPos.width,
-                    maxHeight: 220,
-                    boxShadow: 'none',
-                }}
-            >
-                {filtered.map((t, index) => {
-                    const isSelected = index === selectedIndex || (selectedIndex === -1 && t === text);
-                    return (
-                        <div
-                            key={t}
-                            onMouseDown={e => { e.preventDefault(); handleSuggestionClick(t); }}
-                            className={`px-4 py-2 text-xs font-mono cursor-pointer transition-colors ${isSelected
-                                    ? 'bg-accent text-bg-primary font-bold'
-                                    : 'text-text-primary/80 hover:bg-bg-tertiary hover:text-text-primary'
-                                }`}
-                        >
-                            {t}
-                        </div>
-                    );
-                })}
-            </div>,
-            document.body
-        )
-        : null;
 
     if (!editing) {
         return (
             <div
-                className={`rt-cell-content rt-cell-content--compact font-mono ${isDirty ? 'rt-cell-dirty' : ''} ${disabled ? 'opacity-40' : ''}`}
+                className={cn(
+                    'rt-cell-content rt-cell-content--compact font-mono',
+                    isDirty && 'rt-cell-dirty',
+                    disabled && 'opacity-40',
+                )}
                 onDoubleClick={openEditor}
                 title={`${value} (Double-click to edit)`}
             >
@@ -128,42 +100,99 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
     }
 
     return (
-        <div ref={wrapRef} className="relative w-full h-full">
-            <input
-                ref={inputRef}
-                autoFocus
-                onFocus={(e) => e.target.select()}
-                className="rt-cell-input font-mono text-[11px] border-accent!"
-                value={text}
-                onChange={e => { setText(e.target.value); }}
-                onKeyDown={e => {
-                    if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        if (filtered.length > 0) {
-                            setSelectedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
-                        }
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        if (filtered.length > 0) {
-                            setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
-                        }
-                    } else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (selectedIndex >= 0 && selectedIndex < filtered.length) {
-                            handleSuggestionClick(filtered[selectedIndex]);
-                        } else {
-                            commitAndClose(text);
-                        }
-                    } else if (e.key === 'Escape') {
-                        e.preventDefault();
-                        closeWithoutCommit();
-                    } else if (e.key === 'Tab') {
-                        commitAndClose(text);
-                    }
-                }}
-                onBlur={() => { setTimeout(() => commitAndClose(text), 150); }}
-            />
-            {dropdown}
-        </div>
+        <Popover open={editing}>
+            <PopoverAnchor asChild>
+                <div ref={wrapRef} className="relative h-full w-full">
+                    <Input
+                        ref={inputRef}
+                        autoFocus
+                        onFocus={(e) => e.target.select()}
+                        className="rt-cell-input font-mono text-[11px] !border-primary"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        onBlur={() => {
+                            // keep focus stable while selecting via suggestion mousedown
+                            window.setTimeout(() => {
+                                if (!editing) return;
+                                const active = document.activeElement as Element | null;
+                                const insidePopover = active?.closest?.('[data-dtype-popover]');
+                                const insideWrap = active ? wrapRef.current?.contains(active) : false;
+                                if (!insideWrap && !insidePopover) closeEditor('commit');
+                            }, 0);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (filtered.length > 0) {
+                                    setSelectedIndex((prev) => (
+                                        prev < filtered.length - 1 ? prev + 1 : prev
+                                    ));
+                                }
+                            } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (filtered.length > 0) {
+                                    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                                }
+                            } else if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (selectedIndex >= 0 && selectedIndex < filtered.length) {
+                                    handleSuggestionPick(filtered[selectedIndex]);
+                                } else {
+                                    closeEditor('commit');
+                                }
+                            } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                closeEditor('discard');
+                            } else if (e.key === 'Tab') {
+                                e.stopPropagation();
+                                closeEditor('commit');
+                            }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            </PopoverAnchor>
+            <PopoverContent
+                align="start"
+                side="bottom"
+                sideOffset={4}
+                data-dtype-popover
+                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-md border border-border bg-popover p-1 shadow-elevation-md"
+            >
+                <Command className="border-0 bg-transparent">
+                    <CommandList className="max-h-[220px]">
+                        {filtered.length === 0 && (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                                No matching data type
+                            </div>
+                        )}
+                        {filtered.map((typeName, index) => {
+                            const isSelected = index === selectedIndex || (selectedIndex === -1 && typeName === text);
+                            return (
+                                <CommandItem
+                                    key={typeName}
+                                    value={typeName}
+                                    onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        handleSuggestionPick(typeName);
+                                    }}
+                                    onSelect={() => handleSuggestionPick(typeName)}
+                                    className={cn(
+                                        'font-mono text-xs',
+                                        isSelected && 'bg-accent text-foreground font-semibold',
+                                    )}
+                                >
+                                    {typeName}
+                                </CommandItem>
+                            );
+                        })}
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
     );
 };

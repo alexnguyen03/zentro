@@ -1,15 +1,24 @@
-import React from 'react';
-import { Database, Eye, Hash, Layers, Link2, List, Search, Sigma, Table2, Type, Zap } from 'lucide-react';
-import { ModalBackdrop } from '../ui';
+﻿import React from 'react';
+import { Database, Eye, Hash, Layers, Link2, List, Sigma, Table2, Type, Zap } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore, type SchemaNode } from '../../stores/schemaStore';
-import { FetchDatabaseSchema } from '../../services/schemaService';
+import { FetchDatabaseSchema, FetchTableColumns } from '../../services/schemaService';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
 import { TAB_TYPE } from '../../lib/constants';
 import { useToast } from './Toast';
 import { getErrorMessage } from '../../lib/errors';
+import { models } from '../../../wailsjs/go/models';
+import {
+    Button,
+    Command,
+    CommandEmpty,
+    CommandInput,
+    CommandItem,
+    CommandList,
+    OverlayDialog,
+} from '../ui';
 
 type ObjectKind =
     | 'table'
@@ -29,6 +38,14 @@ interface SearchItem {
     name: string;
     qualifiedName: string;
     keywords: string;
+}
+
+type ItemAction = 'browse' | 'select' | 'insert' | 'update' | 'alter' | 'open';
+
+interface ItemContextMenu {
+    x: number;
+    y: number;
+    item: SearchItem;
 }
 
 const KIND_LABEL: Record<ObjectKind, string> = {
@@ -55,13 +72,7 @@ const KIND_ICON: Record<ObjectKind, React.ReactNode> = {
     aggregate_function: <Sigma size={14} />,
 };
 
-const DEFAULT_ENABLED_KINDS: ObjectKind[] = [
-    'table',
-    'view',
-    'index',
-    'function',
-];
-
+const DEFAULT_ENABLED_KINDS: ObjectKind[] = ['table', 'view', 'index', 'function'];
 const PRIMARY_VISIBLE_KINDS: ObjectKind[] = ['table', 'index', 'view', 'function'];
 
 interface Props {
@@ -117,6 +128,72 @@ function buildFunctionTemplate(item: SearchItem, driver: string | undefined): st
 function buildInfoTemplate(item: SearchItem): string {
     return [`-- ${KIND_LABEL[item.kind]}: ${item.qualifiedName}`, '-- Add query here'].join('\n');
 }
+
+function buildSelectTemplate(item: SearchItem, driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+    return `SELECT *\nFROM ${s}.${n}\nLIMIT 100;\n`;
+}
+
+function buildInsertTemplate(item: SearchItem, columns: models.ColumnDef[], driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+    if (columns.length === 0) {
+        return [
+            `INSERT INTO ${s}.${n} (`,
+            '    -- column1, column2',
+            ') VALUES (',
+            '    -- value1, value2',
+            ');',
+            '',
+        ].join('\n');
+    }
+    const cols = columns.map((c) => quoteIdent(c.Name, driver)).join(', ');
+    const vals = columns.map((c) => `-- ${c.Name} (${c.DataType})`).join(',\n    ');
+    return [
+        `INSERT INTO ${s}.${n} (${cols})`,
+        `VALUES (`,
+        `    ${vals}`,
+        `);`,
+        '',
+    ].join('\n');
+}
+
+function buildUpdateTemplate(item: SearchItem, columns: models.ColumnDef[], driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+    const sets = columns
+        .filter((c) => !c.IsPrimaryKey)
+        .map((c) => `    ${quoteIdent(c.Name, driver)} = -- ${c.DataType}`)
+        .join(',\n');
+    const pkCols = columns.filter((c) => c.IsPrimaryKey);
+    const where = pkCols.length > 0
+        ? pkCols.map((c) => `    ${quoteIdent(c.Name, driver)} = -- ${c.DataType}`).join('\n    AND ')
+        : '    -- add condition here';
+    return [
+        `UPDATE ${s}.${n}`,
+        `SET`,
+        sets || '    -- col = value',
+        `WHERE`,
+        where,
+        `;`,
+        '',
+    ].join('\n');
+}
+
+function buildAlterTemplate(item: SearchItem, driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+
+    return [
+        `ALTER TABLE ${s}.${n}`,
+        'ADD COLUMN -- new_column data_type;',
+        '',
+    ].join('\n');
+}
+
+const isTableLike = (kind: ObjectKind) =>
+    kind === 'table' || kind === 'view' || kind === 'materialized_view' || kind === 'foreign_table';
 
 function buildItems(schemas: SchemaNode[] | undefined): SearchItem[] {
     if (!schemas) return [];
@@ -184,36 +261,30 @@ function fuzzyScore(needle: string, haystack: string): number {
 }
 
 export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
-    const inputRef = React.useRef<HTMLInputElement>(null);
-    const activeItemRef = React.useRef<HTMLButtonElement>(null);
     const { toast } = useToast();
 
     const { activeProfile, isConnected } = useConnectionStore();
-    const setTree = useSchemaStore((s) => s.setTree);
-    const setLoading = useSchemaStore((s) => s.setLoading);
-    const addTab = useEditorStore((s) => s.addTab);
+    const setTree = useSchemaStore((state) => state.setTree);
+    const setLoading = useSchemaStore((state) => state.setLoading);
+    const addTab = useEditorStore((state) => state.addTab);
 
     const profileName = activeProfile?.name || '';
     const dbName = activeProfile?.db_name || '';
     const schemaKey = `${profileName}:${dbName}`;
-    const schemas = useSchemaStore((s) => s.trees[schemaKey]);
-    const isLoading = useSchemaStore((s) => s.loadingKeys.has(schemaKey));
+    const schemas = useSchemaStore((state) => state.trees[schemaKey]);
+    const isLoading = useSchemaStore((state) => state.loadingKeys.has(schemaKey));
 
     const [query, setQuery] = React.useState('');
-    const [activeIndex, setActiveIndex] = React.useState(0);
     const [enabledKinds, setEnabledKinds] = React.useState<Set<ObjectKind>>(new Set(DEFAULT_ENABLED_KINDS));
     const [showAllKinds, setShowAllKinds] = React.useState(false);
-
-    React.useEffect(() => {
-        inputRef.current?.focus();
-    }, []);
+    const [contextMenu, setContextMenu] = React.useState<ItemContextMenu | null>(null);
 
     React.useEffect(() => {
         if (!isConnected || !profileName || !dbName || schemas || isLoading) return;
         setLoading(profileName, dbName, true);
-        FetchDatabaseSchema(profileName, dbName).catch((err) => {
+        FetchDatabaseSchema(profileName, dbName).catch((error) => {
             setLoading(profileName, dbName, false);
-            toast.error(`Failed to load schema: ${getErrorMessage(err)}`);
+            toast.error(`Failed to load schema: ${getErrorMessage(error)}`);
         });
     }, [dbName, isConnected, isLoading, profileName, schemas, setLoading, toast]);
 
@@ -245,77 +316,99 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     }, [allItems, enabledKinds, query]);
 
     React.useEffect(() => {
-        setActiveIndex(0);
-    }, [query, enabledKinds, schemas]);
+        const closeContextMenu = () => setContextMenu(null);
+        window.addEventListener('click', closeContextMenu);
+        window.addEventListener('scroll', closeContextMenu, true);
+        return () => {
+            window.removeEventListener('click', closeContextMenu);
+            window.removeEventListener('scroll', closeContextMenu, true);
+        };
+    }, []);
 
-    React.useEffect(() => {
-        activeItemRef.current?.scrollIntoView({ block: 'nearest' });
-    }, [activeIndex]);
+    const runItemAction = React.useCallback(
+        async (item: SearchItem, action: ItemAction) => {
+            const displayName = `${item.schema}.${item.name}`;
+            if (isTableLike(item.kind)) {
+                const driver = activeProfile?.driver;
 
-    const openItem = React.useCallback((item: SearchItem) => {
-        const displayName = `${item.schema}.${item.name}`;
-        if (
-            item.kind === 'table' ||
-            item.kind === 'view' ||
-            item.kind === 'materialized_view' ||
-            item.kind === 'foreign_table'
-        ) {
-            addTab({
-                type: TAB_TYPE.TABLE,
-                name: displayName,
-                content: displayName,
-                query: '',
-            });
-            onClose();
-            return;
-        }
+                if (action === 'browse' || action === 'open') {
+                    addTab({ type: TAB_TYPE.TABLE, name: displayName, content: displayName, query: '' });
+                    onClose();
+                    return;
+                }
 
-        if (item.kind === 'function') {
-            addTab({
-                type: TAB_TYPE.QUERY,
-                name: displayName,
-                query: buildFunctionTemplate(item, activeProfile?.driver),
-            });
-            onClose();
-            return;
-        }
+                if (action === 'select') {
+                    addTab({ type: TAB_TYPE.QUERY, name: displayName, query: buildSelectTemplate(item, driver) });
+                    onClose();
+                    return;
+                }
 
-        addTab({
-            type: TAB_TYPE.QUERY,
-            name: displayName,
-            query: buildInfoTemplate(item),
-            readOnly: true,
-        });
-        onClose();
-    }, [activeProfile?.driver, addTab, onClose]);
+                if (action === 'alter') {
+                    addTab({
+                        type: TAB_TYPE.QUERY,
+                        name: `ALTER ${displayName}`,
+                        query: buildAlterTemplate(item, driver),
+                    });
+                    onClose();
+                    return;
+                }
 
-    React.useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                e.preventDefault();
+                const columns = await FetchTableColumns(item.schema, item.name).catch(() => []);
+                if ((action === 'insert' || action === 'update') && columns.length === 0) {
+                    toast.info(`Could not load columns for ${displayName}. Generated a generic template.`);
+                }
+
+                if (action === 'insert') {
+                    addTab({
+                        type: TAB_TYPE.QUERY,
+                        name: `INSERT ${displayName}`,
+                        query: buildInsertTemplate(item, columns, driver),
+                    });
+                    onClose();
+                    return;
+                }
+
+                if (action === 'update') {
+                    addTab({
+                        type: TAB_TYPE.QUERY,
+                        name: `UPDATE ${displayName}`,
+                        query: buildUpdateTemplate(item, columns, driver),
+                    });
+                    onClose();
+                    return;
+                }
+
+                return;
+            }
+
+            if (item.kind === 'function' && (action === 'browse' || action === 'open')) {
+                addTab({
+                    type: TAB_TYPE.QUERY,
+                    name: displayName,
+                    query: buildFunctionTemplate(item, activeProfile?.driver),
+                });
                 onClose();
                 return;
             }
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setActiveIndex((i) => Math.min(i + 1, Math.max(filtered.length - 1, 0)));
-                return;
-            }
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setActiveIndex((i) => Math.max(i - 1, 0));
-                return;
-            }
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const item = filtered[activeIndex];
-                if (item) openItem(item);
-            }
-        };
 
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [activeIndex, filtered, onClose, openItem]);
+            addTab({
+                type: TAB_TYPE.QUERY,
+                name: displayName,
+                query: buildInfoTemplate(item),
+                readOnly: true,
+            });
+            onClose();
+        },
+        [activeProfile?.driver, addTab, onClose, toast],
+    );
+
+    const handleEnterBrowseFirst = React.useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter') return;
+        if (filtered.length === 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void runItemAction(filtered[0], 'browse');
+    }, [filtered, runItemAction]);
 
     const toggleKind = (kind: ObjectKind) => {
         setEnabledKinds((prev) => {
@@ -335,108 +428,179 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     }, [activeProfile, isConnected, isLoading, query, schemas]);
 
     return (
-        <ModalBackdrop onClose={onClose} className="items-start pt-[15vh]">
+        <OverlayDialog onClose={onClose} className="items-start pt-[15vh]">
             <div
-                className="w-[720px] max-h-[560px] flex flex-col bg-bg-secondary border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
-                onClick={(e) => e.stopPropagation()}
+                className="w-[720px] max-h-[560px] flex flex-col bg-card border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
+                onClick={(event) => event.stopPropagation()}
             >
-                <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-bg-secondary shrink-0">
-                    <Search size={15} className="text-text-muted shrink-0" />
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        placeholder="Search tables, views, functions..."
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted"
-                        autoComplete="off"
-                        spellCheck={false}
-                    />
-                    <span className=" text-xs text-text-muted shrink-0 inline-flex items-center gap-1">
-                        <Database size={11} />
-                        {dbName || 'No DB'}
-                    </span>
-                </div>
+                <Command shouldFilter={false} loop className="h-full bg-card text-foreground">
+                    <div className="relative border-b border-border">
+                        <CommandInput
+                            value={query}
+                            onValueChange={setQuery}
+                            placeholder="Search tables, views, functions..."
+                            className="pr-28"
+                            onKeyDown={handleEnterBrowseFirst}
+                        />
+                        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <Database size={11} />
+                            {dbName || 'No DB'}
+                        </span>
+                    </div>
 
-                <div className="px-3 py-2 border-b border-border bg-bg-primary/40 flex items-center gap-2 flex-wrap">
-                    {(showAllKinds ? (Object.keys(KIND_LABEL) as ObjectKind[]) : PRIMARY_VISIBLE_KINDS).map((kind) => {
-                        const active = enabledKinds.has(kind);
-                        return (
-                            <button
-                                key={kind}
-                                onClick={() => toggleKind(kind)}
-                                className={cn(
-                                    'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] border transition-colors cursor-pointer whitespace-nowrap',
-                                    active
-                                        ? 'bg-success/15 text-text-primary border-success/40'
-                                        : 'bg-bg-secondary text-text-secondary border-border hover:bg-bg-tertiary',
-                                )}
-                            >
-                                {KIND_ICON[kind]}
-                                <span>{KIND_LABEL[kind]}</span>
-                            </button>
-                        );
-                    })}
-                    <button
-                        onClick={() =>
-                            setShowAllKinds((prev) => {
-                                const next = !prev;
-                                if (!next) {
-                                    setEnabledKinds((current) => {
-                                        const filteredSet = new Set(
-                                            [...current].filter((kind) => PRIMARY_VISIBLE_KINDS.includes(kind)),
-                                        );
-                                        if (filteredSet.size === 0) {
-                                            PRIMARY_VISIBLE_KINDS.forEach((kind) => filteredSet.add(kind));
-                                        }
-                                        return filteredSet;
-                                    });
-                                }
-                                return next;
-                            })
-                        }
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] border transition-colors cursor-pointer whitespace-nowrap bg-bg-secondary text-text-secondary border-border hover:bg-bg-tertiary"
-                    >
-                        <span>{showAllKinds ? 'Less' : 'More'}</span>
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto py-1">
-                    {filtered.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-[12px] text-text-muted">
-                            {emptyMessage}
-                        </div>
-                    ) : (
-                        filtered.map((item, idx) => {
-                            const isActive = idx === activeIndex;
+                    <div className="px-3 py-2 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
+                        {(showAllKinds ? (Object.keys(KIND_LABEL) as ObjectKind[]) : PRIMARY_VISIBLE_KINDS).map((kind) => {
+                            const active = enabledKinds.has(kind);
                             return (
-                                <button
-                                    key={item.id}
-                                    ref={isActive ? activeItemRef : undefined}
+                                <Button
+                                    key={kind}
+                                    type="button"
+                                    variant={active ? 'secondary' : 'ghost'}
                                     className={cn(
-                                        'w-full flex items-center justify-between px-4 py-2 text-left transition-colors duration-75 text-[13px] group cursor-pointer border-none bg-transparent',
-                                        isActive
-                                            ? 'bg-success/10 text-text-primary'
-                                            : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+                                        'h-7 gap-1.5 px-2 text-[11px] border whitespace-nowrap',
+                                        active ? 'border-success/40 bg-success/15 text-foreground' : 'text-muted-foreground',
                                     )}
-                                    onClick={() => openItem(item)}
-                                    onMouseEnter={() => setActiveIndex(idx)}
+                                    onClick={() => toggleKind(kind)}
                                 >
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        <span className={cn('shrink-0', isActive && 'text-success')}>{KIND_ICON[item.kind]}</span>
-                                        <span className="truncate font-medium">{item.name}</span>
-                                    </span>
-                                    <span className="flex items-center gap-2 ml-4 shrink-0">
-                                        <span className="text-[10px] uppercase tracking-wide text-text-muted">{KIND_LABEL[item.kind]}</span>
-                                        <span className="text-[11px] text-text-muted">{item.schema}</span>
-                                    </span>
-                                </button>
+                                    {KIND_ICON[kind]}
+                                    <span>{KIND_LABEL[kind]}</span>
+                                </Button>
                             );
-                        })
+                        })}
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() =>
+                                setShowAllKinds((prev) => {
+                                    const next = !prev;
+                                    if (!next) {
+                                        setEnabledKinds((current) => {
+                                            const filteredSet = new Set(
+                                                [...current].filter((kind) => PRIMARY_VISIBLE_KINDS.includes(kind)),
+                                            );
+                                            if (filteredSet.size === 0) {
+                                                PRIMARY_VISIBLE_KINDS.forEach((kind) => filteredSet.add(kind));
+                                            }
+                                            return filteredSet;
+                                        });
+                                    }
+                                    return next;
+                                })
+                            }
+                        >
+                            {showAllKinds ? 'Less' : 'More'}
+                        </Button>
+                    </div>
+
+                    <CommandList className="max-h-[430px] py-1">
+                        <CommandEmpty>{emptyMessage}</CommandEmpty>
+                        {filtered.map((item) => (
+                            <CommandItem
+                                key={item.id}
+                                value={`${item.qualifiedName} ${KIND_LABEL[item.kind]} ${item.schema}`}
+                                onSelect={() => void runItemAction(item, 'browse')}
+                                onContextMenu={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setContextMenu({ x: event.clientX, y: event.clientY, item });
+                                }}
+                                className="group flex items-center justify-between px-4 py-2 text-[13px] data-[selected=true]:bg-success/10"
+                            >
+                                <span className="flex min-w-0 items-center gap-2">
+                                    <span className="shrink-0 group-data-[selected=true]:text-success">{KIND_ICON[item.kind]}</span>
+                                    <span className="truncate font-medium">{item.name}</span>
+                                </span>
+                                <span className="ml-4 flex shrink-0 items-center gap-2">
+                                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                        {KIND_LABEL[item.kind]}
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground">{item.schema}</span>
+                                </span>
+                            </CommandItem>
+                        ))}
+                    </CommandList>
+                </Command>
+            </div>
+            {contextMenu && (
+                <div
+                    className="fixed z-popover min-w-[160px] rounded-md border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    {isTableLike(contextMenu.item.kind) ? (
+                        <>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'browse');
+                                }}
+                            >
+                                Browse
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'select');
+                                }}
+                            >
+                                Select
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'insert');
+                                }}
+                            >
+                                Insert
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'update');
+                                }}
+                            >
+                                Update
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                onClick={() => {
+                                    setContextMenu(null);
+                                    void runItemAction(contextMenu.item, 'alter');
+                                }}
+                            >
+                                Alter
+                            </Button>
+                        </>
+                    ) : (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                            onClick={() => {
+                                setContextMenu(null);
+                                void runItemAction(contextMenu.item, 'open');
+                            }}
+                        >
+                            Open
+                        </Button>
                     )}
                 </div>
-
-            </div>
-        </ModalBackdrop>
+            )}
+        </OverlayDialog>
     );
 };

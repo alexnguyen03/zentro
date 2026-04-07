@@ -1,7 +1,18 @@
 import React from 'react';
 import { Database } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
-import { Button, FormField, Input, SelectField, SwitchField } from '../../ui';
+import {
+    Button,
+    Input,
+    Label,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Slider,
+    Switch,
+} from '../../ui';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
 import type { EnvironmentKey } from '../../../types/project';
 import type { SafetyLevel } from '../../../features/query/policyProfiles';
@@ -43,6 +54,7 @@ export const SettingsData: React.FC<Props> = ({
     const strongConfirmIndex = STRONG_CONFIRM_INDEX[strongConfirmFromEnvironment] ?? 0;
     const activeSafetyEnvironmentLabel = getEnvironmentMeta(activeSafetyEnvironment).label;
     const strongConfirmLabel = getEnvironmentMeta(strongConfirmFromEnvironment).label;
+    const sliderValue = [strongConfirmIndex];
     const setStrongConfirmByIndex = (index: number) => {
         const nextEnvironment = STRONG_CONFIRM_SLIDER_KEYS[index];
         if (nextEnvironment) {
@@ -62,17 +74,25 @@ export const SettingsData: React.FC<Props> = ({
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <FormField label="Fetch Row Limit" hint="Default row count for the result records.">
-                    <SelectField value={limit} onChange={(e) => onLimitChange(parseInt(e.target.value) || 1000)}>
-                        <option value={100}>100 rows</option>
-                        <option value={500}>500 rows</option>
-                        <option value={1000}>1,000 rows</option>
-                        <option value={5000}>5,000 rows</option>
-                        <option value={10000}>10,000 rows</option>
-                    </SelectField>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Fetch Row Limit</Label>
+                    <Select value={String(limit)} onValueChange={(value) => onLimitChange(parseInt(value, 10) || 1000)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="100">100 rows</SelectItem>
+                            <SelectItem value="500">500 rows</SelectItem>
+                            <SelectItem value="1000">1,000 rows</SelectItem>
+                            <SelectItem value="5000">5,000 rows</SelectItem>
+                            <SelectItem value="10000">10,000 rows</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Default row count for the result records.</p>
+                </div>
 
-                <FormField label="Connection Timeout" hint="Seconds before aborting login.">
+                <div className="space-y-1.5">
+                    <Label>Connection Timeout</Label>
                     <Input
                         type="number"
                         min={5}
@@ -80,9 +100,11 @@ export const SettingsData: React.FC<Props> = ({
                         value={connectTimeout}
                         onChange={(e) => onConnectTimeoutChange(parseInt(e.target.value) || 10)}
                     />
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">Seconds before aborting login.</p>
+                </div>
 
-                <FormField label="Execution Timeout" hint="Seconds for long queries.">
+                <div className="space-y-1.5">
+                    <Label>Execution Timeout</Label>
                     <Input
                         type="number"
                         min={5}
@@ -90,58 +112,44 @@ export const SettingsData: React.FC<Props> = ({
                         value={queryTimeout}
                         onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
                     />
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">Seconds for long queries.</p>
+                </div>
 
-                <FormField
-                    label="Write Safety Level"
-                    hint={`Applies to current environment: ${activeSafetyEnvironmentLabel}. Strict blocks UPDATE/DELETE without WHERE.`}
-                >
-                    <SelectField
-                        value={safetyLevel}
-                        onChange={(event) => onSafetyLevelChange(event.target.value as SafetyLevel)}
-                    >
-                        <option value="strict">Strict</option>
-                        <option value="balanced">Balanced</option>
-                        <option value="relaxed">Relaxed</option>
-                    </SelectField>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Write Safety Level</Label>
+                    <Select value={safetyLevel} onValueChange={(value) => onSafetyLevelChange(value as SafetyLevel)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="strict">Strict</SelectItem>
+                            <SelectItem value="balanced">Balanced</SelectItem>
+                            <SelectItem value="relaxed">Relaxed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                        {`Applies to current environment: ${activeSafetyEnvironmentLabel}. Strict blocks UPDATE/DELETE without WHERE.`}
+                    </p>
+                </div>
 
-                <FormField
-                    label="Strong Confirm From Environment"
-                    hint={`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
-                >
-                    <div className="rounded-md border border-border/25 bg-bg-primary/60 px-3 py-3">
-                        <input
-                            type="range"
+                <div className="space-y-1.5">
+                    <Label>Strong Confirm From Environment</Label>
+                    <div className="rounded-md border border-border/25 bg-muted/35 px-3 py-3">
+                        <Slider
                             min={0}
                             max={maxSliderIndex}
                             step={1}
-                            value={strongConfirmIndex}
-                            onChange={(event) => {
-                                const nextIndex = parseInt(event.target.value, 10);
-                                setStrongConfirmByIndex(nextIndex);
+                            value={sliderValue}
+                            onValueChange={(values) => {
+                                const nextIndex = values[0];
+                                if (typeof nextIndex === 'number') {
+                                    setStrongConfirmByIndex(Math.round(nextIndex));
+                                }
                             }}
-                            className="w-full cursor-pointer accent-accent"
+                            className="w-full cursor-pointer"
                             aria-label="Strong Confirm From Environment"
+                            aria-valuetext={strongConfirmLabel}
                         />
-                        <div className="relative mt-1 h-2">
-                            {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {
-                                const isActive = key === strongConfirmFromEnvironment;
-                                const position = `${(index / maxSliderIndex) * 100}%`;
-                                const alignmentClass = index === 0
-                                    ? 'left-0 translate-x-0'
-                                    : index === maxSliderIndex
-                                        ? 'left-full -translate-x-full'
-                                        : '-translate-x-1/2';
-                                return (
-                                    <span
-                                        key={key}
-                                        className={`absolute top-0 h-2 w-2 rounded-full border ${alignmentClass} ${isActive ? 'border-accent bg-accent' : 'border-border/60 bg-bg-primary'}`}
-                                        style={{ left: position }}
-                                    />
-                                );
-                            })}
-                        </div>
                         <div className="relative mt-2 h-7">
                             {STRONG_CONFIRM_SLIDER_KEYS.map((key, index) => {
                                 const isActive = key === strongConfirmFromEnvironment;
@@ -153,45 +161,54 @@ export const SettingsData: React.FC<Props> = ({
                                         : '-translate-x-1/2';
 
                                 return (
-                                    <button
+                                    <div
                                         key={key}
-                                        type="button"
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={() => setStrongConfirmByIndex(index)}
-                                        className={`absolute top-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-text-muted/75'}`}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setStrongConfirmByIndex(index); }}
+                                        className={` cursor-pointer absolute top-2 h-auto px-1 py-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
                                         style={{ left: position }}
                                         aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}
                                         title={`Set to ${getEnvironmentMeta(key).label}`}
                                     >
                                         {getEnvironmentMeta(key).label}
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
                     </div>
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">
+                        {`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
+                    </p>
+                </div>
 
-                <FormField
-                    label="Telemetry (Opt-in)"
-                    hint="Local metrics always stay on device. Opt-in enables product insights export/share."
-                >
-                    <div className="flex items-center justify-between rounded-md border border-border/25 bg-bg-primary/60 px-3 py-2">
-                        <span className="text-[12px] text-text-primary">Share anonymized product telemetry</span>
-                        <SwitchField
+                <div className="space-y-1.5">
+                    <Label>Telemetry (Opt-in)</Label>
+                    <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/35 px-3 py-2">
+                        <span className="text-[12px] text-foreground">Share anonymized product telemetry</span>
+                        <Switch
                             checked={telemetryOptIn}
-                            onChange={onTelemetryOptInChange}
+                            onCheckedChange={onTelemetryOptInChange}
                             aria-label="Share anonymized product telemetry"
                         />
                     </div>
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">
+                        Local metrics always stay on device. Opt-in enables product insights export/share.
+                    </p>
+                </div>
 
-                <FormField
-                    label="Export Telemetry Bundle"
-                    hint="Exports local metrics + anonymized analytics outbox (if opted-in)."
-                >
-                    <Button type="button" variant="solid" size="sm" className="w-fit" onClick={onExportTelemetry}>
-                        Export Pipeline Bundle
-                    </Button>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Export Telemetry Bundle</Label>
+                    <div className="mt-1">
+                        <Button type="button" variant="ghost" size="sm" className="w-fit" onClick={onExportTelemetry}>
+                            Export Pipeline Bundle
+                        </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                        Exports local metrics + anonymized analytics outbox (if opted-in).
+                    </p>
+                </div>
             </div>
         </div>
     );

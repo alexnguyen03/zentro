@@ -3,7 +3,16 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import type { editor as MonacoEditor } from 'monaco-editor';
 import { CompareQueries } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
-import { ModalBackdrop, Button } from '../ui';
+import {
+  Button,
+  Checkbox,
+  OverlayDialog,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui';
 import { useFeatureGate } from '../../features/license/useFeatureGate';
 
 interface QueryCompareModalProps {
@@ -120,17 +129,17 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
   };
 
   return (
-    <ModalBackdrop onClose={onClose} className="items-start pt-[8vh]">
-      <div className="w-[92vw] h-[84vh] bg-bg-secondary border border-border rounded-md shadow-2xl overflow-hidden flex flex-col">
+    <OverlayDialog onClose={onClose} className="items-start pt-[8vh]">
+      <div className="flex h-[84vh] w-[92vw] flex-col overflow-hidden rounded-md border border-border bg-card shadow-2xl">
         <div className="h-11 px-4 border-b border-border flex items-center justify-between">
-          <div className="text-sm font-semibold">Compare Queries</div>
+          <div className="text-sm font-semibold text-foreground">Compare Queries</div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-text-secondary flex items-center gap-1.5">
-              <input type="checkbox" checked={syncScroll} onChange={(e) => setSyncScroll(e.target.checked)} />
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Checkbox checked={syncScroll} onCheckedChange={(checked) => setSyncScroll(checked === true)} />
               Sync scroll
             </label>
-            <label className="text-xs text-text-secondary flex items-center gap-1.5">
-              <input type="checkbox" checked={ignoreWhitespace} onChange={(e) => setIgnoreWhitespace(e.target.checked)} />
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Checkbox checked={ignoreWhitespace} onCheckedChange={(checked) => setIgnoreWhitespace(checked === true)} />
               Normalize whitespace
             </label>
             <Button variant="ghost" onClick={handleUnified} disabled={!canCompare}>
@@ -140,38 +149,44 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           </div>
         </div>
 
-        <div className="px-4 py-2 border-b border-border bg-bg-primary/40 flex items-center gap-3">
-          <label className="text-xs text-text-secondary flex items-center gap-1">
-            Left
-            <select
-              className="ml-1 bg-bg-primary border border-border rounded-md px-2 py-1 text-[12px]"
-              value={leftTabId}
-              disabled={!canUseCompare}
-              onChange={(e) => setLeftTabId(e.target.value)}
-            >
-              {queryTabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs text-text-secondary flex items-center gap-1">
-            Right
-            <select
-              className="ml-1 bg-bg-primary border border-border rounded-md px-2 py-1 text-[12px]"
-              value={rightTabId}
-              disabled={!canUseCompare}
-              onChange={(e) => setRightTabId(e.target.value)}
-            >
-              {queryTabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="text-[11px] text-text-muted">
+        <div className="flex items-center gap-3 border-b border-border bg-muted/35 px-4 py-2">
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              Left
+              <Select
+                value={leftTabId}
+                onValueChange={(value) => setLeftTabId(value)}
+              >
+                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {queryTabs.map((tab) => (
+                    <SelectItem key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              Right
+              <Select
+                value={rightTabId}
+                onValueChange={(value) => setRightTabId(value)}
+              >
+                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {queryTabs.map((tab) => (
+                    <SelectItem key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          <span className="text-[11px] text-muted-foreground">
             Deterministic source order by group/tab index
           </span>
           {!canUseCompare && (
@@ -215,7 +230,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
           </div>
         )}
       </div>
-    </ModalBackdrop>
+    </OverlayDialog>
   );
 };
 

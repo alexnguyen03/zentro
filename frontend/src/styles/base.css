@@ -17,6 +17,14 @@ body {
     height: 100%;
 }
 
+button {
+    cursor: pointer !important;
+}
+
+button:disabled {
+    cursor: not-allowed !important;
+}
+
 input:disabled {
     opacity: 0.5;
     cursor: not-allowed;

@@ -15,7 +15,7 @@
 
 .resizer:hover,
 .resizer.active {
-    background-color: var(--status-success);
+    background-color: var(--primary);
 }
 
 /* ── Virtual scroll container ──────────────────────────── */
@@ -29,9 +29,9 @@
 .rt-cell-input {
     width: 100%;
     height: 100%;
-    background: var(--surface-app);
-    color: var(--content-primary);
-    border: 1px solid var(--status-success) !important;
+    background: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--primary) !important;
     outline: none;
     font-family: inherit;
     font-size: 11px;
@@ -43,7 +43,7 @@
 
 /* datetime-local: ensure border visible even when browser resets input styles */
 .rt-cell-input[type="datetime-local"] {
-    border: 1px solid var(--status-success) !important;
+    border: 1px solid var(--primary) !important;
     -webkit-appearance: none;
     appearance: none;
     padding: 0 5px;
@@ -99,9 +99,9 @@
 
 .rt-th {
     position: relative;
-    background: var(--surface-panel);
-    border-bottom: 2px solid var(--border-default);
-    border-right: 1px solid var(--border-default);
+    background: var(--card);
+    border-bottom: 2px solid var(--border);
+    border-right: 1px solid var(--border);
     padding: 0;
     text-align: left;
     white-space: nowrap;
@@ -114,7 +114,7 @@
     gap: 4px;
     padding: 5px 6px;
     font-weight: 500;
-    color: var(--content-secondary);
+    color: var(--muted-foreground);
     font-size: 10px;
     letter-spacing: 0.2px;
 }
@@ -124,11 +124,11 @@
 }
 
 .rt-th-sortable:hover .rt-th-label {
-    color: var(--content-primary);
+    color: var(--foreground);
 }
 
 .rt-th-sorted .rt-th-label {
-    color: var(--status-success);
+    color: var(--primary);
 }
 
 .rt-sort-icon {
@@ -137,8 +137,8 @@
 }
 
 .result-table-tanstack td {
-    border-bottom: 1px solid var(--border-default);
-    border-right: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
     padding: 0;
     height: 20px;
     vertical-align: middle;
@@ -165,26 +165,26 @@
 }
 
 .result-table-tanstack tr.rt-row-alt td {
-    background: var(--surface-panel);
+    background: var(--card);
 }
 
 .result-table-tanstack tr:hover td {
-    background: color-mix(in srgb, var(--content-primary) 5%, transparent);
+    background: color-mix(in srgb, var(--foreground) 5%, transparent);
 }
 
 
 .rt-cell-selected {
-    background: color-mix(in srgb, var(--interactive-primary) 15%, transparent) !important;
-    border: 1px solid var(--interactive-primary) !important;
+    background: color-mix(in srgb, var(--primary) 15%, transparent) !important;
+    border: 1px solid var(--primary) !important;
 }
 
 .rt-cell-dirty {
-    background: color-mix(in srgb, var(--status-success) 10%, transparent) !important;
-    border-left: 2px solid var(--status-success) !important;
+    background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
+    border-left: 2px solid var(--primary) !important;
 }
 
 .row-num-col {
-    color: var(--content-secondary);
+    color: var(--muted-foreground);
     font-size: 10px;
     user-select: none;
     min-width: 40px;
@@ -194,32 +194,32 @@
 }
 
 .rt-row-deleted td {
-    background: color-mix(in srgb, var(--status-error) 6%, var(--surface-app)) !important;
+    background: color-mix(in srgb, var(--destructive) 6%, var(--background)) !important;
 }
 
 .result-table-tanstack tr.rt-row-alt.rt-row-deleted td {
-    background: color-mix(in srgb, var(--status-error) 6%, var(--surface-panel)) !important;
+    background: color-mix(in srgb, var(--destructive) 6%, var(--card)) !important;
 }
 
 .result-table-tanstack tr.rt-row-selected td {
-    background: color-mix(in srgb, var(--interactive-primary) 8%, transparent);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .result-table-tanstack tr.rt-row-selected td.rt-index-sticky {
-    background: color-mix(in srgb, var(--interactive-primary) 8%, var(--surface-panel)) !important;
+    background: color-mix(in srgb, var(--primary) 8%, var(--card)) !important;
 }
 
 .rt-index-sticky {
     position: sticky;
     left: 0;
-    background: var(--surface-panel);
+    background: var(--card);
     overflow: visible;
 }
 
 .result-table-tanstack td.rt-index-sticky {
     z-index: calc(var(--layer-table-sticky) + 1);
-    background: var(--surface-panel) !important;
-    box-shadow: 1px 0 0 var(--border-default);
+    background: var(--card) !important;
+    box-shadow: 1px 0 0 var(--border);
 }
 
 .result-table-tanstack th.rt-index-sticky {
@@ -252,7 +252,7 @@
 .rt-th-filter-btn {
     border: 1px solid transparent;
     background: transparent;
-    color: var(--content-secondary);
+    color: var(--muted-foreground);
     border-radius: 4px;
     display: inline-flex;
     align-items: center;
@@ -265,9 +265,9 @@
 
 .rt-th-filter-btn:hover,
 .rt-th-filter-btn.is-active {
-    border-color: var(--border-subtle);
-    color: var(--content-primary);
-    background: color-mix(in srgb, var(--interactive-primary) 10%, transparent);
+    border-color: var(--border);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .rt-th-filter-popover {
@@ -276,18 +276,18 @@
     right: 0;
     z-index: var(--layer-popover);
     width: 210px;
-    border: 1px solid var(--border-default);
+    border: 1px solid var(--border);
     border-radius: 6px;
-    background: var(--surface-app);
+    background: var(--popover);
     box-shadow: var(--elevation-md);
     padding: 8px;
 }
 
 .rt-th-filter-input {
     width: 100%;
-    border: 1px solid var(--border-default);
-    background: var(--surface-panel);
-    color: var(--content-primary);
+    border: 1px solid var(--input);
+    background: var(--background);
+    color: var(--foreground);
     border-radius: 4px;
     font-size: 11px;
     line-height: 1.2;
@@ -296,7 +296,7 @@
 }
 
 .rt-th-filter-input:focus {
-    border-color: var(--interactive-primary);
+    border-color: var(--ring);
 }
 
 .rt-th-filter-input-row {
@@ -306,9 +306,9 @@
 }
 
 .rt-th-filter-input-clear {
-    border: 1px solid var(--border-default);
-    background: var(--surface-panel);
-    color: var(--content-secondary);
+    border: 1px solid var(--input);
+    background: var(--background);
+    color: var(--muted-foreground);
     border-radius: 4px;
     width: 24px;
     height: 24px;
@@ -320,8 +320,8 @@
 }
 
 .rt-th-filter-input-clear:hover {
-    color: var(--content-primary);
-    background: color-mix(in srgb, var(--interactive-primary) 14%, transparent);
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .rt-th-filter-actions {
@@ -332,9 +332,9 @@
 }
 
 .rt-th-filter-action {
-    border: 1px solid var(--border-default);
-    background: var(--surface-panel);
-    color: var(--content-primary);
+    border: 1px solid var(--input);
+    background: var(--background);
+    color: var(--foreground);
     border-radius: 4px;
     font-size: 10px;
     padding: 3px 6px;
@@ -342,7 +342,7 @@
 }
 
 .rt-th-filter-action:hover {
-    background: color-mix(in srgb, var(--interactive-primary) 14%, transparent);
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .rt-th-filter-action-clear {
@@ -356,7 +356,7 @@
     top: 50%;
     right: 8px;
     transform: translateY(-50%);
-    color: var(--content-muted);
+    color: var(--muted-foreground);
     cursor: grab;
     display: inline-flex;
     align-items: center;
@@ -390,23 +390,23 @@
 }
 
 .rt-col-resizer:hover {
-    background: color-mix(in srgb, var(--interactive-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
 .result-table-tanstack tr.rt-row-draft td {
-    background: color-mix(in srgb, var(--status-success) 10%, var(--surface-app)) !important;
+    background: color-mix(in srgb, var(--primary) 10%, var(--background)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft:hover td {
-    background: color-mix(in srgb, var(--status-success) 14%, var(--surface-app)) !important;
+    background: color-mix(in srgb, var(--primary) 14%, var(--background)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft.rt-row-alt td {
-    background: color-mix(in srgb, var(--status-success) 12%, var(--surface-panel)) !important;
+    background: color-mix(in srgb, var(--primary) 12%, var(--card)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft.rt-row-selected td {
-    background: color-mix(in srgb, var(--status-success) 16%, var(--surface-app)) !important;
+    background: color-mix(in srgb, var(--primary) 16%, var(--background)) !important;
 }
 
 /* ── Skeleton shimmer animation ────────────────────────── */

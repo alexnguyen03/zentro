@@ -2,6 +2,7 @@ import React from 'react';
 import {
     AlertCircle,
     CheckCircle,
+    Columns,
     Copy,
     FilePlus,
     Loader,
@@ -23,16 +24,30 @@ import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { models } from '../../../wailsjs/go/models';
-import { Modal } from '../layout/Modal';
 import { useToast } from '../layout/Toast';
-import { Button } from '../ui';
+import {
+    Button,
+    Checkbox,
+    Input,
+    Label,
+    Modal,
+    RadioGroup,
+    RadioGroupItem,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '../ui';
 import { ResultTable, type ResultCellContextMenuPayload } from './ResultTable';
 import { ResultFilterBar } from './ResultFilterBar';
 import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
 import type { UiAction } from '../../types/uiAction';
-import { LIMIT_OPTIONS, formatDuration, makeCellId } from './resultPanelUtils';
+import { cn } from '../../lib/cn';
+import { useConnectionStore } from '../../stores/connectionStore';
+import { LIMIT_OPTIONS, formatDuration, makeCellId, parseCellId } from './resultPanelUtils';
 import { utils } from '../../../wailsjs/go/models';
 import { FetchTotalRowCount } from '../../services/queryService';
 import { useResultEditing } from './useResultEditing';
@@ -48,7 +63,11 @@ import {
     applySetNullToSelection,
     buildSelectionMatrix,
     matrixToTsv,
+    buildRowsAsInsertStatements,
+    buildRowAsUpdateStatement,
 } from './resultSelectionActions';
+
+const RESULT_TOOLBAR_ICON_SIZE = 12;
 
 export type ResultPanelAction = UiAction;
 
@@ -89,6 +108,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 }) => {
     const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
+    const driver = useConnectionStore((state) => state.activeProfile?.driver);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const addTab = useEditorStore((s) => s.addTab);
     const updateTabContext = useEditorStore((s) => s.updateTabContext);
@@ -109,6 +129,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
     const [showSaveModal, setShowSaveModal] = React.useState(false);
+    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
+    const [showColumnsPopover, setShowColumnsPopover] = React.useState(false);
+    const columnsPopoverRef = React.useRef<HTMLDivElement>(null);
     const [showExportModal, setShowExportModal] = React.useState(false);
     const [exportScope, setExportScope] = React.useState<'all' | 'view'>('all');
     const [exportFormat, setExportFormat] = React.useState<'csv' | 'json' | 'sql'>('csv');
@@ -196,6 +219,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 }
             } else {
                 keepFilterFocusRef.current = false;
+                // Auto-count total rows when query finishes and there are more rows to load
+                if (result.hasMore && result.isSelect) {
+                    void handleCountTotal();
+                }
             }
             prevIsDone.current = result.isDone;
         }
@@ -288,8 +315,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const { runExport, exportJob, cancelExport } = useResultExport({ tabId, result });
     const canUseResultExport = featureGate.canUse('query.result.export');
     const allExportColumns = result?.columns || [];
-    const handleLimitChange = React.useCallback(async (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newLimit = parseInt(event.target.value, 10) || 1000;
+    const handleLimitChange = React.useCallback(async (value: string) => {
+        const newLimit = parseInt(value, 10) || 1000;
         await save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
 
         // Re-run immediately so the new limit applies without requiring manual reload.
@@ -361,12 +388,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 key={action.id}
                 variant="ghost"
                 size="icon"
-                danger={action.danger}
                 onClick={() => action.onClick?.()}
                 disabled={action.disabled || action.loading}
                 title={action.title || action.label}
+                className={action.danger ? 'h-7 w-7 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive' : 'h-7 w-7 p-0'}
             >
-                {action.loading ? <Loader size={12} className="animate-spin" /> : action.icon}
+                {action.loading ? <Loader size={RESULT_TOOLBAR_ICON_SIZE} className="animate-spin" /> : action.icon}
             </Button>
         );
     }, []);
@@ -383,7 +410,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (showRowActions) {
             actions.push({
                 id: 'add-row',
-                icon: <Plus size={11} />,
+                icon: <Plus size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: 'Add Row',
                 title: rowActionDisabledReason || 'Add Row',
                 onClick: handleAddRow,
@@ -391,7 +418,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             });
             actions.push({
                 id: 'duplicate-rows',
-                icon: <Copy size={11} />,
+                icon: <Copy size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: 'Duplicate',
                 title: rowActionDisabledReason || 'Duplicate Selected Rows',
                 onClick: handleDuplicateRows,
@@ -399,7 +426,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             });
             actions.push({
                 id: 'delete-rows',
-                icon: <Trash2 size={11} />,
+                icon: <Trash2 size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: 'Delete',
                 title: rowActionDisabledReason || 'Delete Selected Rows',
                 danger: true,
@@ -409,11 +436,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         }
         if (hasPendingChanges) {
             actions.push({
-                id: 'discard', icon: <RotateCcw size={11} />, label: 'Discard', title: 'Discard', danger: true,
+                id: 'discard', icon: <RotateCcw size={RESULT_TOOLBAR_ICON_SIZE} />, label: 'Discard', title: 'Discard', danger: true,
                 onClick: () => { resetEditState(); setSelectedCells(new Set()); },
             });
             if (!viewMode) {
-                actions.push({ id: 'save', icon: <Save size={11} />, label: 'Save', title: 'Save', onClick: () => { void handleSaveRequest(); }, loading: isSavingDraftRows });
+                actions.push({ id: 'save', icon: <Save size={RESULT_TOOLBAR_ICON_SIZE} />, label: 'Save', title: 'Save', onClick: () => { void handleSaveRequest(); }, loading: isSavingDraftRows });
             }
         }
 
@@ -426,7 +453,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             .filter((contribution) => (contribution.isAvailable ? contribution.isAvailable(resultActionContext) : true))
             .map<ResultPanelAction>((contribution) => ({
                 id: `ext:${contribution.id}`,
-                icon: <Sparkles size={11} />,
+                icon: <Sparkles size={RESULT_TOOLBAR_ICON_SIZE} />,
                 label: contribution.title,
                 title: contribution.title,
                 onClick: () => contribution.run(resultActionContext),
@@ -437,40 +464,95 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             id: 'row-limit',
             signature: `limit:${defaultLimit}`,
             render: () => (
-                <select
-                    className="bg-transparent border border-border/40 text-text-secondary text-[11px] px-1.5 py-0.5 h-7 rounded-md cursor-pointer outline-none transition-colors duration-100 hover:bg-bg-tertiary focus:border-success appearance-auto"
-                    value={defaultLimit}
-                    onChange={handleLimitChange}
-                    title="Row limit for next query"
-                >
-                    {LIMIT_OPTIONS.map((value) => (
-                        <option key={value} value={value}>{value.toLocaleString()}</option>
-                    ))}
-                </select>
+                <Select value={String(defaultLimit)} onValueChange={handleLimitChange}>
+                    <SelectTrigger
+                        className="h-7 w-[112px] border-border/40 bg-transparent px-2 py-0 text-[11px] text-muted-foreground hover:bg-muted/70"
+                        title="Row limit for next query"
+                    >
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {LIMIT_OPTIONS.map((value) => (
+                            <SelectItem key={value} value={String(value)}>
+                                {value.toLocaleString()}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             ),
         });
 
+        if (result && result.columns.length > 0) {
+            const hiddenCount = Object.values(columnVisibility).filter((v) => v === false).length;
+            actions.push({
+                id: 'columns-toggle',
+                signature: `cols:${hiddenCount}:${showColumnsPopover ? 1 : 0}`,
+                render: () => (
+                    <div className="relative" ref={columnsPopoverRef}>
+                        <Button
+                            type="button"
+                            variant={hiddenCount > 0 ? 'secondary' : 'ghost'}
+                            className={cn('h-7 gap-1 px-2 text-[11px] border', hiddenCount > 0 ? 'border-success/40 bg-success/15' : 'border-transparent')}
+                            title="Toggle column visibility"
+                            onClick={() => setShowColumnsPopover((prev) => !prev)}
+                        >
+                            <Columns size={RESULT_TOOLBAR_ICON_SIZE} />
+                            {hiddenCount > 0 && <span className="text-[10px]">-{hiddenCount}</span>}
+                        </Button>
+                        {showColumnsPopover && (
+                            <div className="absolute right-0 top-full mt-1 z-panel-overlay min-w-[180px] max-h-[320px] overflow-y-auto rounded-md border border-border bg-popover shadow-lg py-1">
+                                <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
+                                    Columns
+                                </div>
+                                {result.columns.map((col) => {
+                                    const isVisible = columnVisibility[col] !== false;
+                                    return (
+                                        <Button
+                                            key={col}
+                                            variant="ghost"
+                                            size="sm"
+                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted text-left transition-colors h-auto justify-start rounded-none"
+                                            onClick={() => setColumnVisibility((prev) => ({ ...prev, [col]: !isVisible }))}
+                                        >
+                                            <span className={cn('w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center', isVisible ? 'bg-success border-success text-white' : 'border-border')}>
+                                                {isVisible && <span className="text-[8px] leading-none">✓</span>}
+                                            </span>
+                                            <span className="truncate">{col}</span>
+                                        </Button>
+                                    );
+                                })}
+                                {Object.values(columnVisibility).some((v) => v === false) && (
+                                    <div className="border-t border-border mt-1 pt-1 px-2 pb-1">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="h-6 w-full text-[11px] text-muted-foreground"
+                                            onClick={() => setColumnVisibility({})}
+                                        >
+                                            Show all
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
         actions.push({
-            id: 'export-dropdown',
-            signature: `export:${canUseResultExport ? 1 : 0}:${showExportModal ? 1 : 0}`,
-            render: () => (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleOpenExportModal}
-                    disabled={!canUseResultExport}
-                    title="Export"
-                    className="gap-1"
-                >
-                    <Upload size={13} />
-                </Button>
-            ),
+            id: 'export',
+            icon: <Upload size={RESULT_TOOLBAR_ICON_SIZE} />,
+            label: 'Export',
+            title: 'Export',
+            onClick: handleOpenExportModal,
+            disabled: !canUseResultExport,
         });
 
         if (showMaximizeControl) {
             actions.push({
                 id: 'toggle-maximize',
-                icon: isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />,
+                icon: isMaximized ? <Minimize2 size={RESULT_TOOLBAR_ICON_SIZE} /> : <Maximize2 size={RESULT_TOOLBAR_ICON_SIZE} />,
                 title: isMaximized ? 'Restore result panel size' : 'Maximize result panel',
                 onClick: onToggleMaximize,
                 disabled: !onToggleMaximize,
@@ -481,7 +563,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (exportJob?.status === 'running') {
             actions.push({
                 id: 'cancel-export',
-                icon: <Loader size={12} className="animate-spin" />,
+                icon: <Loader size={RESULT_TOOLBAR_ICON_SIZE} className="animate-spin" />,
                 title: 'Cancel export',
                 onClick: cancelExport,
                 signature: `export-running:${exportJob.progressPct ?? 0}`,
@@ -506,7 +588,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         viewMode,
         defaultLimit,
         canUseResultExport,
-        showExportModal,
         handleOpenExportModal,
         showMaximizeControl,
         isMaximized,
@@ -516,6 +597,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         cancelExport,
         requestDeleteSelectedRows,
         onActionsChange,
+        columnVisibility,
+        showColumnsPopover,
+        setColumnVisibility,
+        setShowColumnsPopover,
+        result?.columns,
     ]);
 
     React.useEffect(() => {
@@ -622,6 +708,126 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             .catch(() => toast.error('Failed to write to clipboard'));
         closeContextMenu();
     }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, rowOrder, toast]);
+
+    const handleContextCopyCellValue = React.useCallback(() => {
+        if (!contextMenu) {
+            closeContextMenu();
+            return;
+        }
+        const { rowKey, colIdx } = contextMenu;
+        const row = displayRowsByKey.get(rowKey);
+        let value = '';
+        if (row) {
+            if (row.kind === 'persisted') {
+                value = editedCells.get(`${row.persistedIndex}:${colIdx}`) ?? row.values[colIdx] ?? '';
+            } else {
+                value = row.values[colIdx] ?? '';
+            }
+        }
+        void setClipboardText(value)
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, contextMenu, displayRowsByKey, editedCells, toast]);
+
+    const getSelectionColumnRange = React.useCallback((effectiveSelection: Set<string>): { minCol: number; maxCol: number } | null => {
+        let minCol = Infinity;
+        let maxCol = -Infinity;
+        effectiveSelection.forEach((cellId) => {
+            const { colIdx } = parseCellId(cellId);
+            if (!Number.isNaN(colIdx)) {
+                minCol = Math.min(minCol, colIdx);
+                maxCol = Math.max(maxCol, colIdx);
+            }
+        });
+        if (!Number.isFinite(minCol)) return null;
+        return { minCol, maxCol };
+    }, []);
+
+    const handleContextCopyWithHeaders = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one cell to copy.');
+            closeContextMenu();
+            return;
+        }
+        const matrix = buildSelectionMatrix({
+            selectedCells: effectiveSelection,
+            displayRows,
+            rowOrder,
+            editedCells,
+        });
+        if (matrix.length === 0) {
+            toast.info('No copyable cells in current selection.');
+            closeContextMenu();
+            return;
+        }
+        const colRange = getSelectionColumnRange(effectiveSelection);
+        const columns = result?.columns ?? [];
+        const headers = colRange ? columns.slice(colRange.minCol, colRange.maxCol + 1) : [];
+        void setClipboardText(matrixToTsv([headers, ...matrix]))
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, getSelectionColumnRange, result?.columns, rowOrder, toast]);
+
+    const handleContextCopyAsJson = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) {
+            toast.info('Select at least one cell to copy.');
+            closeContextMenu();
+            return;
+        }
+        const matrix = buildSelectionMatrix({
+            selectedCells: effectiveSelection,
+            displayRows,
+            rowOrder,
+            editedCells,
+        });
+        if (matrix.length === 0) {
+            toast.info('No copyable cells in current selection.');
+            closeContextMenu();
+            return;
+        }
+        const colRange = getSelectionColumnRange(effectiveSelection);
+        const columns = result?.columns ?? [];
+        const headers = colRange ? columns.slice(colRange.minCol, colRange.maxCol + 1) : [];
+        const jsonRows = matrix.map((row) => {
+            const obj: Record<string, string> = {};
+            headers.forEach((col, i) => { obj[col] = row[i] ?? ''; });
+            return obj;
+        });
+        void setClipboardText(JSON.stringify(jsonRows, null, 2))
+            .catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, getSelectionColumnRange, result?.columns, rowOrder, toast]);
+
+    const handleContextCopyAsInsert = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
+        const columns = result?.columns ?? [];
+        const tableName = result?.tableName ?? 'table_name';
+        const sql = buildRowsAsInsertStatements({
+            selectedCells: effectiveSelection, displayRows, rowOrder, editedCells, columns, tableName, driver,
+        });
+        if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
+        void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [driver, closeContextMenu, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
+
+    const handleContextCopyAsUpdate = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
+        const columns = result?.columns ?? [];
+        const tableName = result?.tableName ?? 'table_name';
+        const pkColumns = columnDefsByName
+            ? Array.from(columnDefsByName.values()).filter((c) => c.IsPrimaryKey).map((c) => c.Name)
+            : [];
+        const sql = buildRowAsUpdateStatement({
+            selectedCells: effectiveSelection, displayRows, rowOrder, editedCells, columns, pkColumns, tableName, driver,
+        });
+        if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
+        void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [driver, closeContextMenu, columnDefsByName, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
 
     const handleContextPaste = React.useCallback(() => {
         if (!canMutateCells) {
@@ -852,6 +1058,22 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setContextMenu(null);
     }, [result?.isDone, result?.lastExecutedQuery]);
 
+    React.useEffect(() => {
+        setColumnVisibility({});
+        setShowColumnsPopover(false);
+    }, [result?.lastExecutedQuery]);
+
+    React.useEffect(() => {
+        if (!showColumnsPopover) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (columnsPopoverRef.current && !columnsPopoverRef.current.contains(e.target as Node)) {
+                setShowColumnsPopover(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showColumnsPopover]);
+
     // ── Keyboard ──────────────────────────────────────────────────────────────
     const { handleKeyDown } = useResultKeyboard({
         tabId, result, hasPendingChanges, isReadOnlyTab, viewMode, isEditable,
@@ -867,8 +1089,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
     const contextMenuPosition = React.useMemo(() => {
         if (!contextMenu || typeof window === 'undefined') return null;
-        const estimatedWidth = 164;
-        const estimatedHeight = 182;
+        const estimatedWidth = 190;
+        const estimatedHeight = 320;
         const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
         const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
         return {
@@ -882,6 +1104,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const shouldShowFilterInput = generatedKind !== 'explain';
     const resultFilterBar = result && shouldShowResultFilterBar ? (
         <ResultFilterBar
+            key={result.lastExecutedQuery}
             value={filterExpr}
             onChange={setFilterExpr}
             baseQuery={baseQuery}
@@ -908,7 +1131,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // ── Early renders ─────────────────────────────────────────────────────────
     if (!result) {
         return (
-            <div className="flex items-center justify-center h-full text-[13px] text-text-secondary">
+            <div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
                 <span>Run a query (Ctrl+Enter) to see results</span>
             </div>
         );
@@ -916,7 +1139,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     if (result.error) {
         if (shouldShowResultFilterBar) {
             return (
-                <div className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden">
+                <div className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden">
                     {resultFilterBar}
                     <div className="flex items-center justify-center flex-1 text-error gap-2">
                         <AlertCircle size={16} /><span>{result.error}</span>
@@ -988,7 +1211,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // ── Main render ───────────────────────────────────────────────────────────
     return (
         <div
-            className="flex flex-col items-stretch justify-start h-full text-[13px] text-text-secondary overflow-hidden"
+            className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden"
             ref={containerRef}
             tabIndex={-1}
             onKeyDown={handleKeyDown}
@@ -1003,7 +1226,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
                             <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border shrink-0">
                                 <Loader size={14} className="animate-spin" />
-                                <span className="text-text-secondary">
+                                <span className="text-muted-foreground">
                                     {result.rows.length > 0
                                         ? `Streaming… ${result.rows.length.toLocaleString()} rows`
                                         : 'Executing query…'}
@@ -1052,6 +1275,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     onRemoveDraftRows={removeDraftRows}
                                     readOnlyMode={viewMode || isReadOnlyTab}
                                     onCellContextMenu={handleCellContextMenu}
+                                    columnVisibility={columnVisibility}
+                                    onColumnVisibilityChange={setColumnVisibility}
                                 />
                             )}
                         </div>
@@ -1062,56 +1287,110 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             {contextMenu && contextMenuPosition && (
                 <div
                     ref={contextMenuRef}
-                    className="fixed z-panel-overlay min-w-40 rounded-md border border-border bg-bg-primary py-1 shadow-lg"
+                    className="fixed z-panel-overlay min-w-40 rounded-md border border-border bg-background py-1 shadow-lg"
                     style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <button
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] text-foreground hover:bg-muted"
+                        onClick={handleContextCopyCellValue}
+                    >
+                        Copy Cell Value
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                        disabled={!hasEditableCellSelection}
+                        onClick={handleContextCopy}
+                    >
+                        Copy (TSV)
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                        disabled={!hasEditableCellSelection}
+                        onClick={handleContextCopyWithHeaders}
+                    >
+                        Copy with Headers
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                        disabled={!hasEditableCellSelection}
+                        onClick={handleContextCopyAsJson}
+                    >
+                        Copy as JSON
+                    </Button>
+                    {result?.tableName && (
+                        <>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                                disabled={!hasEditableCellSelection}
+                                onClick={handleContextCopyAsInsert}
+                            >
+                                Copy as INSERT
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                                disabled={!hasEditableCellSelection}
+                                onClick={handleContextCopyAsUpdate}
+                            >
+                                Copy as UPDATE
+                            </Button>
+                        </>
+                    )}
+                    <div className="my-1 h-px bg-border/70" />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateCells || !hasEditableCellSelection}
                         onClick={handleContextSetNull}
                     >
                         Set NULL
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
-                        disabled={!hasEditableCellSelection}
-                        onClick={handleContextCopy}
-                    >
-                        Copy
-                    </button>
-                    <button
-                        type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateCells && hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateCells || !hasEditableCellSelection}
                         onClick={handleContextPaste}
                     >
                         Paste
-                    </button>
+                    </Button>
                     <div className="my-1 h-px bg-border/70" />
-                    <button
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDeleteRows ? 'text-error hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDeleteRows ? 'text-destructive hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateRows || !canDeleteRows}
                         onClick={handleContextDelete}
                     >
-                        Delete
-                    </button>
-                    <button
+                        Delete Row
+                    </Button>
+                    <Button
                         type="button"
-                        className={`w-full px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDuplicateRows ? 'text-text-primary hover:bg-bg-tertiary' : 'text-text-muted cursor-not-allowed'}`}
+                        variant="ghost"
+                        className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${canMutateRows && canDuplicateRows ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
                         disabled={!canMutateRows || !canDuplicateRows}
                         onClick={handleContextDuplicate}
                     >
-                        Duplicate
-                    </button>
+                        Duplicate Row
+                    </Button>
                 </div>
             )}
 
             {/* Status bar (info only) */}
-            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
+            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-muted-foreground border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                         {displayTotalCount !== undefined ? (
@@ -1166,7 +1445,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <>
                         <Button variant="ghost" size="icon" onClick={handleCopyScript} title="Copy Script"><Copy size={14} /></Button>
                         <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Open in New Tab"><FilePlus size={14} /></Button>
-                        <Button variant="primary" onClick={() => { void handleDirectExecute(); }} title="Execute Changes" autoFocus className="px-6">
+                        <Button variant="default" onClick={() => { void handleDirectExecute(); }} title="Execute Changes" autoFocus className="px-6">
                             <Play size={14} className="mr-2" />Execute Changes
                         </Button>
                     </>
@@ -1176,13 +1455,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <div className="flex items-start gap-4 mb-4">
                         <div className="shrink-0 p-2 rounded-full bg-accent/10"><AlertCircle size={20} className="text-accent" /></div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium text-text-primary mb-1">Review generated script</p>
-                            <p className="text-[12px] leading-relaxed text-text-secondary">
+                            <p className="text-[13px] font-medium text-foreground mb-1">Review generated script</p>
+                            <p className="text-[12px] leading-relaxed text-muted-foreground">
                                 Updates and deletes require confirmation. Pending inserts will be executed together with this script for <strong>{qualifiedTableName || result?.tableName}</strong>.
                             </p>
                         </div>
                     </div>
-                    <div className="p-3 bg-bg-tertiary/50 border border-border/40 rounded-md font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-text-secondary select-text">
+                    <div className="p-3 bg-muted/50 border border-border/40 rounded-md font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-muted-foreground select-text">
                         {generatePendingScript()}
                     </div>
                 </div>
@@ -1198,56 +1477,62 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 footer={
                     <>
                         <Button variant="ghost" onClick={() => setShowExportModal(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleConfirmExport} autoFocus>Export</Button>
+                        <Button variant="default" onClick={handleConfirmExport} autoFocus>Export</Button>
                     </>
                 }
             >
                 <div className="grid grid-cols-12 gap-4">
                     <section className="col-span-12 lg:col-span-5 space-y-4">
                         <div>
-                            <p className="text-[12px] font-semibold text-text-primary mb-2">Extraction</p>
-                            <label className="flex items-center gap-2 text-[12px] text-text-primary">
-                                <input
-                                    type="radio"
-                                    checked={exportScope === 'all'}
-                                    onChange={() => setExportScope('all')}
-                                />
-                                Query the database (no paging)
-                            </label>
-                            <label className="flex items-center gap-2 text-[12px] text-text-primary mt-1.5">
-                                <input
-                                    type="radio"
-                                    checked={exportScope === 'view'}
-                                    onChange={() => setExportScope('view')}
-                                />
-                                Use fetched rows (current table view)
-                            </label>
+                            <p className="text-[12px] font-semibold text-foreground mb-2">Extraction</p>
+                            <RadioGroup
+                                value={exportScope}
+                                onValueChange={(value) => setExportScope(value as 'all' | 'view')}
+                                className="gap-2"
+                            >
+                                <div className="flex items-center gap-2 text-[12px] text-foreground">
+                                    <RadioGroupItem value="all" id="export_scope_all" />
+                                    <Label htmlFor="export_scope_all" className="text-[12px] font-normal text-foreground">
+                                        Query the database (no paging)
+                                    </Label>
+                                </div>
+                                <div className="flex items-center gap-2 text-[12px] text-foreground">
+                                    <RadioGroupItem value="view" id="export_scope_view" />
+                                    <Label htmlFor="export_scope_view" className="text-[12px] font-normal text-foreground">
+                                        Use fetched rows (current table view)
+                                    </Label>
+                                </div>
+                            </RadioGroup>
                         </div>
 
                         <div>
-                            <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Format</label>
-                            <select
+                            <label className="block text-[12px] font-semibold text-foreground mb-1.5">Format</label>
+                            <Select
                                 value={exportFormat}
-                                onChange={(event) => setExportFormat(event.target.value as 'csv' | 'json' | 'sql')}
-                                className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                                onValueChange={(value) => setExportFormat(value as 'csv' | 'json' | 'sql')}
                             >
-                                <option value="csv">CSV</option>
-                                <option value="json">JSON</option>
-                                <option value="sql">SQL INSERT</option>
-                            </select>
+                                <SelectTrigger className="w-full bg-background text-[13px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="csv">CSV</SelectItem>
+                                    <SelectItem value="json">JSON</SelectItem>
+                                    <SelectItem value="sql">SQL INSERT</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {exportFormat === 'sql' && (
                             <div>
-                                <label className="block text-[12px] font-semibold text-text-primary mb-1.5">Table Name</label>
-                                <input
+                                <label className="block text-[12px] font-semibold text-foreground mb-1.5">Table Name</label>
+                                <Input
                                     type="text"
-                                    className="w-full bg-bg-primary border border-border text-text-primary text-[13px] px-3 py-2 rounded-md outline-none focus:border-accent"
+                                    className="h-9 w-full bg-background text-[13px]"
                                     placeholder={result?.tableName || 'my_table'}
                                     value={exportTableName}
                                     onChange={(event) => setExportTableName(event.target.value)}
                                 />
-                                <p className="text-[11px] text-text-muted mt-1.5">
+                                <p className="text-[11px] text-muted-foreground mt-1.5">
                                     Leave empty to use "{result?.tableName || 'my_table'}"
                                 </p>
                             </div>
@@ -1255,28 +1540,29 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                         <div>
                             <div className="flex items-center justify-between mb-1.5">
-                                <label className="text-[12px] font-semibold text-text-primary">Columns</label>
-                                <button
+                                <label className="text-[12px] font-semibold text-foreground">Columns</label>
+                                <Button
                                     type="button"
-                                    className="text-[11px] text-text-secondary hover:text-text-primary"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
                                     onClick={toggleAllExportColumns}
                                 >
                                     {areAllExportColumnsSelected ? 'Clear all' : 'Select all'}
-                                </button>
+                                </Button>
                             </div>
-                            <div className="max-h-44 overflow-auto rounded-md border border-border/50 bg-bg-primary p-2 space-y-1">
+                            <div className="max-h-44 overflow-auto rounded-md border border-border/50 bg-background p-2 space-y-1">
                                 {allExportColumns.map((column) => (
-                                    <label key={column} className="flex items-center gap-2 text-[12px] text-text-primary">
-                                        <input
-                                            type="checkbox"
+                                    <label key={column} className="flex items-center gap-2 text-[12px] text-foreground">
+                                        <Checkbox
                                             checked={selectedExportColumnSet.has(column)}
-                                            onChange={() => toggleExportColumn(column)}
+                                            onCheckedChange={() => toggleExportColumn(column)}
                                         />
                                         <span className="truncate" title={column}>{column}</span>
                                     </label>
                                 ))}
                             </div>
-                            <p className="text-[11px] text-text-muted mt-1.5">
+                            <p className="text-[11px] text-muted-foreground mt-1.5">
                                 {orderedSelectedExportColumns.length}/{allExportColumns.length} columns selected
                             </p>
                         </div>
@@ -1284,23 +1570,23 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                     <section className="col-span-12 lg:col-span-7">
                         <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-[12px] font-semibold text-text-primary">Preview (10 rows)</p>
-                            <p className="text-[11px] text-text-muted">
+                            <p className="text-[12px] font-semibold text-foreground">Preview (10 rows)</p>
+                            <p className="text-[11px] text-muted-foreground">
                                 Showing loaded rows preview only
                             </p>
                         </div>
-                        <div className="rounded-md border border-border/50 bg-bg-primary overflow-auto max-h-[360px]">
+                        <div className="rounded-md border border-border/50 bg-background overflow-auto max-h-[360px]">
                             {orderedSelectedExportColumns.length === 0 ? (
-                                <div className="px-3 py-8 text-[12px] text-text-muted text-center">
+                                <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
                                     Select at least one column to preview.
                                 </div>
                             ) : previewExportRows.length === 0 ? (
-                                <div className="px-3 py-8 text-[12px] text-text-muted text-center">
+                                <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
                                     No loaded rows to preview.
                                 </div>
                             ) : (
                                 <table className="w-full text-[11px] border-collapse">
-                                    <thead className="sticky top-0 bg-bg-secondary">
+                                    <thead className="sticky top-0 bg-card">
                                         <tr>
                                             {orderedSelectedExportColumns.map((column) => (
                                                 <th key={column} className="text-left px-2 py-1.5 border-b border-border/60 whitespace-nowrap">
@@ -1311,7 +1597,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     </thead>
                                     <tbody>
                                         {previewExportRows.map((row, rowIdx) => (
-                                            <tr key={`preview_${rowIdx}`} className="odd:bg-bg-primary even:bg-bg-secondary/30">
+                                            <tr key={`preview_${rowIdx}`} className="odd:bg-background even:bg-card/30">
                                                 {row.map((cell, cellIdx) => (
                                                     <td key={`preview_${rowIdx}_${cellIdx}`} className="px-2 py-1.5 border-b border-border/20 whitespace-nowrap max-w-[220px] overflow-hidden text-ellipsis">
                                                         {cell}
@@ -1329,5 +1615,3 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         </div>
     );
 };
-
-

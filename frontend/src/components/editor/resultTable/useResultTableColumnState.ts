@@ -27,6 +27,8 @@ export interface ResultTableColumnState {
     setColumnOrder: Dispatch<SetStateAction<string[]>>;
     columnSizing: Record<string, number>;
     setColumnSizing: Dispatch<SetStateAction<Record<string, number>>>;
+    columnVisibility: Record<string, boolean>;
+    setColumnVisibility: Dispatch<SetStateAction<Record<string, boolean>>>;
     columnFilterDrafts: Record<string, string>;
     setColumnFilterDrafts: Dispatch<SetStateAction<Record<string, string>>>;
     columnFilterApplied: Record<string, string>;
@@ -49,6 +51,7 @@ export function useResultTableColumnState({
 }: UseResultTableColumnStateArgs): ResultTableColumnState {
     const [columnOrder, setColumnOrder] = useState<string[]>(dataColumnIds);
     const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+    const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
     const [columnFilterDrafts, setColumnFilterDrafts] = useState<Record<string, string>>({});
     const [columnFilterApplied, setColumnFilterApplied] = useState<Record<string, string>>({});
     const [activeFilterPopoverColumn, setActiveFilterPopoverColumn] = useState<string | null>(null);
@@ -143,6 +146,8 @@ export function useResultTableColumnState({
         setColumnOrder,
         columnSizing,
         setColumnSizing,
+        columnVisibility,
+        setColumnVisibility,
         columnFilterDrafts,
         setColumnFilterDrafts,
         columnFilterApplied,

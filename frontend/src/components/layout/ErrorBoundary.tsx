@@ -30,10 +30,10 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
     render() {
         if (this.state.hasError) {
             return (
-                <div className="h-screen w-screen flex items-center justify-center bg-bg-primary text-text-primary">
-                    <div className="max-w-md rounded-md border border-border bg-bg-secondary p-6">
+                <div className="h-screen w-screen flex items-center justify-center bg-background text-foreground">
+                    <div className="max-w-md rounded-md border border-border bg-card p-6">
                         <h1 className="text-lg font-semibold mb-2">Unexpected application error</h1>
-                        <p className="text-sm text-text-secondary mb-4">
+                        <p className="text-sm text-muted-foreground mb-4">
                             A runtime error occurred. Details were logged to the console.
                         </p>
                         <p className="text-xs text-error break-all">{this.state.message}</p>

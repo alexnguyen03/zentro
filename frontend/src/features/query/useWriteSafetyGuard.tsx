@@ -129,7 +129,7 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
                 message={primaryRequest?.decision.message || ''}
                 description={primaryRequest?.decision.description}
                 confirmLabel={primaryRequest?.decision.confirmLabel || 'Continue'}
-                variant={primaryRequest?.decision.severity === 'danger' ? 'danger' : 'primary'}
+                variant={primaryRequest?.decision.severity === 'danger' ? 'destructive' : 'default'}
                 closeOnConfirm={!primaryRequest?.decision.requiresDoubleConfirm}
             />
             <ConfirmationModal
@@ -140,7 +140,7 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
                 message="This environment requires one more confirmation for destructive writes."
                 description={createFinalConfirmDescription(environmentKey)}
                 confirmLabel="Run Anyway"
-                variant="danger"
+                variant="destructive"
             />
         </>
     );

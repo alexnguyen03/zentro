@@ -25,6 +25,26 @@
   --color-overlay: var(--overlay-backdrop);
   --color-overlay-strong: var(--overlay-backdrop-strong);
 
+  /* shadcn/ui color aliases */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-shadcn: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   /* Typography */
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
@@ -231,15 +251,16 @@
 .zentro-table-nav-widget {
   min-width: 220px;
   max-width: 360px;
-  border: 1px solid color-mix(in srgb, var(--border-primary) 85%, transparent);
-  background: color-mix(in srgb, var(--surface-panel) 94%, black 6%);
-  color: var(--content-primary);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
-  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--elevation-md);
+  border-radius: var(--radius-scale-md);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.4;
   overflow: hidden;
   pointer-events: auto;
+  z-index: var(--layer-popover);
 }
 
 .zentro-table-nav-widget.hidden {
@@ -249,18 +270,19 @@
 .zentro-table-nav-widget--hint {
   min-width: 140px;
   max-width: 280px;
-  padding: 6px 8px;
-  border-left: 3px solid var(--status-error);
+  padding: 8px 10px;
+  border-left: 3px solid var(--interactive-primary);
 }
 
 .zentro-table-nav-widget__header {
-  padding: 6px 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 80%, transparent);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--content-secondary);
+  color: var(--muted-foreground);
+  background: var(--muted);
 }
 
 .zentro-table-nav-widget__list {
@@ -272,28 +294,35 @@
   width: 100%;
   border: 0;
   margin: 0;
-  padding: 7px 8px;
+  padding: 8px 10px;
   background: transparent;
-  color: var(--content-primary);
+  color: var(--popover-foreground);
   text-align: left;
   cursor: pointer;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-family-sans);
   font-size: 12px;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.zentro-table-nav-widget__item:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--ring);
 }
 
 .zentro-table-nav-widget__item:hover,
 .zentro-table-nav-widget__item.is-active {
-  background: color-mix(in srgb, var(--interactive-primary) 18%, transparent);
+  background: var(--muted);
+  color: var(--foreground);
 }
 
 .zentro-table-nav-hover {
   cursor: pointer;
-  font-weight: 700;
-  opacity: 0.8;
+  font-weight: 600;
+  opacity: 0.95;
   text-decoration: underline;
-  text-decoration-thickness: 1.4px;
+  text-decoration-thickness: 1px;
   text-underline-offset: 2px;
-  text-decoration-color: color-mix(in srgb, var(--interactive-primary) 78%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--interactive-primary) 66%, transparent);
   transition:
     color 140ms ease,
     opacity 140ms ease,

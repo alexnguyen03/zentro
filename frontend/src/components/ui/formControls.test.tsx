@@ -1,58 +1,64 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { FormField } from './FormField';
-import { SelectField } from './SelectField';
-import { SwitchField } from './SwitchField';
-import { SearchField } from './SearchField';
+import { Input } from './Input';
+import { Label } from './label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import { Separator } from './separator';
+import { Switch } from './switch';
 
-describe('shared form controls', () => {
-    it('renders FormField label and hint', () => {
+describe('shadcn primitives', () => {
+    it('renders Label with Input field', () => {
         render(
-            <FormField label="Theme" hint="Pick your preferred theme.">
-                <input aria-label="Theme input" />
-            </FormField>,
+            <div>
+                <Label htmlFor="theme-input">Theme</Label>
+                <Input id="theme-input" aria-label="Theme input" />
+            </div>,
         );
 
         expect(screen.getByText('Theme')).toBeInTheDocument();
-        expect(screen.getByText('Pick your preferred theme.')).toBeInTheDocument();
+        expect(screen.getByLabelText('Theme input')).toBeInTheDocument();
     });
 
-    it('renders SelectField and emits change events', () => {
-        const onChange = vi.fn();
-        render(
-            <SelectField aria-label="Theme Select" onChange={onChange} value="light">
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-            </SelectField>,
-        );
+    it('renders Select and updates selected value', () => {
+        const ThemeSelect = () => {
+            const [value, setValue] = React.useState('light');
+            return (
+                <Select value={value} onValueChange={setValue}>
+                    <SelectTrigger aria-label="Theme Select">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                    </SelectContent>
+                </Select>
+            );
+        };
 
-        fireEvent.change(screen.getByLabelText('Theme Select'), { target: { value: 'dark' } });
-        expect(onChange).toHaveBeenCalledTimes(1);
+        render(<ThemeSelect />);
+
+        const trigger = screen.getByRole('combobox', { name: /theme select/i });
+        fireEvent.click(trigger);
+        fireEvent.click(screen.getByRole('option', { name: 'Dark' }));
+        expect(trigger).toHaveTextContent('Dark');
     });
 
-    it('renders SwitchField and emits boolean checked state', () => {
-        const onChange = vi.fn();
-        render(<SwitchField aria-label="Auto update" checked={false} onChange={onChange} />);
+    it('renders Switch and toggles checked state', () => {
+        const Toggle = () => {
+            const [checked, setChecked] = React.useState(false);
+            return <Switch aria-label="Auto update" checked={checked} onCheckedChange={setChecked} />;
+        };
 
-        fireEvent.click(screen.getByLabelText('Auto update'));
-        expect(onChange).toHaveBeenCalledWith(true);
+        render(<Toggle />);
+
+        const control = screen.getByRole('switch', { name: 'Auto update' });
+        fireEvent.click(control);
+        expect(control).toHaveAttribute('data-state', 'checked');
     });
 
-    it('renders SearchField with placeholder and value updates', () => {
-        const onChange = vi.fn();
-        render(
-            <SearchField
-                aria-label="Search settings"
-                placeholder="Search settings..."
-                value=""
-                onChange={onChange}
-            />,
-        );
-
-        const input = screen.getByLabelText('Search settings');
-        fireEvent.change(input, { target: { value: 'theme' } });
-        expect(onChange).toHaveBeenCalledTimes(1);
+    it('renders Separator primitive', () => {
+        render(<Separator data-testid="divider" />);
+        expect(screen.getByTestId('divider')).toBeInTheDocument();
     });
 });
-

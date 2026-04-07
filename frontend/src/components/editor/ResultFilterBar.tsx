@@ -8,6 +8,7 @@ import { setClipboardText } from '../../services/clipboardService';
 import { createResultFilterModelPath, registerResultFilterCompletion } from '../../lib/monaco/resultFilterCompletion';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { Button } from '../ui';
 
 interface ResultFilterBarProps {
     value: string;
@@ -154,7 +155,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
 
     const iconBtn = cn(
         'flex items-center justify-center p-1 border border-transparent rounded-md',
-        'text-text-secondary hover:border-border hover:bg-bg-secondary hover:text-text-primary',
+        'text-muted-foreground hover:border-border hover:bg-card hover:text-foreground',
         'transition-colors cursor-pointer shrink-0'
     );
 
@@ -163,7 +164,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     };
 
     return (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-bg-secondary shrink-0 relative">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0 relative">
             {showFilterInput && (
                 <div className="flex items-center flex-3 min-w-0">
                 <div
@@ -176,14 +177,17 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                         tooltipTimeout.current = setTimeout(() => setShowTooltip(false), 200);
                     }}
                 >
-                    <span className="text-[11px] uppercase cursor-pointer font-semibold text-text-muted hover:text-text-primary tracking-wide shrink-0 select-none transition-colors">
+                    <span className="text-[11px] uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
                         WHERE
                     </span>
 
                     {showTooltip && baseQuery && (
-                        <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-md border border-border bg-bg-primary shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                            <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-md bg-bg-primary/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
-                                <button
+                        <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-md border border-border bg-background shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-md bg-background/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
                                     className={iconBtn}
                                     title="Copy query"
                                     onClick={() => {
@@ -193,10 +197,13 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                     }}
                                 >
                                     <Copy size={12} />
-                                </button>
+                                </Button>
 
                                 {onAppendToQuery && (
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
                                         className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
                                         title="Append to current tab (last line)"
                                         onClick={() => {
@@ -205,12 +212,15 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         }}
                                     >
                                         <PlusSquare size={12} />
-                                    </button>
+                                    </Button>
                                 )}
 
                                 {onOpenInNewTab && (
-                                    <button
-                                        className={cn(iconBtn, 'text-text-secondary hover:text-text-primary')}
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className={cn(iconBtn, 'text-muted-foreground hover:text-foreground')}
                                         title="Open in new tab"
                                         onClick={() => {
                                             onOpenInNewTab(buildFilterQuery(baseQuery, value || '<condition>'));
@@ -218,10 +228,10 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         }}
                                     >
                                         <ExternalLink size={12} />
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
-                            <div className="p-3 pr-12 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-text-secondary">
+                            <div className="p-3 pr-12 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-muted-foreground">
                                 {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim())}
                             </div>
                         </div>
@@ -270,7 +280,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                         }}
                     />
                     {!value && (
-                        <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[12px] text-text-muted font-mono select-none">
+                        <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[12px] text-muted-foreground font-mono select-none">
                             Filter rows... e.g. id &gt; 100 AND name LIKE '%foo%'
                         </span>
                     )}

@@ -4,7 +4,7 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { Connect, SwitchDatabase } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';
-import { Spinner } from '../ui';
+import { Button, Spinner } from '../ui';
 
 interface ConnectionPickerProps {
     onClose: () => void;
@@ -88,7 +88,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
     const top = anchorRect ? anchorRect.bottom + 8 : 40;
     const left = anchorRect ? anchorRect.left + anchorRect.width / 2 : '50%';
 
-    const itemBaseClass = "px-3.5 py-2 text-[13px] cursor-pointer border-b border-white/5 text-text-primary transition-colors duration-100 whitespace-nowrap overflow-hidden text-ellipsis last:border-none hover:bg-bg-tertiary";
+    const listItemClass = 'group flex items-center gap-2 border-b border-white/5 last:border-none';
 
     return (
         <>
@@ -97,13 +97,13 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
 
             {/* Panel */}
             <div
-                className="fixed z-modal flex bg-bg-secondary border border-border rounded-md shadow-elevation-lg overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
+                className="fixed z-modal flex bg-card border border-border rounded-md shadow-elevation-lg overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
                 style={{ top, left, transform: 'translateX(-50%)' }}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Connections column */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-text-secondary bg-black/15 border-b border-border shrink-0">Connection</div>
+                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-muted-foreground bg-black/15 border-b border-border shrink-0">Connection</div>
                     <div className="overflow-y-auto flex-1">
                         {connections.map((conn) => {
                             const isSelected = selectedConn === conn.name;
@@ -112,30 +112,44 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                 <div
                                     key={conn.name}
                                     className={cn(
-                                        itemBaseClass,
-                                        "group flex items-center gap-2",
-                                        isSelected && "bg-white/5",
-                                        isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
+                                        listItemClass,
+                                        isSelected && 'bg-muted/40',
+                                        isActive && 'border-l-2 border-l-accent bg-accent/10',
                                     )}
-                                    onClick={() => handleSelectConn(conn.name)}
                                 >
-                                    <span className="min-w-0 flex-1 truncate">{conn.name}</span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className={cn(
+                                            'h-auto flex-1 justify-start rounded-none px-3.5 py-2 text-[13px] font-normal',
+                                            isActive ? 'text-foreground' : 'text-muted-foreground',
+                                        )}
+                                        onClick={() => {
+                                            void handleSelectConn(conn.name);
+                                        }}
+                                    >
+                                        <span className="min-w-0 truncate">{conn.name}</span>
+                                    </Button>
                                     {(onEditConnection || onDeleteConnection) && (
-                                        <span className="ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                                        <span className="mr-1 flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
                                             {onEditConnection && (
-                                                <button
+                                                <Button
                                                     type="button"
-                                                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-primary/65 hover:text-text-primary"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                                     onClick={(event) => handleEditConnection(event, conn.name)}
                                                     title={`Edit ${conn.name}`}
                                                 >
                                                     <Pencil size={11} />
-                                                </button>
+                                                </Button>
                                             )}
                                             {onDeleteConnection && (
-                                                <button
+                                                <Button
                                                     type="button"
-                                                    className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-error/12 hover:text-error disabled:cursor-not-allowed disabled:opacity-60"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5 text-muted-foreground transition-colors hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
                                                     onClick={(event) => {
                                                         void handleDeleteConnection(event, conn.name);
                                                     }}
@@ -143,7 +157,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                                     disabled={deletingConnectionName === conn.name}
                                                 >
                                                     {deletingConnectionName === conn.name ? <Spinner size={10} /> : <Trash2 size={11} />}
-                                                </button>
+                                                </Button>
                                             )}
                                         </span>
                                     )}
@@ -158,10 +172,10 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
 
                 {/* Databases column */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-text-secondary bg-black/15 border-b border-border shrink-0">Database</div>
+                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-muted-foreground bg-black/15 border-b border-border shrink-0">Database</div>
                     <div className="overflow-y-auto flex-1">
                         {connecting ? (
-                            <div className="px-3.5 py-4 text-xs text-text-secondary flex items-center gap-2">
+                            <div className="px-3.5 py-4 text-xs text-muted-foreground flex items-center gap-2">
                                 <Spinner size={14} className="opacity-60" />
                                 Connecting…
                             </div>
@@ -170,21 +184,25 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                 {error}
                             </div>
                         ) : pickerDbs.length === 0 ? (
-                            <div className="px-3.5 py-4 text-xs text-text-secondary">No databases</div>
+                            <div className="px-3.5 py-4 text-xs text-muted-foreground">No databases</div>
                         ) : (
                             pickerDbs.map((db) => {
                                 const isActive = activeProfile?.db_name === db;
                                 return (
-                                    <div
+                                    <Button
                                         key={db}
+                                        type="button"
+                                        variant="ghost"
                                         className={cn(
-                                            itemBaseClass,
-                                            isActive && "border-l-2 border-l-success bg-success/10 text-success font-medium hover:bg-success/10"
+                                            'h-auto w-full justify-start rounded-none border-b border-white/5 px-3.5 py-2 text-[13px] font-normal last:border-none',
+                                            isActive ? 'border-l-2 border-l-accent bg-accent/10 text-foreground' : 'text-muted-foreground',
                                         )}
-                                        onClick={() => handleSelectDb(db)}
+                                        onClick={() => {
+                                            void handleSelectDb(db);
+                                        }}
                                     >
                                         {db}
-                                    </div>
+                                    </Button>
                                 );
                             })
                         )}

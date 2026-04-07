@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/cn';
 import { PROVIDERS, ProviderConfig } from '../../lib/providers';
+import { Button } from '../ui';
 
 interface ProviderGridProps {
     selected: string;
@@ -19,13 +20,14 @@ interface ProviderButtonProps {
 }
 
 const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disabled, onSelect }) => (
-    <button
+    <Button
         type="button"
+        variant="ghost"
         title={provider.label}
         disabled={disabled}
         onClick={() => !disabled && onSelect(provider.key)}
         className={cn(
-            'relative flex aspect-square w-full items-center justify-center rounded-md border p-2 transition-all duration-200 select-none',
+            'relative aspect-square h-auto w-full rounded-md border p-2 transition-all duration-200 select-none',
             active
                 ? 'border-success/60 shadow-[0_2px_8px_rgba(0,0,0,0.05)]'
                 : disabled
@@ -42,7 +44,7 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
         {active && (
             <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-bg-secondary bg-success shadow-[0_0_4px_rgba(34,197,94,0.6)]" />
         )}
-    </button>
+    </Button>
 );
 
 export const ProviderGrid: React.FC<ProviderGridProps> = ({
@@ -59,7 +61,7 @@ export const ProviderGrid: React.FC<ProviderGridProps> = ({
         : PROVIDERS;
 
     return (
-        <div className={cn('grid h-full min-h-0 content-start gap-3 overflow-y-auto bg-bg-primary px-3 py-3 [grid-template-columns:repeat(auto-fill,minmax(96px,1fr))]', className)}>
+        <div className={cn('grid h-full min-h-0 content-start gap-3 overflow-y-auto bg-background px-3 py-3 [grid-template-columns:repeat(auto-fill,minmax(96px,1fr))]', className)}>
             {visibleProviders.map((provider) => (
                 <ProviderButton
                     key={provider.key}
@@ -70,7 +72,7 @@ export const ProviderGrid: React.FC<ProviderGridProps> = ({
                 />
             ))}
             {visibleProviders.length === 0 && (
-                <div className="col-span-full rounded-md border border-dashed border-border/35 px-3 py-5 text-center text-[12px] text-text-secondary">
+                <div className="col-span-full rounded-md border border-dashed border-border/35 px-3 py-5 text-center text-[12px] text-muted-foreground">
                     No providers found.
                 </div>
             )}

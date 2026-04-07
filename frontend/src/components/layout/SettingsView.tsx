@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings as SettingsIcon, Keyboard } from 'lucide-react';
+import { Search, Settings as SettingsIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
@@ -19,7 +19,7 @@ import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
 import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
-import { Button, SearchField } from '../ui';
+import { Button, Input } from '../ui';
 import { ENVIRONMENT_KEY } from '../../lib/constants';
 import { getEnvironmentMeta } from '../../lib/projects';
 import type { EnvironmentKey } from '../../types/project';
@@ -131,10 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         }
     };
 
-    const handleImportProfile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
+    const handleImportProfile = async (file: File) => {
         try {
             const raw = await file.text();
             const profile = parseProfilePackage(raw);
@@ -143,8 +140,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
             toast.success(`Applied profile: ${profile.metadata.name}`);
         } catch (error) {
             toast.error(`Import failed: ${error}`);
-        } finally {
-            event.target.value = '';
         }
     };
 
@@ -167,11 +162,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
+        <div className="flex flex-col h-full bg-background overflow-hidden">
             {/* Minimal Flat Header */}
-            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-bg-primary px-10">
+            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-background px-10">
                 {/* Logo/Title Section */}
-                <div className="flex items-center gap-3 text-text-primary">
+                <div className="flex items-center gap-3 text-foreground">
                     <div className="p-2 rounded-md bg-accent/5 text-accent">
                         <SettingsIcon size={18} />
                     </div>
@@ -180,13 +175,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
 
                 {/* Centered Flush Search Bar */}
                 <div className="flex-1 flex justify-center max-w-2xl px-8">
-                    <SearchField
-                        placeholder="Search settings..."
-                        ref={searchInputRef}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        wrapperClassName="max-w-md"
-                    />
+                    <div className="relative w-full max-w-md">
+                        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search settings..."
+                            ref={searchInputRef}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                        />
+                    </div>
                 </div>
 
                 {/* Right Actions */}
@@ -194,7 +192,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                     <Button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
                         variant="ghost"
-                        size="md"
+                        size="default"
                         className="gap-2 font-bold text-[11px] tracking-widest uppercase"
                         title="Keyboard Shortcuts"
                     >
@@ -223,6 +221,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                 <SettingsNotifications
                                     toastPlacement={formToastPlacement}
                                     onToastPlacementChange={setFormToastPlacement}
+                                    onTestNotification={(variant) => {
+                                        if (variant === 'success') {
+                                            toast.success('This is a success notification preview.');
+                                            return;
+                                        }
+                                        if (variant === 'error') {
+                                            toast.error('This is an error notification preview.');
+                                            return;
+                                        }
+                                        toast.info('This is an info notification preview.');
+                                    }}
                                 />
                             )}
 

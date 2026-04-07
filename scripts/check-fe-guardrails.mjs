@@ -6,6 +6,11 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
 const ROOT = path.resolve(REPO_ROOT, 'frontend', 'src');
 const SOURCE_EXT = new Set(['.ts', '.tsx']);
+const NATIVE_CONTROL_ALLOWLIST = [
+  'components/ui/Input.tsx',
+  'components/ui/textarea.tsx',
+  'components/layout/OverlayDialog.test.tsx',
+];
 
 function walkFiles(dir) {
   const files = [];
@@ -47,6 +52,10 @@ function collectViolations(filePath, regex, label) {
 const files = walkFiles(ROOT);
 const violations = [];
 
+function isNativeControlAllowed(relPath) {
+  return NATIVE_CONTROL_ALLOWLIST.includes(relPath);
+}
+
 for (const file of files) {
   const rel = path.relative(ROOT, file).replace(/\\/g, '/');
   const prodFile = !isTestFile(file);
@@ -67,6 +76,100 @@ for (const file of files) {
       ...collectViolations(file, /(^|[^\w.])(confirm|prompt|alert)\s*\(/, 'no-native-dialogs'),
       ...collectViolations(file, /\bas\s+unknown\s+as\b/, 'no-double-unknown-cast'),
       ...collectViolations(file, /\bfunction\s+toErrorMessage\s*\(/, 'use-shared-error-helper'),
+      ...collectViolations(
+        file,
+        /variant\s*=\s*["'](primary|solid|danger|success)["']/,
+        'no-legacy-button-variants',
+      ),
+      ...collectViolations(file, /\bdanger\s*=\s*\{?/, 'no-legacy-button-danger-prop'),
+      ...collectViolations(
+        file,
+        /import\s+\{[^}]*\b(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b[^}]*\}\s+from\s+['"][^'"]*\/ui(?:['"]|\/)/,
+        'no-legacy-ui-components',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/ui\/(ModalBackdrop|ModalFrame|AlertModal|PromptModal)['"]/,
+        'no-legacy-ui-components',
+      ),
+      ...collectViolations(
+        file,
+        /<\s*(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b/,
+        'no-legacy-ui-components',
+      ),
+      ...collectViolations(
+        file,
+        /<\s*SwitchField\b[^>]*\bonChange\s*=/,
+        'switchfield-use-oncheckedchange',
+      ),
+      ...collectViolations(
+        file,
+        /variant\s*=\s*["'](danger|primary)["']/,
+        'no-legacy-confirmation-variants',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/ui\/(BaseTable|DatabaseTreePicker)['"]/,
+        'no-domain-components-inside-ui',
+      ),
+      ...collectViolations(
+        file,
+        /import\s+\{[^}]*\b(BaseTable|DatabaseTreePicker)\b[^}]*\}\s+from\s+['"][^'"]*\/ui['"]/,
+        'no-domain-components-inside-ui',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/ui\/(FormField|SelectField|SwitchField|SearchField|Divider)['"]/,
+        'no-legacy-form-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /import\s+\{[^}]*\b(FormField|SelectField|SwitchField|SearchField|Divider)\b[^}]*\}\s+from\s+['"][^'"]*\/ui['"]/,
+        'no-legacy-form-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /<\s*(FormField|SelectField|SwitchField|SearchField|Divider)\b/,
+        'no-legacy-form-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /<\s*Tooltip\b[^>]*\bcontent\s*=/,
+        'no-legacy-tooltip-content-prop',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"][^'"]*\/layout\/(Modal|OverlayDialog)['"]/,
+        'no-legacy-layout-dialog-wrappers',
+      ),
+      ...collectViolations(
+        file,
+        /from\s+['"]\.(\.\/|\/)?(Modal|OverlayDialog)['"]/,
+        'no-legacy-layout-dialog-wrappers',
+      ),
+    );
+
+    if (!isNativeControlAllowed(rel)) {
+      violations.push(
+        ...collectViolations(file, /<(button|input|textarea)\b/, 'no-native-controls-outside-allowlist'),
+      );
+    }
+  }
+
+  if (rel === 'components/sidebar/Sidebar.tsx' || rel === 'components/sidebar/SecondarySidebar.tsx') {
+    violations.push(
+      ...collectViolations(file, /\buseState<SidebarTab>\b/, 'sidebar-shell-registry-only'),
+      ...collectViolations(file, /\bconst\s+tabs\s*=\s*\[/, 'sidebar-shell-registry-only'),
+    );
+  }
+
+  if (!rel.startsWith('components/ui/')) {
+    violations.push(
+      ...collectViolations(
+        file,
+        /from\s+['"]@radix-ui\//,
+        'no-radix-import-outside-ui',
+      ),
     );
   }
 

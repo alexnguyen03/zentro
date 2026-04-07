@@ -39,6 +39,8 @@ export interface ResultTableProps {
     onHeaderFilterRun?: (filterExpr: string) => void;
     onViewStatsChange?: (stats: { visibleRows: number; totalRows: number }) => void;
     onCellContextMenu?: (payload: ResultCellContextMenuPayload) => void;
+    columnVisibility?: Record<string, boolean>;
+    onColumnVisibilityChange?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 export interface TableMeta {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Laptop } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
-import { FormField, Input, SelectField } from '../../ui';
+import { Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
 
 interface Props {
     theme: string;
@@ -23,15 +23,23 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <FormField label="Interface Theme" hint="Follows your operating system's color scheme.">
-                    <SelectField value={theme} onChange={(e) => onThemeChange(e.target.value)}>
-                        <option value="system">System Preference</option>
-                        <option value="light">Light Mode</option>
-                        <option value="dark">Dark Mode</option>
-                    </SelectField>
-                </FormField>
+                <div className="space-y-1.5">
+                    <Label>Interface Theme</Label>
+                    <Select value={theme} onValueChange={(value) => onThemeChange(value)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="system">System Preference</SelectItem>
+                            <SelectItem value="light">Light Mode</SelectItem>
+                            <SelectItem value="dark">Dark Mode</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Follows your operating system's color scheme.</p>
+                </div>
 
-                <FormField label="Editor Text Size" hint="Adjust for optimal code readability.">
+                <div className="space-y-1.5">
+                    <Label>Editor Text Size</Label>
                     <div className="flex items-center gap-4">
                         <Input
                             className="max-w-[120px]"
@@ -41,9 +49,10 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
                             value={fontSize}
                             onChange={(e) => onFontSizeChange(parseInt(e.target.value) || 14)}
                         />
-                        <span className="text-[13px] font-mono text-text-muted">Pixels</span>
+                        <span className="text-[13px] font-mono text-muted-foreground">Pixels</span>
                     </div>
-                </FormField>
+                    <p className="text-[11px] text-muted-foreground">Adjust for optimal code readability.</p>
+                </div>
             </div>
         </div>
     );
