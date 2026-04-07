@@ -431,8 +431,10 @@ export const QueryTabs: React.FC = () => {
                                             if (subTabId.includes('::explain:analyze')) label = 'Explain Analyze';
                                             else if (subTabId.includes('::explain:plan')) label = 'Explain Plan';
                                             else {
+                                                const subResult = results[subTabId];
                                                 const match = subTabId.match(/::result:(\d+)/);
-                                                if (match) label = `Result ${parseInt(match[1], 10) + 1}`;
+                                                label = subResult?.statementLabel
+                                                    || (match ? `Result ${parseInt(match[1], 10) + 1}` : 'Result');
                                             }
                                         }
 

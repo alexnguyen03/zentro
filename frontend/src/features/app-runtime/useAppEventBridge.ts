@@ -138,6 +138,18 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 if (executedText && !executedText.includes('_zentro_filter')) {
                     useResultStore.getState().setLastExecutedQuery(payload.tabID, executedText);
                 }
+
+                // Derive a human-readable label from the statement text
+                if (payload.statementText && payload.statementCount > 1) {
+                    const trimmed = payload.statementText.replace(/\s+/g, ' ').trim();
+                    const tokens = trimmed.split(' ').filter(Boolean);
+                    const verb = (tokens[0] || '').toUpperCase();
+                    const obj = tokens[1] || '';
+                    // Strip schema qualifier for brevity: schema.table → table
+                    const shortObj = obj.replace(/^["`\[]?[\w]+["`\]]?\.["`\[]?/, '').replace(/["`\]]+$/, '');
+                    const label = shortObj ? `${verb} ${shortObj}` : verb || `Result ${payload.statementIndex + 1}`;
+                    useResultStore.getState().setStatementLabel(payload.tabID, label.slice(0, 40));
+                }
                 recordTelemetryEvent('query.started', {
                     tabId: payload.tabID,
                     sourceTabId: payload.sourceTabID,

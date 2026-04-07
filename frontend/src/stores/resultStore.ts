@@ -19,6 +19,7 @@ export interface TabResult {
     primaryKeys?: string[];
     filterExpr: string;
     lastExecutedQuery?: string;
+    statementLabel?: string;
     pendingEdits?: Map<string, string>;
     pendingDeletions?: Set<number>;
     pendingDraftRows?: DraftRow[];
@@ -54,6 +55,7 @@ interface ResultState {
     appendInsertedRows: (tabId: string, rows: string[][]) => void;
     setFilterExpr: (tabId: string, filterExpr: string) => void;
     setLastExecutedQuery: (tabId: string, query: string) => void;
+    setStatementLabel: (tabId: string, label: string) => void;
     updatePendingState: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>, draftRows: DraftRow[]) => void;
     setExecutionState: (tabId: string, state: QueryExecutionState, failureCode?: QueryFailureCode) => void;
     markFirstRow: (tabId: string) => void;
@@ -282,6 +284,12 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
             ...bucket,
             [tabId]: { ...prev, lastExecutedQuery: query },
         };
+    })),
+
+    setStatementLabel: (tabId, label) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+        return { ...bucket, [tabId]: { ...prev, statementLabel: label } };
     })),
 
     updatePendingState: (tabId, pendingEdits, pendingDeletions, pendingDraftRows) => set((state) => updateActiveBucket(state, (bucket) => {

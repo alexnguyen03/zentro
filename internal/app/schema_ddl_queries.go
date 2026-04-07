@@ -70,44 +70,13 @@ func getPostgresDDL(ctx context.Context, db *sql.DB, schema, tableName string) (
 }
 
 func getMySQLDDL(ctx context.Context, db *sql.DB, schema, tableName string) (string, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, COLUMN_KEY
-		FROM INFORMATION_SCHEMA.COLUMNS 
-		WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
-		ORDER BY ORDINAL_POSITION
-	`, schema, tableName)
-	if err != nil {
+	// Use SHOW CREATE TABLE for authoritative DDL including indexes, engine, charset, auto_increment, etc.
+	row := db.QueryRowContext(ctx, fmt.Sprintf("SHOW CREATE TABLE `%s`.`%s`", schema, tableName))
+	var tblName, createStmt string
+	if err := row.Scan(&tblName, &createStmt); err != nil {
 		return "", err
 	}
-	defer rows.Close()
-
-	var cols []string
-	for rows.Next() {
-		var colName, dataType, nullable, defaultVal, columnKey *string
-		var charLen, numPrec, numScale *int64
-		if err := rows.Scan(&colName, &dataType, &nullable, &defaultVal, &charLen, &numPrec, &numScale, &columnKey); err != nil {
-			return "", err
-		}
-		col := *colName + " " + *dataType
-		if charLen != nil && *charLen > 0 {
-			col += fmt.Sprintf("(%d)", *charLen)
-		} else if numPrec != nil && numScale != nil && *numScale > 0 {
-			col += fmt.Sprintf("(%d,%d)", *numPrec, *numScale)
-		}
-		if nullable != nil && *nullable == "NO" {
-			col += " NOT NULL"
-		}
-		if defaultVal != nil && *defaultVal != "" {
-			col += " DEFAULT " + *defaultVal
-		}
-		cols = append(cols, col)
-	}
-
-	ddl := "CREATE TABLE " + tableName + " (\n"
-	ddl += strings.Join(cols, ",\n")
-	ddl += "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
-
-	return ddl, nil
+	return createStmt, nil
 }
 
 func getMSSQLDDL(ctx context.Context, db *sql.DB, schema, tableName string) (string, error) {
@@ -156,33 +125,25 @@ func getMSSQLDDL(ctx context.Context, db *sql.DB, schema, tableName string) (str
 }
 
 func getSQLiteDDL(ctx context.Context, db *sql.DB, schema, tableName string) (string, error) {
-	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", tableName))
-	if err != nil {
+	// Use sqlite_master for authoritative DDL (preserves original CREATE TABLE statement)
+	row := db.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`, tableName)
+	var createStmt string
+	if err := row.Scan(&createStmt); err != nil {
 		return "", err
 	}
-	defer rows.Close()
-
-	var cols []string
-	for rows.Next() {
-		var cid, notNull, pk int64
-		var name, colType, dflt *string
-
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
-			return "", err
-		}
-		col := *name + " " + *colType
-		if notNull == 1 {
-			col += " NOT NULL"
-		}
-		if pk == 1 {
-			col += " PRIMARY KEY"
-		}
-		cols = append(cols, col)
+	// Also append any indexes
+	idxRows, err := db.QueryContext(ctx, `SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`, tableName)
+	if err != nil {
+		return createStmt + ";", nil
 	}
-
-	ddl := "CREATE TABLE " + tableName + " (\n"
-	ddl += strings.Join(cols, ",\n")
-	ddl += "\n);"
-
-	return ddl, nil
+	defer idxRows.Close()
+	var parts []string
+	parts = append(parts, createStmt+";")
+	for idxRows.Next() {
+		var idxSQL string
+		if idxRows.Scan(&idxSQL) == nil && idxSQL != "" {
+			parts = append(parts, idxSQL+";")
+		}
+	}
+	return strings.Join(parts, "\n\n"), nil
 }

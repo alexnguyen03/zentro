@@ -3,12 +3,13 @@ import { Database, Eye, Hash, Layers, Link2, List, Sigma, Table2, Type, Zap } fr
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore, type SchemaNode } from '../../stores/schemaStore';
-import { FetchDatabaseSchema } from '../../services/schemaService';
+import { FetchDatabaseSchema, FetchTableColumns } from '../../services/schemaService';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
 import { TAB_TYPE } from '../../lib/constants';
 import { useToast } from './Toast';
 import { getErrorMessage } from '../../lib/errors';
+import { models } from '../../../wailsjs/go/models';
 import {
     Button,
     Command,
@@ -120,6 +121,48 @@ function buildInfoTemplate(item: SearchItem): string {
     return [`-- ${KIND_LABEL[item.kind]}: ${item.qualifiedName}`, '-- Add query here'].join('\n');
 }
 
+function buildSelectTemplate(item: SearchItem, driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+    return `SELECT *\nFROM ${s}.${n}\nLIMIT 100;\n`;
+}
+
+function buildInsertTemplate(item: SearchItem, columns: models.ColumnDef[], driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+    const cols = columns.map((c) => quoteIdent(c.Name, driver)).join(', ');
+    const vals = columns.map((c) => `-- ${c.Name} (${c.DataType})`).join(',\n    ');
+    return [
+        `INSERT INTO ${s}.${n} (${cols})`,
+        `VALUES (`,
+        `    ${vals}`,
+        `);`,
+        '',
+    ].join('\n');
+}
+
+function buildUpdateTemplate(item: SearchItem, columns: models.ColumnDef[], driver: string | undefined): string {
+    const s = quoteIdent(item.schema, driver);
+    const n = quoteIdent(item.name, driver);
+    const sets = columns
+        .filter((c) => !c.IsPrimaryKey)
+        .map((c) => `    ${quoteIdent(c.Name, driver)} = -- ${c.DataType}`)
+        .join(',\n');
+    const pkCols = columns.filter((c) => c.IsPrimaryKey);
+    const where = pkCols.length > 0
+        ? pkCols.map((c) => `    ${quoteIdent(c.Name, driver)} = -- ${c.DataType}`).join('\n    AND ')
+        : '    -- add condition here';
+    return [
+        `UPDATE ${s}.${n}`,
+        `SET`,
+        sets || '    -- col = value',
+        `WHERE`,
+        where,
+        `;`,
+        '',
+    ].join('\n');
+}
+
 function buildItems(schemas: SchemaNode[] | undefined): SearchItem[] {
     if (!schemas) return [];
 
@@ -202,6 +245,9 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     const [query, setQuery] = React.useState('');
     const [enabledKinds, setEnabledKinds] = React.useState<Set<ObjectKind>>(new Set(DEFAULT_ENABLED_KINDS));
     const [showAllKinds, setShowAllKinds] = React.useState(false);
+    const [pendingItem, setPendingItem] = React.useState<SearchItem | null>(null);
+    const [pendingColumns, setPendingColumns] = React.useState<models.ColumnDef[]>([]);
+    const [columnsLoading, setColumnsLoading] = React.useState(false);
 
     React.useEffect(() => {
         if (!isConnected || !profileName || !dbName || schemas || isLoading) return;
@@ -239,22 +285,19 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             .slice(0, 400);
     }, [allItems, enabledKinds, query]);
 
+    const isTableLike = (kind: ObjectKind) =>
+        kind === 'table' || kind === 'view' || kind === 'materialized_view' || kind === 'foreign_table';
+
     const openItem = React.useCallback(
         (item: SearchItem) => {
             const displayName = `${item.schema}.${item.name}`;
-            if (
-                item.kind === 'table'
-                || item.kind === 'view'
-                || item.kind === 'materialized_view'
-                || item.kind === 'foreign_table'
-            ) {
-                addTab({
-                    type: TAB_TYPE.TABLE,
-                    name: displayName,
-                    content: displayName,
-                    query: '',
-                });
-                onClose();
+            if (isTableLike(item.kind)) {
+                setPendingItem(item);
+                setColumnsLoading(true);
+                FetchTableColumns(item.schema, item.name)
+                    .then((cols) => { setPendingColumns(cols); })
+                    .catch(() => { setPendingColumns([]); })
+                    .finally(() => { setColumnsLoading(false); });
                 return;
             }
 
@@ -277,6 +320,25 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             onClose();
         },
         [activeProfile?.driver, addTab, onClose],
+    );
+
+    const commitTableAction = React.useCallback(
+        (action: 'browse' | 'select' | 'insert' | 'update') => {
+            if (!pendingItem) return;
+            const displayName = `${pendingItem.schema}.${pendingItem.name}`;
+            const driver = activeProfile?.driver;
+            if (action === 'browse') {
+                addTab({ type: TAB_TYPE.TABLE, name: displayName, content: displayName, query: '' });
+            } else if (action === 'select') {
+                addTab({ type: TAB_TYPE.QUERY, name: displayName, query: buildSelectTemplate(pendingItem, driver) });
+            } else if (action === 'insert') {
+                addTab({ type: TAB_TYPE.QUERY, name: `INSERT ${displayName}`, query: buildInsertTemplate(pendingItem, pendingColumns, driver) });
+            } else if (action === 'update') {
+                addTab({ type: TAB_TYPE.QUERY, name: `UPDATE ${displayName}`, query: buildUpdateTemplate(pendingItem, pendingColumns, driver) });
+            }
+            onClose();
+        },
+        [activeProfile?.driver, addTab, onClose, pendingColumns, pendingItem],
     );
 
     const toggleKind = (kind: ObjectKind) => {
@@ -383,6 +445,59 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             </CommandItem>
                         ))}
                     </CommandList>
+
+                    {pendingItem && (
+                        <div className="border-t border-border bg-background/60 px-4 py-3 flex items-center gap-3">
+                            <span className="flex-1 min-w-0 text-[12px] text-muted-foreground truncate">
+                                <span className="text-foreground font-medium">{pendingItem.schema}.{pendingItem.name}</span>
+                                {columnsLoading && <span className="ml-2 opacity-60">loading columns…</span>}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 px-2.5 text-[11px]"
+                                    onClick={() => commitTableAction('browse')}
+                                >
+                                    Browse
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 px-2.5 text-[11px]"
+                                    onClick={() => commitTableAction('select')}
+                                >
+                                    SELECT
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 px-2.5 text-[11px]"
+                                    disabled={columnsLoading}
+                                    onClick={() => commitTableAction('insert')}
+                                >
+                                    INSERT
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 px-2.5 text-[11px]"
+                                    disabled={columnsLoading}
+                                    onClick={() => commitTableAction('update')}
+                                >
+                                    UPDATE
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-[11px] text-muted-foreground"
+                                    onClick={() => setPendingItem(null)}
+                                >
+                                    ✕
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </Command>
             </div>
         </OverlayDialog>

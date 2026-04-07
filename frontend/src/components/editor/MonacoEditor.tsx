@@ -676,6 +676,23 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         registerContextAwareSQLCompletion(monacoInstance);
         registerSqlFolding(monacoInstance);
 
+        // Register F12 / Go To Definition provider
+        const definitionProviderDisposable = monacoInstance.languages.registerDefinitionProvider('sql', {
+            provideDefinition(model, position) {
+                const profile = activeProfileRef.current;
+                const profileName = profile?.name || '';
+                const dbName = profile?.db_name || '';
+                if (!profileName || !dbName) return null;
+                const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
+                const navigation = resolveTableNavigationAtPosition(model, position, schemas);
+                if (navigation.kind === 'not_found') return null;
+                // Trigger the same open-definition side-effect via a command
+                setTimeout(() => openDefinition(navigation), 0);
+                // Return a null location so Monaco doesn't show a "definition not found" error
+                return null;
+            },
+        });
+
         // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
         // because Monaco's abstraction sometimes fails to capture in specific environments
         const domNode = editor.getDomNode();
@@ -913,6 +930,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             offToggle();
             offNext();
             offJump();
+            definitionProviderDisposable.dispose();
         };
     }, [activeProfile?.driver, activeProfile?.name, nextLine, onChange, resolveRunnableQueryTarget, tabId, toggleLine]);
 

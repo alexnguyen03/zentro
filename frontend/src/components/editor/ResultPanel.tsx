@@ -2,6 +2,7 @@ import React from 'react';
 import {
     AlertCircle,
     CheckCircle,
+    Columns,
     Copy,
     FilePlus,
     Loader,
@@ -60,6 +61,8 @@ import {
     applySetNullToSelection,
     buildSelectionMatrix,
     matrixToTsv,
+    buildRowsAsInsertStatements,
+    buildRowAsUpdateStatement,
 } from './resultSelectionActions';
 
 const RESULT_TOOLBAR_ICON_SIZE = 12;
@@ -123,6 +126,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
     const [showSaveModal, setShowSaveModal] = React.useState(false);
+    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
+    const [showColumnsPopover, setShowColumnsPopover] = React.useState(false);
+    const columnsPopoverRef = React.useRef<HTMLDivElement>(null);
     const [showExportModal, setShowExportModal] = React.useState(false);
     const [exportScope, setExportScope] = React.useState<'all' | 'view'>('all');
     const [exportFormat, setExportFormat] = React.useState<'csv' | 'json' | 'sql'>('csv');
@@ -210,6 +216,10 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 }
             } else {
                 keepFilterFocusRef.current = false;
+                // Auto-count total rows when query finishes and there are more rows to load
+                if (result.hasMore && result.isSelect) {
+                    void handleCountTotal();
+                }
             }
             prevIsDone.current = result.isDone;
         }
@@ -469,6 +479,63 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             ),
         });
 
+        if (result && result.columns.length > 0) {
+            const hiddenCount = Object.values(columnVisibility).filter((v) => v === false).length;
+            actions.push({
+                id: 'columns-toggle',
+                signature: `cols:${hiddenCount}:${showColumnsPopover ? 1 : 0}`,
+                render: () => (
+                    <div className="relative" ref={columnsPopoverRef}>
+                        <Button
+                            type="button"
+                            variant={hiddenCount > 0 ? 'secondary' : 'ghost'}
+                            className={cn('h-7 gap-1 px-2 text-[11px] border', hiddenCount > 0 ? 'border-success/40 bg-success/15' : 'border-transparent')}
+                            title="Toggle column visibility"
+                            onClick={() => setShowColumnsPopover((prev) => !prev)}
+                        >
+                            <Columns size={RESULT_TOOLBAR_ICON_SIZE} />
+                            {hiddenCount > 0 && <span className="text-[10px]">-{hiddenCount}</span>}
+                        </Button>
+                        {showColumnsPopover && (
+                            <div className="absolute right-0 top-full mt-1 z-panel-overlay min-w-[180px] max-h-[320px] overflow-y-auto rounded-md border border-border bg-popover shadow-lg py-1">
+                                <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
+                                    Columns
+                                </div>
+                                {result.columns.map((col) => {
+                                    const isVisible = columnVisibility[col] !== false;
+                                    return (
+                                        <button
+                                            key={col}
+                                            type="button"
+                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted text-left transition-colors"
+                                            onClick={() => setColumnVisibility((prev) => ({ ...prev, [col]: !isVisible }))}
+                                        >
+                                            <span className={cn('w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center', isVisible ? 'bg-success border-success text-white' : 'border-border')}>
+                                                {isVisible && <span className="text-[8px] leading-none">✓</span>}
+                                            </span>
+                                            <span className="truncate">{col}</span>
+                                        </button>
+                                    );
+                                })}
+                                {Object.values(columnVisibility).some((v) => v === false) && (
+                                    <div className="border-t border-border mt-1 pt-1 px-2 pb-1">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="h-6 w-full text-[11px] text-muted-foreground"
+                                            onClick={() => setColumnVisibility({})}
+                                        >
+                                            Show all
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ),
+            });
+        }
+
         actions.push({
             id: 'export',
             icon: <Upload size={RESULT_TOOLBAR_ICON_SIZE} />,
@@ -526,6 +593,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         cancelExport,
         requestDeleteSelectedRows,
         onActionsChange,
+        columnVisibility,
+        showColumnsPopover,
+        setColumnVisibility,
+        setShowColumnsPopover,
+        result?.columns,
     ]);
 
     React.useEffect(() => {
@@ -723,6 +795,37 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             .catch(() => toast.error('Failed to write to clipboard'));
         closeContextMenu();
     }, [closeContextMenu, displayRows, editedCells, getEffectiveSelection, getSelectionColumnRange, result?.columns, rowOrder, toast]);
+
+    const handleContextCopyAsInsert = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
+        const columns = result?.columns ?? [];
+        const tableName = result?.tableName ?? 'table_name';
+        const driver = activeProfile?.driver;
+        const sql = buildRowsAsInsertStatements({
+            selectedCells: effectiveSelection, displayRows, rowOrder, editedCells, columns, tableName, driver,
+        });
+        if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
+        void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [activeProfile?.driver, closeContextMenu, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
+
+    const handleContextCopyAsUpdate = React.useCallback(() => {
+        const effectiveSelection = getEffectiveSelection();
+        if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
+        const columns = result?.columns ?? [];
+        const tableName = result?.tableName ?? 'table_name';
+        const driver = activeProfile?.driver;
+        const pkColumns = columnDefsByName
+            ? Array.from(columnDefsByName.values()).filter((c) => c.IsPrimaryKey).map((c) => c.Name)
+            : [];
+        const sql = buildRowAsUpdateStatement({
+            selectedCells: effectiveSelection, displayRows, rowOrder, editedCells, columns, pkColumns, tableName, driver,
+        });
+        if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
+        void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
+        closeContextMenu();
+    }, [activeProfile?.driver, closeContextMenu, columnDefsByName, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
 
     const handleContextPaste = React.useCallback(() => {
         if (!canMutateCells) {
@@ -953,6 +1056,22 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setContextMenu(null);
     }, [result?.isDone, result?.lastExecutedQuery]);
 
+    React.useEffect(() => {
+        setColumnVisibility({});
+        setShowColumnsPopover(false);
+    }, [result?.lastExecutedQuery]);
+
+    React.useEffect(() => {
+        if (!showColumnsPopover) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (columnsPopoverRef.current && !columnsPopoverRef.current.contains(e.target as Node)) {
+                setShowColumnsPopover(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showColumnsPopover]);
+
     // ── Keyboard ──────────────────────────────────────────────────────────────
     const { handleKeyDown } = useResultKeyboard({
         tabId, result, hasPendingChanges, isReadOnlyTab, viewMode, isEditable,
@@ -968,8 +1087,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
     const contextMenuPosition = React.useMemo(() => {
         if (!contextMenu || typeof window === 'undefined') return null;
-        const estimatedWidth = 180;
-        const estimatedHeight = 268;
+        const estimatedWidth = 190;
+        const estimatedHeight = 320;
         const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
         const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
         return {
@@ -983,6 +1102,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const shouldShowFilterInput = generatedKind !== 'explain';
     const resultFilterBar = result && shouldShowResultFilterBar ? (
         <ResultFilterBar
+            key={result.lastExecutedQuery}
             value={filterExpr}
             onChange={setFilterExpr}
             baseQuery={baseQuery}
@@ -1153,6 +1273,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     onRemoveDraftRows={removeDraftRows}
                                     readOnlyMode={viewMode || isReadOnlyTab}
                                     onCellContextMenu={handleCellContextMenu}
+                                    columnVisibility={columnVisibility}
+                                    onColumnVisibilityChange={setColumnVisibility}
                                 />
                             )}
                         </div>
@@ -1202,6 +1324,28 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     >
                         Copy as JSON
                     </Button>
+                    {result?.tableName && (
+                        <>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                                disabled={!hasEditableCellSelection}
+                                onClick={handleContextCopyAsInsert}
+                            >
+                                Copy as INSERT
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className={`h-auto w-full justify-start rounded-none px-3 py-1.5 text-left text-[12px] ${hasEditableCellSelection ? 'text-foreground hover:bg-muted' : 'text-muted-foreground cursor-not-allowed'}`}
+                                disabled={!hasEditableCellSelection}
+                                onClick={handleContextCopyAsUpdate}
+                            >
+                                Copy as UPDATE
+                            </Button>
+                        </>
+                    )}
                     <div className="my-1 h-px bg-border/70" />
                     <Button
                         type="button"

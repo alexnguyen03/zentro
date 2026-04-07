@@ -1,4 +1,5 @@
 import React from 'react';
+import { RefreshCw } from 'lucide-react';
 import { ResultPanel, type ResultPanelAction } from '../ResultPanel';
 import { TabAction } from './types';
 import type { TabResult } from '../../../stores/resultStore';
@@ -16,9 +17,28 @@ interface DataExplorerViewProps {
 export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     tabId, onRun, result, onActionsChange, schema, table, isReadOnlyMode = false
 }) => {
+    const [refreshing, setRefreshing] = React.useState(false);
+
+    const handleRefresh = React.useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await onRun();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [onRun]);
+
     const handleActionsChange = React.useCallback((actions: ResultPanelAction[]) => {
-        onActionsChange(actions);
-    }, [onActionsChange]);
+        const refreshAction: TabAction = {
+            id: 'data-refresh',
+            icon: <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />,
+            label: 'Refresh',
+            title: 'Refresh data',
+            onClick: () => { void handleRefresh(); },
+            loading: refreshing,
+        };
+        onActionsChange([refreshAction, ...actions]);
+    }, [handleRefresh, onActionsChange, refreshing]);
 
     const handleFilterRun = React.useCallback((filter: string) => {
         onRun(filter);
