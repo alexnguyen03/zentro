@@ -98,6 +98,15 @@ func CreateTableWithConnection(profile *models.ConnectionProfile, db *sql.DB, sc
 	return err
 }
 
+func quoteIdentifier(driver, name string) string {
+	switch driver {
+	case "mysql":
+		return "`" + strings.ReplaceAll(name, "`", "``") + "`"
+	default: // postgres, sqlserver
+		return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
+	}
+}
+
 func CreateIndexWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, indexName string, columns []string, unique bool) error {
 	if err := ensureActiveConnection(profile, db); err != nil {
 		return err
@@ -107,19 +116,46 @@ func CreateIndexWithConnection(profile *models.ConnectionProfile, db *sql.DB, sc
 	if unique {
 		uniqueStr = "UNIQUE "
 	}
-	cols := strings.Join(columns, ", ")
-	ddl := fmt.Sprintf("CREATE %sINDEX %s ON %s.%s (%s)", uniqueStr, indexName, schema, tableName, cols)
+	quotedCols := make([]string, len(columns))
+	for i, c := range columns {
+		quotedCols[i] = quoteIdentifier(profile.Driver, c)
+	}
+	cols := strings.Join(quotedCols, ", ")
+
+	ddl := fmt.Sprintf("CREATE %sINDEX %s ON %s.%s (%s)",
+		uniqueStr,
+		quoteIdentifier(profile.Driver, indexName),
+		quoteIdentifier(profile.Driver, schema),
+		quoteIdentifier(profile.Driver, tableName),
+		cols)
 
 	_, err := db.Exec(ddl)
 	return err
 }
 
-func DropIndexWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, indexName string) error {
+func DropIndexWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, indexName string) error {
 	if err := ensureActiveConnection(profile, db); err != nil {
 		return err
 	}
 
-	ddl := "DROP INDEX " + schema + "." + indexName
+	var ddl string
+	switch profile.Driver {
+	case "mysql":
+		ddl = fmt.Sprintf("DROP INDEX %s ON %s.%s",
+			quoteIdentifier(profile.Driver, indexName),
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName))
+	case "sqlserver":
+		ddl = fmt.Sprintf("DROP INDEX %s ON %s.%s",
+			quoteIdentifier(profile.Driver, indexName),
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName))
+	default: // postgres
+		ddl = fmt.Sprintf("DROP INDEX %s.%s",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, indexName))
+	}
+
 	_, err := db.Exec(ddl)
 	return err
 }

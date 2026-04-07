@@ -88,7 +88,7 @@ export interface AppApiGateway {
     DropTableColumn(profileName: string, schema: string, columnName: string): Promise<void>;
     GetIndexes(profileName: string, schema: string, table: string): Promise<app.IndexInfo[]>;
     CreateIndex(profileName: string, schema: string, table: string, indexName: string, columns: string[], unique: boolean): Promise<void>;
-    DropIndex(profileName: string, schema: string, indexName: string): Promise<void>;
+    DropIndex(profileName: string, schema: string, tableName: string, indexName: string): Promise<void>;
 
     // Settings & updates
     GetPreferences(): Promise<utils.Preferences>;
