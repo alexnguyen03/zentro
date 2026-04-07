@@ -31,8 +31,10 @@
     height: 100%;
     background: var(--background);
     color: var(--foreground);
-    border: 1px solid var(--primary) !important;
-    outline: none;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    /* ring: none !important; */
     font-family: inherit;
     font-size: 11px;
     line-height: 1;
@@ -41,9 +43,9 @@
     border-radius: 0;
 }
 
-/* datetime-local: ensure border visible even when browser resets input styles */
+/* datetime-local: reset browser default border */
 .rt-cell-input[type="datetime-local"] {
-    border: 1px solid var(--primary) !important;
+    border: none !important;
     -webkit-appearance: none;
     appearance: none;
     padding: 0 5px;
@@ -180,7 +182,6 @@
 
 .rt-cell-dirty {
     background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
-    border-left: 2px solid var(--primary) !important;
 }
 
 .row-num-col {

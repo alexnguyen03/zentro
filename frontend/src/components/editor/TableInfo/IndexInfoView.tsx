@@ -57,13 +57,17 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
     columns, selected, onChange, onClose, autoOpen = false,
 }) => {
     const [open, setOpen] = useState(autoOpen);
+    const selectedRef = React.useRef(selected);
+    selectedRef.current = selected;
 
-    const toggle = (col: string) =>
-        onChange(selected.includes(col) ? selected.filter((c) => c !== col) : [...selected, col]);
+    const toggle = (col: string) => {
+        const current = selectedRef.current;
+        onChange(current.includes(col) ? current.filter((c) => c !== col) : [...current, col]);
+    };
 
     const handleOpenChange = (next: boolean) => {
         setOpen(next);
-        if (!next) onClose();
+        if (!next) setTimeout(onClose, 0);
     };
 
     const label = selected.length === 0 ? 'Select columns…' : selected.join(', ');
@@ -137,7 +141,7 @@ const isDirtyRow = (r: IndexRowState) =>
     JSON.stringify(r.original) !== JSON.stringify(r.current);
 
 const getDirtyCount = (rows: IndexRowState[]) =>
-    rows.filter((r) => r.deleted || r.isNew || isDirtyRow(r)).length;
+    rows.filter((r) => r.deleted || (r.isNew && r.current.Name.trim().length > 0) || isDirtyRow(r)).length;
 
 const rowFromDef = (def: IndexDef, i: number): IndexRowState => ({
     id: `idx-${i}-${def.Name}`,
@@ -174,7 +178,6 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     // Drop confirm (for drops outside batch — not used in batch, kept for safety)
     const [dropTarget, setDropTarget] = useState<string | null>(null);
 
-    const actionsSignatureRef = useRef('');
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
@@ -322,14 +325,15 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         if (readOnlyMode || !activeProfile?.name) return;
 
         const toDelete = rows.filter((r) => r.deleted && !r.isNew);
-        const toCreate = rows.filter((r) => r.isNew && !r.deleted);
+        // Skip empty drafts (name and columns both empty) — treat as abandoned
+        const toCreate = rows.filter((r) => r.isNew && !r.deleted && r.current.Name.trim().length > 0);
         const toUpdate = rows.filter((r) => !r.isNew && !r.deleted && isDirtyRow(r));
 
         if (!toDelete.length && !toCreate.length && !toUpdate.length) return;
 
         for (const r of [...toCreate, ...toUpdate]) {
             if (!r.current.Name.trim()) { toast.error('Index name is required'); return; }
-            if (!r.current.Columns.length) { toast.error(`"${r.current.Name || 'New index'}" needs at least one column`); return; }
+            if (!r.current.Columns.length) { toast.error(`"${r.current.Name}" needs at least one column`); return; }
         }
 
         const ops: Array<'create' | 'drop'> = [
@@ -347,14 +351,13 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         setSaving(true);
         try {
             for (const r of toDelete) {
-                await DropIndex(activeProfile.name, schema, r.original.Name);
+                await DropIndex(activeProfile.name, schema, tableName, r.original.Name);
             }
             for (const r of toCreate) {
-                if (!r.current.Name.trim() || !r.current.Columns.length) continue;
                 await CreateIndex(activeProfile.name, schema, tableName, r.current.Name, r.current.Columns, r.current.Unique);
             }
             for (const r of toUpdate) {
-                await DropIndex(activeProfile.name, schema, r.original.Name);
+                await DropIndex(activeProfile.name, schema, tableName, r.original.Name);
                 await CreateIndex(activeProfile.name, schema, tableName, r.current.Name, r.current.Columns, r.current.Unique);
             }
             toast.success('Index changes applied');
@@ -375,7 +378,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             return;
         }
         try {
-            await DropIndex(activeProfile.name, schema, dropTarget);
+            await DropIndex(activeProfile.name, schema, tableName, dropTarget);
             toast.success(`Index "${dropTarget}" dropped`);
             await loadIndexes();
         } catch (error: unknown) {
@@ -437,17 +440,10 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         }
 
         return actions;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasChanges, readOnlyMode, saving, selectedRows.size]);
+    }, [hasChanges, readOnlyMode, saving, selectedRows.size, saveAll, addNewRow, discardAll, toggleDeleteRows]);
 
     useEffect(() => {
-        if (!onActionsChange) return;
-        const signature = panelActions
-            .map((a) => `${a.id}:${a.disabled ? 1 : 0}:${a.loading ? 1 : 0}:${a.danger ? 1 : 0}`)
-            .join('|');
-        if (actionsSignatureRef.current === signature) return;
-        actionsSignatureRef.current = signature;
-        onActionsChange(panelActions);
+        onActionsChange?.(panelActions);
     }, [onActionsChange, panelActions]);
 
     // ── Filter ────────────────────────────────────────────────────────────────
@@ -547,7 +543,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                 <Input
                                                     autoFocus
                                                     onFocus={(e) => e.target.select()}
-                                                    className="rt-cell-input font-mono border-primary!"
+                                                    className="rt-cell-input font-mono"
                                                     value={row.current.Name}
                                                     onChange={(e) => updateRow(row.id, { Name: e.target.value })}
                                                     onBlur={() => setEditCell(null)}
