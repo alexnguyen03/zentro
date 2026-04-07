@@ -163,10 +163,7 @@ export const SettingsData: React.FC<Props> = ({
                                 return (
                                     <div
                                         key={key}
-                                        role="button"
-                                        tabIndex={0}
                                         onClick={() => setStrongConfirmByIndex(index)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setStrongConfirmByIndex(index); }}
                                         className={` cursor-pointer absolute top-2 h-auto px-1 py-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
                                         style={{ left: position }}
                                         aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}

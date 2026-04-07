@@ -90,8 +90,8 @@ export function Disconnect() {
   return window['go']['app']['App']['Disconnect']();
 }
 
-export function DropIndex(arg1, arg2, arg3) {
-  return window['go']['app']['App']['DropIndex'](arg1, arg2, arg3);
+export function DropIndex(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DropIndex'](arg1, arg2, arg3, arg4);
 }
 
 export function DropObject(arg1, arg2, arg3, arg4) {

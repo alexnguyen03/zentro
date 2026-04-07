@@ -175,12 +175,12 @@ func (a *App) CreateIndex(profileName, schema, tableName, indexName string, colu
 	return CreateIndexWithConnection(a.profile, a.db, schema, tableName, indexName, columns, unique)
 }
 
-func (a *App) DropIndex(profileName, schema, indexName string) error {
+func (a *App) DropIndex(profileName, schema, tableName, indexName string) error {
 	_ = profileName
 	if err := a.ensureWritable("drop index"); err != nil {
 		return err
 	}
-	return DropIndexWithConnection(a.profile, a.db, schema, indexName)
+	return DropIndexWithConnection(a.profile, a.db, schema, tableName, indexName)
 }
 
 func (a *App) GetIndexes(profileName, schema, tableName string) ([]IndexInfo, error) {

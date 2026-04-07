@@ -19,4 +19,4 @@ export const DropTableColumn = (profileName: string, schema: string, columnName:
 export const GetIndexes = (profileName: string, schema: string, table: string) => wailsGateway.GetIndexes(profileName, schema, table);
 export const CreateIndex = (profileName: string, schema: string, table: string, indexName: string, columns: string[], unique: boolean) =>
     wailsGateway.CreateIndex(profileName, schema, table, indexName, columns, unique);
-export const DropIndex = (profileName: string, schema: string, indexName: string) => wailsGateway.DropIndex(profileName, schema, indexName);
+export const DropIndex = (profileName: string, schema: string, tableName: string, indexName: string) => wailsGateway.DropIndex(profileName, schema, tableName, indexName);

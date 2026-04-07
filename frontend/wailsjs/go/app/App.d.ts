@@ -51,7 +51,7 @@ export function DisableGitTracking():Promise<void>;
 
 export function Disconnect():Promise<void>;
 
-export function DropIndex(arg1:string,arg2:string,arg3:string):Promise<void>;
+export function DropIndex(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function DropObject(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 

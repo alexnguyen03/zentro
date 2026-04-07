@@ -509,9 +509,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     return (
                                         <Button
                                             key={col}
+                                            type="button"
                                             variant="ghost"
-                                            size="sm"
-                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted text-left transition-colors h-auto justify-start rounded-none"
+                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-left transition-colors h-auto justify-start"
                                             onClick={() => setColumnVisibility((prev) => ({ ...prev, [col]: !isVisible }))}
                                         >
                                             <span className={cn('w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center', isVisible ? 'bg-success border-success text-white' : 'border-border')}>
