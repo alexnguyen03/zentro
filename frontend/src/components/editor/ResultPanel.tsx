@@ -507,17 +507,18 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 {result.columns.map((col) => {
                                     const isVisible = columnVisibility[col] !== false;
                                     return (
-                                        <button
+                                        <Button
                                             key={col}
-                                            type="button"
-                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted text-left transition-colors"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-muted text-left transition-colors h-auto justify-start rounded-none"
                                             onClick={() => setColumnVisibility((prev) => ({ ...prev, [col]: !isVisible }))}
                                         >
                                             <span className={cn('w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center', isVisible ? 'bg-success border-success text-white' : 'border-border')}>
                                                 {isVisible && <span className="text-[8px] leading-none">✓</span>}
                                             </span>
                                             <span className="truncate">{col}</span>
-                                        </button>
+                                        </Button>
                                     );
                                 })}
                                 {Object.values(columnVisibility).some((v) => v === false) && (

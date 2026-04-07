@@ -71,7 +71,9 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
     return (
         <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
-                <button
+                <Button
+                    variant="ghost"
+                    size="sm"
                     type="button"
                     // prevent this click from bubbling to the tr mousedown (which would deselect row)
                     onMouseDown={(e) => e.stopPropagation()}
@@ -88,7 +90,7 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                     {open
                         ? <ChevronUp size={11} className="shrink-0 text-muted-foreground ml-1" />
                         : <ChevronDown size={11} className="shrink-0 text-muted-foreground ml-1" />}
-                </button>
+                </Button>
             </PopoverTrigger>
             <PopoverContent
                 align="start"
@@ -103,14 +105,16 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                     {columns.map((col) => {
                         const checked = selected.includes(col);
                         return (
-                            <button
+                            <Button
                                 key={col}
+                                variant="ghost"
+                                size="sm"
                                 type="button"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={() => toggle(col)}
                                 className={`
                                     flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-[12px] text-left
-                                    transition-colors hover:bg-accent/10 font-mono
+                                    transition-colors hover:bg-accent/10 font-mono h-auto justify-start
                                     ${checked ? 'text-foreground font-medium' : 'text-muted-foreground'}
                                 `}
                             >
@@ -121,7 +125,7 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                                     {checked && <Check size={10} strokeWidth={3} />}
                                 </div>
                                 <span className="truncate">{col}</span>
-                            </button>
+                            </Button>
                         );
                     })}
                 </div>
@@ -171,7 +175,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
-    // Drop confirm (for drops outside batch — not used in batch, kept for safety)
+    // Drop dialog state (for drops outside batch — not used in batch, kept for safety)
     const [dropTarget, setDropTarget] = useState<string | null>(null);
 
     const actionsSignatureRef = useRef('');
@@ -294,10 +298,10 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             prev
                 .map((r, i) => {
                     if (!selectedRows.has(i)) return r;
-                    if (r.isNew) return null as unknown as IndexRowState;
+                    if (r.isNew) return null;
                     return { ...r, deleted: !r.deleted };
                 })
-                .filter(Boolean) as IndexRowState[],
+                .filter((r): r is IndexRowState => r !== null),
         );
         setSelectedRows(new Set());
         setEditCell(null);
@@ -366,7 +370,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         }
     }, [activeProfile?.name, loadIndexes, readOnlyMode, rows, schema, tableName, toast, writeSafetyGuard]);
 
-    // Drop confirm (for immediate drop via confirmation modal — not part of batch)
+    // Drop handler (for immediate drop via confirmation modal — not part of batch)
     const handleDropConfirm = useCallback(async () => {
         if (!dropTarget || !activeProfile?.name) return;
         const guard = await writeSafetyGuard.guardOperations(['drop'], 'Drop Index');
