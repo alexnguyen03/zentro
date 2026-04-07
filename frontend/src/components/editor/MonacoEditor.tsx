@@ -526,6 +526,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     addTabRef.current = addTab;
     const navWidgetRef = useRef<InlineTableNavigationWidget | null>(null);
     const quickViewWidgetRef = useRef<InlineObjectQuickViewWidget | null>(null);
+    const definitionProviderRef = useRef<{ dispose: () => void } | null>(null);
 
     const applyBookmarkDecorations = useCallback(() => {
         const editor = editorRef.current;
@@ -676,8 +677,9 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         registerContextAwareSQLCompletion(monacoInstance);
         registerSqlFolding(monacoInstance);
 
-        // Register F12 / Go To Definition provider
-        const definitionProviderDisposable = monacoInstance.languages.registerDefinitionProvider('sql', {
+        // Register F12 / Go To Definition provider (stored in ref for cleanup)
+        definitionProviderRef.current?.dispose();
+        definitionProviderRef.current = monacoInstance.languages.registerDefinitionProvider('sql', {
             provideDefinition(model, position) {
                 const profile = activeProfileRef.current;
                 const profileName = profile?.name || '';
@@ -686,9 +688,10 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
                 const navigation = resolveTableNavigationAtPosition(model, position, schemas);
                 if (navigation.kind === 'not_found') return null;
-                // Trigger the same open-definition side-effect via a command
-                setTimeout(() => openDefinition(navigation), 0);
-                // Return a null location so Monaco doesn't show a "definition not found" error
+                // Unwrap the match and trigger openDefinition as a side-effect
+                const target = navigation.kind === 'single_match' ? navigation.match : navigation.matches[0];
+                if (target) setTimeout(() => openDefinition(target), 0);
+                // Return null — Monaco won't show "no definition found" for null
                 return null;
             },
         });
@@ -930,7 +933,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             offToggle();
             offNext();
             offJump();
-            definitionProviderDisposable.dispose();
+            definitionProviderRef.current?.dispose();
+            definitionProviderRef.current = null;
         };
     }, [activeProfile?.driver, activeProfile?.name, nextLine, onChange, resolveRunnableQueryTarget, tabId, toggleLine]);
 

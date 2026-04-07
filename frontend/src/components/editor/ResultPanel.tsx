@@ -45,6 +45,8 @@ import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
 import { DOM_EVENT } from '../../lib/constants';
 import { onCommand } from '../../lib/commandBus';
 import type { UiAction } from '../../types/uiAction';
+import { cn } from '../../lib/cn';
+import { useConnectionStore } from '../../stores/connectionStore';
 import { LIMIT_OPTIONS, formatDuration, makeCellId, parseCellId } from './resultPanelUtils';
 import { utils } from '../../../wailsjs/go/models';
 import { FetchTotalRowCount } from '../../services/queryService';
@@ -106,6 +108,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 }) => {
     const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
+    const driver = useConnectionStore((state) => state.activeProfile?.driver);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const addTab = useEditorStore((s) => s.addTab);
     const updateTabContext = useEditorStore((s) => s.updateTabContext);
@@ -801,21 +804,19 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
         const columns = result?.columns ?? [];
         const tableName = result?.tableName ?? 'table_name';
-        const driver = activeProfile?.driver;
         const sql = buildRowsAsInsertStatements({
             selectedCells: effectiveSelection, displayRows, rowOrder, editedCells, columns, tableName, driver,
         });
         if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
         void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
         closeContextMenu();
-    }, [activeProfile?.driver, closeContextMenu, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
+    }, [driver, closeContextMenu, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
 
     const handleContextCopyAsUpdate = React.useCallback(() => {
         const effectiveSelection = getEffectiveSelection();
         if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
         const columns = result?.columns ?? [];
         const tableName = result?.tableName ?? 'table_name';
-        const driver = activeProfile?.driver;
         const pkColumns = columnDefsByName
             ? Array.from(columnDefsByName.values()).filter((c) => c.IsPrimaryKey).map((c) => c.Name)
             : [];
@@ -825,7 +826,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
         void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
         closeContextMenu();
-    }, [activeProfile?.driver, closeContextMenu, columnDefsByName, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
+    }, [driver, closeContextMenu, columnDefsByName, displayRows, editedCells, getEffectiveSelection, result?.columns, result?.tableName, rowOrder, toast]);
 
     const handleContextPaste = React.useCallback(() => {
         if (!canMutateCells) {
