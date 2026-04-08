@@ -64,6 +64,7 @@ export interface Project {
     connections?: ProjectConnection[];
     assets?: ProjectAsset[];
     git_repo_path?: string;
+    auto_commit_on_exit?: boolean;
 }
 
 export interface ExecutionContext {

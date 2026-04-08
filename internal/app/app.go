@@ -161,18 +161,19 @@ func (a *App) ForceQuit() {
 func (a *App) Shutdown() {
 	a.logger.Info("zentro shutting down")
 	project := a.project
-	if a.tracking != nil && project != nil {
+	if a.sc != nil && project != nil && project.AutoCommitOnExit {
 		done := make(chan error, 1)
 		go func() {
-			done <- a.tracking.FlushAndCommitOnClose(project)
+			_, _, err := a.sc.CommitAllIfDirty(project.GitRepoPath, "app.close: autosave flush")
+			done <- err
 		}()
 		select {
 		case err := <-done:
 			if err != nil {
-				a.logger.Warn("tracking flush on close failed", "err", err)
+				a.logger.Warn("source control auto commit on close failed", "err", err, "repo_path", project.GitRepoPath)
 			}
 		case <-time.After(3 * time.Second):
-			a.logger.Warn("tracking flush on close timed out")
+			a.logger.Warn("source control auto commit on close timed out", "repo_path", project.GitRepoPath)
 		}
 	}
 

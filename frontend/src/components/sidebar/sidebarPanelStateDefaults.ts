@@ -14,15 +14,6 @@ export const SCRIPTS_PANEL_STATE_DEFAULT = {
     search: '',
 };
 
-export const TIMELINE_PANEL_STATE_DEFAULT = {
-    eventTypeFilter: '',
-    objectFilter: '',
-    schemaFilter: '',
-    fromDate: '',
-    toDate: '',
-    selectedHash: '',
-};
-
 export const BOOKMARK_PANEL_STATE_DEFAULT = {
     scope: 'current' as 'current' | 'global',
     collapsedKeys: {} as Record<string, boolean>,

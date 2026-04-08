@@ -582,6 +582,7 @@ export namespace models {
 	    connections?: ProjectConnection[];
 	    assets?: ProjectAsset[];
 	    git_repo_path?: string;
+	    auto_commit_on_exit?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Project(source);
@@ -603,6 +604,7 @@ export namespace models {
 	        this.connections = this.convertValues(source["connections"], ProjectConnection);
 	        this.assets = this.convertValues(source["assets"], ProjectAsset);
 	        this.git_repo_path = source["git_repo_path"];
+	        this.auto_commit_on_exit = source["auto_commit_on_exit"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

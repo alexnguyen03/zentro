@@ -154,6 +154,11 @@ export interface AppApiGateway {
     SCGetHistory(limit: number): Promise<SCCommit[]>;
     SCGetFileDiffs(hash: string): Promise<GitCommitFileDiff[]>;
     SCGetWorkingFileDiff(filePath: string, staged: boolean): Promise<GitCommitFileDiff>;
+    SCListBranches(): Promise<string[]>;
+    SCCheckoutBranch(branchName: string): Promise<void>;
+    SCCreateBranch(branchName: string): Promise<void>;
+    SCCreateBranchFrom(branchName: string, fromRef: string): Promise<void>;
+    SCCheckoutDetached(ref: string): Promise<void>;
     SCInitRepo(): Promise<void>;
 
     // App-level lifecycle

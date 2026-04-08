@@ -1,8 +1,7 @@
 import React from 'react';
-import { AlignLeft, BookMarked, Bookmark, Clock, GitBranch, Hash, Zap } from 'lucide-react';
+import { AlignLeft, BookMarked, Bookmark, Clock, GitBranch, Hash } from 'lucide-react';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { BookmarkTab } from './BookmarkTab';
-import { GitTimelinePanel } from './GitTimelinePanel';
 import { HistoryPanel } from './HistoryPanel';
 import { SourceControlPanel } from './SourceControlPanel';
 import { RowDetailTab } from './RowDetailTab';
@@ -14,7 +13,6 @@ import {
     ROW_DETAIL_PANEL_STATE_DEFAULT,
     SCRIPTS_PANEL_STATE_DEFAULT,
     SOURCE_CONTROL_PANEL_STATE_DEFAULT,
-    TIMELINE_PANEL_STATE_DEFAULT,
 } from './sidebarPanelStateDefaults';
 import { PrimaryExplorerPanel } from './panels/PrimaryExplorerPanel';
 import { registerSidebarPanel } from './sidebarPanelRegistry';
@@ -56,20 +54,11 @@ export function registerBuiltInSidebarPanels(): void {
         defaultState: SCRIPTS_PANEL_STATE_DEFAULT,
     });
     registerSidebarPanel({
-        id: 'timeline',
-        side: 'primary',
-        label: 'Timeline',
-        icon: Zap,
-        order: 40,
-        render: () => <GitTimelinePanel />,
-        defaultState: TIMELINE_PANEL_STATE_DEFAULT,
-    });
-    registerSidebarPanel({
         id: 'source-control',
         side: 'primary',
         label: 'Source Control',
         icon: GitBranch,
-        order: 50,
+        order: 40,
         render: () => <SourceControlPanel />,
         defaultState: SOURCE_CONTROL_PANEL_STATE_DEFAULT,
     });

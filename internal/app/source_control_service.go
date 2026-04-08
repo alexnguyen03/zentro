@@ -5,6 +5,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -65,6 +66,176 @@ func (s *SourceControlService) InitRepo(repoPath string) error {
 		return fmt.Errorf("source control: cannot init repo at %q: %w", repoPath, err)
 	}
 	return nil
+}
+
+func (s *SourceControlService) ListBranches(repoPath string) ([]string, error) {
+	repo, err := s.openRepo(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	iter, err := repo.Branches()
+	if err != nil {
+		return nil, fmt.Errorf("source control: list branches: %w", err)
+	}
+	defer iter.Close()
+
+	branches := make([]string, 0, 8)
+	_ = iter.ForEach(func(ref *plumbing.Reference) error {
+		if ref == nil {
+			return nil
+		}
+		branches = append(branches, ref.Name().Short())
+		return nil
+	})
+
+	sort.Strings(branches)
+	return branches, nil
+}
+
+func (s *SourceControlService) CheckoutBranch(repoPath, branchName string) error {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	repo, err := s.openRepo(repoPath)
+	if err != nil {
+		return err
+	}
+
+	name := strings.TrimSpace(branchName)
+	if name == "" {
+		return fmt.Errorf("source control: branch name is required")
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("source control: worktree: %w", err)
+	}
+
+	if err := wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(name),
+		Keep:   true,
+	}); err != nil {
+		return fmt.Errorf("source control: checkout %q: %w", name, err)
+	}
+	return nil
+}
+
+func (s *SourceControlService) CreateBranch(repoPath, branchName string) error {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	repo, err := s.openRepo(repoPath)
+	if err != nil {
+		return err
+	}
+
+	name := strings.TrimSpace(branchName)
+	if name == "" {
+		return fmt.Errorf("source control: branch name is required")
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("source control: worktree: %w", err)
+	}
+
+	if err := wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(name),
+		Create: true,
+		Keep:   true,
+	}); err != nil {
+		return fmt.Errorf("source control: create branch %q: %w", name, err)
+	}
+	return nil
+}
+
+func (s *SourceControlService) CreateBranchFrom(repoPath, branchName, fromRef string) error {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	repo, err := s.openRepo(repoPath)
+	if err != nil {
+		return err
+	}
+
+	name := strings.TrimSpace(branchName)
+	if name == "" {
+		return fmt.Errorf("source control: branch name is required")
+	}
+	from := strings.TrimSpace(fromRef)
+	if from == "" {
+		return fmt.Errorf("source control: base ref is required")
+	}
+
+	hash, err := resolveRevisionHash(repo, from)
+	if err != nil {
+		return fmt.Errorf("source control: resolve ref %q: %w", from, err)
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("source control: worktree: %w", err)
+	}
+
+	if err := wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(name),
+		Create: true,
+		Hash:   hash,
+		Keep:   true,
+	}); err != nil {
+		return fmt.Errorf("source control: create branch %q from %q: %w", name, from, err)
+	}
+	return nil
+}
+
+func (s *SourceControlService) CheckoutDetached(repoPath, ref string) error {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	repo, err := s.openRepo(repoPath)
+	if err != nil {
+		return err
+	}
+
+	target := strings.TrimSpace(ref)
+	if target == "" {
+		return fmt.Errorf("source control: target ref is required")
+	}
+
+	hash, err := resolveRevisionHash(repo, target)
+	if err != nil {
+		return fmt.Errorf("source control: resolve ref %q: %w", target, err)
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("source control: worktree: %w", err)
+	}
+
+	if err := wt.Checkout(&git.CheckoutOptions{
+		Hash: hash,
+		Keep: true,
+	}); err != nil {
+		return fmt.Errorf("source control: checkout detached %q: %w", target, err)
+	}
+	return nil
+}
+
+func resolveRevisionHash(repo *git.Repository, ref string) (plumbing.Hash, error) {
+	hashPtr, err := repo.ResolveRevision(plumbing.Revision(ref))
+	if err == nil && hashPtr != nil {
+		return *hashPtr, nil
+	}
+
+	if !strings.HasPrefix(ref, "refs/") {
+		hashPtr, err = repo.ResolveRevision(plumbing.Revision("refs/heads/" + ref))
+		if err == nil && hashPtr != nil {
+			return *hashPtr, nil
+		}
+	}
+
+	return plumbing.ZeroHash, fmt.Errorf("reference not found")
 }
 
 func (s *SourceControlService) GetStatus(repoPath string) (SCStatus, error) {
@@ -230,6 +401,61 @@ func (s *SourceControlService) Commit(repoPath, message string) (string, error) 
 		return "", fmt.Errorf("source control: commit: %w", err)
 	}
 	return hash.String(), nil
+}
+
+func (s *SourceControlService) CommitAllIfDirty(repoPath, message string) (string, bool, error) {
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	repo, err := s.openRepo(repoPath)
+	if err != nil {
+		return "", false, err
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		return "", false, fmt.Errorf("source control: worktree: %w", err)
+	}
+
+	if err := wt.AddWithOptions(&git.AddOptions{All: true}); err != nil {
+		return "", false, fmt.Errorf("source control: stage all: %w", err)
+	}
+
+	status, err := wt.Status()
+	if err != nil {
+		return "", false, fmt.Errorf("source control: status: %w", err)
+	}
+	if len(changedFilesFromStatus(status)) == 0 {
+		return "", true, nil
+	}
+
+	cfg, _ := repo.Config()
+	authorName := "Zentro"
+	authorEmail := "zentro@local"
+	if cfg != nil {
+		if n := cfg.User.Name; n != "" {
+			authorName = n
+		}
+		if e := cfg.User.Email; e != "" {
+			authorEmail = e
+		}
+	}
+
+	msg := strings.TrimSpace(message)
+	if msg == "" {
+		msg = "app.close: autosave flush"
+	}
+
+	hash, err := wt.Commit(msg, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  authorName,
+			Email: authorEmail,
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return "", false, fmt.Errorf("source control: commit: %w", err)
+	}
+	return hash.String(), false, nil
 }
 
 func (s *SourceControlService) GetHistory(repoPath string, limit int) ([]SCCommit, error) {

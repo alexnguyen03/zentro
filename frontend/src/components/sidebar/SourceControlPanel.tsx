@@ -3,6 +3,7 @@ import {
     ChevronDown,
     ChevronRight,
     GitBranch,
+    History,
     Minus,
     Plus,
     RefreshCw,
@@ -21,6 +22,8 @@ import {
 import type { SCFileStatus, SCCommit as SCCommitType, GitCommitFileDiff } from '../../platform/app-api/types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useScriptStore } from '../../stores/scriptStore';
+import { useConnectionStore } from '../../stores/connectionStore';
 import { useToast } from '../layout/Toast';
 import { cn } from '../../lib/cn';
 import { Button, Input } from '../ui';
@@ -57,11 +60,12 @@ type Tab = 'changes' | 'history';
 export const SourceControlPanel: React.FC = () => {
     const activeProject = useProjectStore((state) => state.activeProject);
     const addTab = useEditorStore((state) => state.addTab);
+    const scripts = useScriptStore((state) => state.scripts);
+    const activeProfile = useConnectionStore((state) => state.activeProfile);
     const { toast } = useToast();
 
     const [activeTab, setActiveTab] = React.useState<Tab>('changes');
     const [loading, setLoading] = React.useState(false);
-    const [branch, setBranch] = React.useState('');
     const [staged, setStaged] = React.useState<SCFileStatus[]>([]);
     const [unstaged, setUnstaged] = React.useState<SCFileStatus[]>([]);
 
@@ -80,6 +84,33 @@ export const SourceControlPanel: React.FC = () => {
     const [initLoading, setInitLoading] = React.useState(false);
 
     const hasRepoPath = Boolean(activeProject?.git_repo_path);
+    const scriptNameById = React.useMemo(() => {
+        const map = new Map<string, string>();
+        (scripts || []).forEach((script) => {
+            const id = String(script.id || '').trim();
+            const name = String(script.name || '').trim();
+            if (id && name) {
+                map.set(id, name);
+            }
+        });
+        return map;
+    }, [scripts]);
+
+    const getDisplayFileName = React.useCallback((path: string) => {
+        const normalized = String(path || '').replace(/\\/g, '/');
+        const rawFile = normalized.split('/').pop() || normalized;
+        const lower = rawFile.toLowerCase();
+        if (!lower.endsWith('.sql')) {
+            return rawFile;
+        }
+
+        const stem = rawFile.slice(0, -4);
+        const scriptName = scriptNameById.get(stem);
+        if (!scriptName) {
+            return rawFile;
+        }
+        return scriptName.toLowerCase().endsWith('.sql') ? scriptName : `${scriptName}.sql`;
+    }, [scriptNameById]);
 
     const loadStatus = React.useCallback(async () => {
         if (!activeProject?.git_repo_path) return;
@@ -87,7 +118,6 @@ export const SourceControlPanel: React.FC = () => {
         setRepoNotInitialized(false);
         try {
             const status = await SCGetStatus();
-            setBranch(status.branch);
             setStaged(status.files.filter((f) => f.staged));
             setUnstaged(status.files.filter((f) => !f.staged));
         } catch (error) {
@@ -204,7 +234,7 @@ export const SourceControlPanel: React.FC = () => {
     const handleOpenDiff = React.useCallback((hash: string, file: GitCommitFileDiff) => {
         const fileKey = `sc:${hash}:${file.path}`;
         setSelectedFileKey(fileKey);
-        const fileName = file.path.split('/').pop() ?? file.path;
+        const fileName = getDisplayFileName(file.path);
         addTab({
             id: `git-diff:sc:${hash}:${file.path}`,
             type: TAB_TYPE.GIT_DIFF,
@@ -214,7 +244,16 @@ export const SourceControlPanel: React.FC = () => {
             gitDiffBefore: file.before,
             gitDiffAfter: file.after,
         });
-    }, [addTab]);
+    }, [addTab, getDisplayFileName]);
+
+    const handleOpenHistoryFileQuery = React.useCallback((file: GitCommitFileDiff) => {
+        const fileName = getDisplayFileName(file.path);
+        addTab({
+            type: TAB_TYPE.QUERY,
+            name: fileName,
+            query: file.after || file.before || '',
+        });
+    }, [addTab, getDisplayFileName]);
 
     const handleOpenWorkingDiff = React.useCallback(async (file: SCFileStatus, stagedView: boolean) => {
         const fileKey = `wip:${stagedView ? 'staged' : 'unstaged'}:${file.path}`;
@@ -222,7 +261,7 @@ export const SourceControlPanel: React.FC = () => {
         setWorkingDiffLoadingKey(fileKey);
         try {
             const diff = await SCGetWorkingFileDiff(file.path, stagedView);
-            const fileName = file.path.split('/').pop() ?? file.path;
+            const fileName = getDisplayFileName(file.path);
             addTab({
                 id: `git-diff:sc:wip:${stagedView ? 'staged' : 'unstaged'}:${file.path}`,
                 type: TAB_TYPE.GIT_DIFF,
@@ -237,7 +276,32 @@ export const SourceControlPanel: React.FC = () => {
         } finally {
             setWorkingDiffLoadingKey((current) => (current === fileKey ? null : current));
         }
-    }, [addTab, toast]);
+    }, [addTab, getDisplayFileName, toast]);
+
+    const handleOpenFileQuery = React.useCallback(async (file: SCFileStatus, stagedView: boolean) => {
+        try {
+            const diff = await SCGetWorkingFileDiff(file.path, stagedView);
+            const fileName = getDisplayFileName(file.path);
+            const rawFile = file.path.split('/').pop() ?? file.path;
+            const scriptId = rawFile.toLowerCase().endsWith('.sql') ? rawFile.slice(0, -4) : '';
+            const hasSavedScript = Boolean(scriptId && scriptNameById.has(scriptId));
+
+            addTab({
+                type: TAB_TYPE.QUERY,
+                name: fileName,
+                query: diff.after || diff.before || '',
+                context: hasSavedScript && activeProject?.id && activeProfile?.name
+                    ? {
+                        savedScriptId: scriptId,
+                        scriptProjectId: activeProject.id,
+                        scriptConnectionName: activeProfile.name,
+                    }
+                    : undefined,
+            });
+        } catch (error) {
+            toast.error(`Open file failed: ${error}`);
+        }
+    }, [activeProfile?.name, activeProject?.id, addTab, getDisplayFileName, scriptNameById, toast]);
 
     if (!activeProject?.id) {
         return (
@@ -281,33 +345,43 @@ export const SourceControlPanel: React.FC = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="px-2.5 py-1.5 border-b border-border flex items-center gap-1.5">
-                <GitBranch size={12} className="text-muted-foreground shrink-0" />
-                <span className="text-[11px] text-foreground font-mono truncate flex-1">{branch || '-'}</span>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                        'h-7 w-7',
+                        activeTab === 'changes' ? 'text-accent bg-accent/10' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                    onClick={() => setActiveTab('changes')}
+                    title={`Changes (${staged.length + unstaged.length})`}
+                >
+                    <GitBranch size={13} />
+                </Button>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                        'h-7 w-7',
+                        activeTab === 'history' ? 'text-accent bg-accent/10' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                    onClick={() => setActiveTab('history')}
+                    title="History"
+                >
+                    <History size={13} />
+                </Button>
+                <div className="flex-1" />
                 <Button
                     type="button" variant="ghost" size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    onClick={() => void loadStatus()}
+                    onClick={() => {
+                        void loadStatus();
+                    }}
                     title="Refresh"
                 >
                     <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
                 </Button>
-            </div>
-
-            <div className="flex border-b border-border text-[11px]">
-                <button
-                    type="button"
-                    className={cn('flex-1 py-1.5 transition-colors', activeTab === 'changes' ? 'text-foreground border-b-2 border-accent' : 'text-muted-foreground hover:text-foreground')}
-                    onClick={() => setActiveTab('changes')}
-                >
-                    Changes {staged.length + unstaged.length > 0 && `(${staged.length + unstaged.length})`}
-                </button>
-                <button
-                    type="button"
-                    className={cn('flex-1 py-1.5 transition-colors', activeTab === 'history' ? 'text-foreground border-b-2 border-accent' : 'text-muted-foreground hover:text-foreground')}
-                    onClick={() => setActiveTab('history')}
-                >
-                    History
-                </button>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -343,6 +417,9 @@ export const SourceControlPanel: React.FC = () => {
                                 onClick={() => {
                                     void handleOpenWorkingDiff(f, true);
                                 }}
+                                onDoubleClick={() => {
+                                    void handleOpenFileQuery(f, true);
+                                }}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault();
@@ -352,7 +429,7 @@ export const SourceControlPanel: React.FC = () => {
                             >
                                 <FileStatusBadge status={f.status} />
                                 <span className="flex-1 truncate text-[11px] font-mono text-foreground" title={f.path}>
-                                    {f.path.split('/').pop()}
+                                    {getDisplayFileName(f.path)}
                                 </span>
                                 <button
                                     type="button"
@@ -390,6 +467,9 @@ export const SourceControlPanel: React.FC = () => {
                                 onClick={() => {
                                     void handleOpenWorkingDiff(f, false);
                                 }}
+                                onDoubleClick={() => {
+                                    void handleOpenFileQuery(f, false);
+                                }}
                                 onKeyDown={(event) => {
                                     if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault();
@@ -399,7 +479,7 @@ export const SourceControlPanel: React.FC = () => {
                             >
                                 <FileStatusBadge status={f.status} />
                                 <span className="flex-1 truncate text-[11px] font-mono text-muted-foreground" title={f.path}>
-                                    {f.path.split('/').pop()}
+                                    {getDisplayFileName(f.path)}
                                 </span>
                                 <button
                                     type="button"
@@ -465,11 +545,12 @@ export const SourceControlPanel: React.FC = () => {
                                                             )}
                                                             title={f.path}
                                                             onClick={() => handleOpenDiff(commit.hash, f)}
+                                                            onDoubleClick={() => handleOpenHistoryFileQuery(f)}
                                                         >
                                                             {!f.before && <span className="text-green-500 shrink-0">A</span>}
                                                             {!f.after && <span className="text-red-500 shrink-0">D</span>}
                                                             {f.before && f.after && <span className="text-yellow-500 shrink-0">M</span>}
-                                                            <span className="truncate">{f.path.split('/').pop()}</span>
+                                                            <span className="truncate">{getDisplayFileName(f.path)}</span>
                                                         </button>
                                                     );
                                                 })

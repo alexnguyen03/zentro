@@ -330,8 +330,24 @@ export function RunGitTrackingMigration() {
   return window['go']['app']['App']['RunGitTrackingMigration']();
 }
 
+export function SCCheckoutBranch(arg1) {
+  return window['go']['app']['App']['SCCheckoutBranch'](arg1);
+}
+
+export function SCCheckoutDetached(arg1) {
+  return window['go']['app']['App']['SCCheckoutDetached'](arg1);
+}
+
 export function SCCommit(arg1) {
   return window['go']['app']['App']['SCCommit'](arg1);
+}
+
+export function SCCreateBranch(arg1) {
+  return window['go']['app']['App']['SCCreateBranch'](arg1);
+}
+
+export function SCCreateBranchFrom(arg1, arg2) {
+  return window['go']['app']['App']['SCCreateBranchFrom'](arg1, arg2);
 }
 
 export function SCGetFileDiffs(arg1) {
@@ -352,6 +368,10 @@ export function SCGetWorkingFileDiff(arg1, arg2) {
 
 export function SCInitRepo() {
   return window['go']['app']['App']['SCInitRepo']();
+}
+
+export function SCListBranches() {
+  return window['go']['app']['App']['SCListBranches']();
 }
 
 export function SCStageAll() {

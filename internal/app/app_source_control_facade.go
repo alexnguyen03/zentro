@@ -76,6 +76,46 @@ func (a *App) SCGetWorkingFileDiff(filePath string, staged bool) (GitCommitFileD
 	return a.sc.GetWorkingFileDiff(path, filePath, staged)
 }
 
+func (a *App) SCListBranches() ([]string, error) {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return nil, err
+	}
+	return a.sc.ListBranches(path)
+}
+
+func (a *App) SCCheckoutBranch(branchName string) error {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return err
+	}
+	return a.sc.CheckoutBranch(path, branchName)
+}
+
+func (a *App) SCCreateBranch(branchName string) error {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return err
+	}
+	return a.sc.CreateBranch(path, branchName)
+}
+
+func (a *App) SCCreateBranchFrom(branchName string, fromRef string) error {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return err
+	}
+	return a.sc.CreateBranchFrom(path, branchName, fromRef)
+}
+
+func (a *App) SCCheckoutDetached(ref string) error {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return err
+	}
+	return a.sc.CheckoutDetached(path, ref)
+}
+
 func (a *App) SCInitRepo() error {
 	path, err := a.scRepoPath()
 	if err != nil {

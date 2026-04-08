@@ -75,6 +75,11 @@ import {
     SCGetHistory,
     SCGetStatus,
     SCGetWorkingFileDiff,
+    SCListBranches,
+    SCCheckoutBranch,
+    SCCreateBranch,
+    SCCreateBranchFrom,
+    SCCheckoutDetached,
     SCInitRepo,
     SCStageAll,
     SCStageFile,
@@ -213,6 +218,11 @@ export const wailsGateway: AppApiGateway = {
     SCGetFileDiffs,
     SCGetHistory,
     SCGetWorkingFileDiff,
+    SCListBranches,
+    SCCheckoutBranch,
+    SCCreateBranch,
+    SCCreateBranchFrom,
+    SCCheckoutDetached,
     SCGetStatus: async () => {
         const result = await SCGetStatus();
         return result as import('./types').SCStatus;

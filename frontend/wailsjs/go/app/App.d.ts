@@ -171,7 +171,15 @@ export function RollbackTransaction():Promise<void>;
 
 export function RunGitTrackingMigration():Promise<void>;
 
+export function SCCheckoutBranch(arg1:string):Promise<void>;
+
+export function SCCheckoutDetached(arg1:string):Promise<void>;
+
 export function SCCommit(arg1:string):Promise<string>;
+
+export function SCCreateBranch(arg1:string):Promise<void>;
+
+export function SCCreateBranchFrom(arg1:string,arg2:string):Promise<void>;
 
 export function SCGetFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
 
@@ -182,6 +190,8 @@ export function SCGetStatus():Promise<app.SCStatus>;
 export function SCGetWorkingFileDiff(arg1:string,arg2:boolean):Promise<app.GitCommitFileDiff>;
 
 export function SCInitRepo():Promise<void>;
+
+export function SCListBranches():Promise<Array<string>>;
 
 export function SCStageAll():Promise<void>;
 
