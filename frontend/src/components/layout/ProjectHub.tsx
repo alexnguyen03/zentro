@@ -38,6 +38,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         name: '',
         description: '',
         iconKey: 'general',
+        gitRepoPath: '',
     });
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
@@ -87,7 +88,17 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             name: project.name || '',
             description: project.description || '',
             iconKey: getProjectIconKey(project) as ProjectIconKey,
+            gitRepoPath: project.git_repo_path || '',
         });
+    };
+
+    const handleBrowseRepoPath = async () => {
+        try {
+            const selected = await PickDirectory('');
+            if (selected) {
+                setEditDraft((c) => ({ ...c, gitRepoPath: selected }));
+            }
+        } catch { /* ignore */ }
     };
 
     const handleSaveProjectEdit = async (project: Project) => {
@@ -101,6 +112,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                 name: nextName,
                 description: editDraft.description.trim(),
                 tags: buildTagsWithProjectIcon(project.tags, editDraft.iconKey),
+                git_repo_path: editDraft.gitRepoPath.trim() || undefined,
             });
             if (!updated) {
                 toast.error('Could not save project changes.');
@@ -182,6 +194,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                                                     onSave={(targetProject) => {
                                                         void handleSaveProjectEdit(targetProject);
                                                     }}
+                                                    onBrowseRepoPath={() => void handleBrowseRepoPath()}
                                                 />
                                             ) : (
                                                 <div key={project.id} data-testid={`recent-project-${project.id}`}>

@@ -73,6 +73,7 @@ describe('projectService', () => {
                 default_environment_key: ENVIRONMENT_KEY.DEVELOPMENT,
                 last_active_environment_key: 'invalid-env',
                 environments: [{ id: 'e1', project_id: 'p1', key: 'invalid-env' }],
+                git_repo_path: 'C:/repos/demo',
             }),
         ]);
 
@@ -82,6 +83,7 @@ describe('projectService', () => {
         expect(projects[0].default_environment_key).toBe(ENVIRONMENT_KEY.DEVELOPMENT);
         expect(projects[0].last_active_environment_key).toBe(ENVIRONMENT_KEY.DEVELOPMENT);
         expect(projects[0].environments?.[0]?.key).toBe(ENVIRONMENT_KEY.LOCAL);
+        expect(projects[0].git_repo_path).toBe('C:/repos/demo');
     });
 
     it('returns null when opening or getting active project fails', async () => {

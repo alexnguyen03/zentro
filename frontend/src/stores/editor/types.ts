@@ -24,6 +24,8 @@ export interface Tab {
     sourceTabId?: string;
     generatedKind?: typeof GENERATED_KIND[keyof typeof GENERATED_KIND];
     context?: TabQueryContext;
+    gitDiffBefore?: string;
+    gitDiffAfter?: string;
 }
 
 export interface TabGroup {

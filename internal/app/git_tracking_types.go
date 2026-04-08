@@ -19,6 +19,12 @@ type GitTimelineItem struct {
 	Files     []string `json:"files"`
 }
 
+type GitCommitFileDiff struct {
+	Path   string `json:"path"`
+	Before string `json:"before"`
+	After  string `json:"after"`
+}
+
 type GitCommitResult struct {
 	Hash      string   `json:"hash,omitempty"`
 	Message   string   `json:"message"`

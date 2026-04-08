@@ -389,6 +389,129 @@ func (s *GitTrackingService) GetCommitDiff(project *models.Project, commitHash s
 	return patch.String(), nil
 }
 
+func (s *GitTrackingService) GetCommitFileDiffs(project *models.Project, commitHash string) ([]GitCommitFileDiff, error) {
+	repoRoot, err := s.repoRoot(project)
+	if err != nil {
+		return nil, err
+	}
+	repo, err := git.PlainOpen(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	commit, err := repo.CommitObject(plumbing.NewHash(strings.TrimSpace(commitHash)))
+	if err != nil {
+		return nil, err
+	}
+
+	commitTree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	var parentTree *object.Tree
+	if commit.NumParents() > 0 {
+		parent, parentErr := commit.Parent(0)
+		if parentErr != nil {
+			return nil, parentErr
+		}
+		parentTree, err = parent.Tree()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	changes, err := object.DiffTree(parentTree, commitTree)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]GitCommitFileDiff, 0, len(changes))
+	for _, change := range changes {
+		var before, after string
+		if change.From.Name != "" && parentTree != nil {
+			if f, fErr := parentTree.File(change.From.Name); fErr == nil {
+				before, _ = f.Contents()
+			}
+		}
+		if change.To.Name != "" {
+			if f, fErr := commitTree.File(change.To.Name); fErr == nil {
+				after, _ = f.Contents()
+			}
+		}
+		path := change.To.Name
+		if path == "" {
+			path = change.From.Name
+		}
+		result = append(result, GitCommitFileDiff{Path: path, Before: before, After: after})
+	}
+	return result, nil
+}
+
+func (s *GitTrackingService) RestoreCommit(project *models.Project, commitHash string) error {
+	repoRoot, err := s.repoRoot(project)
+	if err != nil {
+		return err
+	}
+	if !s.isEnabled(repoRoot) {
+		return fmt.Errorf("tracking is disabled")
+	}
+
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	repo, err := git.PlainOpen(repoRoot)
+	if err != nil {
+		return err
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		return err
+	}
+
+	hash := plumbing.NewHash(strings.TrimSpace(commitHash))
+	commit, err := repo.CommitObject(hash)
+	if err != nil {
+		return fmt.Errorf("tracking: commit not found: %w", err)
+	}
+	tree, err := commit.Tree()
+	if err != nil {
+		return err
+	}
+
+	if err := tree.Files().ForEach(func(f *object.File) error {
+		content, readErr := f.Contents()
+		if readErr != nil {
+			return readErr
+		}
+		absPath := filepath.Join(repoRoot, filepath.FromSlash(f.Name))
+		if mkErr := os.MkdirAll(filepath.Dir(absPath), 0o755); mkErr != nil {
+			return mkErr
+		}
+		return os.WriteFile(absPath, []byte(content), 0o644)
+	}); err != nil {
+		return fmt.Errorf("tracking: restore files failed: %w", err)
+	}
+
+	if err := wt.AddWithOptions(&git.AddOptions{All: true}); err != nil {
+		return err
+	}
+
+	shortHash := strings.TrimSpace(commitHash)
+	if len(shortHash) > 8 {
+		shortHash = shortHash[:8]
+	}
+	msg := fmt.Sprintf("tracking.restore: restored to %s", shortHash)
+	_, err = wt.Commit(msg, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Zentro Tracking",
+			Email: "tracking@zentro.local",
+			When:  time.Now().UTC(),
+		},
+	})
+	return err
+}
+
 func (s *GitTrackingService) TrackScriptSave(project *models.Project, script models.SavedScript, content string) error {
 	repoRoot, err := s.repoRoot(project)
 	if err != nil {

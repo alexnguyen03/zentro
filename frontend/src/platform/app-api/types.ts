@@ -31,6 +31,31 @@ export interface GitTimelineItem {
     files: string[];
 }
 
+export interface GitCommitFileDiff {
+    path: string;
+    before: string;
+    after: string;
+}
+
+export interface SCFileStatus {
+    path: string;
+    staged: boolean;
+    status: 'modified' | 'added' | 'deleted' | 'untracked';
+}
+
+export interface SCStatus {
+    branch: string;
+    files: SCFileStatus[];
+    clean: boolean;
+}
+
+export interface SCCommit {
+    hash: string;
+    message: string;
+    author: string;
+    when: string;
+}
+
 export interface GitCommitResult {
     hash?: string;
     message: string;
@@ -113,10 +138,23 @@ export interface AppApiGateway {
     GetGitTrackingStatus(): Promise<GitTrackingStatus>;
     ListGitTimeline(limit: number, eventType: string): Promise<GitTimelineItem[]>;
     GetGitCommitDiff(commitHash: string): Promise<string>;
+    GetCommitFileDiffs(commitHash: string): Promise<GitCommitFileDiff[]>;
     ManualGitCommit(message: string): Promise<GitCommitResult>;
     GetGitPendingChanges(): Promise<string[]>;
+    RestoreGitCommit(commitHash: string): Promise<void>;
     SnapshotStoredProcedures(schema: string): Promise<number>;
     RunGitTrackingMigration(): Promise<void>;
+
+    // Source Control (user repo)
+    SCGetStatus(): Promise<SCStatus>;
+    SCStageFile(filePath: string): Promise<void>;
+    SCUnstageFile(filePath: string): Promise<void>;
+    SCStageAll(): Promise<void>;
+    SCCommit(message: string): Promise<string>;
+    SCGetHistory(limit: number): Promise<SCCommit[]>;
+    SCGetFileDiffs(hash: string): Promise<GitCommitFileDiff[]>;
+    SCGetWorkingFileDiff(filePath: string, staged: boolean): Promise<GitCommitFileDiff>;
+    SCInitRepo(): Promise<void>;
 
     // App-level lifecycle
     ForceQuit(): Promise<void>;

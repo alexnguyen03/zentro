@@ -63,6 +63,7 @@ export interface Project {
     environments?: ProjectEnvironment[];
     connections?: ProjectConnection[];
     assets?: ProjectAsset[];
+    git_repo_path?: string;
 }
 
 export interface ExecutionContext {

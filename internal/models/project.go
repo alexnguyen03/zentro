@@ -56,6 +56,7 @@ type Project struct {
 	Environments          []ProjectEnvironment `json:"environments,omitempty"`
 	Connections           []ProjectConnection  `json:"connections,omitempty"`
 	Assets                []ProjectAsset       `json:"assets,omitempty"`
+	GitRepoPath           string               `json:"git_repo_path,omitempty"`
 }
 
 type ProjectEnvironment struct {

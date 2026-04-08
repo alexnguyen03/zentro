@@ -67,6 +67,26 @@ func (a *App) ManualGitCommit(message string) (GitCommitResult, error) {
 	return a.tracking.ManualCommit(a.project, message)
 }
 
+func (a *App) GetCommitFileDiffs(commitHash string) ([]GitCommitFileDiff, error) {
+	if a.project == nil {
+		return nil, fmt.Errorf("no active project")
+	}
+	if a.tracking == nil {
+		return nil, fmt.Errorf("tracking service unavailable")
+	}
+	return a.tracking.GetCommitFileDiffs(a.project, commitHash)
+}
+
+func (a *App) RestoreGitCommit(commitHash string) error {
+	if a.project == nil {
+		return fmt.Errorf("no active project")
+	}
+	if a.tracking == nil {
+		return fmt.Errorf("tracking service unavailable")
+	}
+	return a.tracking.RestoreCommit(a.project, commitHash)
+}
+
 func (a *App) GetGitPendingChanges() ([]string, error) {
 	if a.project == nil {
 		return []string{}, nil

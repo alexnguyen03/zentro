@@ -48,6 +48,7 @@ type App struct {
 	compare   *QueryCompareService
 	update    *UpdateService
 	tracking  *GitTrackingService
+	sc        *SourceControlService
 
 	pluginRegistry *pluginext.InMemoryRegistry
 	licenseService *license.LicenseService
@@ -114,6 +115,7 @@ func NewApp() *App {
 	a.update = NewUpdateService("alexnguyen03/zentro")
 	a.projects = NewProjectService(nil)
 	a.tracking = NewGitTrackingService(nil)
+	a.sc = NewSourceControlService()
 	a.pluginRegistry = pluginext.NewInMemoryRegistry()
 	a.licenseService = license.NewLicenseService(nil)
 

@@ -182,6 +182,10 @@ export function GetBookmarks(arg1, arg2) {
   return window['go']['app']['App']['GetBookmarks'](arg1, arg2);
 }
 
+export function GetCommitFileDiffs(arg1) {
+  return window['go']['app']['App']['GetCommitFileDiffs'](arg1);
+}
+
 export function GetConnectionStatus() {
   return window['go']['app']['App']['GetConnectionStatus']();
 }
@@ -314,12 +318,52 @@ export function ResolvePluginContribution(arg1) {
   return window['go']['app']['App']['ResolvePluginContribution'](arg1);
 }
 
+export function RestoreGitCommit(arg1) {
+  return window['go']['app']['App']['RestoreGitCommit'](arg1);
+}
+
 export function RollbackTransaction() {
   return window['go']['app']['App']['RollbackTransaction']();
 }
 
 export function RunGitTrackingMigration() {
   return window['go']['app']['App']['RunGitTrackingMigration']();
+}
+
+export function SCCommit(arg1) {
+  return window['go']['app']['App']['SCCommit'](arg1);
+}
+
+export function SCGetFileDiffs(arg1) {
+  return window['go']['app']['App']['SCGetFileDiffs'](arg1);
+}
+
+export function SCGetHistory(arg1) {
+  return window['go']['app']['App']['SCGetHistory'](arg1);
+}
+
+export function SCGetStatus() {
+  return window['go']['app']['App']['SCGetStatus']();
+}
+
+export function SCGetWorkingFileDiff(arg1, arg2) {
+  return window['go']['app']['App']['SCGetWorkingFileDiff'](arg1, arg2);
+}
+
+export function SCInitRepo() {
+  return window['go']['app']['App']['SCInitRepo']();
+}
+
+export function SCStageAll() {
+  return window['go']['app']['App']['SCStageAll']();
+}
+
+export function SCStageFile(arg1) {
+  return window['go']['app']['App']['SCStageFile'](arg1);
+}
+
+export function SCUnstageFile(arg1) {
+  return window['go']['app']['App']['SCUnstageFile'](arg1);
 }
 
 export function SaveBookmark(arg1, arg2, arg3) {
