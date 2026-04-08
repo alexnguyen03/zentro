@@ -392,14 +392,16 @@ export const SourceControlPanel: React.FC = () => {
                                 Staged ({staged.length})
                             </span>
                             {unstaged.length > 0 && (
-                                <button
+                                <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="sm"
                                     className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
                                     title="Stage all"
                                     onClick={() => void handleStageAll()}
                                 >
                                     <Plus size={10} /> All
-                                </button>
+                                </Button>
                             )}
                         </div>
                         {staged.length === 0 ? (
@@ -431,17 +433,19 @@ export const SourceControlPanel: React.FC = () => {
                                 <span className="flex-1 truncate text-[11px] font-mono text-foreground" title={f.path}>
                                     {getDisplayFileName(f.path)}
                                 </span>
-                                <button
+                                <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="icon"
                                     title={`Unstage ${f.path}`}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         void handleUnstage(f.path);
                                     }}
                                 >
                                     <Minus size={11} />
-                                </button>
+                                </Button>
                             </div>
                         ))}
 
@@ -481,17 +485,19 @@ export const SourceControlPanel: React.FC = () => {
                                 <span className="flex-1 truncate text-[11px] font-mono text-muted-foreground" title={f.path}>
                                     {getDisplayFileName(f.path)}
                                 </span>
-                                <button
+                                <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="icon"
                                     title={`Stage ${f.path}`}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         void handleStage(f.path);
                                     }}
                                 >
                                     <Plus size={11} />
-                                </button>
+                                </Button>
                             </div>
                         ))}
 
@@ -513,8 +519,9 @@ export const SourceControlPanel: React.FC = () => {
                             const isLoadingFiles = fileDiffsLoading === commit.hash;
                             return (
                                 <div key={commit.hash} className="border-b border-white/5">
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="ghost"
                                         className={cn('w-full text-left px-2.5 py-1.5 flex items-center gap-1 hover:bg-muted transition-colors', isExpanded && 'bg-muted')}
                                         onClick={() => void handleToggleCommit(commit.hash)}
                                         title={`${commit.author} - ${formatDateTime(commit.when)}`}
@@ -524,7 +531,7 @@ export const SourceControlPanel: React.FC = () => {
                                             : <ChevronRight size={10} className="text-muted-foreground shrink-0" />}
                                         <span className="flex-1 text-[11px] text-foreground truncate">{commit.message}</span>
                                         <span className="text-[10px] text-muted-foreground font-mono shrink-0">{commit.hash.slice(0, 7)}</span>
-                                    </button>
+                                    </Button>
                                     {isExpanded && (
                                         <div className="bg-background border-t border-border/30">
                                             {isLoadingFiles ? (
@@ -534,9 +541,10 @@ export const SourceControlPanel: React.FC = () => {
                                                     const fileKey = `sc:${commit.hash}:${f.path}`;
                                                     const isSelected = selectedFileKey === fileKey;
                                                     return (
-                                                        <button
+                                                        <Button
                                                             key={f.path}
                                                             type="button"
+                                                            variant="ghost"
                                                             className={cn(
                                                                 'w-full text-left px-5 py-1 text-[10px] font-mono transition-colors flex items-center gap-1.5 truncate',
                                                                 isSelected
@@ -551,7 +559,7 @@ export const SourceControlPanel: React.FC = () => {
                                                             {!f.after && <span className="text-red-500 shrink-0">D</span>}
                                                             {f.before && f.after && <span className="text-yellow-500 shrink-0">M</span>}
                                                             <span className="truncate">{getDisplayFileName(f.path)}</span>
-                                                        </button>
+                                                        </Button>
                                                     );
                                                 })
                                             ) : (

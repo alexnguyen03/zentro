@@ -1,6 +1,6 @@
 import React from 'react';
 import { GitBranch, Plus } from 'lucide-react';
-import { Input } from '../ui';
+import { Button, Input } from '../ui';
 import { cn } from '../../lib/cn';
 
 interface BranchSpotlightProps {
@@ -143,9 +143,10 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                         <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading branches...</div>
                     ) : (
                         items.map((item, index) => (
-                            <button
+                            <Button
                                 key={item.type === 'branch' ? `branch:${item.name}` : `action:${item.action}`}
                                 type="button"
+                                variant="ghost"
                                 className={cn(
                                     'flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors',
                                     index === activeIndex ? 'bg-accent/20 text-foreground' : 'text-foreground hover:bg-muted',
@@ -171,7 +172,7 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                                         <span>{item.label}</span>
                                     </>
                                 )}
-                            </button>
+                            </Button>
                         ))
                     )}
                 </div>

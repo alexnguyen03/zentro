@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { WindowIsMaximised } from '../../../../wailsjs/runtime/runtime';
+import { Button } from '../../ui';
 
 interface WindowControlsProps {
     onMinimize: () => void;
@@ -69,27 +70,36 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
 
     return (
         <div className="flex items-stretch h-10 ml-1 -mr-3">
-            <button
-                className={`${btnBase} hover:bg-white/10 hover:text-foreground`}
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={`${btnBase} rounded-none hover:bg-white/10 hover:text-foreground`}
                 title="Minimize"
                 onClick={onMinimize}
             >
                 <MinimizeIcon />
-            </button>
-            <button
-                className={`${btnBase} hover:bg-white/10 hover:text-foreground`}
+            </Button>
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={`${btnBase} rounded-none hover:bg-white/10 hover:text-foreground`}
                 title={isMaximised ? 'Restore' : 'Maximize'}
                 onClick={handleToggleMaximize}
             >
                 {isMaximised ? <RestoreIcon /> : <MaximizeIcon />}
-            </button>
-            <button
-                className={`${btnBase} hover:bg-[#C42B1C] hover:text-white`}
+            </Button>
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={`${btnBase} rounded-none hover:bg-[#C42B1C] hover:text-white`}
                 title="Close"
                 onClick={onClose}
             >
                 <CloseIcon />
-            </button>
+            </Button>
         </div>
     );
 };
