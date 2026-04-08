@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { SettingsView } from './SettingsView';
 
-const { saveMock, addTabMock, toastSuccessMock, toastErrorMock, settingsState, environmentState } = vi.hoisted(() => {
+const { saveMock, addTabMock, toastSuccessMock, toastErrorMock, settingsState, environmentState, projectState, saveProjectMock } = vi.hoisted(() => {
     const save = vi.fn().mockResolvedValue(undefined);
+    const saveProject = vi.fn().mockImplementation(async (project: Record<string, unknown>) => project);
     return {
         saveMock: save,
+        saveProjectMock: saveProject,
         addTabMock: vi.fn(),
         toastSuccessMock: vi.fn(),
         toastErrorMock: vi.fn(),
@@ -22,6 +24,23 @@ const { saveMock, addTabMock, toastSuccessMock, toastErrorMock, settingsState, e
         },
         environmentState: {
             activeEnvironmentKey: 'loc',
+        },
+        projectState: {
+            activeProject: {
+                id: 'p1',
+                name: 'Project 1',
+                git_repo_path: 'C:/repo/demo',
+                auto_commit_on_exit: false,
+            },
+            saveProject,
+        } as {
+            activeProject: {
+                id: string;
+                name: string;
+                git_repo_path: string;
+                auto_commit_on_exit: boolean;
+            } | null;
+            saveProject: typeof saveProject;
         },
     };
 });
@@ -46,6 +65,13 @@ vi.mock('../../stores/environmentStore', () => ({
     useEnvironmentStore: (selector?: (state: typeof environmentState) => unknown) => {
         if (selector) return selector(environmentState);
         return environmentState;
+    },
+}));
+
+vi.mock('../../stores/projectStore', () => ({
+    useProjectStore: (selector?: (state: typeof projectState) => unknown) => {
+        if (selector) return selector(projectState);
+        return projectState;
     },
 }));
 
@@ -92,6 +118,12 @@ describe('SettingsView', () => {
         vi.clearAllMocks();
         localStorage.clear();
         environmentState.activeEnvironmentKey = 'loc';
+        projectState.activeProject = {
+            id: 'p1',
+            name: 'Project 1',
+            git_repo_path: 'C:/repo/demo',
+            auto_commit_on_exit: false,
+        };
     });
 
     it('filters sections by search query', () => {
@@ -177,9 +209,38 @@ describe('SettingsView', () => {
         view.rerender(<SettingsView tabId="settings-tab" />);
         expect(getSafetyTrigger()).toHaveTextContent(/relaxed/i);
 
-        fireEvent.click(screen.getByRole('button', { name: 'Set strong confirm threshold to Staging' }));
+        fireEvent.click(screen.getByText('Staging'));
         expect(getStrongConfirmSlider()).toHaveAttribute('aria-valuenow', '1');
         expect(localStorage.getItem('zentro:execution-policy-strong-confirm-from:v1')).toBe('"sta"');
         expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('disables auto-commit toggle when no active project or missing repo path', () => {
+        projectState.activeProject = null;
+        const first = render(<SettingsView tabId="settings-tab" />);
+        expect(screen.getByRole('switch', { name: 'Auto commit on app exit' })).toBeDisabled();
+        first.unmount();
+
+        projectState.activeProject = {
+            id: 'p2',
+            name: 'Project 2',
+            git_repo_path: '',
+            auto_commit_on_exit: false,
+        };
+        render(<SettingsView tabId="settings-tab" />);
+        expect(screen.getByRole('switch', { name: 'Auto commit on app exit' })).toBeDisabled();
+    });
+
+    it('saves active project auto_commit_on_exit when toggled', async () => {
+        render(<SettingsView tabId="settings-tab" />);
+        const toggle = screen.getByRole('switch', { name: 'Auto commit on app exit' });
+        fireEvent.click(toggle);
+
+        await act(async () => Promise.resolve());
+        expect(saveProjectMock).toHaveBeenCalledTimes(1);
+        expect(saveProjectMock).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'p1',
+            auto_commit_on_exit: true,
+        }));
     });
 });

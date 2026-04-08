@@ -3,6 +3,7 @@ import { Search, Settings as SettingsIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { utils } from '../../../wailsjs/go/models';
 import { ToastPlacement, useToast } from './Toast';
 import {
@@ -17,6 +18,7 @@ import { SettingsData } from './settings/SettingsData';
 import { SettingsRegion } from './settings/SettingsRegion';
 import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
+import { SettingsSourceControl } from './settings/SettingsSourceControl';
 import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
 import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
 import { Button, Input } from '../ui';
@@ -39,6 +41,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const { theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout, save } = useSettingsStore();
     const autoCheckUpdates = useSettingsStore((state) => state.autoCheckUpdates);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const activeProject = useProjectStore((state) => state.activeProject);
+    const saveProject = useProjectStore((state) => state.saveProject);
     const { addTab } = useEditorStore();
     const { toast } = useToast();
 
@@ -51,6 +55,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
     const [telemetryOptIn, setTelemetryOptIn] = useState(getTelemetryConsent().optedIn);
+    const [autoCommitOnExit, setAutoCommitOnExit] = useState<boolean>(Boolean(activeProject?.auto_commit_on_exit));
+    const [autoCommitSaving, setAutoCommitSaving] = useState(false);
     const safetyEnvironment: EnvironmentKey = activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL;
     const [safetyLevel, setSafetyLevel] = useState<SafetyLevel>(() => (
         resolveEnvironmentSafetyLevel(activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL)
@@ -87,6 +93,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     useEffect(() => {
         setSafetyLevel(resolveEnvironmentSafetyLevel(safetyEnvironment));
     }, [safetyEnvironment]);
+
+    useEffect(() => {
+        setAutoCommitOnExit(Boolean(activeProject?.auto_commit_on_exit));
+    }, [activeProject?.id, activeProject?.auto_commit_on_exit]);
 
     // Auto-save effect
     useEffect(() => {
@@ -159,6 +169,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         if (environment === strongConfirmFromEnvironment) return;
         setStrongConfirmFromEnvironment(environment);
         setStrongConfirmFromEnvironmentState(environment);
+    };
+
+    const sourceControlEnabled = Boolean(activeProject?.id && activeProject?.git_repo_path);
+
+    const handleAutoCommitOnExitChange = async (checked: boolean) => {
+        if (!activeProject || !activeProject.git_repo_path) return;
+        setAutoCommitOnExit(checked);
+        setAutoCommitSaving(true);
+        try {
+            const saved = await saveProject({
+                ...activeProject,
+                auto_commit_on_exit: checked,
+            });
+            if (!saved) {
+                setAutoCommitOnExit(Boolean(activeProject.auto_commit_on_exit));
+                toast.error('Failed to save Source Control settings.');
+                return;
+            }
+        } finally {
+            setAutoCommitSaving(false);
+        }
     };
 
     return (
@@ -294,6 +325,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                                             toast_placement: useSettingsStore.getState().toastPlacement,
                                             auto_check_updates: checked
                                         }));
+                                    }}
+                                />
+                            )}
+
+                            {/* Source Control */}
+                            {matchesSearch("Source Control", ["Auto commit on app exit", "Git repo path"]) && (
+                                <SettingsSourceControl
+                                    enabled={sourceControlEnabled}
+                                    checked={autoCommitOnExit}
+                                    saving={autoCommitSaving}
+                                    repoPath={activeProject?.git_repo_path}
+                                    onToggle={(checked) => {
+                                        void handleAutoCommitOnExitChange(checked);
                                     }}
                                 />
                             )}

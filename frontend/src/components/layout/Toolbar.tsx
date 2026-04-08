@@ -4,6 +4,7 @@ import {
     Lock,
     Eye,
     RefreshCw,
+    GitBranch,
     PanelLeft,
     PanelBottom,
     PanelRight,
@@ -37,7 +38,16 @@ import { emitCommand, onCommand } from '../../lib/commandBus';
 import { WindowControls } from './toolbar/WindowControls';
 import { AppMenu } from './toolbar/AppMenu';
 import { Reconnect } from '../../services/connectionService';
+import {
+    SCGetStatus,
+    SCListBranches,
+    SCCheckoutBranch,
+    SCCreateBranch,
+    SCCreateBranchFrom,
+    SCCheckoutDetached,
+} from '../../services/sourceControlService';
 import { PROJECT_ICON_MAP, getProjectIconKey } from './projectHubMeta';
+import { BranchSpotlight } from '../sidebar/BranchSpotlight';
 
 export const Toolbar: React.FC = () => {
     const { activeProfile, connectionStatus } = useConnectionStore();
@@ -62,6 +72,11 @@ export const Toolbar: React.FC = () => {
     const [quickEnvOpen, setQuickEnvOpen] = useState(false);
     const [quickEnvKeyboardMode, setQuickEnvKeyboardMode] = useState(false);
     const [quickEnvHighlightedIndex, setQuickEnvHighlightedIndex] = useState(0);
+    const [branchSpotlightOpen, setBranchSpotlightOpen] = useState(false);
+    const [gitBranch, setGitBranch] = useState('');
+    const [gitBranches, setGitBranches] = useState<string[]>([]);
+    const [gitBranchLoading, setGitBranchLoading] = useState(false);
+    const [gitBranchBusy, setGitBranchBusy] = useState(false);
     const quickEnvRef = useRef<HTMLDivElement | null>(null);
     const quickEnvCloseTimerRef = useRef<number | null>(null);
 
@@ -260,6 +275,104 @@ export const Toolbar: React.FC = () => {
         }
     };
 
+    const hasGitRepo = Boolean(activeProject?.git_repo_path);
+    const loadGitBranchState = useCallback(async () => {
+        if (!hasGitRepo) {
+            setGitBranch('');
+            setGitBranches([]);
+            return;
+        }
+        setGitBranchLoading(true);
+        try {
+            const [status, branches] = await Promise.all([SCGetStatus(), SCListBranches()]);
+            setGitBranch(status.branch || '');
+            setGitBranches(Array.from(new Set((branches || []).filter(Boolean))));
+        } catch {
+            setGitBranches([]);
+        } finally {
+            setGitBranchLoading(false);
+        }
+    }, [hasGitRepo]);
+
+    useEffect(() => {
+        void loadGitBranchState();
+    }, [loadGitBranchState]);
+
+    const handleCheckoutBranch = useCallback(async (nextBranch: string) => {
+        if (!nextBranch || gitBranchBusy) return;
+        setGitBranchBusy(true);
+        try {
+            await SCCheckoutBranch(nextBranch);
+            await loadGitBranchState();
+            setBranchSpotlightOpen(false);
+        } catch (error) {
+            toast.error(`Switch branch failed: ${error}`);
+        } finally {
+            setGitBranchBusy(false);
+        }
+    }, [gitBranchBusy, loadGitBranchState, toast]);
+
+    const handleCreateBranch = useCallback(async (branchName: string) => {
+        const next = branchName.trim();
+        if (!next || gitBranchBusy) return;
+        setGitBranchBusy(true);
+        try {
+            const latest = await SCListBranches();
+            const exists = (latest || []).some((b) => b.toLowerCase() === next.toLowerCase());
+            if (exists) {
+                await SCCheckoutBranch(next);
+            } else {
+                await SCCreateBranch(next);
+                toast.success(`Created "${next}"`);
+            }
+            await loadGitBranchState();
+            setBranchSpotlightOpen(false);
+        } catch (error) {
+            toast.error(`Create branch failed: ${error}`);
+        } finally {
+            setGitBranchBusy(false);
+        }
+    }, [gitBranchBusy, loadGitBranchState, toast]);
+
+    const handleCreateBranchFrom = useCallback(async (branchName: string, fromRef: string) => {
+        const next = branchName.trim();
+        const base = fromRef.trim();
+        if (!next || !base || gitBranchBusy) return;
+        setGitBranchBusy(true);
+        try {
+            const latest = await SCListBranches();
+            const exists = (latest || []).some((b) => b.toLowerCase() === next.toLowerCase());
+            if (exists) {
+                await SCCheckoutBranch(next);
+            } else {
+                await SCCreateBranchFrom(next, base);
+                toast.success(`Created "${next}" from "${base}"`);
+            }
+            await loadGitBranchState();
+            setBranchSpotlightOpen(false);
+        } catch (error) {
+            toast.error(`Create branch from failed: ${error}`);
+        } finally {
+            setGitBranchBusy(false);
+        }
+    }, [gitBranchBusy, loadGitBranchState, toast]);
+
+    const handleCheckoutDetached = useCallback(async (ref: string) => {
+        const target = ref.trim();
+        if (!target || gitBranchBusy) return;
+        setGitBranchBusy(true);
+        try {
+            await SCCheckoutDetached(target);
+            await loadGitBranchState();
+            setBranchSpotlightOpen(false);
+            toast.success(`Checked out detached at "${target}"`);
+        } catch (error) {
+            toast.error(`Checkout detached failed: ${error}`);
+        } finally {
+            setGitBranchBusy(false);
+        }
+    }, [gitBranchBusy, loadGitBranchState, toast]);
+
     const handleToolbarDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
         const target = event.target as HTMLElement | null;
         if (!target) return;
@@ -316,6 +429,18 @@ export const Toolbar: React.FC = () => {
                     >
                         <RefreshCw size={14} className={cn(connectionStatus === CONNECTION_STATUS.CONNECTING && 'animate-spin')} />
                     </Button>
+                    {hasGitRepo && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5 px-2 text-[11px] font-mono"
+                            title="Switch or create branch"
+                            onClick={() => setBranchSpotlightOpen(true)}
+                        >
+                            <GitBranch size={13} />
+                            <span className="max-w-[120px] truncate">{gitBranchLoading ? 'loading...' : (gitBranch || '-')}</span>
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -496,6 +621,18 @@ export const Toolbar: React.FC = () => {
                     onDismiss={() => { dismiss(); setUpdateModalOpen(false); }}
                 />
             )}
+            <BranchSpotlight
+                open={branchSpotlightOpen}
+                branches={gitBranches}
+                currentBranch={gitBranch}
+                loading={gitBranchLoading}
+                busy={gitBranchBusy}
+                onClose={() => setBranchSpotlightOpen(false)}
+                onCheckout={handleCheckoutBranch}
+                onCreateBranch={handleCreateBranch}
+                onCreateBranchFrom={handleCreateBranchFrom}
+                onCheckoutDetached={handleCheckoutDetached}
+            />
         </div>
     );
 };

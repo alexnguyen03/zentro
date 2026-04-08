@@ -97,6 +97,8 @@ export function GetActiveProject():Promise<models.Project>;
 
 export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookmark>>;
 
+export function GetCommitFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
+
 export function GetConnectionStatus():Promise<app.ConnectionRuntimeState>;
 
 export function GetCurrentVersion():Promise<string>;
@@ -163,9 +165,39 @@ export function ReorderTableColumns(arg1:string,arg2:string,arg3:Array<string>):
 
 export function ResolvePluginContribution(arg1:string):Promise<plugin.Contribution|boolean>;
 
+export function RestoreGitCommit(arg1:string):Promise<void>;
+
 export function RollbackTransaction():Promise<void>;
 
 export function RunGitTrackingMigration():Promise<void>;
+
+export function SCCheckoutBranch(arg1:string):Promise<void>;
+
+export function SCCheckoutDetached(arg1:string):Promise<void>;
+
+export function SCCommit(arg1:string):Promise<string>;
+
+export function SCCreateBranch(arg1:string):Promise<void>;
+
+export function SCCreateBranchFrom(arg1:string,arg2:string):Promise<void>;
+
+export function SCGetFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
+
+export function SCGetHistory(arg1:number):Promise<Array<app.SCCommit>>;
+
+export function SCGetStatus():Promise<app.SCStatus>;
+
+export function SCGetWorkingFileDiff(arg1:string,arg2:boolean):Promise<app.GitCommitFileDiff>;
+
+export function SCInitRepo():Promise<void>;
+
+export function SCListBranches():Promise<Array<string>>;
+
+export function SCStageAll():Promise<void>;
+
+export function SCStageFile(arg1:string):Promise<void>;
+
+export function SCUnstageFile(arg1:string):Promise<void>;
 
 export function SaveBookmark(arg1:string,arg2:string,arg3:models.Bookmark):Promise<void>;
 

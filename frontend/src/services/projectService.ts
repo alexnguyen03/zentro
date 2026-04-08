@@ -85,6 +85,8 @@ function toProject(raw: models.Project): Project {
         slug: typeof source.slug === 'string' ? source.slug : '',
         name: typeof source.name === 'string' ? source.name : '',
         description: typeof source.description === 'string' ? source.description : undefined,
+        git_repo_path: typeof source.git_repo_path === 'string' ? source.git_repo_path : undefined,
+        auto_commit_on_exit: source.auto_commit_on_exit === true,
         storage_path: typeof source.storage_path === 'string' ? source.storage_path : undefined,
         tags: Array.isArray(source.tags) ? source.tags.filter((tag): tag is string => typeof tag === 'string') : [],
         created_at: typeof source.created_at === 'string' ? source.created_at : '',

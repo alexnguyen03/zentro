@@ -7,6 +7,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { TabBar } from './TabBar';
 import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from './TableInfo';
+import { GitDiffView } from './GitDiffView';
 import { SettingsView } from '../layout/SettingsView';
 import { ShortcutsView } from '../layout/ShortcutsView';
 import { ExecuteQuery, CancelQuery, ExplainQuery } from '../../services/queryService';
@@ -199,6 +200,8 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                                     <SettingsView tabId={tab.id} />
                                 ) : tab.type === 'shortcuts' ? (
                                     <ShortcutsView />
+                                ) : tab.type === 'git_diff' ? (
+                                    <GitDiffView tab={tab} />
                                 ) : (
                                     <MonacoEditorWrapper
                                         tabId={tab.id}

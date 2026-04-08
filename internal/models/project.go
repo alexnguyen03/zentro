@@ -56,6 +56,8 @@ type Project struct {
 	Environments          []ProjectEnvironment `json:"environments,omitempty"`
 	Connections           []ProjectConnection  `json:"connections,omitempty"`
 	Assets                []ProjectAsset       `json:"assets,omitempty"`
+	GitRepoPath           string               `json:"git_repo_path,omitempty"`
+	AutoCommitOnExit      bool                 `json:"auto_commit_on_exit,omitempty"`
 }
 
 type ProjectEnvironment struct {

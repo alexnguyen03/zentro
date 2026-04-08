@@ -50,6 +50,22 @@ export namespace app {
 	        this.environment_strictness = source["environment_strictness"];
 	    }
 	}
+	export class GitCommitFileDiff {
+	    path: string;
+	    before: string;
+	    after: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GitCommitFileDiff(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.before = source["before"];
+	        this.after = source["after"];
+	    }
+	}
 	export class GitCommitResult {
 	    hash?: string;
 	    message: string;
@@ -133,6 +149,74 @@ export namespace app {
 	        this.Columns = source["Columns"];
 	        this.Unique = source["Unique"];
 	    }
+	}
+	export class SCCommit {
+	    hash: string;
+	    message: string;
+	    author: string;
+	    when: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SCCommit(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hash = source["hash"];
+	        this.message = source["message"];
+	        this.author = source["author"];
+	        this.when = source["when"];
+	    }
+	}
+	export class SCFileStatus {
+	    path: string;
+	    staged: boolean;
+	    status: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SCFileStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.staged = source["staged"];
+	        this.status = source["status"];
+	    }
+	}
+	export class SCStatus {
+	    branch: string;
+	    files: SCFileStatus[];
+	    clean: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SCStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.branch = source["branch"];
+	        this.files = this.convertValues(source["files"], SCFileStatus);
+	        this.clean = source["clean"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class UpdateInfo {
 	    latest_version: string;
@@ -497,6 +581,8 @@ export namespace models {
 	    environments?: ProjectEnvironment[];
 	    connections?: ProjectConnection[];
 	    assets?: ProjectAsset[];
+	    git_repo_path?: string;
+	    auto_commit_on_exit?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Project(source);
@@ -517,6 +603,8 @@ export namespace models {
 	        this.environments = this.convertValues(source["environments"], ProjectEnvironment);
 	        this.connections = this.convertValues(source["connections"], ProjectConnection);
 	        this.assets = this.convertValues(source["assets"], ProjectAsset);
+	        this.git_repo_path = source["git_repo_path"];
+	        this.auto_commit_on_exit = source["auto_commit_on_exit"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

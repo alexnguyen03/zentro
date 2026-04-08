@@ -39,6 +39,7 @@ export const TAB_TYPE = {
     TABLE: 'table',
     SETTINGS: 'settings',
     SHORTCUTS: 'shortcuts',
+    GIT_DIFF: 'git_diff',
 } as const;
 export type TabType = typeof TAB_TYPE[keyof typeof TAB_TYPE];
 

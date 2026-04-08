@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Check, FolderOpen, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '../../../lib/cn';
 import { getEnvironmentMeta } from '../../../lib/projects';
 import { ENVIRONMENT_KEY } from '../../../lib/constants';
@@ -21,6 +21,7 @@ interface EditDraft {
     name: string;
     description: string;
     iconKey: ProjectIconKey;
+    gitRepoPath: string;
 }
 
 interface ProjectCardEditProps {
@@ -30,10 +31,11 @@ interface ProjectCardEditProps {
     isSaving: boolean;
     onCancel: () => void;
     onSave: (project: Project) => void;
+    onBrowseRepoPath?: () => void;
 }
 
 export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
-    project, editDraft, setEditDraft, isSaving, onCancel, onSave,
+    project, editDraft, setEditDraft, isSaving, onCancel, onSave, onBrowseRepoPath,
 }) => {
     const envKey = project.last_active_environment_key || project.default_environment_key || ENVIRONMENT_KEY.LOCAL;
     const envMeta = getEnvironmentMeta(envKey);
@@ -61,6 +63,23 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Description</label>
                     <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} className="h-10 rounded-md bg-card" placeholder="Short context about this project" />
+                </div>
+                <div>
+                    <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Git repo path <span className="font-normal text-muted-foreground">(Source Control)</span></label>
+                    <div className="flex gap-2">
+                        <Input
+                            value={editDraft.gitRepoPath}
+                            onChange={(e) => setEditDraft((c) => ({ ...c, gitRepoPath: e.target.value }))}
+                            className="h-10 flex-1 rounded-md bg-card font-mono text-[12px]"
+                            placeholder="/path/to/your/repo"
+                        />
+                        {onBrowseRepoPath && (
+                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-md" title="Browse folder" onClick={onBrowseRepoPath}>
+                                <FolderOpen size={14} />
+                            </Button>
+                        )}
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Point to a local git repository to enable the Source Control panel.</p>
                 </div>
             </div>
 
