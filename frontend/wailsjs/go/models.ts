@@ -1,5 +1,19 @@
 export namespace app {
 	
+	export class CheckConstraintInfo {
+	    Name: string;
+	    Expression: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CheckConstraintInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Name = source["Name"];
+	        this.Expression = source["Expression"];
+	    }
+	}
 	export class ConnectionRuntimeState {
 	    profile?: models.ConnectionProfile;
 	    status: string;
@@ -150,6 +164,20 @@ export namespace app {
 	        this.Unique = source["Unique"];
 	    }
 	}
+	export class PrimaryKeyInfo {
+	    Name: string;
+	    Columns: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PrimaryKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Name = source["Name"];
+	        this.Columns = source["Columns"];
+	    }
+	}
 	export class SCCommit {
 	    hash: string;
 	    message: string;
@@ -217,6 +245,20 @@ export namespace app {
 		    }
 		    return a;
 		}
+	}
+	export class UniqueConstraintInfo {
+	    Name: string;
+	    Columns: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UniqueConstraintInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Name = source["Name"];
+	        this.Columns = source["Columns"];
+	    }
 	}
 	export class UpdateInfo {
 	    latest_version: string;

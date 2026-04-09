@@ -177,3 +177,171 @@ func GetIndexesWithConnection(profile *models.ConnectionProfile, db *sql.DB, sch
 		return nil, fmt.Errorf("unsupported driver: %s", profile.Driver)
 	}
 }
+
+// ─── Check Constraints ────────────────────────────────────────────────────────
+
+func GetCheckConstraintsWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName string) ([]CheckConstraintInfo, error) {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	switch profile.Driver {
+	case "postgres":
+		return getPostgresCheckConstraints(ctx, db, schema, tableName)
+	case "mysql":
+		return getMySQLCheckConstraints(ctx, db, schema, tableName)
+	case "sqlserver":
+		return getMSSQLCheckConstraints(ctx, db, schema, tableName)
+	case "sqlite":
+		return getSQLiteCheckConstraints(ctx, db, tableName)
+	default:
+		return nil, fmt.Errorf("unsupported driver: %s", profile.Driver)
+	}
+}
+
+func CreateCheckConstraintWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, name, expression string) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+	ddl := fmt.Sprintf("ALTER TABLE %s.%s ADD CONSTRAINT %s CHECK (%s)",
+		quoteIdentifier(profile.Driver, schema),
+		quoteIdentifier(profile.Driver, tableName),
+		quoteIdentifier(profile.Driver, name),
+		expression)
+	_, err := db.Exec(ddl)
+	return err
+}
+
+func DropCheckConstraintWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, name string) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+	var ddl string
+	switch profile.Driver {
+	case "mysql":
+		ddl = fmt.Sprintf("ALTER TABLE %s.%s DROP CHECK %s",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName),
+			quoteIdentifier(profile.Driver, name))
+	default:
+		ddl = fmt.Sprintf("ALTER TABLE %s.%s DROP CONSTRAINT %s",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName),
+			quoteIdentifier(profile.Driver, name))
+	}
+	_, err := db.Exec(ddl)
+	return err
+}
+
+// ─── Unique Constraints ───────────────────────────────────────────────────────
+
+func GetUniqueConstraintsWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName string) ([]UniqueConstraintInfo, error) {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	switch profile.Driver {
+	case "postgres":
+		return getPostgresUniqueConstraints(ctx, db, schema, tableName)
+	case "mysql":
+		return getMySQLUniqueConstraints(ctx, db, schema, tableName)
+	case "sqlserver":
+		return getMSSQLUniqueConstraints(ctx, db, schema, tableName)
+	default:
+		return nil, fmt.Errorf("unsupported driver: %s", profile.Driver)
+	}
+}
+
+func CreateUniqueConstraintWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, name string, columns []string) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+	quotedCols := make([]string, len(columns))
+	for i, c := range columns {
+		quotedCols[i] = quoteIdentifier(profile.Driver, c)
+	}
+	ddl := fmt.Sprintf("ALTER TABLE %s.%s ADD CONSTRAINT %s UNIQUE (%s)",
+		quoteIdentifier(profile.Driver, schema),
+		quoteIdentifier(profile.Driver, tableName),
+		quoteIdentifier(profile.Driver, name),
+		strings.Join(quotedCols, ", "))
+	_, err := db.Exec(ddl)
+	return err
+}
+
+func DropUniqueConstraintWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, name string) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+	var ddl string
+	switch profile.Driver {
+	case "mysql":
+		ddl = fmt.Sprintf("ALTER TABLE %s.%s DROP INDEX %s",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName),
+			quoteIdentifier(profile.Driver, name))
+	default:
+		ddl = fmt.Sprintf("ALTER TABLE %s.%s DROP CONSTRAINT %s",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName),
+			quoteIdentifier(profile.Driver, name))
+	}
+	_, err := db.Exec(ddl)
+	return err
+}
+
+// ─── Primary Key ──────────────────────────────────────────────────────────────
+
+func GetPrimaryKeyWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName string) (*PrimaryKeyInfo, error) {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	switch profile.Driver {
+	case "postgres":
+		return getPostgresPrimaryKey(ctx, db, schema, tableName)
+	case "mysql":
+		return getMySQLPrimaryKey(ctx, db, schema, tableName)
+	case "sqlserver":
+		return getMSSQLPrimaryKey(ctx, db, schema, tableName)
+	default:
+		return nil, fmt.Errorf("unsupported driver: %s", profile.Driver)
+	}
+}
+
+func AddPrimaryKeyWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, name string, columns []string) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+	quotedCols := make([]string, len(columns))
+	for i, c := range columns {
+		quotedCols[i] = quoteIdentifier(profile.Driver, c)
+	}
+	ddl := fmt.Sprintf("ALTER TABLE %s.%s ADD CONSTRAINT %s PRIMARY KEY (%s)",
+		quoteIdentifier(profile.Driver, schema),
+		quoteIdentifier(profile.Driver, tableName),
+		quoteIdentifier(profile.Driver, name),
+		strings.Join(quotedCols, ", "))
+	_, err := db.Exec(ddl)
+	return err
+}
+
+func DropPrimaryKeyWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName, name string) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+	var ddl string
+	switch profile.Driver {
+	case "mysql":
+		ddl = fmt.Sprintf("ALTER TABLE %s.%s DROP PRIMARY KEY",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName))
+	default:
+		ddl = fmt.Sprintf("ALTER TABLE %s.%s DROP CONSTRAINT %s",
+			quoteIdentifier(profile.Driver, schema),
+			quoteIdentifier(profile.Driver, tableName),
+			quoteIdentifier(profile.Driver, name))
+	}
+	_, err := db.Exec(ddl)
+	return err
+}

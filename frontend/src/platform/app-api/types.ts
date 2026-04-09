@@ -114,6 +114,15 @@ export interface AppApiGateway {
     GetIndexes(profileName: string, schema: string, table: string): Promise<app.IndexInfo[]>;
     CreateIndex(profileName: string, schema: string, table: string, indexName: string, columns: string[], unique: boolean): Promise<void>;
     DropIndex(profileName: string, schema: string, tableName: string, indexName: string): Promise<void>;
+    GetCheckConstraints(profileName: string, schema: string, table: string): Promise<app.CheckConstraintInfo[]>;
+    CreateCheckConstraint(profileName: string, schema: string, table: string, name: string, expression: string): Promise<void>;
+    DropCheckConstraint(profileName: string, schema: string, table: string, name: string): Promise<void>;
+    GetUniqueConstraints(profileName: string, schema: string, table: string): Promise<app.UniqueConstraintInfo[]>;
+    CreateUniqueConstraint(profileName: string, schema: string, table: string, name: string, columns: string[]): Promise<void>;
+    DropUniqueConstraint(profileName: string, schema: string, table: string, name: string): Promise<void>;
+    GetPrimaryKey(profileName: string, schema: string, table: string): Promise<app.PrimaryKeyInfo | null>;
+    AddPrimaryKey(profileName: string, schema: string, table: string, name: string, columns: string[]): Promise<void>;
+    DropPrimaryKey(profileName: string, schema: string, table: string, name: string): Promise<void>;
 
     // Settings & updates
     GetPreferences(): Promise<utils.Preferences>;

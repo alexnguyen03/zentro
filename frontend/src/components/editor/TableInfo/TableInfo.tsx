@@ -5,6 +5,7 @@ import {
     FileCode2,
     Hash,
     Info,
+    KeyRound,
     Loader,
     Network,
     Plus,
@@ -12,6 +13,7 @@ import {
     RotateCcw,
     Save,
     Search,
+    Shield,
     Table2,
     Trash2,
 } from 'lucide-react';
@@ -50,6 +52,7 @@ import { DataExplorerView } from './DataExplorerView';
 import { RelationshipView } from './RelationshipView';
 import { IndexInfoView } from './IndexInfoView';
 import { DDLInfoView } from './DDLInfoView';
+import { ConstraintsView } from './ConstraintsView';
 import { TableSchemaBreadcrumb } from './TableSchemaBreadcrumb';
 import { RowState, TableInfoTab, SortCol, SortDir, TabAction } from './types';
 import { getColumnsDirtyCount, getDataDirtyCount } from './changeBadge';
@@ -110,6 +113,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
     const [indexTabActions, setIndexTabActions] = useState<TabAction[]>([]);
     const [indexDirtyCount, setIndexDirtyCount] = useState(0);
+    const [uniqueKeyTabActions, setUniqueKeyTabActions] = useState<TabAction[]>([]);
+    const [uniqueKeyDirtyCount, setUniqueKeyDirtyCount] = useState(0);
+    const [constraintTabActions, setConstraintTabActions] = useState<TabAction[]>([]);
+    const [constraintDirtyCount, setConstraintDirtyCount] = useState(0);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const [fadeInContent, setFadeInContent] = useState(false);
@@ -118,7 +125,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const autoRetryTimerRef = useRef<number | null>(null);
     const autoRetryAttemptRef = useRef(0);
     const autoRetryConnectionRef = useRef('');
-    const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns', 'indexes']), []);
+    const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns', 'indexes', 'unique_keys']), []);
 
     const { activeProfile, isConnected } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -342,6 +349,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         data: loadData,
         erd: loadErd,
         indexes: () => setInfoRefreshKey((k) => k + 1),
+        unique_keys: () => setInfoRefreshKey((k) => k + 1),
+        constraints: () => setInfoRefreshKey((k) => k + 1),
         ddl: () => setInfoRefreshKey((k) => k + 1),
     }), [loadInfo, loadData, loadErd]);
 
@@ -655,6 +664,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         data: [...dataTabActions, reloadAction],
         erd: [reloadAction],
         indexes: [...indexTabActions, reloadAction],
+        unique_keys: [...uniqueKeyTabActions, reloadAction],
+        constraints: [...constraintTabActions, reloadAction],
         ddl: [...ddlTabActions, reloadAction],
     };
 
@@ -667,6 +678,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, dirtyCount: dataDirtyCount },
             { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
             { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} />, dirtyCount: indexDirtyCount },
+            { key: 'unique_keys', label: 'Unique Keys', icon: <KeyRound size={TABLE_TAB_ICON_SIZE} />, dirtyCount: uniqueKeyDirtyCount },
+            { key: 'constraints', label: 'Constraints', icon: <Shield size={TABLE_TAB_ICON_SIZE} />, dirtyCount: constraintDirtyCount },
             { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} /> },
         ];
     }, [columnsDirtyCount, dataDirtyCount, indexDirtyCount, isCreateMode]);
@@ -776,7 +789,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                             <Input
                                 ref={filterInputRef}
                                 type="text"
-                                placeholder={activeTab === 'columns' ? 'Filter columns...' : 'Filter indexes...'}
+                                placeholder={activeTab === 'columns' ? 'Filter columns...' : activeTab === 'unique_keys' ? 'Filter unique keys...' : 'Filter indexes...'}
                                 value={filterCol}
                                 onChange={(e) => {
                                     if (activeTab === 'columns') {
@@ -856,6 +869,37 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                         tableColumns={rows.map((r) => r.current.Name)}
                         onActionsChange={setIndexTabActions}
                         onDirtyCountChange={setIndexDirtyCount}
+                    />
+                </div>
+
+                {/* Always rendered to preserve batch-edit state across tab switches */}
+                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'unique_keys' ? 'flex' : 'hidden'}`}>
+                    <IndexInfoView
+                        schema={schema}
+                        tableName={table}
+                        filterText={filterCol}
+                        refreshKey={infoRefreshKey}
+                        readOnlyMode={viewMode}
+                        isActive={activeTab === 'unique_keys'}
+                        tableColumns={rows.map((r) => r.current.Name)}
+                        onActionsChange={setUniqueKeyTabActions}
+                        onDirtyCountChange={setUniqueKeyDirtyCount}
+                        uniqueOnly
+                    />
+                </div>
+
+                {/* Always rendered to preserve pending state across tab switches */}
+                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'constraints' ? 'flex' : 'hidden'}`}>
+                    <ConstraintsView
+                        schema={schema}
+                        tableName={table}
+                        refreshKey={infoRefreshKey}
+                        readOnlyMode={viewMode}
+                        isActive={activeTab === 'constraints'}
+                        tableColumns={rows.map((r) => r.current.Name)}
+                        onActionsChange={setConstraintTabActions}
+                        onDirtyCountChange={setConstraintDirtyCount}
+                        driver={activeProfile?.driver}
                     />
                 </div>
 

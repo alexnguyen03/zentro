@@ -20,3 +20,21 @@ export const GetIndexes = (profileName: string, schema: string, table: string) =
 export const CreateIndex = (profileName: string, schema: string, table: string, indexName: string, columns: string[], unique: boolean) =>
     wailsGateway.CreateIndex(profileName, schema, table, indexName, columns, unique);
 export const DropIndex = (profileName: string, schema: string, tableName: string, indexName: string) => wailsGateway.DropIndex(profileName, schema, tableName, indexName);
+
+export const GetCheckConstraints = (profileName: string, schema: string, table: string) => wailsGateway.GetCheckConstraints(profileName, schema, table);
+export const CreateCheckConstraint = (profileName: string, schema: string, table: string, name: string, expression: string) =>
+    wailsGateway.CreateCheckConstraint(profileName, schema, table, name, expression);
+export const DropCheckConstraint = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropCheckConstraint(profileName, schema, table, name);
+
+export const GetUniqueConstraints = (profileName: string, schema: string, table: string) => wailsGateway.GetUniqueConstraints(profileName, schema, table);
+export const CreateUniqueConstraint = (profileName: string, schema: string, table: string, name: string, columns: string[]) =>
+    wailsGateway.CreateUniqueConstraint(profileName, schema, table, name, columns);
+export const DropUniqueConstraint = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropUniqueConstraint(profileName, schema, table, name);
+
+export const GetPrimaryKey = (profileName: string, schema: string, table: string) => wailsGateway.GetPrimaryKey(profileName, schema, table);
+export const AddPrimaryKey = (profileName: string, schema: string, table: string, name: string, columns: string[]) =>
+    wailsGateway.AddPrimaryKey(profileName, schema, table, name, columns);
+export const DropPrimaryKey = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropPrimaryKey(profileName, schema, table, name);
