@@ -133,6 +133,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [showColumnsPopover, setShowColumnsPopover] = React.useState(false);
     const columnsPopoverRef = React.useRef<HTMLDivElement>(null);
     const [showExportModal, setShowExportModal] = React.useState(false);
+    const [pendingOpenExportModal, setPendingOpenExportModal] = React.useState(false);
     const [exportScope, setExportScope] = React.useState<'all' | 'view'>('all');
     const [exportFormat, setExportFormat] = React.useState<'csv' | 'json' | 'sql'>('csv');
     const [selectedExportColumns, setSelectedExportColumns] = React.useState<string[]>([]);
@@ -338,6 +339,26 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setExportTableName(result.tableName || '');
         setShowExportModal(true);
     }, [result?.columns, result?.tableName, toast]);
+
+    React.useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_RESULT_EXPORT, (detail) => {
+            if (!detail || detail.tabId !== tabId) return;
+            if (result?.columns?.length) {
+                handleOpenExportModal();
+                return;
+            }
+            setPendingOpenExportModal(true);
+            onRun?.();
+        });
+        return off;
+    }, [handleOpenExportModal, onRun, result?.columns?.length, tabId]);
+
+    React.useEffect(() => {
+        if (!pendingOpenExportModal) return;
+        if (!result?.columns?.length) return;
+        handleOpenExportModal();
+        setPendingOpenExportModal(false);
+    }, [handleOpenExportModal, pendingOpenExportModal, result?.columns?.length]);
     const selectedExportColumnSet = React.useMemo(() => new Set(selectedExportColumns), [selectedExportColumns]);
     const orderedSelectedExportColumns = React.useMemo(
         () => (result?.columns || []).filter((col) => selectedExportColumnSet.has(col)),

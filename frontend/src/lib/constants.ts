@@ -29,6 +29,8 @@ export const DOM_EVENT = {
     TOGGLE_BOOKMARK_ACTION: 'toggle-bookmark-action',
     NEXT_BOOKMARK_ACTION: 'next-bookmark-action',
     OPEN_QUERY_COMPARE: 'open-query-compare',
+    OPEN_TABLE_EXPORT: 'open-table-export',
+    OPEN_RESULT_EXPORT: 'open-result-export',
     JUMP_TO_LINE_ACTION: 'jump-to-line-action',
     SAVE_TAB_ACTION: 'zentro:save-script',
     RENAME_TAB: 'zentro:rename-tab',

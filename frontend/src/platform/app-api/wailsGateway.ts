@@ -30,6 +30,7 @@ import {
     DisableGitTracking,
     DropIndex,
     DropObject,
+    DropObjectAdvanced,
     DropTableColumn,
     ExecuteQuery,
     ExecuteUpdateSync,
@@ -102,6 +103,7 @@ import {
     SnapshotStoredProcedures,
     SwitchDatabase,
     TestConnection,
+    TruncateTable,
 } from '../../../wailsjs/go/app/App';
 import type { AppApiGateway, ConnectionRuntimeState } from './types';
 import type { ConnectionProfile } from '../../types/connection';
@@ -190,6 +192,8 @@ export const wailsGateway: AppApiGateway = {
     FetchTableRelationships,
     CreateTable,
     DropObject,
+    DropObjectAdvanced,
+    TruncateTable,
     GetTableDDL,
     AlterTableColumn,
     AddTableColumn,

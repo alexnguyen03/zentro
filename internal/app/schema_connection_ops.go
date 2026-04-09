@@ -37,6 +37,10 @@ func GetTableDDLWithConnection(profile *models.ConnectionProfile, db *sql.DB, sc
 }
 
 func DropObjectWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, objectName, objectType string) error {
+	return DropObjectAdvancedWithConnection(profile, db, schema, objectName, objectType, false)
+}
+
+func DropObjectAdvancedWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, objectName, objectType string, cascade bool) error {
 	if err := ensureActiveConnection(profile, db); err != nil {
 		return err
 	}
@@ -44,17 +48,32 @@ func DropObjectWithConnection(profile *models.ConnectionProfile, db *sql.DB, sch
 	var ddl string
 	switch objectType {
 	case "TABLE":
-		ddl = "DROP TABLE " + schema + "." + objectName
+		ddl = "DROP TABLE " + quoteIdentifier(profile.Driver, schema) + "." + quoteIdentifier(profile.Driver, objectName)
+		if cascade {
+			if profile.Driver != "postgres" {
+				return fmt.Errorf("drop cascade is not supported for driver: %s", profile.Driver)
+			}
+			ddl += " CASCADE"
+		}
 	case "VIEW":
-		ddl = "DROP VIEW " + schema + "." + objectName
+		ddl = "DROP VIEW " + quoteIdentifier(profile.Driver, schema) + "." + quoteIdentifier(profile.Driver, objectName)
+		if cascade {
+			if profile.Driver != "postgres" {
+				return fmt.Errorf("drop cascade is not supported for driver: %s", profile.Driver)
+			}
+			ddl += " CASCADE"
+		}
 	case "INDEX":
+		if cascade {
+			return fmt.Errorf("drop cascade is not supported for INDEX")
+		}
 		switch profile.Driver {
 		case "sqlserver":
 			return fmt.Errorf("use DropIndex with table name for MSSQL indexes")
 		case "mysql":
 			return fmt.Errorf("use DropIndex with table name for MySQL indexes")
 		default:
-			ddl = "DROP INDEX " + schema + "." + objectName
+			ddl = "DROP INDEX " + quoteIdentifier(profile.Driver, schema) + "." + quoteIdentifier(profile.Driver, objectName)
 		}
 	default:
 		return fmt.Errorf("unsupported object type: %s", objectType)
@@ -62,6 +81,36 @@ func DropObjectWithConnection(profile *models.ConnectionProfile, db *sql.DB, sch
 
 	_, err := db.Exec(ddl)
 	return err
+}
+
+func TruncateTableWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName string, cascade bool, restartIdentity bool) error {
+	if err := ensureActiveConnection(profile, db); err != nil {
+		return err
+	}
+
+	switch profile.Driver {
+	case "postgres":
+		ddl := "TRUNCATE TABLE " + quoteIdentifier(profile.Driver, schema) + "." + quoteIdentifier(profile.Driver, tableName)
+		if restartIdentity {
+			ddl += " RESTART IDENTITY"
+		}
+		if cascade {
+			ddl += " CASCADE"
+		}
+		_, err := db.Exec(ddl)
+		return err
+	case "mysql", "sqlserver":
+		if cascade || restartIdentity {
+			return fmt.Errorf("truncate options are not supported for driver: %s", profile.Driver)
+		}
+		ddl := "TRUNCATE TABLE " + quoteIdentifier(profile.Driver, schema) + "." + quoteIdentifier(profile.Driver, tableName)
+		_, err := db.Exec(ddl)
+		return err
+	case "sqlite":
+		return fmt.Errorf("truncate is not supported for driver: sqlite")
+	default:
+		return fmt.Errorf("unsupported driver: %s", profile.Driver)
+	}
 }
 
 func CreateTableWithConnection(profile *models.ConnectionProfile, db *sql.DB, schema, tableName string, columns []models.ColumnDef) error {

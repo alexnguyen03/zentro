@@ -167,6 +167,22 @@ func (a *App) DropObject(profileName, schema, objectName, objectType string) err
 	return DropObjectWithConnection(a.profile, a.db, schema, objectName, objectType)
 }
 
+func (a *App) DropObjectAdvanced(profileName, schema, objectName, objectType string, cascade bool) error {
+	_ = profileName
+	if err := a.ensureWritable("drop object"); err != nil {
+		return err
+	}
+	return DropObjectAdvancedWithConnection(a.profile, a.db, schema, objectName, objectType, cascade)
+}
+
+func (a *App) TruncateTable(profileName, schema, tableName string, cascade bool, restartIdentity bool) error {
+	_ = profileName
+	if err := a.ensureWritable("truncate table"); err != nil {
+		return err
+	}
+	return TruncateTableWithConnection(a.profile, a.db, schema, tableName, cascade, restartIdentity)
+}
+
 func (a *App) CreateIndex(profileName, schema, tableName, indexName string, columns []string, unique bool) error {
 	_ = profileName
 	if err := a.ensureWritable("create index"); err != nil {

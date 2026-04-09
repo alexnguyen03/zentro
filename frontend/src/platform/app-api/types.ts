@@ -107,6 +107,8 @@ export interface AppApiGateway {
     FetchTableRelationships(schema: string, table: string): Promise<models.TableRelationship[]>;
     CreateTable(profileName: string, schema: string, tableName: string, columns: models.ColumnDef[]): Promise<void>;
     DropObject(profileName: string, schema: string, objectName: string, objectType: string): Promise<void>;
+    DropObjectAdvanced(profileName: string, schema: string, objectName: string, objectType: string, cascade: boolean): Promise<void>;
+    TruncateTable(profileName: string, schema: string, tableName: string, cascade: boolean, restartIdentity: boolean): Promise<void>;
     GetTableDDL(profileName: string, schema: string, tableName: string): Promise<string>;
     AlterTableColumn(profileName: string, schema: string, current: models.ColumnDef, next: models.ColumnDef): Promise<void>;
     AddTableColumn(profileName: string, schema: string, col: models.ColumnDef): Promise<void>;

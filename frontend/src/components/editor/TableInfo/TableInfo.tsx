@@ -46,6 +46,8 @@ import {
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { resolveQueryPolicy } from '../../../features/query/policy';
 import { parseTableTarget } from '../../../lib/tableTargets';
+import { DOM_EVENT } from '../../../lib/constants';
+import { emitCommand, onCommand } from '../../../lib/commandBus';
 
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
@@ -118,6 +120,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [constraintTabActions, setConstraintTabActions] = useState<TabAction[]>([]);
     const [constraintDirtyCount, setConstraintDirtyCount] = useState(0);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
+    const [pendingOpenExport, setPendingOpenExport] = useState(false);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const [fadeInContent, setFadeInContent] = useState(false);
     const prevConnRef = useRef<string>('');
@@ -275,6 +278,28 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     useEffect(() => {
         if (activeTab === 'data' && !dataResult) loadData();
     }, [activeTab, dataResult, loadData]);
+
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_TABLE_EXPORT, (detail) => {
+            if (!detail || detail.tableTabId !== tabId) return;
+            setActiveTab('data');
+            setPendingOpenExport(true);
+            if (!dataResult) {
+                void loadData();
+            }
+        });
+        return off;
+    }, [dataResult, dataTabId, loadData, tabId]);
+
+    useEffect(() => {
+        if (!pendingOpenExport) return;
+        if (activeTab !== 'data') return;
+        const timer = window.setTimeout(() => {
+            emitCommand(DOM_EVENT.OPEN_RESULT_EXPORT, { tabId: dataTabId });
+            setPendingOpenExport(false);
+        }, 0);
+        return () => window.clearTimeout(timer);
+    }, [activeTab, dataTabId, pendingOpenExport]);
 
     const handleRowMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
         if (e.button !== 0) return;

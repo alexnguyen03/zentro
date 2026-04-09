@@ -8,6 +8,10 @@ export const CreateTable = (profileName: string, schema: string, tableName: stri
     wailsGateway.CreateTable(profileName, schema, tableName, columns);
 export const DropObject = (profileName: string, schema: string, objectName: string, objectType: string) =>
     wailsGateway.DropObject(profileName, schema, objectName, objectType);
+export const DropObjectAdvanced = (profileName: string, schema: string, objectName: string, objectType: string, cascade: boolean) =>
+    wailsGateway.DropObjectAdvanced(profileName, schema, objectName, objectType, cascade);
+export const TruncateTable = (profileName: string, schema: string, tableName: string, cascade: boolean, restartIdentity: boolean) =>
+    wailsGateway.TruncateTable(profileName, schema, tableName, cascade, restartIdentity);
 export const GetTableDDL = (profileName: string, schema: string, tableName: string) =>
     wailsGateway.GetTableDDL(profileName, schema, tableName);
 export const AlterTableColumn = (profileName: string, schema: string, current: models.ColumnDef, next: models.ColumnDef) =>

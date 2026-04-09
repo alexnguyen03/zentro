@@ -63,6 +63,8 @@ export function DropIndex(arg1:string,arg2:string,arg3:string,arg4:string):Promi
 
 export function DropObject(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
+export function DropObjectAdvanced(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<void>;
+
 export function DropPrimaryKey(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function DropTableColumn(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -236,3 +238,5 @@ export function SnapshotStoredProcedures(arg1:string):Promise<number>;
 export function SwitchDatabase(arg1:string):Promise<void>;
 
 export function TestConnection(arg1:models.ConnectionProfile):Promise<void>;
+
+export function TruncateTable(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:boolean):Promise<void>;

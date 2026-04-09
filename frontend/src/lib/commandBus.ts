@@ -11,6 +11,8 @@ export type CommandPayloadMap = {
     [DOM_EVENT.TOGGLE_BOOKMARK_ACTION]: { tabId?: string } | undefined;
     [DOM_EVENT.NEXT_BOOKMARK_ACTION]: { tabId?: string } | undefined;
     [DOM_EVENT.OPEN_QUERY_COMPARE]: undefined;
+    [DOM_EVENT.OPEN_TABLE_EXPORT]: { tableTabId: string };
+    [DOM_EVENT.OPEN_RESULT_EXPORT]: { tabId: string };
     [DOM_EVENT.JUMP_TO_LINE_ACTION]: { tabId: string; line: number };
     [DOM_EVENT.SAVE_TAB_ACTION]: string | undefined;
     [DOM_EVENT.RENAME_TAB]: string;

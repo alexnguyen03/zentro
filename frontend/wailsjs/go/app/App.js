@@ -114,6 +114,10 @@ export function DropObject(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['DropObject'](arg1, arg2, arg3, arg4);
 }
 
+export function DropObjectAdvanced(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['DropObjectAdvanced'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function DropPrimaryKey(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['DropPrimaryKey'](arg1, arg2, arg3, arg4);
 }
@@ -460,4 +464,8 @@ export function SwitchDatabase(arg1) {
 
 export function TestConnection(arg1) {
   return window['go']['app']['App']['TestConnection'](arg1);
+}
+
+export function TruncateTable(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['TruncateTable'](arg1, arg2, arg3, arg4, arg5);
 }
