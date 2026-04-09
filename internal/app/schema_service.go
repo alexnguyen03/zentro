@@ -21,3 +21,13 @@ type PrimaryKeyInfo struct {
 	Name    string
 	Columns []string
 }
+
+type ForeignKeyInfo struct {
+	Name       string
+	Columns    []string
+	RefSchema  string
+	RefTable   string
+	RefColumns []string
+	OnDelete   string
+	OnUpdate   string
+}

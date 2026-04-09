@@ -54,6 +54,10 @@ export function CreateCheckConstraint(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['CreateCheckConstraint'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function CreateForeignKey(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['CreateForeignKey'](arg1, arg2, arg3, arg4);
+}
+
 export function CreateIndex(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['app']['App']['CreateIndex'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -68,6 +72,10 @@ export function CreateTable(arg1, arg2, arg3, arg4) {
 
 export function CreateUniqueConstraint(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['CreateUniqueConstraint'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateForeignKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['UpdateForeignKey'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function DeactivateLicense(arg1) {
@@ -104,6 +112,10 @@ export function Disconnect() {
 
 export function DropCheckConstraint(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['DropCheckConstraint'](arg1, arg2, arg3, arg4);
+}
+
+export function DropForeignKey(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DropForeignKey'](arg1, arg2, arg3, arg4);
 }
 
 export function DropIndex(arg1, arg2, arg3, arg4) {
@@ -212,6 +224,10 @@ export function GetBookmarks(arg1, arg2) {
 
 export function GetCheckConstraints(arg1, arg2, arg3) {
   return window['go']['app']['App']['GetCheckConstraints'](arg1, arg2, arg3);
+}
+
+export function GetForeignKeys(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetForeignKeys'](arg1, arg2, arg3);
 }
 
 export function GetCommitFileDiffs(arg1) {

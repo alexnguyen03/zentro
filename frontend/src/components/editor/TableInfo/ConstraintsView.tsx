@@ -1,27 +1,33 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { KeyRound, Loader, Plus, RotateCcw, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import {
     AddPrimaryKey,
+    CreateForeignKey,
     CreateCheckConstraint,
     CreateUniqueConstraint,
+    DropForeignKey,
     DropCheckConstraint,
     DropPrimaryKey,
     DropUniqueConstraint,
+    GetForeignKeys,
     GetCheckConstraints,
     GetPrimaryKey,
     GetUniqueConstraints,
+    UpdateForeignKey,
 } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
+import { useSchemaStore } from '../../../stores/schemaStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
-import { Button, Input, Popover, PopoverContent, PopoverTrigger } from '../../ui';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { type TabAction } from './types';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import type { app } from '../../../../wailsjs/go/models';
 
-// ─── Domain types ─────────────────────────────────────────────────────────────
+// --- Domain types -------------------------------------------------------------
 
 interface CheckRow {
     id: string;
@@ -42,7 +48,33 @@ interface PKState {
     columns: string[];
 }
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+type ForeignKeyRule = 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
+
+interface ForeignKeyDraft {
+    name: string;
+    columns: string[];
+    refSchema: string;
+    refTable: string;
+    refColumns: string[];
+    onDelete: ForeignKeyRule;
+    onUpdate: ForeignKeyRule;
+}
+
+interface ForeignKeyRowState {
+    id: string;
+    original: ForeignKeyDraft;
+    current: ForeignKeyDraft;
+    deleted: boolean;
+    isNew?: boolean;
+}
+
+type DropTarget =
+    | { type: 'pk' | 'unique' | 'check'; name: string; mode: 'immediate' }
+    | { type: 'fk'; rowId: string; name: string; mode: 'mark' };
+
+const FK_RULE_OPTIONS: ForeignKeyRule[] = ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'];
+
+// --- Props --------------------------------------------------------------------
 
 interface ConstraintsViewProps {
     schema: string;
@@ -56,7 +88,7 @@ interface ConstraintsViewProps {
     driver?: string;
 }
 
-// ─── ColumnPickerCell (reused pattern from IndexInfoView) ─────────────────────
+// --- ColumnPickerCell (reused pattern from IndexInfoView) ---------------------
 
 interface ColumnPickerCellProps {
     columns: string[];
@@ -148,7 +180,7 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
     );
 };
 
-// ─── Section header ───────────────────────────────────────────────────────────
+// --- Section header -----------------------------------------------------------
 
 const SectionHeader: React.FC<{
     icon: React.ReactNode;
@@ -178,7 +210,60 @@ const SectionHeader: React.FC<{
     </div>
 );
 
-// ─── Main component ───────────────────────────────────────────────────────────
+const normalizeForeignKeyRule = (value: string | undefined): ForeignKeyRule => {
+    const normalized = (value || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    if (FK_RULE_OPTIONS.includes(normalized as ForeignKeyRule)) {
+        return normalized as ForeignKeyRule;
+    }
+    return 'NO ACTION';
+};
+
+const cloneForeignKeyDraft = (draft: ForeignKeyDraft): ForeignKeyDraft => ({
+    name: draft.name,
+    columns: [...draft.columns],
+    refSchema: draft.refSchema,
+    refTable: draft.refTable,
+    refColumns: [...draft.refColumns],
+    onDelete: draft.onDelete,
+    onUpdate: draft.onUpdate,
+});
+
+const mapFromForeignKeyInfo = (fk: app.ForeignKeyInfo): ForeignKeyDraft => ({
+    name: fk.Name || '',
+    columns: [...(fk.Columns || [])],
+    refSchema: fk.RefSchema || '',
+    refTable: fk.RefTable || '',
+    refColumns: [...(fk.RefColumns || [])],
+    onDelete: normalizeForeignKeyRule(fk.OnDelete),
+    onUpdate: normalizeForeignKeyRule(fk.OnUpdate),
+});
+
+const toForeignKeyPayload = (fk: ForeignKeyDraft): app.ForeignKeyInfo => ({
+    Name: fk.name.trim(),
+    Columns: [...fk.columns],
+    RefSchema: fk.refSchema.trim(),
+    RefTable: fk.refTable.trim(),
+    RefColumns: [...fk.refColumns],
+    OnDelete: fk.onDelete,
+    OnUpdate: fk.onUpdate,
+});
+
+const isForeignKeyDirty = (row: ForeignKeyRowState): boolean => {
+    if (row.deleted) return true;
+    return JSON.stringify(row.original) !== JSON.stringify(row.current);
+};
+
+const isEmptyForeignKeyDraft = (fk: ForeignKeyDraft): boolean => (
+    !fk.name.trim()
+    && fk.columns.length === 0
+    && !fk.refSchema.trim()
+    && !fk.refTable.trim()
+    && fk.refColumns.length === 0
+);
+
+const toRefCacheKey = (fkSchema: string, fkTable: string) => `${fkSchema}.${fkTable}`;
+
+// --- Main component -----------------------------------------------------------
 
 export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
     schema,
@@ -207,24 +292,71 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
     const [checkRows, setCheckRows] = useState<CheckRow[]>([]);
     const [checkEditCell, setCheckEditCell] = useState<{ id: string; field: 'name' | 'expression' } | null>(null);
 
+    // Foreign keys
+    const [foreignKeyRows, setForeignKeyRows] = useState<ForeignKeyRowState[]>([]);
+    const [refColumnCache, setRefColumnCache] = useState<Record<string, string[]>>({});
+
     // Drop confirmation
-    const [dropTarget, setDropTarget] = useState<{ type: 'pk' | 'unique' | 'check'; name: string } | null>(null);
+    const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const treeMap = useSchemaStore((state) => state.trees);
+    const checkAndFetchColumns = useSchemaStore((state) => state.checkAndFetchColumns);
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
 
     // SQLite doesn't support ALTER TABLE for PK/Unique constraints
     const supportsAlterConstraints = driver !== 'sqlite';
+    const supportsForeignKeys = driver !== 'sqlite';
 
-    // ── Load ───────────────────────────────────────────────────────────────────
+    const schemaNodes = useMemo(() => {
+        if (!activeProfile?.name || !activeProfile?.db_name) return [];
+        return treeMap[`${activeProfile.name}:${activeProfile.db_name}`] ?? [];
+    }, [activeProfile?.db_name, activeProfile?.name, treeMap]);
+
+    const schemaOptions = useMemo(
+        () => schemaNodes.map((node) => node.Name).sort((a, b) => a.localeCompare(b)),
+        [schemaNodes],
+    );
+
+    const tablesBySchema = useMemo(() => {
+        const map = new Map<string, string[]>();
+        schemaNodes.forEach((node) => {
+            const allTables = [...(node.Tables || []), ...(node.ForeignTables || [])]
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b));
+            map.set(node.Name, allTables);
+        });
+        return map;
+    }, [schemaNodes]);
+
+    const loadReferencedColumns = useCallback(async (refSchema: string, refTable: string) => {
+        if (!activeProfile?.name || !activeProfile?.db_name || !refSchema || !refTable) return;
+        const cacheKey = toRefCacheKey(refSchema, refTable);
+        if (refColumnCache[cacheKey]) return;
+
+        try {
+            const defs = await checkAndFetchColumns(activeProfile.name, activeProfile.db_name, refSchema, refTable);
+            setRefColumnCache((prev) => {
+                if (prev[cacheKey]) return prev;
+                return { ...prev, [cacheKey]: defs.map((d) => d.Name) };
+            });
+        } catch {
+            setRefColumnCache((prev) => {
+                if (prev[cacheKey]) return prev;
+                return { ...prev, [cacheKey]: [] };
+            });
+        }
+    }, [activeProfile?.db_name, activeProfile?.name, checkAndFetchColumns, refColumnCache]);
+
+    // -- Load -------------------------------------------------------------------
 
     const loadAll = useCallback(async () => {
         if (!activeProfile?.name) return;
         setLoading(true);
         try {
-            const [pkResult, uniqueResult, checkResult] = await Promise.all([
+            const [pkResult, uniqueResult, checkResult, fkResult] = await Promise.all([
                 supportsAlterConstraints
                     ? GetPrimaryKey(activeProfile.name, schema, tableName).catch(() => null)
                     : Promise.resolve(null),
@@ -232,6 +364,9 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                     ? GetUniqueConstraints(activeProfile.name, schema, tableName).catch(() => [])
                     : Promise.resolve([]),
                 GetCheckConstraints(activeProfile.name, schema, tableName).catch(() => []),
+                supportsForeignKeys
+                    ? GetForeignKeys(activeProfile.name, schema, tableName).catch(() => [])
+                    : Promise.resolve([]),
             ]);
 
             setPk(pkResult ? { name: pkResult.Name, columns: pkResult.Columns ?? [] } : null);
@@ -251,28 +386,65 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                 expression: c.Expression,
             })));
             setCheckEditCell(null);
+
+            const fkRows = (fkResult ?? []).map((fk, i) => {
+                const current = mapFromForeignKeyInfo(fk);
+                return {
+                    id: `fk-${i}-${current.name}`,
+                    original: cloneForeignKeyDraft(current),
+                    current,
+                    deleted: false,
+                };
+            });
+            setForeignKeyRows(fkRows);
+            setRefColumnCache({});
+
+            if (supportsForeignKeys) {
+                const uniqueTargets = new Set<string>();
+                fkRows.forEach((row) => {
+                    if (row.current.refSchema && row.current.refTable) {
+                        uniqueTargets.add(toRefCacheKey(row.current.refSchema, row.current.refTable));
+                    }
+                });
+                await Promise.all(
+                    [...uniqueTargets].map(async (key) => {
+                        const [fkSchema, fkTable] = key.split('.');
+                        await loadReferencedColumns(fkSchema, fkTable);
+                    }),
+                );
+            }
         } catch (error: unknown) {
             toast.error(`Failed to load constraints: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, schema, tableName, toast, supportsAlterConstraints]);
+    }, [activeProfile?.name, loadReferencedColumns, schema, supportsAlterConstraints, supportsForeignKeys, tableName, toast]);
 
-    useEffect(() => { loadAll(); }, [loadAll, refreshKey]);
+    useEffect(() => { void loadAll(); }, [loadAll, refreshKey]);
 
-    // ── Dirty tracking ────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!supportsForeignKeys) return;
+        foreignKeyRows.forEach((row) => {
+            if (row.deleted) return;
+            if (!row.current.refSchema || !row.current.refTable) return;
+            void loadReferencedColumns(row.current.refSchema, row.current.refTable);
+        });
+    }, [foreignKeyRows, loadReferencedColumns, supportsForeignKeys]);
+
+    // -- Dirty tracking --------------------------------------------------------
 
     const dirtyCount = useMemo(() => {
         let n = 0;
         if (pkDraft) n++;
         n += uniqueRows.filter((r) => r.isNew).length;
         n += checkRows.filter((r) => r.isNew).length;
+        n += foreignKeyRows.filter((row) => row.isNew || row.deleted || isForeignKeyDirty(row)).length;
         return n;
-    }, [pkDraft, uniqueRows, checkRows]);
+    }, [pkDraft, uniqueRows, checkRows, foreignKeyRows]);
 
     useEffect(() => { onDirtyCountChange?.(dirtyCount); }, [dirtyCount, onDirtyCountChange]);
 
-    // ── Discard ───────────────────────────────────────────────────────────────
+    // -- Discard ---------------------------------------------------------------
 
     const discardAll = useCallback(() => {
         setPkDraft(null);
@@ -281,9 +453,52 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
         setUniqueEditCell(null);
         setCheckRows((prev) => prev.filter((r) => !r.isNew));
         setCheckEditCell(null);
+        setForeignKeyRows((prev) => prev
+            .filter((row) => !row.isNew)
+            .map((row) => ({
+                ...row,
+                current: cloneForeignKeyDraft(row.original),
+                deleted: false,
+            })));
     }, []);
 
-    // ── Save all ──────────────────────────────────────────────────────────────
+    // -- Save all --------------------------------------------------------------
+
+    const updateForeignKeyRow = useCallback((rowId: string, patch: Partial<ForeignKeyDraft>) => {
+        setForeignKeyRows((prev) => prev.map((row) => {
+            if (row.id !== rowId) return row;
+            const nextCurrent: ForeignKeyDraft = {
+                ...row.current,
+                ...patch,
+            };
+            if (patch.refSchema !== undefined || patch.refTable !== undefined) {
+                nextCurrent.refColumns = [];
+            }
+            return { ...row, current: nextCurrent };
+        }));
+    }, []);
+
+    const validateForeignKeyDraft = useCallback((fk: ForeignKeyDraft): string | null => {
+        if (!fk.name.trim()) return 'Foreign key constraint name is required';
+        if (fk.columns.length === 0) return `"${fk.name || 'Foreign key'}" needs at least one source column`;
+        if (!fk.refSchema.trim()) return `"${fk.name || 'Foreign key'}" requires referenced schema`;
+        if (!fk.refTable.trim()) return `"${fk.name || 'Foreign key'}" requires referenced table`;
+        if (fk.refColumns.length === 0) return `"${fk.name || 'Foreign key'}" needs at least one referenced column`;
+        if (fk.columns.length !== fk.refColumns.length) {
+            return `"${fk.name || 'Foreign key'}" source/ref column counts must match`;
+        }
+
+        const cacheKey = toRefCacheKey(fk.refSchema, fk.refTable);
+        const availableRefCols = refColumnCache[cacheKey];
+        if (Array.isArray(availableRefCols) && availableRefCols.length > 0) {
+            const invalidRefCol = fk.refColumns.find((col) => !availableRefCols.includes(col));
+            if (invalidRefCol) {
+                return `"${fk.name || 'Foreign key'}" referenced column "${invalidRefCol}" is no longer valid`;
+            }
+        }
+
+        return null;
+    }, [refColumnCache]);
 
     const saveAll = useCallback(async () => {
         if (readOnlyMode || !activeProfile?.name) return;
@@ -291,8 +506,13 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
         const newUnique = uniqueRows.filter((r) => r.isNew);
         const newCheck = checkRows.filter((r) => r.isNew);
         const hasPkDraft = !!pkDraft;
+        const fkToDrop = foreignKeyRows.filter((row) => !row.isNew && row.deleted);
+        const fkToCreate = foreignKeyRows
+            .filter((row) => row.isNew && !row.deleted)
+            .filter((row) => !isEmptyForeignKeyDraft(row.current));
+        const fkToUpdate = foreignKeyRows.filter((row) => !row.isNew && !row.deleted && isForeignKeyDirty(row));
 
-        if (!hasPkDraft && !newUnique.length && !newCheck.length) return;
+        if (!hasPkDraft && !newUnique.length && !newCheck.length && !fkToDrop.length && !fkToCreate.length && !fkToUpdate.length) return;
 
         // Validate
         if (hasPkDraft) {
@@ -307,11 +527,21 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
             if (!r.name.trim()) { toast.error('Check constraint name is required'); return; }
             if (!r.expression.trim()) { toast.error(`"${r.name}" needs an expression`); return; }
         }
+        for (const row of [...fkToCreate, ...fkToUpdate]) {
+            const fkError = validateForeignKeyDraft(row.current);
+            if (fkError) {
+                toast.error(fkError);
+                return;
+            }
+        }
 
-        const ops: Array<'create'> = [
+        const ops: Array<'create' | 'drop'> = [
             ...(hasPkDraft ? ['create' as const] : []),
             ...newUnique.map(() => 'create' as const),
             ...newCheck.map(() => 'create' as const),
+            ...fkToDrop.map(() => 'drop' as const),
+            ...fkToCreate.map(() => 'create' as const),
+            ...fkToUpdate.flatMap(() => ['drop', 'create'] as const),
         ];
 
         const guard = await writeSafetyGuard.guardOperations(ops, 'Apply Constraint Changes');
@@ -331,6 +561,21 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
             for (const r of newCheck) {
                 await CreateCheckConstraint(activeProfile.name, schema, tableName, r.name, r.expression);
             }
+            for (const row of fkToDrop) {
+                await DropForeignKey(activeProfile.name, schema, tableName, row.original.name);
+            }
+            for (const row of fkToCreate) {
+                await CreateForeignKey(activeProfile.name, schema, tableName, toForeignKeyPayload(row.current));
+            }
+            for (const row of fkToUpdate) {
+                await UpdateForeignKey(
+                    activeProfile.name,
+                    schema,
+                    tableName,
+                    row.original.name,
+                    toForeignKeyPayload(row.current),
+                );
+            }
             toast.success('Constraint changes applied');
             await loadAll();
         } catch (error: unknown) {
@@ -338,12 +583,34 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, checkRows, loadAll, pkDraft, readOnlyMode, schema, tableName, toast, uniqueRows, writeSafetyGuard]);
+    }, [
+        activeProfile?.name,
+        checkRows,
+        foreignKeyRows,
+        loadAll,
+        pkDraft,
+        readOnlyMode,
+        schema,
+        tableName,
+        toast,
+        uniqueRows,
+        validateForeignKeyDraft,
+        writeSafetyGuard,
+    ]);
 
-    // ── Drop confirmation ─────────────────────────────────────────────────────
+    // -- Drop confirmation -----------------------------------------------------
 
     const handleDropConfirm = useCallback(async () => {
         if (!dropTarget || !activeProfile?.name) return;
+
+        if (dropTarget.type === 'fk' && dropTarget.mode === 'mark') {
+            setForeignKeyRows((prev) => prev.map((row) => (
+                row.id === dropTarget.rowId ? { ...row, deleted: true } : row
+            )));
+            setDropTarget(null);
+            return;
+        }
+
         const guard = await writeSafetyGuard.guardOperations(['drop'], 'Drop Constraint');
         if (!guard.allowed) {
             if (guard.blockedReason) toast.error(guard.blockedReason);
@@ -368,7 +635,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
         }
     }, [activeProfile?.name, dropTarget, loadAll, schema, tableName, toast, writeSafetyGuard]);
 
-    // ── Toolbar actions ───────────────────────────────────────────────────────
+    // -- Toolbar actions -------------------------------------------------------
 
     const hasChanges = dirtyCount > 0;
 
@@ -400,7 +667,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
 
     useEffect(() => { onActionsChange?.(panelActions); }, [onActionsChange, panelActions]);
 
-    // ── Keyboard shortcut ─────────────────────────────────────────────────────
+    // -- Keyboard shortcut -----------------------------------------------------
 
     useEffect(() => {
         if (!isActive) return;
@@ -415,7 +682,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
         return () => window.removeEventListener('keydown', h);
     }, [isActive, saveAll]);
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    // -- Render ----------------------------------------------------------------
 
     if (loading) {
         return (
@@ -427,7 +694,8 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
 
     const dropLabel = dropTarget?.type === 'pk' ? 'Primary Key'
         : dropTarget?.type === 'unique' ? 'Unique Constraint'
-        : 'Check Constraint';
+        : dropTarget?.type === 'check' ? 'Check Constraint'
+        : 'Foreign Key';
 
     return (
         <div className="flex-1 flex flex-col min-h-0 bg-background overflow-auto scrollbar-thin">
@@ -435,15 +703,19 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                 isOpen={!!dropTarget}
                 onClose={() => setDropTarget(null)}
                 onConfirm={handleDropConfirm}
-                title={`Drop ${dropLabel}`}
-                message={`Drop "${dropTarget?.name}"?`}
-                description="This will execute immediately and cannot be undone."
-                confirmLabel="Drop"
+                title={dropTarget?.type === 'fk' ? 'Mark Foreign Key For Drop' : `Drop ${dropLabel}`}
+                message={dropTarget?.type === 'fk'
+                    ? `Mark "${dropTarget?.name}" to drop on Save Changes?`
+                    : `Drop "${dropTarget?.name}"?`}
+                description={dropTarget?.type === 'fk'
+                    ? 'This change will be executed when you click Save Changes.'
+                    : 'This will execute immediately and cannot be undone.'}
+                confirmLabel={dropTarget?.type === 'fk' ? 'Mark Drop' : 'Drop'}
                 variant="destructive"
             />
             {writeSafetyGuard.modals}
 
-            {/* ── PRIMARY KEY ── */}
+            {/* -- PRIMARY KEY -- */}
             <div className="border-b border-border">
                 <SectionHeader
                     icon={<KeyRound size={11} />}
@@ -468,7 +740,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                 <Button
                                     type="button"
                                     variant="ghost"
-                                    onClick={() => setDropTarget({ type: 'pk', name: pk.name })}
+                                    onClick={() => setDropTarget({ type: 'pk', name: pk.name, mode: 'immediate' })}
                                     disabled={saving}
                                     className="h-6 px-2 text-[11px] text-error/70 hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
@@ -521,7 +793,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                 </div>
             </div>
 
-            {/* ── UNIQUE CONSTRAINTS ── */}
+            {/* -- UNIQUE CONSTRAINTS -- */}
             {supportsAlterConstraints && (
                 <div className="border-b border-border">
                     <SectionHeader
@@ -607,7 +879,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                                     setUniqueRows((prev) => prev.filter((r) => r.id !== row.id));
                                                     setUniqueEditCell(null);
                                                 } else {
-                                                    setDropTarget({ type: 'unique', name: row.name });
+                                                    setDropTarget({ type: 'unique', name: row.name, mode: 'immediate' });
                                                 }
                                             }}
                                             disabled={saving}
@@ -623,7 +895,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                 </div>
             )}
 
-            {/* ── CHECK CONSTRAINTS ── */}
+            {/* -- CHECK CONSTRAINTS -- */}
             <div>
                 <SectionHeader
                     icon={<ShieldCheck size={11} />}
@@ -711,7 +983,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                                 setCheckRows((prev) => prev.filter((r) => r.id !== row.id));
                                                 setCheckEditCell(null);
                                             } else {
-                                                setDropTarget({ type: 'check', name: row.name });
+                                                setDropTarget({ type: 'check', name: row.name, mode: 'immediate' });
                                             }
                                         }}
                                         disabled={saving}
@@ -725,6 +997,196 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                     })}
                 </div>
             </div>
+
+            {supportsForeignKeys && (
+                <div className="border-t border-border">
+                    <SectionHeader
+                        icon={<KeyRound size={11} />}
+                        label="Foreign Keys"
+                        addLabel="Add FK"
+                        readOnly={readOnlyMode}
+                        disabled={saving}
+                        onAdd={() => {
+                            const draft: ForeignKeyDraft = {
+                                name: '',
+                                columns: [],
+                                refSchema: schema,
+                                refTable: '',
+                                refColumns: [],
+                                onDelete: 'NO ACTION',
+                                onUpdate: 'NO ACTION',
+                            };
+                            const row: ForeignKeyRowState = {
+                                id: `fk-new-${Date.now()}`,
+                                original: cloneForeignKeyDraft(draft),
+                                current: draft,
+                                deleted: false,
+                                isNew: true,
+                            };
+                            setForeignKeyRows((prev) => [...prev, row]);
+                        }}
+                    />
+                    <div className="px-3 py-2 flex flex-col gap-2">
+                        {foreignKeyRows.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground italic py-2">No foreign keys defined.</p>
+                        )}
+                        {foreignKeyRows.map((row) => {
+                            const refTableOptions = tablesBySchema.get(row.current.refSchema) ?? [];
+                            const refColumnOptions = row.current.refSchema && row.current.refTable
+                                ? (refColumnCache[toRefCacheKey(row.current.refSchema, row.current.refTable)] ?? [])
+                                : [];
+                            const rowDirty = isForeignKeyDirty(row);
+
+                            return (
+                                <div
+                                    key={row.id}
+                                    className={`rounded border px-2.5 py-2 ${row.deleted ? 'border-error/50 bg-error/5 opacity-70' : 'border-border/60 bg-background/60'} `}
+                                >
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Input
+                                            placeholder="fk_constraint_name"
+                                            value={row.current.name}
+                                            onChange={(e) => updateForeignKeyRow(row.id, { name: e.target.value })}
+                                            disabled={readOnlyMode || saving || row.deleted}
+                                            className="rt-cell-input font-mono h-7 text-[12px] min-w-[180px] w-[220px]"
+                                        />
+                                        {row.isNew && <span className="text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded">NEW</span>}
+                                        {!row.isNew && rowDirty && !row.deleted && (
+                                            <span className="text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded">EDITED</span>
+                                        )}
+                                        {row.deleted && (
+                                            <span className="text-[9px] font-bold text-error bg-error/10 px-1 py-0.5 rounded">DROP PENDING</span>
+                                        )}
+                                        {!readOnlyMode && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    if (row.isNew) {
+                                                        setForeignKeyRows((prev) => prev.filter((r) => r.id !== row.id));
+                                                        return;
+                                                    }
+                                                    if (row.deleted) {
+                                                        setForeignKeyRows((prev) => prev.map((r) => (
+                                                            r.id === row.id ? { ...r, deleted: false } : r
+                                                        )));
+                                                        return;
+                                                    }
+                                                    setDropTarget({ type: 'fk', rowId: row.id, name: row.current.name || row.original.name, mode: 'mark' });
+                                                }}
+                                                disabled={saving}
+                                                className="ml-auto h-6 px-2 text-[11px] text-error/70 hover:text-error"
+                                            >
+                                                <Trash2 size={11} />
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Source Columns</p>
+                                            <ColumnPickerCell
+                                                columns={tableColumns}
+                                                selected={row.current.columns}
+                                                onChange={(cols) => updateForeignKeyRow(row.id, { columns: cols })}
+                                                onClose={() => {}}
+                                                autoOpen={false}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Referenced Schema</p>
+                                            <Select
+                                                value={row.current.refSchema || undefined}
+                                                onValueChange={(value) => updateForeignKeyRow(row.id, { refSchema: value, refTable: '' })}
+                                                disabled={readOnlyMode || saving || row.deleted}
+                                            >
+                                                <SelectTrigger className="h-7 font-mono text-[12px]">
+                                                    <SelectValue placeholder="Select schema" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {schemaOptions.map((schemaName) => (
+                                                        <SelectItem key={schemaName} value={schemaName}>{schemaName}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Referenced Table</p>
+                                            <Select
+                                                value={row.current.refTable || undefined}
+                                                onValueChange={(value) => {
+                                                    updateForeignKeyRow(row.id, { refTable: value });
+                                                    void loadReferencedColumns(row.current.refSchema, value);
+                                                }}
+                                                disabled={readOnlyMode || saving || row.deleted || !row.current.refSchema}
+                                            >
+                                                <SelectTrigger className="h-7 font-mono text-[12px]">
+                                                    <SelectValue placeholder="Select table" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {refTableOptions.map((tableOption) => (
+                                                        <SelectItem key={tableOption} value={tableOption}>{tableOption}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Referenced Columns</p>
+                                            <ColumnPickerCell
+                                                columns={refColumnOptions}
+                                                selected={row.current.refColumns}
+                                                onChange={(cols) => updateForeignKeyRow(row.id, { refColumns: cols })}
+                                                onClose={() => {}}
+                                                autoOpen={false}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ON DELETE</p>
+                                            <Select
+                                                value={row.current.onDelete}
+                                                onValueChange={(value) => updateForeignKeyRow(row.id, { onDelete: normalizeForeignKeyRule(value) })}
+                                                disabled={readOnlyMode || saving || row.deleted}
+                                            >
+                                                <SelectTrigger className="h-7 font-mono text-[12px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {FK_RULE_OPTIONS.map((rule) => (
+                                                        <SelectItem key={`delete-${rule}`} value={rule}>{rule}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ON UPDATE</p>
+                                            <Select
+                                                value={row.current.onUpdate}
+                                                onValueChange={(value) => updateForeignKeyRow(row.id, { onUpdate: normalizeForeignKeyRule(value) })}
+                                                disabled={readOnlyMode || saving || row.deleted}
+                                            >
+                                                <SelectTrigger className="h-7 font-mono text-[12px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {FK_RULE_OPTIONS.map((rule) => (
+                                                        <SelectItem key={`update-${rule}`} value={rule}>{rule}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+

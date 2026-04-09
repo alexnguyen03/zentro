@@ -125,6 +125,10 @@ export interface AppApiGateway {
     GetPrimaryKey(profileName: string, schema: string, table: string): Promise<app.PrimaryKeyInfo | null>;
     AddPrimaryKey(profileName: string, schema: string, table: string, name: string, columns: string[]): Promise<void>;
     DropPrimaryKey(profileName: string, schema: string, table: string, name: string): Promise<void>;
+    GetForeignKeys(profileName: string, schema: string, table: string): Promise<app.ForeignKeyInfo[]>;
+    CreateForeignKey(profileName: string, schema: string, table: string, fk: app.ForeignKeyInfo): Promise<void>;
+    UpdateForeignKey(profileName: string, schema: string, table: string, originalName: string, fk: app.ForeignKeyInfo): Promise<void>;
+    DropForeignKey(profileName: string, schema: string, table: string, name: string): Promise<void>;
 
     // Settings & updates
     GetPreferences(): Promise<utils.Preferences>;

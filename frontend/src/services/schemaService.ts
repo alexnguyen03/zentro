@@ -1,4 +1,4 @@
-import type { models } from '../../wailsjs/go/models';
+import type { app, models } from '../../wailsjs/go/models';
 import { wailsGateway } from '../platform/app-api/wailsGateway';
 
 export const FetchDatabaseSchema = (profileName: string, dbName: string) => wailsGateway.FetchDatabaseSchema(profileName, dbName);
@@ -42,3 +42,11 @@ export const AddPrimaryKey = (profileName: string, schema: string, table: string
     wailsGateway.AddPrimaryKey(profileName, schema, table, name, columns);
 export const DropPrimaryKey = (profileName: string, schema: string, table: string, name: string) =>
     wailsGateway.DropPrimaryKey(profileName, schema, table, name);
+
+export const GetForeignKeys = (profileName: string, schema: string, table: string) => wailsGateway.GetForeignKeys(profileName, schema, table);
+export const CreateForeignKey = (profileName: string, schema: string, table: string, fk: app.ForeignKeyInfo) =>
+    wailsGateway.CreateForeignKey(profileName, schema, table, fk);
+export const UpdateForeignKey = (profileName: string, schema: string, table: string, originalName: string, fk: app.ForeignKeyInfo) =>
+    wailsGateway.UpdateForeignKey(profileName, schema, table, originalName, fk);
+export const DropForeignKey = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropForeignKey(profileName, schema, table, name);

@@ -273,6 +273,35 @@ func (a *App) DropPrimaryKey(profileName, schema, tableName, name string) error 
 	return DropPrimaryKeyWithConnection(a.profile, a.db, schema, tableName, name)
 }
 
+func (a *App) GetForeignKeys(profileName, schema, tableName string) ([]ForeignKeyInfo, error) {
+	_ = profileName
+	return GetForeignKeysWithConnection(a.profile, a.db, schema, tableName)
+}
+
+func (a *App) CreateForeignKey(profileName, schema, tableName string, fk ForeignKeyInfo) error {
+	_ = profileName
+	if err := a.ensureWritable("create foreign key"); err != nil {
+		return err
+	}
+	return CreateForeignKeyWithConnection(a.profile, a.db, schema, tableName, fk)
+}
+
+func (a *App) UpdateForeignKey(profileName, schema, tableName, originalName string, fk ForeignKeyInfo) error {
+	_ = profileName
+	if err := a.ensureWritable("update foreign key"); err != nil {
+		return err
+	}
+	return UpdateForeignKeyWithConnection(a.profile, a.db, schema, tableName, originalName, fk)
+}
+
+func (a *App) DropForeignKey(profileName, schema, tableName, constraintName string) error {
+	_ = profileName
+	if err := a.ensureWritable("drop foreign key"); err != nil {
+		return err
+	}
+	return DropForeignKeyWithConnection(a.profile, a.db, schema, tableName, constraintName)
+}
+
 func (a *App) CreateTable(profileName, schema, tableName string, columns []models.ColumnDef) error {
 	_ = profileName
 	if err := a.ensureWritable("create table"); err != nil {

@@ -33,6 +33,8 @@ export function ConnectProjectEnvironment(arg1:string):Promise<void>;
 
 export function CreateCheckConstraint(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
 
+export function CreateForeignKey(arg1:string,arg2:string,arg3:string,arg4:app.ForeignKeyInfo):Promise<void>;
+
 export function CreateIndex(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>,arg6:boolean):Promise<void>;
 
 export function CreateProject(arg1:models.Project):Promise<models.Project>;
@@ -40,6 +42,8 @@ export function CreateProject(arg1:models.Project):Promise<models.Project>;
 export function CreateTable(arg1:string,arg2:string,arg3:string,arg4:Array<models.ColumnDef>):Promise<void>;
 
 export function CreateUniqueConstraint(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<void>;
+
+export function UpdateForeignKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:app.ForeignKeyInfo):Promise<void>;
 
 export function DeactivateLicense(arg1:string):Promise<void>;
 
@@ -58,6 +62,8 @@ export function DisableGitTracking():Promise<void>;
 export function Disconnect():Promise<void>;
 
 export function DropCheckConstraint(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
+export function DropForeignKey(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function DropIndex(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
@@ -112,6 +118,8 @@ export function GetActiveProject():Promise<models.Project>;
 export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookmark>>;
 
 export function GetCheckConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.CheckConstraintInfo>>;
+
+export function GetForeignKeys(arg1:string,arg2:string,arg3:string):Promise<Array<app.ForeignKeyInfo>>;
 
 export function GetCommitFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
 

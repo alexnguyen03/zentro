@@ -14,9 +14,11 @@ import {
     CreateIndex,
     CreateUniqueConstraint,
     DropCheckConstraint,
+    DropForeignKey,
     DropPrimaryKey,
     DropUniqueConstraint,
     GetCheckConstraints,
+    GetForeignKeys,
     GetPrimaryKey,
     GetUniqueConstraints,
     CreateProject,
@@ -104,6 +106,8 @@ import {
     SwitchDatabase,
     TestConnection,
     TruncateTable,
+    CreateForeignKey,
+    UpdateForeignKey,
 } from '../../../wailsjs/go/app/App';
 import type { AppApiGateway, ConnectionRuntimeState } from './types';
 import type { ConnectionProfile } from '../../types/connection';
@@ -210,6 +214,10 @@ export const wailsGateway: AppApiGateway = {
     GetPrimaryKey,
     AddPrimaryKey,
     DropPrimaryKey,
+    GetForeignKeys,
+    CreateForeignKey,
+    UpdateForeignKey,
+    DropForeignKey,
 
     GetPreferences,
     SetPreferences,
