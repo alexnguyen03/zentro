@@ -164,7 +164,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     };
 
     return (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-card shrink-0 relative">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-card/40 shrink-0 relative">
             {showFilterInput && (
                 <div className="flex items-center flex-3 min-w-0">
                 <div

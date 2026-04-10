@@ -1,192 +1,33 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { analyzeFeGuardrails, MIGRATION_DEADLINES } from './check-fe-guardrails-lib.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
-const ROOT = path.resolve(REPO_ROOT, 'frontend', 'src');
-const SOURCE_EXT = new Set(['.ts', '.tsx']);
-const NATIVE_CONTROL_ALLOWLIST = [
-  'components/ui/Input.tsx',
-  'components/ui/textarea.tsx',
-  'components/layout/OverlayDialog.test.tsx',
-];
+const SOURCE_ROOT = path.resolve(REPO_ROOT, 'frontend', 'src');
 
-function walkFiles(dir) {
-  const files = [];
-  for (const entry of readdirSync(dir)) {
-    const fullPath = path.join(dir, entry);
-    const stat = statSync(fullPath);
-    if (stat.isDirectory()) {
-      files.push(...walkFiles(fullPath));
-      continue;
-    }
-    if (SOURCE_EXT.has(path.extname(fullPath))) {
-      files.push(fullPath);
+const { critical, migration, formatViolation } = analyzeFeGuardrails({
+  repoRoot: REPO_ROOT,
+  sourceRoot: SOURCE_ROOT,
+});
+
+if (migration.length > 0) {
+  console.warn('FE guardrails migration warnings:');
+  for (const violation of migration) {
+    console.warn(formatViolation(violation));
+  }
+  const listedRules = new Set(migration.map((v) => v.rule));
+  for (const [rule, deadline] of Object.entries(MIGRATION_DEADLINES)) {
+    if (listedRules.has(rule)) {
+      console.warn(`- [migration-deadline] ${rule} promotes to critical on ${deadline}`);
     }
   }
-  return files;
 }
 
-function isTestFile(filePath) {
-  return /\.(test|spec)\.(ts|tsx)$/.test(filePath);
-}
-
-function collectViolations(filePath, regex, label) {
-  const lines = readFileSync(filePath, 'utf8').split('\n');
-  const violations = [];
-  lines.forEach((line, index) => {
-    if (regex.test(line)) {
-      violations.push({
-        rule: label,
-        file: filePath,
-        line: index + 1,
-        snippet: line.trim(),
-      });
-    }
-    regex.lastIndex = 0;
-  });
-  return violations;
-}
-
-const files = walkFiles(ROOT);
-const violations = [];
-
-function isNativeControlAllowed(relPath) {
-  return NATIVE_CONTROL_ALLOWLIST.includes(relPath);
-}
-
-for (const file of files) {
-  const rel = path.relative(ROOT, file).replace(/\\/g, '/');
-  const prodFile = !isTestFile(file);
-
-  if (!rel.startsWith('platform/')) {
-    violations.push(
-      ...collectViolations(
-        file,
-        /from\s+['"][^'"]*wailsjs\/go\/app\/App['"]/,
-        'no-direct-wails-import-outside-platform',
-      ),
-    );
-  }
-
-  if (prodFile) {
-    violations.push(
-      ...collectViolations(file, /window\.(confirm|prompt|alert)\s*\(/, 'no-native-dialogs'),
-      ...collectViolations(file, /(^|[^\w.])(confirm|prompt|alert)\s*\(/, 'no-native-dialogs'),
-      ...collectViolations(file, /\bas\s+unknown\s+as\b/, 'no-double-unknown-cast'),
-      ...collectViolations(file, /\bfunction\s+toErrorMessage\s*\(/, 'use-shared-error-helper'),
-      ...collectViolations(
-        file,
-        /variant\s*=\s*["'](primary|solid|danger|success)["']/,
-        'no-legacy-button-variants',
-      ),
-      ...collectViolations(file, /\bdanger\s*=\s*\{?/, 'no-legacy-button-danger-prop'),
-      ...collectViolations(
-        file,
-        /import\s+\{[^}]*\b(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b[^}]*\}\s+from\s+['"][^'"]*\/ui(?:['"]|\/)/,
-        'no-legacy-ui-components',
-      ),
-      ...collectViolations(
-        file,
-        /from\s+['"][^'"]*\/ui\/(ModalBackdrop|ModalFrame|AlertModal|PromptModal)['"]/,
-        'no-legacy-ui-components',
-      ),
-      ...collectViolations(
-        file,
-        /<\s*(ModalBackdrop|ModalFrame|AlertModal|PromptModal)\b/,
-        'no-legacy-ui-components',
-      ),
-      ...collectViolations(
-        file,
-        /<\s*SwitchField\b[^>]*\bonChange\s*=/,
-        'switchfield-use-oncheckedchange',
-      ),
-      ...collectViolations(
-        file,
-        /variant\s*=\s*["'](danger|primary)["']/,
-        'no-legacy-confirmation-variants',
-      ),
-      ...collectViolations(
-        file,
-        /from\s+['"][^'"]*\/ui\/(BaseTable|DatabaseTreePicker)['"]/,
-        'no-domain-components-inside-ui',
-      ),
-      ...collectViolations(
-        file,
-        /import\s+\{[^}]*\b(BaseTable|DatabaseTreePicker)\b[^}]*\}\s+from\s+['"][^'"]*\/ui['"]/,
-        'no-domain-components-inside-ui',
-      ),
-      ...collectViolations(
-        file,
-        /from\s+['"][^'"]*\/ui\/(FormField|SelectField|SwitchField|SearchField|Divider)['"]/,
-        'no-legacy-form-wrappers',
-      ),
-      ...collectViolations(
-        file,
-        /import\s+\{[^}]*\b(FormField|SelectField|SwitchField|SearchField|Divider)\b[^}]*\}\s+from\s+['"][^'"]*\/ui['"]/,
-        'no-legacy-form-wrappers',
-      ),
-      ...collectViolations(
-        file,
-        /<\s*(FormField|SelectField|SwitchField|SearchField|Divider)\b/,
-        'no-legacy-form-wrappers',
-      ),
-      ...collectViolations(
-        file,
-        /<\s*Tooltip\b[^>]*\bcontent\s*=/,
-        'no-legacy-tooltip-content-prop',
-      ),
-      ...collectViolations(
-        file,
-        /from\s+['"][^'"]*\/layout\/(Modal|OverlayDialog)['"]/,
-        'no-legacy-layout-dialog-wrappers',
-      ),
-      ...collectViolations(
-        file,
-        /from\s+['"]\.(\.\/|\/)?(Modal|OverlayDialog)['"]/,
-        'no-legacy-layout-dialog-wrappers',
-      ),
-    );
-
-    if (!isNativeControlAllowed(rel)) {
-      violations.push(
-        ...collectViolations(file, /<(button|input|textarea)\b/, 'no-native-controls-outside-allowlist'),
-      );
-    }
-  }
-
-  if (rel === 'components/sidebar/Sidebar.tsx' || rel === 'components/sidebar/SecondarySidebar.tsx') {
-    violations.push(
-      ...collectViolations(file, /\buseState<SidebarTab>\b/, 'sidebar-shell-registry-only'),
-      ...collectViolations(file, /\bconst\s+tabs\s*=\s*\[/, 'sidebar-shell-registry-only'),
-    );
-  }
-
-  if (!rel.startsWith('components/ui/')) {
-    violations.push(
-      ...collectViolations(
-        file,
-        /from\s+['"]@radix-ui\//,
-        'no-radix-import-outside-ui',
-      ),
-    );
-  }
-
-  if (!rel.startsWith('platform/')) {
-    violations.push(
-      ...collectViolations(file, /\bwindow\.go\b/, 'no-window-go-outside-platform'),
-    );
-  }
-}
-
-if (violations.length > 0) {
+if (critical.length > 0) {
   console.error('FE guardrails failed:');
-  for (const violation of violations) {
-    const displayPath = path.relative(REPO_ROOT, violation.file).replace(/\\/g, '/');
-    console.error(
-      `- [${violation.rule}] ${displayPath}:${violation.line} -> ${violation.snippet}`,
-    );
+  for (const violation of critical) {
+    console.error(formatViolation(violation));
   }
   process.exit(1);
 }

@@ -74,10 +74,6 @@ export function CreateUniqueConstraint(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['CreateUniqueConstraint'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function UpdateForeignKey(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['app']['App']['UpdateForeignKey'](arg1, arg2, arg3, arg4, arg5);
-}
-
 export function DeactivateLicense(arg1) {
   return window['go']['app']['App']['DeactivateLicense'](arg1);
 }
@@ -226,10 +222,6 @@ export function GetCheckConstraints(arg1, arg2, arg3) {
   return window['go']['app']['App']['GetCheckConstraints'](arg1, arg2, arg3);
 }
 
-export function GetForeignKeys(arg1, arg2, arg3) {
-  return window['go']['app']['App']['GetForeignKeys'](arg1, arg2, arg3);
-}
-
 export function GetCommitFileDiffs(arg1) {
   return window['go']['app']['App']['GetCommitFileDiffs'](arg1);
 }
@@ -248,6 +240,10 @@ export function GetDefaultProjectStorageRoot() {
 
 export function GetExecutionPolicy(arg1) {
   return window['go']['app']['App']['GetExecutionPolicy'](arg1);
+}
+
+export function GetForeignKeys(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetForeignKeys'](arg1, arg2, arg3);
 }
 
 export function GetGitCommitDiff(arg1) {
@@ -484,4 +480,8 @@ export function TestConnection(arg1) {
 
 export function TruncateTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['TruncateTable'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateForeignKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['UpdateForeignKey'](arg1, arg2, arg3, arg4, arg5);
 }

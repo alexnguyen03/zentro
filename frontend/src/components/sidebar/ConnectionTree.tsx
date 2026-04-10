@@ -207,8 +207,8 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80',
-                    expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none bg-background/85 px-2 shadow-xs backdrop-blur-[2px]',
+                    'group flex items-center gap-1 px-1.5 py-1 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    expanded && 'sticky top-0 z-sticky bg-card -mx-0.5 rounded-none px-2',
                 )}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -245,7 +245,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         <div
                             key={`${item.id}:${index}`}
                             className={cn(
-                                'flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-md transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
+                                'flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-sm transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
                                 category.canOpenDefinition && 'cursor-pointer',
                             )}
                             onClick={() => {
@@ -598,12 +598,12 @@ export const ConnectionTree: React.FC = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex items-center gap-1.5 px-2 py-1 shrink-0">
-                <div className="flex-1 relative flex items-center min-w-0">
+                <div className="flex-1 relative flex items-center min-w-0 outline-none">
                     <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
                     <Input
                         ref={filterInputRef}
                         type="text"
-                        className="h-7 w-full rounded-md border-border/70 bg-background/90 py-[5px] pl-[22px] pr-1.5 text-[11px]"
+                        className="h-7 w-full rounded-sm py-1.25 pl-5.5 pr-1.5 text-[11px]"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(event) => updateExplorerUiState({ filter: event.target.value })}
@@ -629,7 +629,7 @@ export const ConnectionTree: React.FC = () => {
             </div>
             <div className="px-2 pb-1 shrink-0">
                 <div className="flex items-center gap-1.5 justify-between">
-                    <span className='text-xs'>Schema</span>
+                    <span className='text-[12px]'>Schema</span>
                     <div className="min-w-0">
                         <Select
                             value={selectedSchema}
@@ -638,7 +638,7 @@ export const ConnectionTree: React.FC = () => {
                             <SelectTrigger
                                 aria-label="Select schema"
                                 title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
-                                className="h-7 w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-muted/70 focus:ring-0"
+                                className="h-7 text-[12px] outline-none flex w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-muted/70 focus:ring-0"
                             >
                                 <SelectValue />
                             </SelectTrigger>
@@ -670,29 +670,29 @@ export const ConnectionTree: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col p-1.5 gap-1.5 overflow-hidden">
-                <div className="shrink-0 pb-1 border-b border-border/70 ">
+            <div className="flex-1 min-h-0 flex flex-col p-0.5 gap-1.5 overflow-hidden">
+                <div className="shrink-0 pb-1">
                     {visibleCategories.map((category) => (
                         <Button
                             key={category.id}
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'h-auto w-full justify-start gap-1.5 rounded-md py-2 text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'h-auto w-full justify-start gap-1.5 rounded-sm py-2 text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
                         >
                             {renderIcon(category.icon, 12)}
                             <span className="text-xs truncate">{category.label}</span>
-                            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-4.5 text-center shrink-0">
                                 {category.totalCount}
                             </span>
                         </Button>
                     ))}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md p-0">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                     {!activeCategory ? (
                         <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-md')}>
                             {emptyMessage}

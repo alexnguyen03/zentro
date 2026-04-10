@@ -27,3 +27,6 @@ export * from './Spinner';
 export * from './ConfirmationModal';
 export * from './Tooltip';
 export * from './table';
+export * from './app-shell-pattern';
+export * from './contract';
+export * from './designSystemVersion';

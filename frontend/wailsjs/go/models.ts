@@ -64,6 +64,30 @@ export namespace app {
 	        this.environment_strictness = source["environment_strictness"];
 	    }
 	}
+	export class ForeignKeyInfo {
+	    Name: string;
+	    Columns: string[];
+	    RefSchema: string;
+	    RefTable: string;
+	    RefColumns: string[];
+	    OnDelete: string;
+	    OnUpdate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ForeignKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Name = source["Name"];
+	        this.Columns = source["Columns"];
+	        this.RefSchema = source["RefSchema"];
+	        this.RefTable = source["RefTable"];
+	        this.RefColumns = source["RefColumns"];
+	        this.OnDelete = source["OnDelete"];
+	        this.OnUpdate = source["OnUpdate"];
+	    }
+	}
 	export class GitCommitFileDiff {
 	    path: string;
 	    before: string;
@@ -162,30 +186,6 @@ export namespace app {
 	        this.Table = source["Table"];
 	        this.Columns = source["Columns"];
 	        this.Unique = source["Unique"];
-	    }
-	}
-	export class ForeignKeyInfo {
-	    Name: string;
-	    Columns: string[];
-	    RefSchema: string;
-	    RefTable: string;
-	    RefColumns: string[];
-	    OnDelete: string;
-	    OnUpdate: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ForeignKeyInfo(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Name = source["Name"];
-	        this.Columns = source["Columns"];
-	        this.RefSchema = source["RefSchema"];
-	        this.RefTable = source["RefTable"];
-	        this.RefColumns = source["RefColumns"];
-	        this.OnDelete = source["OnDelete"];
-	        this.OnUpdate = source["OnUpdate"];
 	    }
 	}
 	export class PrimaryKeyInfo {
@@ -931,3 +931,4 @@ export namespace utils {
 	}
 
 }
+

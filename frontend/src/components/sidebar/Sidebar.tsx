@@ -59,7 +59,7 @@ export const Sidebar: React.FC = () => {
     }
 
     return (
-        <div className="sidebar flex h-full w-full select-none flex-col overflow-hidden border-r border-border">
+        <div className="sidebar flex h-full w-full select-none flex-col overflow-hidden bg-card/40">
             <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
                 <div className="shrink-0 px-2 pt-1">
                     <TabsList
@@ -87,7 +87,7 @@ export const Sidebar: React.FC = () => {
                         })}
                     </TabsList>
                 </div>
-                <div className="min-h-0 flex-1 overflow-hidden bg-background">
+                <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
                     {panels.map((panel) => (
                         <TabsContent key={panel.id} value={panel.id} className="mt-0 h-full outline-none">
                             {panel.render()}

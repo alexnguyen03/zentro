@@ -384,7 +384,7 @@ export const Toolbar: React.FC = () => {
 
     return (
         <div
-            className="h-10 grid grid-cols-10 items-center shrink-0 px-3 gap-2 border-b border-border"
+            className="h-10 grid grid-cols-10 items-center shrink-0 px-3 gap-2"
             onDoubleClick={handleToolbarDoubleClick}
         >
             {/* Left: 3/10 */}

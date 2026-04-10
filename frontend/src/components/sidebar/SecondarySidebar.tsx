@@ -35,11 +35,11 @@ export const SecondarySidebar: React.FC = () => {
     return (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar flex h-full shrink-0 flex-col border-l border-border" style={{ width: sidebarWidth }}>
+            <div className="sidebar flex h-full shrink-0 flex-col bg-card/10" style={{ width: sidebarWidth }}>
                 <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
-                    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1">
+                    <div className="flex items-center gap-2 px-2 py-1 bg-card/10">
                         <TabsList
-                            className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
+                            className="h-8 w-full justify-start gap-1 p-0 bg-transparent"
                         >
                             {panels.map((panel) => {
                                 const Icon = panel.icon;
@@ -62,20 +62,9 @@ export const SecondarySidebar: React.FC = () => {
                                 );
                             })}
                         </TabsList>
-
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="ml-auto h-7 w-7 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                            onClick={() => setShowRightSidebar(false)}
-                            title="Close right sidebar"
-                        >
-                            <X size={14} />
-                        </Button>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-hidden bg-background p-1.5">
+                    <div className="min-h-0 flex-1 overflow-hidden bg-card/10 p-1.5">
                         {panels.map((panel) => (
                             <TabsContent key={panel.id} value={panel.id} className="mt-0 h-full outline-none">
                                 {panel.render()}

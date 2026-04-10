@@ -43,8 +43,6 @@ export function CreateTable(arg1:string,arg2:string,arg3:string,arg4:Array<model
 
 export function CreateUniqueConstraint(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<void>;
 
-export function UpdateForeignKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:app.ForeignKeyInfo):Promise<void>;
-
 export function DeactivateLicense(arg1:string):Promise<void>;
 
 export function DeleteBookmark(arg1:string,arg2:string,arg3:number):Promise<void>;
@@ -119,8 +117,6 @@ export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookm
 
 export function GetCheckConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.CheckConstraintInfo>>;
 
-export function GetForeignKeys(arg1:string,arg2:string,arg3:string):Promise<Array<app.ForeignKeyInfo>>;
-
 export function GetCommitFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
 
 export function GetConnectionStatus():Promise<app.ConnectionRuntimeState>;
@@ -130,6 +126,8 @@ export function GetCurrentVersion():Promise<string>;
 export function GetDefaultProjectStorageRoot():Promise<string>;
 
 export function GetExecutionPolicy(arg1:string):Promise<app.ExecutionPolicy>;
+
+export function GetForeignKeys(arg1:string,arg2:string,arg3:string):Promise<Array<app.ForeignKeyInfo>>;
 
 export function GetGitCommitDiff(arg1:string):Promise<string>;
 
@@ -248,3 +246,5 @@ export function SwitchDatabase(arg1:string):Promise<void>;
 export function TestConnection(arg1:models.ConnectionProfile):Promise<void>;
 
 export function TruncateTable(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:boolean):Promise<void>;
+
+export function UpdateForeignKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:app.ForeignKeyInfo):Promise<void>;

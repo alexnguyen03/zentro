@@ -114,7 +114,7 @@ function App() {
                         <div style={{ width: sidebarWidth, flexShrink: 0 }}>
                             <Sidebar />
                         </div>
-                        <div className="resizer" onMouseDown={startResizing} />
+                        <div className="resizer bg-card/10" onMouseDown={startResizing} />
                     </>
                 )}
                 <div className="flex flex-1 flex-col overflow-hidden">

@@ -2,6 +2,7 @@ import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { DENSITY_CLASS, STATE_CLASS, TONE_CLASS, type DesignSystemControlProps } from './contract';
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
@@ -9,21 +10,27 @@ const SelectValue = SelectPrimitive.Value;
 
 const SelectTrigger = React.forwardRef<
     React.ElementRef<typeof SelectPrimitive.Trigger>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & DesignSystemControlProps
+>(({ className, children, tone = 'default', state = 'default', density = 'compact', ...props }, ref) => (
     <SelectPrimitive.Trigger
         ref={ref}
+        data-tone={tone}
+        data-state={state}
+        aria-busy={state === 'loading' ? true : undefined}
         className={cn(
-            'flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1.5 text-[13px] text-foreground shadow-xs',
+            'flex h-8 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-foreground shadow-xs',
             'outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            'disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground',
+            'disabled:cursor-not-allowed data-placeholder:text-muted-foreground',
+            DENSITY_CLASS[density],
+            TONE_CLASS[tone],
+            STATE_CLASS[state],
             className,
         )}
         {...props}
     >
         {children}
         <SelectPrimitive.Icon asChild>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown size={12} className="text-muted-foreground ml-1" />
         </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
 ));

@@ -7,9 +7,9 @@
 /* ── Resizer (drag handles) ────────────────────────────── */
 .resizer {
     width: 4px;
-    background-color: transparent;
+    /* background-color: transparent; */
     cursor: col-resize;
-    transition: background-color 0.2s;
+    /* transition: background-color 0.2s; */
     flex-shrink: 0;
 }
 

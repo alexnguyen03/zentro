@@ -172,6 +172,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     };
 
     const sourceControlEnabled = Boolean(activeProject?.id && activeProject?.git_repo_path);
+    const appearanceMatch = matchesSearch('Appearance', ['Theme Interface', 'Editor Font Size']);
+    const notificationsMatch = matchesSearch('Notifications', ['Toast Position']);
+    const dataMatch = matchesSearch('Data & Query', ['Default Row Limit', 'Telemetry', 'Export Telemetry', 'Write Safety', 'Strong Confirm']);
+    const regionMatch = matchesSearch('Region', ['Language']);
+    const profilesMatch = matchesSearch('Profiles', ['Import Profile', 'Export Profile', 'Theme', 'Layout', 'Shortcuts']);
+    const updatesMatch = matchesSearch('Updates', ['Auto-Check For Updates']);
+    const sourceControlMatch = matchesSearch('Source Control', ['Auto commit on app exit', 'Git repo path']);
+    const hasSettingsMatch = appearanceMatch || notificationsMatch || dataMatch || regionMatch || profilesMatch || updatesMatch || sourceControlMatch;
 
     const handleAutoCommitOnExitChange = async (checked: boolean) => {
         if (!activeProject || !activeProject.git_repo_path) return;
@@ -193,19 +201,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-background overflow-hidden">
-            {/* Minimal Flat Header */}
-            <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-background px-10">
-                {/* Logo/Title Section */}
+        <div className="flex h-full flex-col overflow-hidden bg-background">
+            <div className="z-sticky flex h-16 items-center justify-between bg-background/92 px-10">
                 <div className="flex items-center gap-3 text-foreground">
-                    <div className="p-2 rounded-md bg-accent/5 text-accent">
+                    <div className="rounded-md bg-accent/5 p-2 text-accent">
                         <SettingsIcon size={18} />
                     </div>
-                    <h1 className="text-[15px] font-bold tracking-tight">System Settings</h1>
+                    <h1 className="ui-text-section tracking-tight">System Settings</h1>
                 </div>
 
-                {/* Centered Flush Search Bar */}
-                <div className="flex-1 flex justify-center max-w-2xl px-8">
+                <div className="flex max-w-2xl flex-1 justify-center px-8">
                     <div className="relative w-full max-w-md">
                         <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -214,18 +219,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                            aria-label="Search settings"
                         />
                     </div>
                 </div>
 
-                {/* Right Actions */}
                 <div className="flex items-center gap-2">
                     <Button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
                         variant="ghost"
                         size="default"
-                        className="gap-2 font-bold text-[11px] tracking-widest uppercase"
+                        className="gap-2 text-[11px] font-bold uppercase tracking-widest"
                         title="Keyboard Shortcuts"
+                        aria-label="Open keyboard shortcuts"
                     >
                         <Keyboard size={16} />
                         <span className="hidden xl:inline">Shortcuts</span>
@@ -235,114 +241,110 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
 
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-y-auto scroll-smooth">
-                    <div className="max-w-4xl mx-auto px-5 py-6 animate-in fade-in duration-300">
-                        <div className="flex flex-col">
-                            {/* Appearance */}
-                            {matchesSearch("Appearance", ["Theme Interface", "Editor Font Size"]) && (
-                                <SettingsAppearance 
-                                    theme={formTheme} 
-                                    onThemeChange={setFormTheme} 
-                                    fontSize={formFontSize} 
-                                    onFontSizeChange={setFormFontSize} 
-                                />
-                            )}
+                    <div className="mx-auto flex w-full max-w-4xl flex-col px-5 py-6 animate-in fade-in duration-300">
+                {appearanceMatch && (
+                    <SettingsAppearance
+                        theme={formTheme}
+                        onThemeChange={setFormTheme}
+                        fontSize={formFontSize}
+                        onFontSizeChange={setFormFontSize}
+                    />
+                )}
 
-                            {/* Notifications */}
-                            {matchesSearch("Notifications", ["Toast Position"]) && (
-                                <SettingsNotifications
-                                    toastPlacement={formToastPlacement}
-                                    onToastPlacementChange={setFormToastPlacement}
-                                    onTestNotification={(variant) => {
-                                        if (variant === 'success') {
-                                            toast.success('This is a success notification preview.');
-                                            return;
-                                        }
-                                        if (variant === 'error') {
-                                            toast.error('This is an error notification preview.');
-                                            return;
-                                        }
-                                        toast.info('This is an info notification preview.');
-                                    }}
-                                />
-                            )}
+                {notificationsMatch && (
+                    <SettingsNotifications
+                        toastPlacement={formToastPlacement}
+                        onToastPlacementChange={setFormToastPlacement}
+                        onTestNotification={(variant) => {
+                            if (variant === 'success') {
+                                toast.success('This is a success notification preview.');
+                                return;
+                            }
+                            if (variant === 'error') {
+                                toast.error('This is an error notification preview.');
+                                return;
+                            }
+                            toast.info('This is an info notification preview.');
+                        }}
+                    />
+                )}
 
-                            {/* Editor & Data */}
-                            {matchesSearch("Data & Query", ["Default Row Limit", "Telemetry", "Export Telemetry", "Write Safety", "Strong Confirm"]) && (
-                                <SettingsData
-                                    limit={formLimit}
-                                    onLimitChange={setFormLimit}
-                                    connectTimeout={formConnectTimeout}
-                                    onConnectTimeoutChange={setFormConnectTimeout}
-                                    queryTimeout={formQueryTimeout}
-                                    onQueryTimeoutChange={setFormQueryTimeout}
-                                    activeSafetyEnvironment={safetyEnvironment}
-                                    safetyLevel={safetyLevel}
-                                    onSafetyLevelChange={handleSafetyLevelChange}
-                                    strongConfirmFromEnvironment={strongConfirmFromEnvironment}
-                                    onStrongConfirmFromEnvironmentChange={handleStrongConfirmFromEnvironmentChange}
-                                    telemetryOptIn={telemetryOptIn}
-                                    onTelemetryOptInChange={(checked) => {
-                                        setTelemetryConsent(checked);
-                                        setTelemetryOptIn(checked);
-                                        toast.success(checked ? 'Telemetry opt-in enabled.' : 'Telemetry opt-in disabled.');
-                                    }}
-                                    onExportTelemetry={() => {
-                                        const consent = getTelemetryConsent();
-                                        const bundle = buildTelemetryPipelineExportBundle(consent);
-                                        exportTelemetryPipelineBundle(bundle);
-                                        toast.success('Telemetry pipeline bundle exported.');
-                                    }}
-                                />
-                            )}
+                {dataMatch && (
+                    <SettingsData
+                        limit={formLimit}
+                        onLimitChange={setFormLimit}
+                        connectTimeout={formConnectTimeout}
+                        onConnectTimeoutChange={setFormConnectTimeout}
+                        queryTimeout={formQueryTimeout}
+                        onQueryTimeoutChange={setFormQueryTimeout}
+                        activeSafetyEnvironment={safetyEnvironment}
+                        safetyLevel={safetyLevel}
+                        onSafetyLevelChange={handleSafetyLevelChange}
+                        strongConfirmFromEnvironment={strongConfirmFromEnvironment}
+                        onStrongConfirmFromEnvironmentChange={handleStrongConfirmFromEnvironmentChange}
+                        telemetryOptIn={telemetryOptIn}
+                        onTelemetryOptInChange={(checked) => {
+                            setTelemetryConsent(checked);
+                            setTelemetryOptIn(checked);
+                            toast.success(checked ? 'Telemetry opt-in enabled.' : 'Telemetry opt-in disabled.');
+                        }}
+                        onExportTelemetry={() => {
+                            const consent = getTelemetryConsent();
+                            const bundle = buildTelemetryPipelineExportBundle(consent);
+                            exportTelemetryPipelineBundle(bundle);
+                            toast.success('Telemetry pipeline bundle exported.');
+                        }}
+                    />
+                )}
 
-                            {/* Region */}
-                            {matchesSearch("Region", ["Language"]) && (
-                                <SettingsRegion />
-                            )}
+                {regionMatch && <SettingsRegion />}
 
-                            {/* Profiles */}
-                            {matchesSearch("Profiles", ["Import Profile", "Export Profile", "Theme", "Layout", "Shortcuts"]) && (
-                                <SettingsProfiles
-                                    profileName={profileName}
-                                    onProfileNameChange={setProfileName}
-                                    onExportProfile={handleExportProfile}
-                                    onImportProfile={handleImportProfile}
-                                />
-                            )}
+                {profilesMatch && (
+                    <SettingsProfiles
+                        profileName={profileName}
+                        onProfileNameChange={setProfileName}
+                        onExportProfile={handleExportProfile}
+                        onImportProfile={handleImportProfile}
+                    />
+                )}
 
-                            {/* Updates */}
-                            {matchesSearch("Updates", ["Auto-Check For Updates"]) && (
-                                <SettingsUpdates
-                                    autoCheckUpdates={autoCheckUpdates}
-                                    onAutoCheckUpdatesChange={(checked) => {
-                                        const { theme, fontSize, defaultLimit, connectTimeout, queryTimeout, save } = useSettingsStore.getState();
-                                        save(new utils.Preferences({
-                                            theme,
-                                            font_size: fontSize,
-                                            default_limit: defaultLimit,
-                                            connect_timeout: connectTimeout,
-                                            query_timeout: queryTimeout,
-                                            toast_placement: useSettingsStore.getState().toastPlacement,
-                                            auto_check_updates: checked
-                                        }));
-                                    }}
-                                />
-                            )}
+                {updatesMatch && (
+                    <SettingsUpdates
+                        autoCheckUpdates={autoCheckUpdates}
+                        onAutoCheckUpdatesChange={(checked) => {
+                            const { theme, fontSize, defaultLimit, connectTimeout, queryTimeout, save } = useSettingsStore.getState();
+                            save(new utils.Preferences({
+                                theme,
+                                font_size: fontSize,
+                                default_limit: defaultLimit,
+                                connect_timeout: connectTimeout,
+                                query_timeout: queryTimeout,
+                                toast_placement: useSettingsStore.getState().toastPlacement,
+                                auto_check_updates: checked
+                            }));
+                        }}
+                    />
+                )}
 
-                            {/* Source Control */}
-                            {matchesSearch("Source Control", ["Auto commit on app exit", "Git repo path"]) && (
-                                <SettingsSourceControl
-                                    enabled={sourceControlEnabled}
-                                    checked={autoCommitOnExit}
-                                    saving={autoCommitSaving}
-                                    repoPath={activeProject?.git_repo_path}
-                                    onToggle={(checked) => {
-                                        void handleAutoCommitOnExitChange(checked);
-                                    }}
-                                />
-                            )}
-                        </div>
+                {sourceControlMatch && (
+                    <SettingsSourceControl
+                        enabled={sourceControlEnabled}
+                        checked={autoCommitOnExit}
+                        saving={autoCommitSaving}
+                        repoPath={activeProject?.git_repo_path}
+                        onToggle={(checked) => {
+                            void handleAutoCommitOnExitChange(checked);
+                        }}
+                    />
+                )}
+
+                {!hasSettingsMatch && (
+                    <div className="mt-4 rounded-md bg-card/35 p-4 text-center">
+                        <h3 className="ui-text-section">No settings matched</h3>
+                        <p className="ui-text-body text-muted-foreground">Try another keyword to find the setting you need.</p>
                     </div>
+                )}
+            </div>
                 </main>
             </div>
         </div>
