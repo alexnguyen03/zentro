@@ -295,6 +295,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
     // Foreign keys
     const [foreignKeyRows, setForeignKeyRows] = useState<ForeignKeyRowState[]>([]);
     const [refColumnCache, setRefColumnCache] = useState<Record<string, string[]>>({});
+    const refColumnCacheRef = useRef<Record<string, string[]>>({});
 
     // Drop confirmation
     const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -334,21 +335,25 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
     const loadReferencedColumns = useCallback(async (refSchema: string, refTable: string) => {
         if (!activeProfile?.name || !activeProfile?.db_name || !refSchema || !refTable) return;
         const cacheKey = toRefCacheKey(refSchema, refTable);
-        if (refColumnCache[cacheKey]) return;
+        if (refColumnCacheRef.current[cacheKey]) return;
 
         try {
             const defs = await checkAndFetchColumns(activeProfile.name, activeProfile.db_name, refSchema, refTable);
             setRefColumnCache((prev) => {
                 if (prev[cacheKey]) return prev;
-                return { ...prev, [cacheKey]: defs.map((d) => d.Name) };
+                const next = { ...prev, [cacheKey]: defs.map((d) => d.Name) };
+                refColumnCacheRef.current = next;
+                return next;
             });
         } catch {
             setRefColumnCache((prev) => {
                 if (prev[cacheKey]) return prev;
-                return { ...prev, [cacheKey]: [] };
+                const next = { ...prev, [cacheKey]: [] };
+                refColumnCacheRef.current = next;
+                return next;
             });
         }
-    }, [activeProfile?.db_name, activeProfile?.name, checkAndFetchColumns, refColumnCache]);
+    }, [activeProfile?.db_name, activeProfile?.name, checkAndFetchColumns]);
 
     // -- Load -------------------------------------------------------------------
 
@@ -398,6 +403,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
             });
             setForeignKeyRows(fkRows);
             setRefColumnCache({});
+            refColumnCacheRef.current = {};
 
             if (supportsForeignKeys) {
                 const uniqueTargets = new Set<string>();
