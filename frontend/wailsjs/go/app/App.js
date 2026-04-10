@@ -6,6 +6,10 @@ export function ActivateLicense(arg1, arg2) {
   return window['go']['app']['App']['ActivateLicense'](arg1, arg2);
 }
 
+export function AddPrimaryKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['AddPrimaryKey'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function AddTableColumn(arg1, arg2, arg3) {
   return window['go']['app']['App']['AddTableColumn'](arg1, arg2, arg3);
 }
@@ -46,6 +50,14 @@ export function ConnectProjectEnvironment(arg1) {
   return window['go']['app']['App']['ConnectProjectEnvironment'](arg1);
 }
 
+export function CreateCheckConstraint(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['CreateCheckConstraint'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function CreateForeignKey(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['CreateForeignKey'](arg1, arg2, arg3, arg4);
+}
+
 export function CreateIndex(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['app']['App']['CreateIndex'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -56,6 +68,14 @@ export function CreateProject(arg1) {
 
 export function CreateTable(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['CreateTable'](arg1, arg2, arg3, arg4);
+}
+
+export function CreateUniqueConstraint(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['CreateUniqueConstraint'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateForeignKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['UpdateForeignKey'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function DeactivateLicense(arg1) {
@@ -90,6 +110,14 @@ export function Disconnect() {
   return window['go']['app']['App']['Disconnect']();
 }
 
+export function DropCheckConstraint(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DropCheckConstraint'](arg1, arg2, arg3, arg4);
+}
+
+export function DropForeignKey(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DropForeignKey'](arg1, arg2, arg3, arg4);
+}
+
 export function DropIndex(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['DropIndex'](arg1, arg2, arg3, arg4);
 }
@@ -98,8 +126,20 @@ export function DropObject(arg1, arg2, arg3, arg4) {
   return window['go']['app']['App']['DropObject'](arg1, arg2, arg3, arg4);
 }
 
+export function DropObjectAdvanced(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['DropObjectAdvanced'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function DropPrimaryKey(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DropPrimaryKey'](arg1, arg2, arg3, arg4);
+}
+
 export function DropTableColumn(arg1, arg2, arg3) {
   return window['go']['app']['App']['DropTableColumn'](arg1, arg2, arg3);
+}
+
+export function DropUniqueConstraint(arg1, arg2, arg3, arg4) {
+  return window['go']['app']['App']['DropUniqueConstraint'](arg1, arg2, arg3, arg4);
 }
 
 export function EnableGitTracking() {
@@ -182,6 +222,14 @@ export function GetBookmarks(arg1, arg2) {
   return window['go']['app']['App']['GetBookmarks'](arg1, arg2);
 }
 
+export function GetCheckConstraints(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetCheckConstraints'](arg1, arg2, arg3);
+}
+
+export function GetForeignKeys(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetForeignKeys'](arg1, arg2, arg3);
+}
+
 export function GetCommitFileDiffs(arg1) {
   return window['go']['app']['App']['GetCommitFileDiffs'](arg1);
 }
@@ -230,6 +278,10 @@ export function GetPreferences() {
   return window['go']['app']['App']['GetPreferences']();
 }
 
+export function GetPrimaryKey(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetPrimaryKey'](arg1, arg2, arg3);
+}
+
 export function GetProject(arg1) {
   return window['go']['app']['App']['GetProject'](arg1);
 }
@@ -248,6 +300,10 @@ export function GetTableDDL(arg1, arg2, arg3) {
 
 export function GetTransactionStatus() {
   return window['go']['app']['App']['GetTransactionStatus']();
+}
+
+export function GetUniqueConstraints(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetUniqueConstraints'](arg1, arg2, arg3);
 }
 
 export function ImportConnectionPackage() {
@@ -424,4 +480,8 @@ export function SwitchDatabase(arg1) {
 
 export function TestConnection(arg1) {
   return window['go']['app']['App']['TestConnection'](arg1);
+}
+
+export function TruncateTable(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['TruncateTable'](arg1, arg2, arg3, arg4, arg5);
 }

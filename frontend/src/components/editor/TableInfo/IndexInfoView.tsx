@@ -41,6 +41,7 @@ interface IndexInfoViewProps {
     tableColumns?: string[];
     onActionsChange?: (actions: TabAction[]) => void;
     onDirtyCountChange?: (count: number) => void;
+    uniqueOnly?: boolean;
 }
 
 // ─── ColumnPicker ─────────────────────────────────────────────────────────────
@@ -164,6 +165,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     tableColumns = [],
     onActionsChange,
     onDirtyCountChange,
+    uniqueOnly = false,
 }) => {
     const [rows, setRows] = useState<IndexRowState[]>([]);
     const [loading, setLoading] = useState(true);
@@ -173,8 +175,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     const [editCell, setEditCell] = useState<{ rowId: string; field: 'name' | 'columns' } | null>(null);
 
     // Row selection — identical to columns tab
-    const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-    const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+    const [dragStartRowId, setDragStartRowId] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
     // Drop modal (for drops outside batch — not used in batch, kept for safety)
@@ -211,6 +213,18 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
 
     // ── Row mutations ─────────────────────────────────────────────────────────
 
+    const filteredRows = useMemo(() => {
+        let base = uniqueOnly ? rows.filter((r) => r.current.Unique) : rows;
+        if (!filterText.trim()) return base;
+        const lower = filterText.toLowerCase();
+        return base.filter((r) =>
+            r.current.Name.toLowerCase().includes(lower) ||
+            r.current.Columns.some((c) => c.toLowerCase().includes(lower)),
+        );
+    }, [rows, filterText, uniqueOnly]);
+
+    const filteredRowIds = useMemo(() => filteredRows.map((row) => row.id), [filteredRows]);
+
     const updateRow = useCallback((id: string, patch: Partial<IndexDef>) => {
         setRows((prev) =>
             prev.map((r) => r.id === id ? { ...r, current: { ...r.current, ...patch } } : r),
@@ -237,7 +251,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     }, []);
 
     const addNewRow = useCallback(() => {
-        const draft: IndexDef = { Name: '', Table: tableName, Columns: [], Unique: false };
+        const draft: IndexDef = { Name: '', Table: tableName, Columns: [], Unique: uniqueOnly };
         const newRow: IndexRowState = {
             id: `idx-new-${Date.now()}`,
             original: { ...draft },
@@ -252,41 +266,49 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
 
     // ── Selection — identical to columns tab ──────────────────────────────────
 
-    const handleRowMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
+    const handleRowMouseDown = useCallback((e: React.MouseEvent, rowId: string) => {
         if (e.button !== 0) return;
         setIsDragging(true);
-        setDragStartIdx(idx);
+        setDragStartRowId(rowId);
         if (e.ctrlKey || e.metaKey) {
             setSelectedRows((prev) => {
                 const next = new Set(prev);
-                if (next.has(idx)) next.delete(idx);
-                else next.add(idx);
+                if (next.has(rowId)) next.delete(rowId);
+                else next.add(rowId);
                 return next;
             });
         } else if (e.shiftKey && selectedRows.size > 0) {
-            const arr = Array.from(selectedRows);
-            const start = Math.min(...arr);
-            const min = Math.min(start, idx);
-            const max = Math.max(start, idx);
-            const next = new Set<number>();
-            for (let i = min; i <= max; i++) next.add(i);
+            const currentIdx = filteredRowIds.indexOf(rowId);
+            if (currentIdx === -1) return;
+            const anchorId = dragStartRowId && filteredRowIds.includes(dragStartRowId)
+                ? dragStartRowId
+                : Array.from(selectedRows)[0];
+            const anchorIdx = filteredRowIds.indexOf(anchorId);
+            if (anchorIdx === -1) return;
+            const min = Math.min(anchorIdx, currentIdx);
+            const max = Math.max(anchorIdx, currentIdx);
+            const next = new Set<string>();
+            for (let i = min; i <= max; i++) next.add(filteredRowIds[i]);
             setSelectedRows(next);
         } else {
-            setSelectedRows(new Set([idx]));
+            setSelectedRows(new Set([rowId]));
         }
-    }, [selectedRows]);
+    }, [dragStartRowId, filteredRowIds, selectedRows]);
 
-    const handleRowMouseEnter = useCallback((idx: number) => {
-        if (!isDragging || dragStartIdx === null) return;
-        const min = Math.min(dragStartIdx, idx);
-        const max = Math.max(dragStartIdx, idx);
-        const next = new Set<number>();
-        for (let i = min; i <= max; i++) next.add(i);
+    const handleRowMouseEnter = useCallback((rowId: string) => {
+        if (!isDragging || dragStartRowId === null) return;
+        const startIdx = filteredRowIds.indexOf(dragStartRowId);
+        const currentIdx = filteredRowIds.indexOf(rowId);
+        if (startIdx === -1 || currentIdx === -1) return;
+        const min = Math.min(startIdx, currentIdx);
+        const max = Math.max(startIdx, currentIdx);
+        const next = new Set<string>();
+        for (let i = min; i <= max; i++) next.add(filteredRowIds[i]);
         setSelectedRows(next);
-    }, [isDragging, dragStartIdx]);
+    }, [dragStartRowId, filteredRowIds, isDragging]);
 
     useEffect(() => {
-        const h = () => { setIsDragging(false); setDragStartIdx(null); };
+        const h = () => { setIsDragging(false); setDragStartRowId(null); };
         window.addEventListener('mouseup', h);
         return () => window.removeEventListener('mouseup', h);
     }, []);
@@ -297,8 +319,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         if (readOnlyMode || !selectedRows.size) return;
         setRows((prev) =>
             prev
-                .map((r, i) => {
-                    if (!selectedRows.has(i)) return r;
+                .map((r) => {
+                    if (!selectedRows.has(r.id)) return r;
                     if (r.isNew) return null as never;
                     return { ...r, deleted: !r.deleted };
                 })
@@ -401,8 +423,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             {
                 id: 'index-new',
                 icon: <Plus size={12} />,
-                label: 'Add Index',
-                title: 'Add Index',
+                label: uniqueOnly ? 'Add Unique Key' : 'Add Index',
+                title: uniqueOnly ? 'Add Unique Key' : 'Add Index',
                 onClick: addNewRow,
                 disabled: saving,
             },
@@ -450,15 +472,6 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
 
     // ── Filter ────────────────────────────────────────────────────────────────
 
-    const filteredRows = useMemo(() => {
-        if (!filterText.trim()) return rows;
-        const lower = filterText.toLowerCase();
-        return rows.filter((r) =>
-            r.current.Name.toLowerCase().includes(lower) ||
-            r.current.Columns.some((c) => c.toLowerCase().includes(lower)),
-        );
-    }, [rows, filterText]);
-
     // ── Render ────────────────────────────────────────────────────────────────
 
     if (loading) {
@@ -500,9 +513,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                 <th className="rt-th" style={{ width: '320px' }}>
                                     <div className="rt-th-label">Columns</div>
                                 </th>
-                                <th className="rt-th w-20">
-                                    <div className="rt-th-label justify-center">Unique</div>
-                                </th>
+                                {!uniqueOnly && (
+                                    <th className="rt-th w-20">
+                                        <div className="rt-th-label justify-center">Unique</div>
+                                    </th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/20">
@@ -510,7 +525,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                 const isDeleted = row.deleted;
                                 const isNew = row.isNew;
                                 const isDirty = isDirtyRow(row);
-                                const isSelected = selectedRows.has(displayIdx);
+                                const isSelected = selectedRows.has(row.id);
                                 const isEditingName = editCell?.rowId === row.id && editCell.field === 'name';
                                 const isEditingCols = editCell?.rowId === row.id && editCell.field === 'columns';
 
@@ -525,8 +540,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                     <tr
                                         key={row.id}
                                         className={rowCls}
-                                        onMouseDown={(e) => handleRowMouseDown(e, displayIdx)}
-                                        onMouseEnter={() => handleRowMouseEnter(displayIdx)}
+                                        onMouseDown={(e) => handleRowMouseDown(e, row.id)}
+                                        onMouseEnter={() => handleRowMouseEnter(row.id)}
                                     >
                                         {/* # — double-click to discard row (matches columns tab) */}
                                         <td className="w-10 text-center border-b border-border">
@@ -571,7 +586,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                     {isDirty && (
                                                         <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
                                                     )}
-                                                    {row.current.Unique && (
+                                                    {row.current.Unique && !uniqueOnly && (
                                                         <span className="ml-1.5 text-[9px] font-bold text-accent bg-accent/10 px-1 py-0.5 rounded-md shrink-0">UNIQUE</span>
                                                     )}
                                                 </div>
@@ -611,37 +626,39 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                         </td>
 
                                         {/* Unique — always interactive, no double-click needed */}
-                                        <td className="w-20 text-center border-b border-border">
-                                            <div
-                                                className="rt-cell-content rt-cell-content--compact justify-center"
-                                                onMouseDown={(e) => e.stopPropagation()}
-                                            >
-                                                <Switch
-                                                    checked={row.current.Unique}
-                                                    disabled={isDeleted || readOnlyMode}
-                                                    onCheckedChange={(checked) => updateRow(row.id, { Unique: checked })}
-                                                    className="scale-75 origin-center"
-                                                />
-                                            </div>
-                                        </td>
+                                        {!uniqueOnly && (
+                                            <td className="w-20 text-center border-b border-border">
+                                                <div
+                                                    className="rt-cell-content rt-cell-content--compact justify-center"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <Switch
+                                                        checked={row.current.Unique}
+                                                        disabled={isDeleted || readOnlyMode}
+                                                        onCheckedChange={(checked) => updateRow(row.id, { Unique: checked })}
+                                                        className="scale-75 origin-center"
+                                                    />
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
 
                             {rows.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                    <td colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
                                         {readOnlyMode
-                                            ? 'No indexes found for this table.'
-                                            : 'No indexes yet. Click "Add Index" to create one.'}
+                                            ? (uniqueOnly ? 'No unique keys found for this table.' : 'No indexes found for this table.')
+                                            : (uniqueOnly ? 'No unique keys yet. Click "Add Unique Key" to create one.' : 'No indexes yet. Click "Add Index" to create one.')}
                                     </td>
                                 </tr>
                             )}
 
                             {rows.length > 0 && filteredRows.length === 0 && filterText && (
                                 <tr>
-                                    <td colSpan={4} className="py-8 text-center text-muted-foreground text-[12px]">
-                                        No indexes match "{filterText}"
+                                    <td colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-[12px]">
+                                        {uniqueOnly ? `No unique keys match "${filterText}"` : `No indexes match "${filterText}"`}
                                     </td>
                                 </tr>
                             )}

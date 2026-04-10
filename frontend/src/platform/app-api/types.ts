@@ -107,6 +107,8 @@ export interface AppApiGateway {
     FetchTableRelationships(schema: string, table: string): Promise<models.TableRelationship[]>;
     CreateTable(profileName: string, schema: string, tableName: string, columns: models.ColumnDef[]): Promise<void>;
     DropObject(profileName: string, schema: string, objectName: string, objectType: string): Promise<void>;
+    DropObjectAdvanced(profileName: string, schema: string, objectName: string, objectType: string, cascade: boolean): Promise<void>;
+    TruncateTable(profileName: string, schema: string, tableName: string, cascade: boolean, restartIdentity: boolean): Promise<void>;
     GetTableDDL(profileName: string, schema: string, tableName: string): Promise<string>;
     AlterTableColumn(profileName: string, schema: string, current: models.ColumnDef, next: models.ColumnDef): Promise<void>;
     AddTableColumn(profileName: string, schema: string, col: models.ColumnDef): Promise<void>;
@@ -114,6 +116,19 @@ export interface AppApiGateway {
     GetIndexes(profileName: string, schema: string, table: string): Promise<app.IndexInfo[]>;
     CreateIndex(profileName: string, schema: string, table: string, indexName: string, columns: string[], unique: boolean): Promise<void>;
     DropIndex(profileName: string, schema: string, tableName: string, indexName: string): Promise<void>;
+    GetCheckConstraints(profileName: string, schema: string, table: string): Promise<app.CheckConstraintInfo[]>;
+    CreateCheckConstraint(profileName: string, schema: string, table: string, name: string, expression: string): Promise<void>;
+    DropCheckConstraint(profileName: string, schema: string, table: string, name: string): Promise<void>;
+    GetUniqueConstraints(profileName: string, schema: string, table: string): Promise<app.UniqueConstraintInfo[]>;
+    CreateUniqueConstraint(profileName: string, schema: string, table: string, name: string, columns: string[]): Promise<void>;
+    DropUniqueConstraint(profileName: string, schema: string, table: string, name: string): Promise<void>;
+    GetPrimaryKey(profileName: string, schema: string, table: string): Promise<app.PrimaryKeyInfo | null>;
+    AddPrimaryKey(profileName: string, schema: string, table: string, name: string, columns: string[]): Promise<void>;
+    DropPrimaryKey(profileName: string, schema: string, table: string, name: string): Promise<void>;
+    GetForeignKeys(profileName: string, schema: string, table: string): Promise<app.ForeignKeyInfo[]>;
+    CreateForeignKey(profileName: string, schema: string, table: string, fk: app.ForeignKeyInfo): Promise<void>;
+    UpdateForeignKey(profileName: string, schema: string, table: string, originalName: string, fk: app.ForeignKeyInfo): Promise<void>;
+    DropForeignKey(profileName: string, schema: string, table: string, name: string): Promise<void>;
 
     // Settings & updates
     GetPreferences(): Promise<utils.Preferences>;

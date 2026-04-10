@@ -9,6 +9,8 @@ import {plugin} from '../models';
 
 export function ActivateLicense(arg1:string,arg2:string):Promise<license.State>;
 
+export function AddPrimaryKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<void>;
+
 export function AddTableColumn(arg1:string,arg2:string,arg3:models.ColumnDef):Promise<void>;
 
 export function AlterTableColumn(arg1:string,arg2:string,arg3:models.ColumnDef,arg4:models.ColumnDef):Promise<void>;
@@ -29,11 +31,19 @@ export function Connect(arg1:string):Promise<void>;
 
 export function ConnectProjectEnvironment(arg1:string):Promise<void>;
 
+export function CreateCheckConstraint(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
+
+export function CreateForeignKey(arg1:string,arg2:string,arg3:string,arg4:app.ForeignKeyInfo):Promise<void>;
+
 export function CreateIndex(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>,arg6:boolean):Promise<void>;
 
 export function CreateProject(arg1:models.Project):Promise<models.Project>;
 
 export function CreateTable(arg1:string,arg2:string,arg3:string,arg4:Array<models.ColumnDef>):Promise<void>;
+
+export function CreateUniqueConstraint(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<void>;
+
+export function UpdateForeignKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:app.ForeignKeyInfo):Promise<void>;
 
 export function DeactivateLicense(arg1:string):Promise<void>;
 
@@ -51,11 +61,21 @@ export function DisableGitTracking():Promise<void>;
 
 export function Disconnect():Promise<void>;
 
+export function DropCheckConstraint(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
+export function DropForeignKey(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
 export function DropIndex(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function DropObject(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
+export function DropObjectAdvanced(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean):Promise<void>;
+
+export function DropPrimaryKey(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
+
 export function DropTableColumn(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function DropUniqueConstraint(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function EnableGitTracking():Promise<void>;
 
@@ -97,6 +117,10 @@ export function GetActiveProject():Promise<models.Project>;
 
 export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookmark>>;
 
+export function GetCheckConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.CheckConstraintInfo>>;
+
+export function GetForeignKeys(arg1:string,arg2:string,arg3:string):Promise<Array<app.ForeignKeyInfo>>;
+
 export function GetCommitFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
 
 export function GetConnectionStatus():Promise<app.ConnectionRuntimeState>;
@@ -121,6 +145,8 @@ export function GetLicenseState():Promise<license.State>;
 
 export function GetPreferences():Promise<utils.Preferences>;
 
+export function GetPrimaryKey(arg1:string,arg2:string,arg3:string):Promise<app.PrimaryKeyInfo>;
+
 export function GetProject(arg1:string):Promise<models.Project>;
 
 export function GetScriptContent(arg1:string,arg2:string,arg3:string):Promise<string>;
@@ -130,6 +156,8 @@ export function GetScripts(arg1:string,arg2:string):Promise<Array<models.SavedSc
 export function GetTableDDL(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function GetTransactionStatus():Promise<string>;
+
+export function GetUniqueConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.UniqueConstraintInfo>>;
 
 export function ImportConnectionPackage():Promise<models.ConnectionProfile>;
 
@@ -218,3 +246,5 @@ export function SnapshotStoredProcedures(arg1:string):Promise<number>;
 export function SwitchDatabase(arg1:string):Promise<void>;
 
 export function TestConnection(arg1:models.ConnectionProfile):Promise<void>;
+
+export function TruncateTable(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:boolean):Promise<void>;

@@ -8,6 +8,7 @@ import {
     Link2,
     List,
     Plus,
+    RefreshCw,
     Search,
     Sigma,
     SpellCheck2,
@@ -24,7 +25,7 @@ import { useSchemaStore } from '../../stores/schemaStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/cn';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
-import { DropObject } from '../../services/schemaService';
+import { DropObjectAdvanced, TruncateTable } from '../../services/schemaService';
 import { useToast } from '../layout/Toast';
 import { useConnectionTreeModel } from './useConnectionTreeModel';
 import type { CategoryGroupNode, ConnectionTreeIcon, SchemaBucketNode } from './connectionTreeTypes';
@@ -33,6 +34,11 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuShortcut,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
     Input,
     Select,
@@ -45,6 +51,8 @@ import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 import { useSidebarPanelState } from '../../stores/sidebarUiStore';
 import { EXPLORER_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 import { buildNewTableDraftTarget } from '../../lib/tableTargets';
+import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
+import { emitCommand } from '../../lib/commandBus';
 
 const iconClass = 'opacity-80 shrink-0';
 const ALL_SCHEMAS_VALUE = '__all_schemas__';
@@ -81,49 +89,87 @@ function renderIcon(icon: ConnectionTreeIcon, size = 12): React.ReactNode {
 interface SchemaBucketNodeViewProps {
     bucket: SchemaBucketNode;
     category: CategoryGroupNode;
+    driver: string;
     expanded: boolean;
     readOnlyMode: boolean;
     onToggle: () => void;
     onCreateTable: (schemaName: string) => void;
     onOpenDefinition: (schemaName: string, objectName: string) => void;
-    onDropObject: (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW') => Promise<void>;
+    onDropObject: (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW', cascade: boolean) => Promise<void>;
+    onTruncateTable: (schema: string, tableName: string, cascade: boolean, restartIdentity: boolean) => Promise<void>;
+    onRefreshSchema: () => Promise<void>;
+    onExportData: (schema: string, tableName: string) => void;
 }
 
 const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
     bucket,
     category,
+    driver,
     expanded,
     readOnlyMode,
     onToggle,
     onCreateTable,
     onOpenDefinition,
     onDropObject,
+    onTruncateTable,
+    onRefreshSchema,
+    onExportData,
 }) => {
-    const [contextMenuItem, setContextMenuItem] = useState<string | null>(null);
-    const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: 'TABLE' | 'VIEW' } | null>(null);
+    const [contextMenuItemId, setContextMenuItemId] = useState<string | null>(null);
+    const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: 'TABLE' | 'VIEW'; cascade: boolean } | null>(null);
+    const [truncateModal, setTruncateModal] = useState<{ schema: string; tableName: string; cascade: boolean; restartIdentity: boolean } | null>(null);
 
-    const canDrop = Boolean(category.dropObjectType) && !readOnlyMode;
+    const objectType = category.dropObjectType;
+    const isTableCategory = objectType === 'TABLE';
+    const isViewCategory = objectType === 'VIEW';
+    const canOpenContextMenu = Boolean(objectType);
+    const supportsDropCascade = driver === 'postgres' && (isTableCategory || isViewCategory);
+    const supportsTruncate = isTableCategory && driver !== 'sqlite';
+    const supportsTruncateCascade = isTableCategory && driver === 'postgres';
+    const supportsTruncateRestartIdentity = isTableCategory && driver === 'postgres';
 
-    const handleContextMenu = (event: React.MouseEvent, itemName: string) => {
-        if (!canDrop) return;
+    const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
+        if (!canOpenContextMenu) return;
         event.preventDefault();
-        setContextMenuItem(itemName);
+        setContextMenuItemId(itemId);
     };
 
-    const requestDrop = () => {
-        if (!contextMenuItem || !category.dropObjectType) return;
+    const requestDrop = (itemName: string, cascade: boolean) => {
+        if (!objectType) return;
         setDropModal({
             schema: bucket.schemaName,
-            item: contextMenuItem,
-            type: category.dropObjectType,
+            item: itemName,
+            type: objectType,
+            cascade,
         });
-        setContextMenuItem(null);
+        setContextMenuItemId(null);
+    };
+
+    const requestTruncate = (tableName: string, cascade: boolean, restartIdentity: boolean) => {
+        setTruncateModal({
+            schema: bucket.schemaName,
+            tableName,
+            cascade,
+            restartIdentity,
+        });
+        setContextMenuItemId(null);
     };
 
     const confirmDrop = async () => {
         if (!dropModal) return;
-        await onDropObject(dropModal.schema, dropModal.item, dropModal.type);
+        await onDropObject(dropModal.schema, dropModal.item, dropModal.type, dropModal.cascade);
         setDropModal(null);
+    };
+
+    const confirmTruncate = async () => {
+        if (!truncateModal) return;
+        await onTruncateTable(
+            truncateModal.schema,
+            truncateModal.tableName,
+            truncateModal.cascade,
+            truncateModal.restartIdentity,
+        );
+        setTruncateModal(null);
     };
 
     return (
@@ -136,8 +182,26 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                 }}
                 title={`Drop ${dropModal?.type || 'Object'}`}
                 message={`Are you sure you want to drop "${dropModal?.item}"?`}
-                description="This action cannot be undone."
+                description={dropModal?.cascade ? 'This action cannot be undone and will include CASCADE.' : 'This action cannot be undone.'}
                 confirmLabel="Drop"
+                variant="destructive"
+            />
+            <ConfirmationModal
+                isOpen={Boolean(truncateModal)}
+                onClose={() => setTruncateModal(null)}
+                onConfirm={() => {
+                    void confirmTruncate();
+                }}
+                title="Truncate Table"
+                message={`Are you sure you want to truncate "${truncateModal?.tableName}"?`}
+                description={
+                    truncateModal?.cascade
+                        ? 'This will remove all rows (CASCADE) and cannot be undone.'
+                        : truncateModal?.restartIdentity
+                            ? 'This will remove all rows and restart identity values.'
+                            : 'This will remove all rows and cannot be undone.'
+                }
+                confirmLabel="Truncate"
                 variant="destructive"
             />
 
@@ -188,34 +252,139 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                                 if (!category.canOpenDefinition) return;
                                 onOpenDefinition(item.schemaName, item.name);
                             }}
-                            onContextMenu={(event) => handleContextMenu(event, item.name)}
+                            onContextMenu={(event) => handleContextMenu(event, item.id)}
                             title={item.name}
                         >
                             <span className="w-[13px] shrink-0 inline-block" />
                             {renderIcon(category.itemIcon, 12)}
                             <span className="truncate flex-1">{item.name}</span>
-                            {canDrop && (
+                            {canOpenContextMenu && (
                                 <DropdownMenu
-                                    open={contextMenuItem === item.name}
+                                    open={contextMenuItemId === item.id}
                                     onOpenChange={(open) => {
-                                        if (!open) setContextMenuItem(null);
+                                        if (!open) setContextMenuItemId(null);
                                     }}
                                 >
                                     <DropdownMenuTrigger
                                         aria-label={`Actions for ${item.name}`}
                                         className="h-0 w-0 overflow-hidden border-0 p-0 opacity-0 pointer-events-none"
                                     />
-                                    <DropdownMenuContent align="end" sideOffset={4} className="min-w-[160px]">
+                                    <DropdownMenuContent align="end" sideOffset={4} className="min-w-[220px]">
                                         <DropdownMenuItem
                                             onSelect={(event) => {
                                                 event.preventDefault();
-                                                requestDrop();
+                                                if (readOnlyMode) return;
+                                                requestDrop(item.name, false);
                                             }}
                                             className="text-destructive focus:text-destructive"
+                                            disabled={readOnlyMode}
                                         >
                                             <Trash2 size={14} />
-                                            Drop {category.dropObjectType === 'TABLE' ? 'Table' : 'View'}
+                                            Drop
+                                            <DropdownMenuShortcut>Alt+Shift+D</DropdownMenuShortcut>
                                         </DropdownMenuItem>
+                                        {supportsDropCascade && (
+                                            <DropdownMenuItem
+                                                onSelect={(event) => {
+                                                    event.preventDefault();
+                                                    if (readOnlyMode) return;
+                                                    requestDrop(item.name, true);
+                                                }}
+                                                className="text-destructive focus:text-destructive"
+                                                disabled={readOnlyMode}
+                                            >
+                                                <Trash2 size={14} />
+                                                Drop (Cascade)
+                                            </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={(event) => {
+                                                event.preventDefault();
+                                                void onRefreshSchema();
+                                            }}
+                                        >
+                                            <RefreshCw size={14} />
+                                            Refresh...
+                                            <DropdownMenuShortcut>F5</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem
+                                            onSelect={(event) => event.preventDefault()}
+                                            title="Coming soon"
+                                            className="cursor-not-allowed opacity-50"
+                                        >
+                                            Restore...
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onSelect={(event) => event.preventDefault()}
+                                            title="Coming soon"
+                                            className="cursor-not-allowed opacity-50"
+                                        >
+                                            Backup...
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>Import/Export Data...</DropdownMenuSubTrigger>
+                                            <DropdownMenuSubContent className="min-w-[200px]">
+                                                <DropdownMenuItem
+                                                    onSelect={(event) => event.preventDefault()}
+                                                    title="Coming soon"
+                                                    className="cursor-not-allowed opacity-50"
+                                                >
+                                                    Import...
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onSelect={(event) => {
+                                                        event.preventDefault();
+                                                        if (!isTableCategory) return;
+                                                        onExportData(bucket.schemaName, item.name);
+                                                    }}
+                                                    disabled={!isTableCategory}
+                                                >
+                                                    Export...
+                                                </DropdownMenuItem>
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
+
+                                        {supportsTruncate && (
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger disabled={readOnlyMode}>Truncate</DropdownMenuSubTrigger>
+                                                <DropdownMenuSubContent className="min-w-[200px]">
+                                                    <DropdownMenuItem
+                                                        onSelect={(event) => {
+                                                            event.preventDefault();
+                                                            requestTruncate(item.name, false, false);
+                                                        }}
+                                                        disabled={readOnlyMode}
+                                                    >
+                                                        Truncate
+                                                    </DropdownMenuItem>
+                                                    {supportsTruncateCascade && (
+                                                        <DropdownMenuItem
+                                                            onSelect={(event) => {
+                                                                event.preventDefault();
+                                                                requestTruncate(item.name, true, false);
+                                                            }}
+                                                            disabled={readOnlyMode}
+                                                        >
+                                                            Truncate Cascade
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {supportsTruncateRestartIdentity && (
+                                                        <DropdownMenuItem
+                                                            onSelect={(event) => {
+                                                                event.preventDefault();
+                                                                requestTruncate(item.name, false, true);
+                                                            }}
+                                                            disabled={readOnlyMode}
+                                                        >
+                                                            Truncate Restart Identity
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuSub>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
@@ -363,7 +532,7 @@ export const ConnectionTree: React.FC = () => {
         });
     }, [addTab]);
 
-    const handleDropObject = async (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW') => {
+    const handleDropObject = async (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW', cascade: boolean) => {
         if (!activeProfile?.name || !activeProfile?.db_name) return;
         const guard = await writeSafetyGuard.guardOperations(['drop'], `Drop ${objectType}`);
         if (!guard.allowed) {
@@ -373,13 +542,53 @@ export const ConnectionTree: React.FC = () => {
             return;
         }
         try {
-            await DropObject(activeProfile.name, schema, objectName, objectType);
+            await DropObjectAdvanced(activeProfile.name, schema, objectName, objectType, cascade);
             toast.success(`${objectType} "${objectName}" dropped successfully`);
             await FetchDatabaseSchema(activeProfile.name, activeProfile.db_name);
         } catch (error) {
             toast.error(`Failed to drop: ${error}`);
         }
     };
+
+    const handleTruncateTable = async (schema: string, tableName: string, cascade: boolean, restartIdentity: boolean) => {
+        if (!activeProfile?.name || !activeProfile?.db_name) return;
+        const guard = await writeSafetyGuard.guardOperations(['truncate'], 'Truncate Table');
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
+            }
+            return;
+        }
+        try {
+            await TruncateTable(activeProfile.name, schema, tableName, cascade, restartIdentity);
+            toast.success(`Table "${tableName}" truncated successfully`);
+            await FetchDatabaseSchema(activeProfile.name, activeProfile.db_name);
+        } catch (error) {
+            toast.error(`Failed to truncate: ${error}`);
+        }
+    };
+
+    const handleRefreshSchema = useCallback(async () => {
+        if (!activeProfile?.name || !activeProfile?.db_name) return;
+        try {
+            await FetchDatabaseSchema(activeProfile.name, activeProfile.db_name);
+            toast.success('Schema refreshed');
+        } catch (error) {
+            toast.error(`Failed to refresh schema: ${error}`);
+        }
+    }, [activeProfile?.db_name, activeProfile?.name, toast]);
+
+    const handleExportData = useCallback((schema: string, tableName: string) => {
+        const qualifiedName = `${schema}.${tableName}`;
+        const tableTabId = addTab({
+            type: TAB_TYPE.TABLE,
+            name: qualifiedName,
+            content: qualifiedName,
+            query: '',
+        });
+        emitCommand(DOM_EVENT.OPEN_TABLE_EXPORT, { tableTabId });
+    }, [addTab]);
+
     const emptyMessage = useMemo(() => {
         if (isLoading && !hasLoadedSchemas) return 'Loading schemas...';
         if (!activeCategory) return 'No categories found';
@@ -499,12 +708,16 @@ export const ConnectionTree: React.FC = () => {
                                     key={bucket.id}
                                     bucket={bucket}
                                     category={activeCategory}
+                                    driver={activeProfile.driver || ''}
                                     expanded={isSchemaExpanded(activeCategory.key, bucket.schemaName)}
                                     readOnlyMode={viewMode}
                                     onToggle={() => toggleSchema(activeCategory.key, bucket.schemaName)}
                                     onCreateTable={handleCreateTable}
                                     onOpenDefinition={handleOpenDefinition}
                                     onDropObject={handleDropObject}
+                                    onTruncateTable={handleTruncateTable}
+                                    onRefreshSchema={handleRefreshSchema}
+                                    onExportData={handleExportData}
                                 />
                             ))}
                         </div>

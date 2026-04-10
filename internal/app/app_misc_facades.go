@@ -167,6 +167,22 @@ func (a *App) DropObject(profileName, schema, objectName, objectType string) err
 	return DropObjectWithConnection(a.profile, a.db, schema, objectName, objectType)
 }
 
+func (a *App) DropObjectAdvanced(profileName, schema, objectName, objectType string, cascade bool) error {
+	_ = profileName
+	if err := a.ensureWritable("drop object"); err != nil {
+		return err
+	}
+	return DropObjectAdvancedWithConnection(a.profile, a.db, schema, objectName, objectType, cascade)
+}
+
+func (a *App) TruncateTable(profileName, schema, tableName string, cascade bool, restartIdentity bool) error {
+	_ = profileName
+	if err := a.ensureWritable("truncate table"); err != nil {
+		return err
+	}
+	return TruncateTableWithConnection(a.profile, a.db, schema, tableName, cascade, restartIdentity)
+}
+
 func (a *App) CreateIndex(profileName, schema, tableName, indexName string, columns []string, unique bool) error {
 	_ = profileName
 	if err := a.ensureWritable("create index"); err != nil {
@@ -186,6 +202,104 @@ func (a *App) DropIndex(profileName, schema, tableName, indexName string) error 
 func (a *App) GetIndexes(profileName, schema, tableName string) ([]IndexInfo, error) {
 	_ = profileName
 	return GetIndexesWithConnection(a.profile, a.db, schema, tableName)
+}
+
+// ─── Check Constraints ────────────────────────────────────────────────────────
+
+func (a *App) GetCheckConstraints(profileName, schema, tableName string) ([]CheckConstraintInfo, error) {
+	_ = profileName
+	return GetCheckConstraintsWithConnection(a.profile, a.db, schema, tableName)
+}
+
+func (a *App) CreateCheckConstraint(profileName, schema, tableName, name, expression string) error {
+	_ = profileName
+	if err := a.ensureWritable("create check constraint"); err != nil {
+		return err
+	}
+	return CreateCheckConstraintWithConnection(a.profile, a.db, schema, tableName, name, expression)
+}
+
+func (a *App) DropCheckConstraint(profileName, schema, tableName, name string) error {
+	_ = profileName
+	if err := a.ensureWritable("drop check constraint"); err != nil {
+		return err
+	}
+	return DropCheckConstraintWithConnection(a.profile, a.db, schema, tableName, name)
+}
+
+// ─── Unique Constraints ───────────────────────────────────────────────────────
+
+func (a *App) GetUniqueConstraints(profileName, schema, tableName string) ([]UniqueConstraintInfo, error) {
+	_ = profileName
+	return GetUniqueConstraintsWithConnection(a.profile, a.db, schema, tableName)
+}
+
+func (a *App) CreateUniqueConstraint(profileName, schema, tableName, name string, columns []string) error {
+	_ = profileName
+	if err := a.ensureWritable("create unique constraint"); err != nil {
+		return err
+	}
+	return CreateUniqueConstraintWithConnection(a.profile, a.db, schema, tableName, name, columns)
+}
+
+func (a *App) DropUniqueConstraint(profileName, schema, tableName, name string) error {
+	_ = profileName
+	if err := a.ensureWritable("drop unique constraint"); err != nil {
+		return err
+	}
+	return DropUniqueConstraintWithConnection(a.profile, a.db, schema, tableName, name)
+}
+
+// ─── Primary Key ──────────────────────────────────────────────────────────────
+
+func (a *App) GetPrimaryKey(profileName, schema, tableName string) (*PrimaryKeyInfo, error) {
+	_ = profileName
+	return GetPrimaryKeyWithConnection(a.profile, a.db, schema, tableName)
+}
+
+func (a *App) AddPrimaryKey(profileName, schema, tableName, name string, columns []string) error {
+	_ = profileName
+	if err := a.ensureWritable("add primary key"); err != nil {
+		return err
+	}
+	return AddPrimaryKeyWithConnection(a.profile, a.db, schema, tableName, name, columns)
+}
+
+func (a *App) DropPrimaryKey(profileName, schema, tableName, name string) error {
+	_ = profileName
+	if err := a.ensureWritable("drop primary key"); err != nil {
+		return err
+	}
+	return DropPrimaryKeyWithConnection(a.profile, a.db, schema, tableName, name)
+}
+
+func (a *App) GetForeignKeys(profileName, schema, tableName string) ([]ForeignKeyInfo, error) {
+	_ = profileName
+	return GetForeignKeysWithConnection(a.profile, a.db, schema, tableName)
+}
+
+func (a *App) CreateForeignKey(profileName, schema, tableName string, fk ForeignKeyInfo) error {
+	_ = profileName
+	if err := a.ensureWritable("create foreign key"); err != nil {
+		return err
+	}
+	return CreateForeignKeyWithConnection(a.profile, a.db, schema, tableName, fk)
+}
+
+func (a *App) UpdateForeignKey(profileName, schema, tableName, originalName string, fk ForeignKeyInfo) error {
+	_ = profileName
+	if err := a.ensureWritable("update foreign key"); err != nil {
+		return err
+	}
+	return UpdateForeignKeyWithConnection(a.profile, a.db, schema, tableName, originalName, fk)
+}
+
+func (a *App) DropForeignKey(profileName, schema, tableName, constraintName string) error {
+	_ = profileName
+	if err := a.ensureWritable("drop foreign key"); err != nil {
+		return err
+	}
+	return DropForeignKeyWithConnection(a.profile, a.db, schema, tableName, constraintName)
 }
 
 func (a *App) CreateTable(profileName, schema, tableName string, columns []models.ColumnDef) error {

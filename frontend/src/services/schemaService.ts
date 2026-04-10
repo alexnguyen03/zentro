@@ -1,4 +1,4 @@
-import type { models } from '../../wailsjs/go/models';
+import type { app, models } from '../../wailsjs/go/models';
 import { wailsGateway } from '../platform/app-api/wailsGateway';
 
 export const FetchDatabaseSchema = (profileName: string, dbName: string) => wailsGateway.FetchDatabaseSchema(profileName, dbName);
@@ -8,6 +8,10 @@ export const CreateTable = (profileName: string, schema: string, tableName: stri
     wailsGateway.CreateTable(profileName, schema, tableName, columns);
 export const DropObject = (profileName: string, schema: string, objectName: string, objectType: string) =>
     wailsGateway.DropObject(profileName, schema, objectName, objectType);
+export const DropObjectAdvanced = (profileName: string, schema: string, objectName: string, objectType: string, cascade: boolean) =>
+    wailsGateway.DropObjectAdvanced(profileName, schema, objectName, objectType, cascade);
+export const TruncateTable = (profileName: string, schema: string, tableName: string, cascade: boolean, restartIdentity: boolean) =>
+    wailsGateway.TruncateTable(profileName, schema, tableName, cascade, restartIdentity);
 export const GetTableDDL = (profileName: string, schema: string, tableName: string) =>
     wailsGateway.GetTableDDL(profileName, schema, tableName);
 export const AlterTableColumn = (profileName: string, schema: string, current: models.ColumnDef, next: models.ColumnDef) =>
@@ -20,3 +24,29 @@ export const GetIndexes = (profileName: string, schema: string, table: string) =
 export const CreateIndex = (profileName: string, schema: string, table: string, indexName: string, columns: string[], unique: boolean) =>
     wailsGateway.CreateIndex(profileName, schema, table, indexName, columns, unique);
 export const DropIndex = (profileName: string, schema: string, tableName: string, indexName: string) => wailsGateway.DropIndex(profileName, schema, tableName, indexName);
+
+export const GetCheckConstraints = (profileName: string, schema: string, table: string) => wailsGateway.GetCheckConstraints(profileName, schema, table);
+export const CreateCheckConstraint = (profileName: string, schema: string, table: string, name: string, expression: string) =>
+    wailsGateway.CreateCheckConstraint(profileName, schema, table, name, expression);
+export const DropCheckConstraint = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropCheckConstraint(profileName, schema, table, name);
+
+export const GetUniqueConstraints = (profileName: string, schema: string, table: string) => wailsGateway.GetUniqueConstraints(profileName, schema, table);
+export const CreateUniqueConstraint = (profileName: string, schema: string, table: string, name: string, columns: string[]) =>
+    wailsGateway.CreateUniqueConstraint(profileName, schema, table, name, columns);
+export const DropUniqueConstraint = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropUniqueConstraint(profileName, schema, table, name);
+
+export const GetPrimaryKey = (profileName: string, schema: string, table: string) => wailsGateway.GetPrimaryKey(profileName, schema, table);
+export const AddPrimaryKey = (profileName: string, schema: string, table: string, name: string, columns: string[]) =>
+    wailsGateway.AddPrimaryKey(profileName, schema, table, name, columns);
+export const DropPrimaryKey = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropPrimaryKey(profileName, schema, table, name);
+
+export const GetForeignKeys = (profileName: string, schema: string, table: string) => wailsGateway.GetForeignKeys(profileName, schema, table);
+export const CreateForeignKey = (profileName: string, schema: string, table: string, fk: app.ForeignKeyInfo) =>
+    wailsGateway.CreateForeignKey(profileName, schema, table, fk);
+export const UpdateForeignKey = (profileName: string, schema: string, table: string, originalName: string, fk: app.ForeignKeyInfo) =>
+    wailsGateway.UpdateForeignKey(profileName, schema, table, originalName, fk);
+export const DropForeignKey = (profileName: string, schema: string, table: string, name: string) =>
+    wailsGateway.DropForeignKey(profileName, schema, table, name);
