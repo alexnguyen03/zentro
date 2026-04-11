@@ -28,6 +28,16 @@ interface QueryGroupProps {
 
 export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) => {
     const { id: groupId, tabs, activeTabId } = group;
+
+    // Lazy-mount: only render a tab's content after it has been active at least once.
+    // This prevents N Monaco instances from being created upfront (each costs ~50-100 MB).
+    const mountedTabsRef = useRef<Set<string>>(new Set());
+    if (activeTabId) mountedTabsRef.current.add(activeTabId);
+    // Evict closed tabs so their IDs don't linger in the set.
+    const tabIdSet = new Set(tabs.map(t => t.id));
+    for (const id of mountedTabsRef.current) {
+        if (!tabIdSet.has(id)) mountedTabsRef.current.delete(id);
+    }
     const {
         removeTab,
         setActiveTabId,
@@ -189,33 +199,38 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                     </div>
                 ) : (
                     <div className="flex-1 overflow-hidden" style={{ height: '100%' }}>
-                        {tabs.map(tab => (
-                            <div
-                                key={tab.id}
-                                className={cn('h-full flex-col bg-background', tab.id === activeTabId ? 'flex' : 'hidden')}
-                            >
-                                {tab.type === 'table' ? (
-                                    <TableInfo tabId={tab.id} tableName={tab.content || ''} />
-                                ) : tab.type === 'settings' ? (
-                                    <SettingsView tabId={tab.id} />
-                                ) : tab.type === 'shortcuts' ? (
-                                    <ShortcutsView />
-                                ) : tab.type === 'git_diff' ? (
-                                    <GitDiffView tab={tab} />
-                                ) : (
-                                    <MonacoEditorWrapper
-                                        tabId={tab.id}
-                                        value={tab.query}
-                                        onChange={(v) => updateTabQuery(tab.id, v)}
-                                        onRun={handleRun}
-                                        onExplain={handleExplain}
-                                        isActive={isActiveGroup && tab.id === activeTabId}
-                                        onFocus={() => setActiveTabId(tab.id, groupId)}
-                                        readOnly={tab.readOnly}
-                                    />
-                                )}
-                            </div>
-                        ))}
+                        {tabs.map(tab => {
+                            const isActive = tab.id === activeTabId;
+                            const isMounted = mountedTabsRef.current.has(tab.id);
+                            if (!isMounted) return null;
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className={cn('h-full flex-col bg-background', isActive ? 'flex' : 'hidden')}
+                                >
+                                    {tab.type === 'table' ? (
+                                        <TableInfo tabId={tab.id} tableName={tab.content || ''} />
+                                    ) : tab.type === 'settings' ? (
+                                        <SettingsView tabId={tab.id} />
+                                    ) : tab.type === 'shortcuts' ? (
+                                        <ShortcutsView />
+                                    ) : tab.type === 'git_diff' ? (
+                                        <GitDiffView tab={tab} />
+                                    ) : (
+                                        <MonacoEditorWrapper
+                                            tabId={tab.id}
+                                            value={tab.query}
+                                            onChange={(v) => updateTabQuery(tab.id, v)}
+                                            onRun={handleRun}
+                                            onExplain={handleExplain}
+                                            isActive={isActiveGroup && isActive}
+                                            onFocus={() => setActiveTabId(tab.id, groupId)}
+                                            readOnly={tab.readOnly}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

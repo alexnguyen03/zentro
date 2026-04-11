@@ -57,7 +57,20 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
 
   const originalRef = useRef<MonacoEditor.ICodeEditor | null>(null);
   const modifiedRef = useRef<MonacoEditor.ICodeEditor | null>(null);
+  const diffEditorRef = useRef<MonacoEditor.IStandaloneDiffEditor | null>(null);
   const syncingRef = useRef(false);
+
+  // Dispose the DiffEditor before the component unmounts to prevent
+  // "TextModel got disposed before DiffEditorWidget model got reset" errors
+  // that occur when both DiffEditor and unified Editor unmount simultaneously.
+  useEffect(() => {
+    return () => {
+      diffEditorRef.current?.dispose();
+      diffEditorRef.current = null;
+      originalRef.current = null;
+      modifiedRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeTab?.id) return;
@@ -210,10 +223,9 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
               ignoreTrimWhitespace: ignoreWhitespace,
             }}
             onMount={(editor: MonacoEditor.IStandaloneDiffEditor) => {
-              const originalEditor = editor.getOriginalEditor();
-              const modifiedEditor = editor.getModifiedEditor();
-              originalRef.current = originalEditor;
-              modifiedRef.current = modifiedEditor;
+              diffEditorRef.current = editor;
+              originalRef.current = editor.getOriginalEditor();
+              modifiedRef.current = editor.getModifiedEditor();
             }}
           />
         </div>

@@ -699,8 +699,9 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
         // because Monaco's abstraction sometimes fails to capture in specific environments
         const domNode = editor.getDomNode();
+        let wheelZoomHandler: ((e: WheelEvent) => void) | null = null;
         if (domNode) {
-            domNode.addEventListener('wheel', (e: WheelEvent) => {
+            wheelZoomHandler = (e: WheelEvent) => {
                 if (!e) return;
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
@@ -719,7 +720,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                         updateFontSize(-1);
                     }
                 }
-            }, { passive: false });
+            };
+            domNode.addEventListener('wheel', wheelZoomHandler, { passive: false });
         }
 
         const safeId = tabId.replace(/[^a-zA-Z0-9]/g, '');
@@ -852,6 +854,9 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         editor.onDidDispose(() => {
             window.removeEventListener('keydown', handleModifierKey, true);
             window.removeEventListener('keyup', handleModifierKey, true);
+            if (domNode && wheelZoomHandler) {
+                domNode.removeEventListener('wheel', wheelZoomHandler);
+            }
             clearCtrlHoverDecoration();
             clearHoverQuickViewTimer();
         });

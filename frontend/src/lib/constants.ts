@@ -3,19 +3,19 @@
  */
 
 export const STORAGE_KEY = {
-    EDITOR_SESSION: 'zentro:editor-session-v4',
-    PROJECT_STORE: 'zentro:project-store-v2',
-    LAYOUT_STORE: 'zentro:layout-store-v2',
-    SIDEBAR_UI: 'zentro:sidebar-ui-v1',
-    CONNECTION_TREE_UI: 'zentro:connection-tree-ui-v1',
-    DISMISSED_UPDATE_VERSION: 'zentro:dismissed-update-version-v2',
-    TELEMETRY_CONSENT: 'zentro:telemetry-consent:v2',
-    QUERY_PERFORMANCE_SNAPSHOTS: 'zentro:query-performance-snapshots:v1',
-    TELEMETRY_EVENTS: 'zentro:telemetry-events:v1',
-    TELEMETRY_ANALYTICS_OUTBOX: 'zentro:telemetry-analytics-outbox:v1',
-    EXECUTION_POLICY_PROFILES: 'zentro:execution-policy-profiles:v1',
-    EXECUTION_POLICY_ASSIGNMENTS: 'zentro:execution-policy-assignments:v1',
-    EXECUTION_POLICY_STRONG_CONFIRM_FROM: 'zentro:execution-policy-strong-confirm-from:v1',
+    EDITOR_SESSION:                       'zentro:editor-session',
+    PROJECT_STORE:                        'zentro:project-store',
+    LAYOUT_STORE:                         'zentro:layout-store',
+    SIDEBAR_UI:                           'zentro:sidebar-ui',
+    CONNECTION_TREE_UI:                   'zentro:connection-tree-ui',
+    DISMISSED_UPDATE_VERSION:             'zentro:dismissed-update-version',
+    TELEMETRY_CONSENT:                    'zentro:telemetry-consent',
+    QUERY_PERFORMANCE_SNAPSHOTS:          'zentro:query-performance-snapshots',
+    TELEMETRY_EVENTS:                     'zentro:telemetry-events',
+    TELEMETRY_ANALYTICS_OUTBOX:           'zentro:telemetry-analytics-outbox',
+    EXECUTION_POLICY_PROFILES:            'zentro:execution-policy-profiles',
+    EXECUTION_POLICY_ASSIGNMENTS:         'zentro:execution-policy-assignments',
+    EXECUTION_POLICY_STRONG_CONFIRM_FROM: 'zentro:execution-policy-strong-confirm-from',
 } as const;
 
 export const DOM_EVENT = {
