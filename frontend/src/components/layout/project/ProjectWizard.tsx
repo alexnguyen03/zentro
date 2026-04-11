@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgeCheck, FolderOpen } from 'lucide-react';
+import { BadgeCheck, ChevronRight, FolderOpen } from 'lucide-react';
 import { Disconnect, ImportConnectionPackage } from '../../../services/connectionService';
 import { GetDefaultProjectStorageRoot, PickDirectory } from '../../../services/projectService';
 import { useProjectStore } from '../../../stores/projectStore';
@@ -10,7 +10,7 @@ import { useConnectionForm } from '../../../hooks/useConnectionForm';
 import { ConnectionForm } from '../../connection/ConnectionForm';
 import { ProviderPickerToolbar } from '../../connection/ProviderPickerToolbar';
 import { ProviderGrid } from '../../connection/ProviderGrid';
-import { Button, Input, Spinner } from '../../ui';
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui';
 import { DatabaseTreePicker } from '../../connection/DatabaseTreePicker';
 import { ENVIRONMENT_KEY } from '../../../lib/constants';
 import { cn } from '../../../lib/cn';
@@ -26,10 +26,7 @@ import {
 } from '../projectHubMeta';
 import { PanelFrame } from '../PanelFrame';
 
-type WizardStep = 'basics' | 'environment' | 'connection' | 'review';
 type ConnectionMode = 'existing' | 'new';
-
-const STEP_ORDER: WizardStep[] = ['basics', 'environment', 'connection', 'review'];
 
 interface WizardDraft {
     name: string;
@@ -83,7 +80,6 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
     const { toast } = useToast();
 
-    const [step, setStep] = React.useState<WizardStep>('basics');
     const [draft, setDraft] = React.useState<WizardDraft>({
         name: '',
         description: '',
@@ -102,6 +98,8 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const [importingConnection, setImportingConnection] = React.useState(false);
     const [importingFormConnection, setImportingFormConnection] = React.useState(false);
     const [treeRefreshKey, setTreeRefreshKey] = React.useState(0);
+    const [showStorage, setShowStorage] = React.useState(false);
+    const [showConnection, setShowConnection] = React.useState(true);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -210,30 +208,15 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         }
     }, [form, toast]);
 
-    const canGoNext = React.useMemo(() => {
-        if (step === 'basics') return Boolean(draft.name.trim());
-        if (step === 'environment') return Boolean(draft.starterEnv);
-        if (step === 'connection') return Boolean(selectedProfileName && selectedDatabase.trim());
-        return true;
-    }, [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase, step]);
+    const canSubmit = React.useMemo(
+        () => Boolean(draft.name.trim() && draft.starterEnv && selectedProfileName && selectedDatabase.trim()),
+        [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase],
+    );
 
-    const stepIndex = STEP_ORDER.indexOf(step);
-    const DraftIcon = PROJECT_ICON_MAP[draft.iconKey].icon;
-    const draftIconLabel = PROJECT_ICON_MAP[draft.iconKey].label;
     const storagePathPreview = React.useMemo(() => {
         const slug = slugifyProjectName(draft.name);
         return storageParentPath.trim() ? joinPath(storageParentPath, slug) : '';
     }, [draft.name, storageParentPath]);
-
-    const goNext = React.useCallback(() => {
-        if (!canGoNext) return;
-        const next = STEP_ORDER[stepIndex + 1];
-        if (next) setStep(next);
-    }, [canGoNext, stepIndex]);
-    const goBack = React.useCallback(() => {
-        const prev = STEP_ORDER[stepIndex - 1];
-        if (prev) setStep(prev);
-    }, [stepIndex]);
 
     const handleCreateAndEnter = async () => {
         if (!selectedProfileName || !selectedProfile) return;
@@ -270,166 +253,147 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         }
     };
 
-    const handleWizardKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (event.key !== 'Enter') return;
-        if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
-        const target = event.target as HTMLElement | null;
-        if (!target) return;
-
-        const tag = target.tagName.toLowerCase();
-        if (tag === 'textarea' || tag === 'button') return;
-        if (step === 'connection' && connectionMode === 'new') return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (step !== 'review') {
-            goNext();
-            return;
-        }
-
-        if (!submitting && selectedProfile && selectedProfileName && selectedDatabase) {
-            void handleCreateAndEnter();
-        }
-    }, [connectionMode, goNext, selectedDatabase, selectedProfile, selectedProfileName, step, submitting]);
-
     return (
         <PanelFrame
-            title={
-                <>
-                    {step === 'basics' && 'Create the project shell'}
-                    {step === 'environment' && 'Pick the starter environment'}
-                    {step === 'connection' && 'Bind one database'}
-                    {step === 'review' && 'Review and enter project'}
-                </>
-            }
-            subtitle={`${stepIndex + 1} of ${STEP_ORDER.length}`}
+            title="Create project"
             onClose={overlay && onClose ? onClose : undefined}
             className="h-full"
             headerClassName="px-6 py-4"
-            bodyClassName="min-h-0 overflow-y-auto px-6"
+            bodyClassName="min-h-0 overflow-y-auto px-6 py-5"
             titleClassName="text-[20px]"
-            footerClassName="flex items-center justify-between px-6 py-4"
+            footerClassName="flex items-center justify-end gap-2 px-6 py-4"
             footer={(
                 <>
-                    <div className="flex items-center gap-3">
-                        {step !== 'basics' ? (
-                            <Button variant="secondary" onClick={goBack} className="rounded-sm">Back</Button>
-                        ) : (
-                            <Button variant="ghost" onClick={onClose} className="rounded-sm" disabled={!onClose}>Cancel</Button>
-                        )}
-                    </div>
-                    {step !== 'review' ? (
-                        <Button variant="default" onClick={goNext} disabled={!canGoNext} className="rounded-sm px-5">Continue</Button>
-                    ) : (
-                        <Button
-                            variant="default"
-                            onClick={() => void handleCreateAndEnter()}
-                            disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
-                            className="rounded-sm px-5"
-                        >
-                            {submitting ? <><Spinner size={12} className="mr-2 text-white" />Creating...</> : <>Create &amp; enter</>}
-                        </Button>
-                    )}
+                    <Button variant="ghost" onClick={onClose} className="rounded-sm" disabled={!onClose}>Cancel</Button>
+                    <Button
+                        variant="default"
+                        onClick={() => void handleCreateAndEnter()}
+                        disabled={!canSubmit || submitting}
+                        className="rounded-sm px-5"
+                    >
+                        {submitting ? <><Spinner size={12} className="mr-2 text-white" />Creating...</> : <>Create &amp; enter</>}
+                    </Button>
                 </>
             )}
         >
-            <div className="mt-1" onKeyDown={handleWizardKeyDown}>
-                {/* Step: basics */}
-                {step === 'basics' && (
-                    <div className="mx-auto flex max-w-190 flex-col gap-4">
-                        <div className="">
-                            <div className="grid gap-3">
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Project name</label>
-                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" inputSize="xl" className="bg-card" autoFocus />
-                                </div>
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Description</label>
-                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" inputSize="xl" className="bg-card" />
-                                </div>
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Icon</label>
-                                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                        {PROJECT_ICON_OPTIONS.map((option) => {
-                                            const OptionIcon = option.icon;
-                                            const active = draft.iconKey === option.key;
-                                            return (
-                                                <Button
-                                                    key={option.key} type="button"
-                                                    variant="ghost"
-                                                    onClick={() => setDraft((c) => ({ ...c, iconKey: option.key }))}
-                                                    className={cn('h-auto w-full justify-start gap-2 rounded-sm px-3 py-2 text-left text-[12px] transition-colors', active ? 'bg-accent/10 text-foreground' : 'bg-card text-muted-foreground hover:text-foreground')}
-                                                >
-                                                    <OptionIcon size={14} /><span>{option.label}</span>
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Project data location</label>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            value={storageParentPath}
-                                            onChange={(e) => setStorageParentPath(e.target.value)}
-                                            placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
-                                            inputSize="xl"
-                                            className="bg-card"
-                                        />
-                                        <Button
+            <div className="mx-auto max-w-190 flex flex-col gap-4 pb-4">
+
+                {/* ── Basics ── */}
+                <div className="flex gap-3">
+                    {/* Icon picker — aligned to top of name input */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className="mt-5 flex h-16 w-16 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground outline-none transition hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring"
+                                title="Change project icon"
+                            >
+                                {React.createElement(PROJECT_ICON_MAP[draft.iconKey].icon, { size: 28 })}
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="z-topmost w-120 max-w-[calc(100vw-28px)] p-2" align="start" sideOffset={8}>
+                            <div className="grid grid-cols-3 gap-1">
+                                {PROJECT_ICON_OPTIONS.map((option) => {
+                                    const OptionIcon = option.icon;
+                                    const active = draft.iconKey === option.key;
+                                    return (
+                                        <button
+                                            key={option.key}
                                             type="button"
-                                            variant="secondary"
-                                            className="h-10 rounded-sm px-3"
-                                            onClick={() => {
-                                                void handlePickStorageFolder();
-                                            }}
-                                            disabled={loadingStorageRoot}
-                                            title="Browse folder"
+                                            onClick={() => setDraft((c) => ({ ...c, iconKey: option.key }))}
+                                            className={cn(
+                                                'flex items-center gap-2 rounded-sm border px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                active ? 'border-primary/60 bg-primary/10 text-foreground' : 'border-border hover:bg-muted/60',
+                                            )}
                                         >
-                                            <FolderOpen size={14} />
-                                        </Button>
-                                    </div>
-                                    <div className="mt-1 text-[11px] text-muted-foreground truncate" title={storagePathPreview || undefined}>
-                                        {storagePathPreview || 'Project folder will use the app default location.'}
-                                    </div>
-                                </div>
+                                            <OptionIcon size={14} />
+                                            <span className="truncate">{option.label}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    {/* Name + description stacked */}
+                    <div className="flex flex-1 flex-col gap-2">
+                        <div>
+                            <label className="mb-1 block text-[11px] font-semibold text-foreground">Project name <span className="text-destructive">*</span></label>
+                            <Input
+                                value={draft.name}
+                                onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))}
+                                placeholder="Payments Platform"
+                                inputSize="md"
+                                className="bg-card w-full"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="mb-1 block text-[11px] font-semibold text-foreground">Description</label>
+                            <Input
+                                value={draft.description}
+                                onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))}
+                                placeholder="Optional context"
+                                inputSize="md"
+                                className="bg-card w-full"
+                            />
                         </div>
                     </div>
-                )}
+                </div>
 
-                {/* Step: environment */}
-                {step === 'environment' && (
-                    <div className="mx-auto flex max-w-190 flex-col gap-3">
-                        {ENVIRONMENT_KEYS.map((envKey) => {
-                            const meta = getEnvironmentMeta(envKey);
-                            const active = draft.starterEnv === envKey;
-                            return (
-                                <Button
-                                    key={envKey} type="button"
-                                    variant="outline"
-                                    onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
-                                    className={cn('h-auto w-full justify-start rounded-sm px-4 py-4 text-left transition-colors', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40')}
-                                >
-                                    <div className="flex w-full items-center gap-4">
-                                        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>{envKey}</span>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="text-[14px] font-semibold text-foreground">{meta.label}</div>
-                                            <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{meta.description}</p>
-                                        </div>
-                                        {active && <BadgeCheck size={16} className="shrink-0 text-accent" />}
-                                    </div>
-                                </Button>
-                            );
-                        })}
-                    </div>
-                )}
+                {/* ── Environment ── */}
+                <div>
+                    <div className="mb-2 text-[12px] font-semibold text-foreground">Starter environment</div>
+                    <TooltipProvider delayDuration={150}>
+                        <div className="flex gap-2">
+                            {ENVIRONMENT_KEYS.map((envKey) => {
+                                const meta = getEnvironmentMeta(envKey);
+                                const active = draft.starterEnv === envKey;
+                                return (
+                                    <Tooltip key={envKey}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
+                                                className={cn(
+                                                    'flex flex-1 items-center justify-between rounded-sm border px-3 py-2.5 transition-colors',
+                                                    active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40',
+                                                )}
+                                            >
+                                                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
+                                                    {envKey}
+                                                </span>
+                                                {active && <BadgeCheck size={13} className="text-accent" />}
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="max-w-40 text-center">
+                                            <span className="font-semibold">{meta.label}</span>
+                                            <p className="mt-0.5 text-[11px] font-normal opacity-80">{meta.description}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                );
+                            })}
+                        </div>
+                    </TooltipProvider>
+                </div>
 
-                {/* Step: connection */}
-                {step === 'connection' && (
-                    <div className=" w-full max-w-245">
-                        <div className="flex min-h-130 flex-col rounded-sm bg-background/20">
+                {/* ── Connection ── */}
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => setShowConnection((v) => !v)}
+                        className="flex w-full items-center gap-1.5 text-[12px] font-semibold text-foreground hover:text-accent"
+                    >
+                        <ChevronRight size={13} className={cn('transition-transform duration-150', showConnection && 'rotate-90')} />
+                        Database connection <span className="text-destructive">*</span>
+                        {!showConnection && selectedProfileName && (
+                            <span className="ml-auto text-[11px] font-normal text-muted-foreground">
+                                {selectedProfileName}{selectedDatabase ? ` / ${selectedDatabase}` : ''}
+                            </span>
+                        )}
+                    </button>
+                    {showConnection && (
+                        <div className="mt-2 flex min-h-100 flex-col rounded-sm bg-background/20">
                             {connectionMode === 'existing' ? (
                                 <div className="flex-1 overflow-hidden">
                                     <DatabaseTreePicker
@@ -481,45 +445,53 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                 </div>
                             )}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
-                {/* Step: review */}
-                {step === 'review' && (
-                    <div className="mx-auto flex max-w-190 flex-col gap-4">
-                        <div className="rounded-sm bg-background/20 p-5">
-                            <div className="space-y-3">
-                                <div className="rounded-sm bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Project</div>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-background/30">
-                                            <DraftIcon size={14} className="text-foreground" />
-                                        </div>
-                                        <div className="text-[16px] font-semibold text-foreground">{draft.name.trim()}</div>
-                                    </div>
-                                    <div className="mt-1 text-[12px] text-muted-foreground">{draft.description.trim() || draftIconLabel}</div>
-                                </div>
-                                <div className="rounded-sm bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Starter environment</div>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>{draft.starterEnv}</span>
-                                        <span className="text-[16px] font-semibold text-foreground">{getEnvironmentMeta(draft.starterEnv).label}</span>
-                                    </div>
-                                    <div className="mt-1 text-[12px] text-muted-foreground">The first project session will open in this context.</div>
-                                </div>
-                                <div className="rounded-sm bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Connection</div>
-                                    <div className="mt-2 text-[16px] font-semibold text-foreground">{selectedProfileName || 'Missing connection'}</div>
-                                    <div className="mt-1 text-[12px] text-muted-foreground">{selectedDatabase || 'Pick a database'}</div>
-                                </div>
-                                <div className="rounded-sm bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Storage</div>
-                                    <div className="mt-2 text-[12px] text-foreground break-all">{storagePathPreview || 'App default location'}</div>
-                                </div>
+                {/* ── Storage location (optional, collapsible) ── */}
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => setShowStorage((v) => !v)}
+                        className="flex w-full items-center gap-1.5 text-[12px] font-semibold text-foreground hover:text-accent"
+                    >
+                        <ChevronRight size={13} className={cn('transition-transform duration-150', showStorage && 'rotate-90')} />
+                        Storage location
+                        <span className="ml-1 text-[11px] font-normal text-muted-foreground">(optional)</span>
+                        {!showStorage && storagePathPreview && (
+                            <span className="ml-auto truncate text-[11px] font-normal text-muted-foreground" title={storagePathPreview}>
+                                {storagePathPreview}
+                            </span>
+                        )}
+                    </button>
+                    {showStorage && (
+                        <div className="mt-2">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={storageParentPath}
+                                    onChange={(e) => setStorageParentPath(e.target.value)}
+                                    placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
+                                    inputSize="xl"
+                                    className="bg-card"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    className="h-10 rounded-sm px-3"
+                                    onClick={() => { void handlePickStorageFolder(); }}
+                                    disabled={loadingStorageRoot}
+                                    title="Browse folder"
+                                >
+                                    <FolderOpen size={14} />
+                                </Button>
+                            </div>
+                            <div className="mt-1 truncate text-[11px] text-muted-foreground" title={storagePathPreview || undefined}>
+                                {storagePathPreview || 'Project folder will use the app default location.'}
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+
             </div>
         </PanelFrame>
     );
