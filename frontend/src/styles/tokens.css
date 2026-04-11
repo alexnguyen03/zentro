@@ -1,46 +1,46 @@
 /* Design Tokens v1: primitives -> semantic -> legacy aliases */
 :root {
     /* Primitive palette */
-    --primitive-neutral-1000: #121212;
-    --primitive-neutral-950: #1e1e1e;
-    --primitive-neutral-900: #252526;
-    --primitive-neutral-800: #333333;
-    --primitive-neutral-700: #3c3c3c;
-    --primitive-neutral-500: #808080;
-    --primitive-neutral-300: #cccccc;
-    --primitive-neutral-100: #f3f3f3;
+    --primitive-neutral-1000: #17191d;
+    --primitive-neutral-950: #20242a;
+    --primitive-neutral-900: #2a2f37;
+    --primitive-neutral-800: #363d48;
+    --primitive-neutral-700: #4a5462;
+    --primitive-neutral-500: #8a94a6;
+    --primitive-neutral-300: #d4d9e2;
+    --primitive-neutral-100: #f2f5fa;
     --primitive-neutral-0: #ffffff;
 
-    --primitive-brand-600: #005f9e;
-    --primitive-brand-500: #007acc;
-    --primitive-success-500: #89d185;
-    --primitive-error-500: #f48771;
-    --primitive-warning-500: #ffbd2e;
+    --primitive-brand-600: #3b74d8;
+    --primitive-brand-500: #4b89f5;
+    --primitive-success-500: #4bb889;
+    --primitive-error-500: #df6b6b;
+    --primitive-warning-500: #f3ae48;
 
     /* Semantic colors */
-    --surface-app: var(--primitive-neutral-950);
-    --surface-panel: var(--primitive-neutral-900);
-    --surface-elevated: var(--primitive-neutral-800);
-    --surface-overlay-card: #1f1f20;
+    --surface-app: #1e2229;
+    --surface-panel: #272c35;
+    --surface-elevated: #313843;
+    --surface-overlay-card: #2b313b;
 
-    --content-primary: var(--primitive-neutral-300);
-    --content-secondary: var(--primitive-neutral-500);
-    --content-muted: var(--primitive-neutral-500);
+    --content-primary: #d6dde8;
+    --content-secondary: #98a4b7;
+    --content-muted: #8591a5;
     --content-inverse: var(--primitive-neutral-0);
 
-    --border-default: var(--primitive-neutral-700);
-    --border-subtle: color-mix(in srgb, var(--primitive-neutral-700) 65%, transparent);
+    --border-default: #424b59;
+    --border-subtle: color-mix(in srgb, #424b59 58%, transparent);
 
     --interactive-primary: var(--primitive-brand-500);
     --interactive-primary-hover: var(--primitive-brand-600);
-    --focus-ring: color-mix(in srgb, var(--primitive-brand-500) 45%, transparent);
+    --focus-ring: color-mix(in srgb, var(--primitive-brand-500) 48%, transparent);
 
     --status-success: var(--primitive-success-500);
     --status-error: var(--primitive-error-500);
     --status-warning: var(--primitive-warning-500);
 
-    --overlay-backdrop: rgb(0 0 0 / 58%);
-    --overlay-backdrop-strong: rgb(0 0 0 / 70%);
+    --overlay-backdrop: rgb(8 10 14 / 56%);
+    --overlay-backdrop-strong: rgb(8 10 14 / 68%);
 
     /* Typography */
     --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -105,9 +105,9 @@
     --radius-scale-xl: 16px;
 
     /* Elevation */
-    --elevation-sm: 0 2px 8px rgb(0 0 0 / 20%);
-    --elevation-md: 0 8px 24px rgb(0 0 0 / 32%);
-    --elevation-lg: 0 16px 48px rgb(0 0 0 / 46%);
+    --elevation-sm: 0 1px 3px rgb(0 0 0 / 28%), 0 8px 18px rgb(0 0 0 / 16%);
+    --elevation-md: 0 2px 8px rgb(0 0 0 / 28%), 0 16px 30px rgb(0 0 0 / 24%);
+    --elevation-lg: 0 4px 16px rgb(0 0 0 / 34%), 0 24px 52px rgb(0 0 0 / 26%);
 
     /* Motion */
     --motion-fast: 120ms;
@@ -157,9 +157,9 @@
     --primary-foreground: var(--content-inverse);
     --secondary: var(--surface-elevated);
     --secondary-foreground: var(--content-primary);
-    --muted: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+    --muted: color-mix(in srgb, var(--surface-elevated) 86%, transparent);
     --muted-foreground: var(--content-secondary);
-    --accent: color-mix(in srgb, var(--interactive-primary) 22%, transparent);
+    --accent: color-mix(in srgb, var(--interactive-primary) 20%, transparent);
     --accent-foreground: var(--content-primary);
     --destructive: var(--status-error);
     --destructive-foreground: var(--content-inverse);
@@ -170,29 +170,29 @@
 }
 
 [data-theme='light'] {
-    --surface-app: var(--primitive-neutral-0);
-    --surface-panel: var(--primitive-neutral-100);
-    --surface-elevated: #e8e8e8;
+    --surface-app: #f5f7fb;
+    --surface-panel: #ffffff;
+    --surface-elevated: #edf1f7;
     --surface-overlay-card: #ffffff;
 
-    --content-primary: #333333;
-    --content-secondary: #666666;
-    --content-muted: #666666;
+    --content-primary: #1f2735;
+    --content-secondary: #5c667a;
+    --content-muted: #6f7a8f;
     --content-inverse: #ffffff;
 
-    --border-default: #cccccc;
-    --border-subtle: color-mix(in srgb, #cccccc 70%, transparent);
+    --border-default: #cfd7e6;
+    --border-subtle: color-mix(in srgb, #cfd7e6 72%, transparent);
 
-    --interactive-primary: #0060a0;
-    --interactive-primary-hover: #004d80;
-    --focus-ring: color-mix(in srgb, #0060a0 32%, transparent);
+    --interactive-primary: #2f6feb;
+    --interactive-primary-hover: #255fce;
+    --focus-ring: color-mix(in srgb, #2f6feb 34%, transparent);
 
-    --status-success: #107c10;
-    --status-error: #d13438;
-    --status-warning: #b57b00;
+    --status-success: #1f9d6f;
+    --status-error: #cf4e4e;
+    --status-warning: #c48822;
 
-    --overlay-backdrop: rgb(0 0 0 / 45%);
-    --overlay-backdrop-strong: rgb(0 0 0 / 60%);
+    --overlay-backdrop: rgb(9 17 29 / 38%);
+    --overlay-backdrop-strong: rgb(9 17 29 / 52%);
 
     /* UX states */
     --state-hover-bg: color-mix(in srgb, var(--interactive-primary) 12%, transparent);
@@ -205,9 +205,9 @@
     --state-empty-text: var(--content-secondary);
     --state-loading-text: var(--content-secondary);
 
-    --elevation-sm: 0 2px 8px rgb(0 0 0 / 10%);
-    --elevation-md: 0 8px 24px rgb(0 0 0 / 16%);
-    --elevation-lg: 0 16px 48px rgb(0 0 0 / 24%);
+    --elevation-sm: 0 1px 3px rgb(16 28 46 / 10%), 0 6px 18px rgb(16 28 46 / 8%);
+    --elevation-md: 0 2px 8px rgb(16 28 46 / 12%), 0 16px 28px rgb(16 28 46 / 12%);
+    --elevation-lg: 0 6px 18px rgb(16 28 46 / 14%), 0 28px 56px rgb(16 28 46 / 16%);
 
     /* shadcn/ui semantic contract (light override) */
     --background: var(--surface-app);
@@ -220,9 +220,9 @@
     --primary-foreground: var(--content-inverse);
     --secondary: var(--surface-elevated);
     --secondary-foreground: var(--content-primary);
-    --muted: color-mix(in srgb, var(--surface-elevated) 82%, transparent);
+    --muted: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
     --muted-foreground: var(--content-secondary);
-    --accent: color-mix(in srgb, var(--interactive-primary) 14%, transparent);
+    --accent: color-mix(in srgb, var(--interactive-primary) 16%, transparent);
     --accent-foreground: var(--content-primary);
     --destructive: var(--status-error);
     --destructive-foreground: var(--content-inverse);

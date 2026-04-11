@@ -37,7 +37,7 @@ describe('design system contract', () => {
         );
 
         expect(screen.getByRole('combobox', { name: /theme select/i })).toHaveAttribute('data-tone', 'warning');
-        expect(screen.getByRole('combobox', { name: /theme select/i })).toHaveAttribute('data-state', 'error');
+        expect(screen.getByRole('combobox', { name: /theme select/i })).toHaveAttribute('data-ui-state', 'error');
     });
 
     it('renders composite shell and state patterns', () => {
@@ -55,4 +55,3 @@ describe('design system contract', () => {
         expect(screen.getByText('No settings found')).toBeInTheDocument();
     });
 });
-
