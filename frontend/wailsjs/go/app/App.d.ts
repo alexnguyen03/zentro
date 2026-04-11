@@ -175,6 +175,8 @@ export function LoadTemplates():Promise<Array<models.Template>>;
 
 export function ManualGitCommit(arg1:string):Promise<app.GitCommitResult>;
 
+export function OpenDirectoryInExplorer(arg1:string):Promise<void>;
+
 export function OpenProject(arg1:string):Promise<models.Project>;
 
 export function OpenProjectFromDirectory(arg1:string):Promise<models.Project>;

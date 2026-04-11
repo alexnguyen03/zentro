@@ -1,18 +1,16 @@
 import React from 'react';
-import { FolderOpen, Plus } from 'lucide-react';
 import { Disconnect } from '../../services/connectionService';
 import { useProjectStore } from '../../stores/projectStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button, ConfirmationModal, OverlayDialog, Spinner } from '../ui';
+import { ConfirmationModal, OverlayDialog } from '../ui';
 import { cn } from '../../lib/cn';
 import { useToast } from './Toast';
-import { sortProjects, getProjectIconKey, buildTagsWithProjectIcon, type ProjectIconKey } from './projectHubMeta';
+import { buildTagsWithProjectIcon, getProjectIconKey, sortProjects, type ProjectIconKey } from './projectHubMeta';
 import { ProjectWizard } from './project/ProjectWizard';
-import { ProjectCard, ProjectCardEdit, type EditDraft } from './project/ProjectCard';
-import { GetDefaultProjectStorageRoot, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
+import { GetDefaultProjectStorageRoot, OpenDirectoryInExplorer, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
 import type { Project } from '../../types/project';
-import appIcon from '../../assets/images/appicon.png';
 import { PanelFrame } from './PanelFrame';
+import { ProjectHubEntryScreen, type EditDraft } from './project/ProjectHubEntryScreen';
 
 type Surface = 'entry' | 'wizard';
 
@@ -28,11 +26,13 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
     const { toast } = useToast();
 
     const [surface, setSurface] = React.useState<Surface>('entry');
+    const [searchQuery, setSearchQuery] = React.useState('');
     const [openingProjectId, setOpeningProjectId] = React.useState<string | null>(null);
     const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
     const [projectToDelete, setProjectToDelete] = React.useState<Project | null>(null);
     const [editingProjectId, setEditingProjectId] = React.useState<string | null>(null);
     const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+    const [iconUpdatingProjectId, setIconUpdatingProjectId] = React.useState<string | null>(null);
     const [openingFolder, setOpeningFolder] = React.useState(false);
     const [editDraft, setEditDraft] = React.useState<EditDraft>({
         name: '',
@@ -42,19 +42,31 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
     });
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
-    const visibleProjects = sortedProjects;
+    const visibleProjects = React.useMemo(() => {
+        const keyword = searchQuery.trim().toLowerCase();
+        if (!keyword) return sortedProjects;
+        return sortedProjects.filter((project) => {
+            const haystack = [project.name, project.description || '', ...(project.tags || [])]
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(keyword);
+        });
+    }, [searchQuery, sortedProjects]);
 
     const handleOpenProject = async (projectId: string) => {
         setOpeningProjectId(projectId);
         try {
             try { await Disconnect(); } catch { /* ignore */ }
             const project = await openProject(projectId);
-            if (!project) { resetRuntime(); return; }
+            if (!project) {
+                resetRuntime();
+                return;
+            }
             resetRuntime();
             onClose?.();
-        } catch (error) {
+        } catch (openError) {
             resetRuntime();
-            toast.error(`Could not open project: ${error}`);
+            toast.error(`Could not open project: ${openError}`);
         } finally {
             setOpeningProjectId(null);
         }
@@ -75,8 +87,8 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             }
             resetRuntime();
             onClose?.();
-        } catch (error) {
-            toast.error(`Could not open folder: ${error}`);
+        } catch (openError) {
+            toast.error(`Could not open folder: ${openError}`);
         } finally {
             setOpeningFolder(false);
         }
@@ -96,9 +108,24 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         try {
             const selected = await PickDirectory('');
             if (selected) {
-                setEditDraft((c) => ({ ...c, gitRepoPath: selected }));
+                setEditDraft((current) => ({ ...current, gitRepoPath: selected }));
             }
-        } catch { /* ignore */ }
+        } catch {
+            // ignore picker error
+        }
+    };
+
+    const handleOpenProjectInExplorer = async (project: Project) => {
+        const targetPath = (project.git_repo_path || project.storage_path || '').trim();
+        if (!targetPath) {
+            toast.error('Project does not have a folder path yet.');
+            return;
+        }
+        try {
+            await OpenDirectoryInExplorer(targetPath);
+        } catch (openError) {
+            toast.error(`Could not open project folder: ${openError}`);
+        }
     };
 
     const handleSaveProjectEdit = async (project: Project) => {
@@ -120,10 +147,28 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             }
             setEditingProjectId(null);
             toast.success('Project updated.');
-        } catch (error) {
-            toast.error(`Could not save project: ${error}`);
+        } catch (saveError) {
+            toast.error(`Could not save project: ${saveError}`);
         } finally {
             setIsSavingEdit(false);
+        }
+    };
+
+    const handleSelectProjectIcon = async (project: Project, nextIconKey: ProjectIconKey) => {
+        if (getProjectIconKey(project) === nextIconKey) return;
+        setIconUpdatingProjectId(project.id);
+        try {
+            const updated = await saveProject({
+                ...project,
+                tags: buildTagsWithProjectIcon(project.tags, nextIconKey),
+            });
+            if (!updated) {
+                toast.error('Could not update project icon.');
+            }
+        } catch (saveError) {
+            toast.error(`Could not update project icon: ${saveError}`);
+        } finally {
+            setIconUpdatingProjectId(null);
         }
     };
 
@@ -137,8 +182,8 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                 return;
             }
             toast.success('Project removed from launcher. Data folder is kept on disk.');
-        } catch (error) {
-            toast.error(`Could not delete project: ${error}`);
+        } catch (deleteError) {
+            toast.error(`Could not delete project: ${deleteError}`);
         } finally {
             setDeletingProjectId(null);
             setProjectToDelete(null);
@@ -152,7 +197,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         <div className={cn(
             'overflow-hidden bg-card text-foreground transition-all duration-200',
             overlay
-                ? 'h-[680px] w-[840px] max-w-[calc(100vw-24px)] rounded-md'
+                ? 'h-[700px] w-[1080px] max-w-[calc(100vw-24px)] rounded-md'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (
@@ -161,95 +206,49 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                         title="Projects"
                         onClose={overlay && onClose ? onClose : undefined}
                         className="h-full"
-                        headerClassName="px-5 py-3.5"
-                        bodyClassName="min-h-0 px-5 py-3"
-                        titleClassName="text-[20px]"
+                        headerClassName="px-6 py-4"
+                        bodyClassName="min-h-0 px-6 pb-5 pt-4"
+                        titleClassName="text-[30px]"
                     >
-                        <div className="grid h-full min-h-0 gap-4 grid-cols-[220px_minmax(0,1fr)]">
-                            <aside className="">
-                                <img src={appIcon} alt="Zentro app icon" className="h-full w-full object-contain" />
-                            </aside>
-
-                            <section className="h-full">
-                                <div className="text-[11px] text-muted-foreground">Recent Projects</div>
-                                {visibleProjects.length === 0 && !isLoading ? (
-                                    <div className="mt-3 flex items-center justify-center rounded-md border border-dashed border-border/45 bg-card/35 px-4 text-center">
-                                        <div className="max-w-70">
-                                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-card text-foreground"><Plus size={16} /></div>
-                                            <div className="mt-3 text-[14px] font-semibold text-foreground">No project</div>
-                                            <div className="mt-1 text-[11px] text-muted-foreground">Create one to get started.</div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mb-3 h-130 min-h-0 overflow-y-auto pr-1 space-y-1.5">
-                                        {visibleProjects.map((project) => (
-                                            editingProjectId === project.id ? (
-                                                <ProjectCardEdit
-                                                    key={project.id}
-                                                    project={project}
-                                                    editDraft={editDraft}
-                                                    setEditDraft={setEditDraft}
-                                                    isSaving={isSavingEdit}
-                                                    onCancel={() => setEditingProjectId(null)}
-                                                    onSave={(targetProject) => {
-                                                        void handleSaveProjectEdit(targetProject);
-                                                    }}
-                                                    onBrowseRepoPath={() => void handleBrowseRepoPath()}
-                                                />
-                                            ) : (
-                                                <div key={project.id} data-testid={`recent-project-${project.id}`}>
-                                                    <ProjectCard
-                                                        project={project}
-                                                        activeProjectId={activeProject?.id}
-                                                        isOpening={openingProjectId === project.id}
-                                                        isDeleting={deletingProjectId === project.id}
-                                                        onClick={() => {
-                                                            void handleOpenProject(project.id);
-                                                        }}
-                                                        onEdit={(event) => {
-                                                            event.stopPropagation();
-                                                            startEditingProject(project);
-                                                        }}
-                                                        onDelete={(event) => {
-                                                            event.stopPropagation();
-                                                            setProjectToDelete(project);
-                                                        }}
-                                                    />
-                                                </div>
-                                            )
-                                        ))}
-                                        {error && (
-                                            <div className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-[12px] text-error">{error}</div>
-                                        )}
-                                    </div>
-                                )}
-                                <div className="flex justify-between items-center ">
-                                    <div className="text-[11px] text-muted-foreground">{visibleProjects.length} projects</div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            onClick={() => {
-                                                void handleOpenProjectFolder();
-                                            }}
-                                            size="sm"
-                                            className="rounded-md px-3"
-                                            disabled={openingFolder || openingProjectId !== null}
-                                            title="Open project folder"
-                                        >
-                                            {openingFolder ? <Spinner size={12} /> : <FolderOpen size={14} />}
-                                        </Button>
-                                        <Button
-                                            variant="default"
-                                            onClick={() => setSurface('wizard')}
-                                            size="sm"
-                                            className="rounded-md px-4"
-                                        >
-                                            Create
-                                        </Button>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
+                        <ProjectHubEntryScreen
+                            projects={visibleProjects}
+                            allProjectCount={sortedProjects.length}
+                            isLoading={isLoading}
+                            error={error}
+                            activeProjectId={activeProject?.id}
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            openingProjectId={openingProjectId}
+                            deletingProjectId={deletingProjectId}
+                            editingProjectId={editingProjectId}
+                            isSavingEdit={isSavingEdit}
+                            openingFolder={openingFolder}
+                            editDraft={editDraft}
+                            setEditDraft={setEditDraft}
+                            onOpenProject={(projectId) => {
+                                void handleOpenProject(projectId);
+                            }}
+                            onStartCreate={() => setSurface('wizard')}
+                            onOpenProjectFolder={() => {
+                                void handleOpenProjectFolder();
+                            }}
+                            onStartEdit={startEditingProject}
+                            onCancelEdit={() => setEditingProjectId(null)}
+                            onSaveEdit={(project) => {
+                                void handleSaveProjectEdit(project);
+                            }}
+                            onBrowseRepoPath={() => {
+                                void handleBrowseRepoPath();
+                            }}
+                            onOpenProjectInExplorer={(project) => {
+                                void handleOpenProjectInExplorer(project);
+                            }}
+                            onSelectProjectIcon={(project, iconKey) => {
+                                void handleSelectProjectIcon(project, iconKey);
+                            }}
+                            iconUpdatingProjectId={iconUpdatingProjectId}
+                            onRequestDelete={(project) => setProjectToDelete(project)}
+                        />
                     </PanelFrame>
                 </div>
             ) : (
@@ -281,5 +280,6 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             </OverlayDialog>
         );
     }
+
     return content;
 };

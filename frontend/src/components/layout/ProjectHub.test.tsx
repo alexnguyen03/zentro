@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     getDefaultRoot: vi.fn(),
     pickDirectory: vi.fn(),
     openProjectFromDirectory: vi.fn(),
+    openDirectoryInExplorer: vi.fn(),
     resetRuntime: vi.fn(),
     disconnect: vi.fn(),
     toastError: vi.fn(),
@@ -43,6 +44,7 @@ function makeProject(id: string, name: string): Project {
         environments: [],
         connections: [],
         assets: [],
+        storage_path: `C:/projects/${id}`,
     };
 }
 
@@ -54,6 +56,7 @@ vi.mock('../../services/projectService', () => ({
     GetDefaultProjectStorageRoot: mocks.getDefaultRoot,
     PickDirectory: mocks.pickDirectory,
     openProjectFromDirectory: mocks.openProjectFromDirectory,
+    OpenDirectoryInExplorer: mocks.openDirectoryInExplorer,
 }));
 
 vi.mock('../../stores/projectStore', () => ({
@@ -91,18 +94,16 @@ describe('ProjectHub', () => {
         mocks.getDefaultRoot.mockResolvedValue('C:/projects');
         mocks.pickDirectory.mockResolvedValue('C:/projects/example');
         mocks.openProjectFromDirectory.mockResolvedValue(makeProject('p2', 'Project Two'));
+        mocks.openDirectoryInExplorer.mockResolvedValue(undefined);
         mocks.disconnect.mockResolvedValue(undefined);
     });
 
-    it('renders all projects with compact launcher layout and create action', () => {
+    it('renders projects with search and actions in card layout', () => {
         render(<ProjectHub />);
 
-        expect(screen.getByAltText('Zentro app icon')).toBeInTheDocument();
-        expect(screen.queryByText('Project launcher')).not.toBeInTheDocument();
-        expect(screen.queryByText('Recent')).not.toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Find project by name, description, or tag')).toBeInTheDocument();
         expect(screen.getByText('5 projects')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'More...' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Import project from folder' })).toBeInTheDocument();
         expect(screen.getByTestId('recent-project-p5')).toBeInTheDocument();
         expect(screen.getByTestId('recent-project-p4')).toBeInTheDocument();
         expect(screen.getByTestId('recent-project-p1')).toBeInTheDocument();
@@ -119,5 +120,48 @@ describe('ProjectHub', () => {
         });
         expect(mocks.resetRuntime).toHaveBeenCalled();
         expect(onClose).toHaveBeenCalled();
+    });
+
+    it('does not open project when clicking Edit and supports inline edit save flow', async () => {
+        render(<ProjectHub />);
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Edit project' })[0]);
+
+        expect(mocks.openProject).not.toHaveBeenCalled();
+        expect(screen.getByPlaceholderText('Project name')).toBeInTheDocument();
+
+        const nameInput = screen.getByPlaceholderText('Project name');
+        fireEvent.change(nameInput, { target: { value: '   ' } });
+        expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+        fireEvent.change(nameInput, { target: { value: 'Renamed Project' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(mocks.saveProject).toHaveBeenCalled();
+        });
+    });
+
+    it('disables row while opening a project', async () => {
+        mocks.openProject.mockImplementation(() => new Promise(() => {}));
+        render(<ProjectHub />);
+
+        const row = screen.getByTestId('recent-project-p2');
+        fireEvent.click(screen.getByText('Project Two'));
+
+        await waitFor(() => {
+            expect(row).toHaveAttribute('aria-disabled', 'true');
+        });
+    });
+
+    it('opens project folder in file explorer from card action', async () => {
+        render(<ProjectHub />);
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Open in file explorer' })[0]);
+
+        await waitFor(() => {
+            expect(mocks.openDirectoryInExplorer).toHaveBeenCalledWith('C:/projects/p1');
+        });
+        expect(mocks.openProject).not.toHaveBeenCalled();
     });
 });

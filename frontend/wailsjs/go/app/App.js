@@ -338,6 +338,10 @@ export function ManualGitCommit(arg1) {
   return window['go']['app']['App']['ManualGitCommit'](arg1);
 }
 
+export function OpenDirectoryInExplorer(arg1) {
+  return window['go']['app']['App']['OpenDirectoryInExplorer'](arg1);
+}
+
 export function OpenProject(arg1) {
   return window['go']['app']['App']['OpenProject'](arg1);
 }

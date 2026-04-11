@@ -187,6 +187,7 @@ export interface AppApiGateway {
     SaveProject(project: models.Project): Promise<models.Project>;
     DeleteProject(projectId: string): Promise<void>;
     OpenProject(projectId: string): Promise<models.Project>;
+    OpenDirectoryInExplorer(path: string): Promise<void>;
     OpenProjectFromDirectory(directoryPath: string): Promise<models.Project>;
     GetDefaultProjectStorageRoot(): Promise<string>;
     PickDirectory(initialPath: string): Promise<string>;
