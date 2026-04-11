@@ -107,7 +107,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                         ref={inputRef}
                         autoFocus
                         onFocus={(e) => e.target.select()}
-                        className="rt-cell-input font-mono text-[11px]"
+                        className="rt-cell-input font-mono text-label"
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         onBlur={() => {

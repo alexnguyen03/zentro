@@ -84,7 +84,8 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
                     value={providerFilter}
                     onChange={(event) => onProviderFilterChange(event.target.value)}
                     placeholder="Filter providers..."
-                    className="h-7 w-full border-border bg-background px-2 py-1 text-[11px] placeholder:text-muted-foreground/60"
+                    inputSize="sm"
+                    className="w-full placeholder:text-muted-foreground/60"
                 />
                 {providerFilter && (
                     <Button

@@ -763,7 +763,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                 placeholder="constraint_name"
                                 value={pkDraft.name}
                                 onChange={(e) => setPkDraft((d) => d ? { ...d, name: e.target.value } : d)}
-                                className="rt-cell-input font-mono h-7 text-[12px] min-w-[160px] w-[160px]"
+                                className="rt-cell-input font-mono min-w-40 w-40"
                             />
                             <div className="flex-1" onMouseDown={(e) => e.stopPropagation()}>
                                 {pkEditingCols ? (
@@ -836,7 +836,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                                     if (e.key === 'Escape') setUniqueEditCell(null);
                                                 }}
-                                                className="rt-cell-input font-mono h-7 text-[12px]"
+                                                className="rt-cell-input font-mono"
                                             />
                                         ) : (
                                             <span
@@ -937,7 +937,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                                 if (e.key === 'Escape') setCheckEditCell(null);
                                             }}
-                                            className="rt-cell-input font-mono h-7 text-[12px]"
+                                            className="rt-cell-input font-mono"
                                         />
                                     ) : (
                                         <span
@@ -964,7 +964,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                                 if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                                                 if (e.key === 'Escape') setCheckEditCell(null);
                                             }}
-                                            className="rt-cell-input font-mono h-7 text-[12px]"
+                                            className="rt-cell-input font-mono"
                                         />
                                     ) : (
                                         <div
@@ -1054,7 +1054,7 @@ export const ConstraintsView: React.FC<ConstraintsViewProps> = ({
                                             value={row.current.name}
                                             onChange={(e) => updateForeignKeyRow(row.id, { name: e.target.value })}
                                             disabled={readOnlyMode || saving || row.deleted}
-                                            className="rt-cell-input font-mono h-7 text-[12px] min-w-[180px] w-[220px]"
+                                            className="rt-cell-input font-mono min-w-45 w-55"
                                         />
                                         {row.isNew && <span className="text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded">NEW</span>}
                                         {!row.isNew && rowDirty && !row.deleted && (

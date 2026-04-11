@@ -17,7 +17,7 @@ import {
 } from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
-const fieldInputClass = 'h-8 w-full text-[12px]';
+const fieldInputClass = 'w-full';
 const labelClass = 'mb-0.5 block text-[11px] text-muted-foreground';
 
 interface ConnectionFormProps {
@@ -80,7 +80,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         value={connString}
                         onChange={onConnStringChange}
                         placeholder={`${DRIVER.POSTGRES}://user:pass@host:5432/db`}
-                        className={cn(fieldInputClass, 'font-mono text-[11px]')}
+                        className={cn(fieldInputClass, 'font-mono text-label')}
                     />
                 </div>
             )}

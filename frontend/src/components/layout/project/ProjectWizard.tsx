@@ -342,11 +342,11 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                             <div className="grid gap-3">
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-foreground">Project name</label>
-                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-md bg-card" autoFocus />
+                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" inputSize="xl" className="bg-card" autoFocus />
                                 </div>
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-foreground">Description</label>
-                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" className="h-11 rounded-md bg-card" />
+                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" inputSize="xl" className="bg-card" />
                                 </div>
                                 <div>
                                     <label className="mb-2 block text-[12px] font-semibold text-foreground">Icon</label>
@@ -374,12 +374,13 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                             value={storageParentPath}
                                             onChange={(e) => setStorageParentPath(e.target.value)}
                                             placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
-                                            className="h-11 rounded-md bg-card"
+                                            inputSize="xl"
+                                            className="bg-card"
                                         />
                                         <Button
                                             type="button"
                                             variant="secondary"
-                                            className="h-11 rounded-md px-3"
+                                            className="h-10 rounded-md px-3"
                                             onClick={() => {
                                                 void handlePickStorageFolder();
                                             }}

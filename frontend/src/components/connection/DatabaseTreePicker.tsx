@@ -234,7 +234,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 if (event.key === 'Escape') setFilter('');
                             }}
                             placeholder="Filter connections or databases..."
-                            className="h-8 w-full border-border/60 bg-background/90 pr-2 pl-7 text-[12px] placeholder:text-muted-foreground/70"
+                            className="w-full border-border/60 bg-background/90 pr-2 pl-7 placeholder:text-muted-foreground/70"
                         />
                     </div>
                     {filter && (

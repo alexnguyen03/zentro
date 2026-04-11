@@ -100,7 +100,8 @@ export const SavedScriptsPanel: React.FC = () => {
                 <div className="flex-1 relative flex items-center min-w-0">
                     <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
                     <Input
-                        className="h-7 w-full border-border bg-background py-1 pl-[22px] pr-1.5 text-[11px]"
+                        inputSize="sm"
+                        className="w-full pl-5.5 pr-1.5"
                         placeholder="Filter scripts..."
                         value={search}
                         onChange={(event) => setScriptsPanelState((state) => ({ ...state, search: event.target.value }))}

@@ -58,11 +58,11 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
             <div className="mt-4 grid gap-3">
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Project name</label>
-                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} className="h-10 rounded-md bg-card" placeholder="Project name" autoFocus />
+                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} inputSize="xl" className="bg-card" placeholder="Project name" autoFocus />
                 </div>
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Description</label>
-                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} className="h-10 rounded-md bg-card" placeholder="Short context about this project" />
+                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} inputSize="xl" className="bg-card" placeholder="Short context about this project" />
                 </div>
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Git repo path <span className="font-normal text-muted-foreground">(Source Control)</span></label>
@@ -70,7 +70,8 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
                         <Input
                             value={editDraft.gitRepoPath}
                             onChange={(e) => setEditDraft((c) => ({ ...c, gitRepoPath: e.target.value }))}
-                            className="h-10 flex-1 rounded-md bg-card font-mono text-[12px]"
+                            inputSize="xl"
+                            className="flex-1 bg-card font-mono"
                             placeholder="/path/to/your/repo"
                         />
                         {onBrowseRepoPath && (

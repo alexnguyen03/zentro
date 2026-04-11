@@ -138,7 +138,8 @@ const BindingCaptureModal: React.FC<{
                                 }
                             }}
                             placeholder="Ctrl+K Ctrl+B"
-                            className="h-10 w-full font-mono text-[12px]"
+                            inputSize="xl"
+                            className="w-full font-mono"
                             data-shortcut-capture="true"
                         />
                         <Button
@@ -297,7 +298,9 @@ export const ShortcutsView: React.FC = () => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search commands, keybindings, when..."
-                            className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                            inputSize="lg"
+                            variant="ghost"
+                            className="pl-8"
                         />
                     </div>
                 </div>

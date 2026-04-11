@@ -826,7 +826,9 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Escape') setFilterCol('');
                                 }}
-                                className="h-7 w-full border-border/30 bg-muted/40 pl-8 pr-3 text-[11px] transition-all placeholder:text-muted-foreground/40 focus:bg-muted/60"
+                                inputSize="sm"
+                                variant="ghost"
+                                className="w-full border-border/30 pl-8 pr-3 transition-all placeholder:text-muted-foreground/40"
                             />
                         </div>
                     )}

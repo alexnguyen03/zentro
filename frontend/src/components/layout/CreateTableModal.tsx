@@ -152,7 +152,8 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         onChange={(e) => setTableName(e.target.value)}
                         placeholder="Enter table name"
                         disabled={viewMode}
-                        className="h-9 w-full bg-background text-[13px]"
+                        inputSize="lg"
+                        className="w-full"
                     />
                 </div>
 
@@ -174,7 +175,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                     onChange={(e) => handleColumnChange(idx, 'Name', e.target.value)}
                                     placeholder="Column name"
                                     disabled={viewMode}
-                                    className="h-8 min-w-[100px] flex-1 bg-card px-2 py-1 text-[12px]"
+                                    className="min-w-25 flex-1 bg-card"
                                 />
                                 <Select
                                     value={col.DataType}

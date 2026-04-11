@@ -404,7 +404,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                         <Input
                             value={filter}
                             onChange={(event) => setFilter(event.target.value)}
-                            className="h-8 pl-7 text-[12px]"
+                            className="pl-7"
                             placeholder="Filter"
                             title="Filter templates"
                         />

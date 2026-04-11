@@ -1308,7 +1308,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             {contextMenu && contextMenuPosition && (
                 <div
                     ref={contextMenuRef}
-                    className="fixed z-panel-overlay min-w-40 rounded-md border border-border bg-background py-1 shadow-lg"
+                    className="fixed z-panel-overlay w-45 rounded-md border border-border bg-background py-1 shadow-lg"
                     style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
                     onClick={(event) => event.stopPropagation()}
                 >
@@ -1548,7 +1548,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 <label className="block text-[12px] font-semibold text-foreground mb-1.5">Table Name</label>
                                 <Input
                                     type="text"
-                                    className="h-9 w-full bg-background text-[13px]"
+                                    inputSize="lg"
+                        className="w-full"
                                     placeholder={result?.tableName || 'my_table'}
                                     value={exportTableName}
                                     onChange={(event) => setExportTableName(event.target.value)}

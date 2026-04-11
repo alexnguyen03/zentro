@@ -82,7 +82,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {renamingId === tab.id ? (
                 <Input
                     ref={renameInputRef}
-                    className="rt-cell-input h-[24px]! px-1.5! text-xs! min-w-[120px] font-sans"
+                    className="rt-cell-input h-[24px]! px-1.5! text-xs! min-w-30 font-sans"
                     value={renameValue}
                     onChange={(e) => onRenameChange(e.target.value)}
                     onBlur={onRenameBlur}

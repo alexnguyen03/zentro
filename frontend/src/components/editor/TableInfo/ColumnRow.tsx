@@ -121,7 +121,7 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             ? <Input
                                 autoFocus
                                 onFocus={e => e.target.select()}
-                                className="rt-cell-input font-mono text-[11px]"
+                                className="rt-cell-input font-mono text-label"
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
                                 onKeyDown={e => {

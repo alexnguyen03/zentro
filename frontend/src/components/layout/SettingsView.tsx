@@ -218,7 +218,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             ref={searchInputRef}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-9 border-input/70 bg-muted/40 pl-8 focus:bg-background"
+                            inputSize="lg"
+                            variant="ghost"
+                            className="pl-8"
                             aria-label="Search settings"
                         />
                     </div>

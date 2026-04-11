@@ -586,7 +586,7 @@ export const SourceControlPanel: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <Input
                             value={commitMessage}
-                            className="h-8 text-[11px]"
+                            className="text-label"
                             placeholder="Commit message (optional)"
                             onChange={(e) => setCommitMessage(e.target.value)}
                             onKeyDown={(e) => {
