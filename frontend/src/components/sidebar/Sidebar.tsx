@@ -63,7 +63,7 @@ export const Sidebar: React.FC = () => {
             <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
                 <div className="shrink-0 px-2 pt-1">
                     <TabsList
-                        className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
+                        className="h-8 w-fit justify-start gap-1 p-0"
                     >
                         {panels.map((panel) => {
                             const Icon = panel.icon;

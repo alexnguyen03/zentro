@@ -678,7 +678,7 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'h-auto w-full justify-start gap-1.5 rounded-sm py-2 text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'h-auto w-full justify-start gap-1.5 rounded-sm py-1 text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
