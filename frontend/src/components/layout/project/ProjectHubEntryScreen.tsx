@@ -136,7 +136,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                 variant="outline"
                                 onClick={onOpenProjectFolder}
                                 size="sm"
-                                className="h-8 rounded-md px-2.5 text-[12px]"
+                                className="h-8 rounded-sm px-2.5 text-[12px]"
                                 disabled={openingFolder || openingProjectId !== null}
                                 title="Import project from folder"
                             >
@@ -146,7 +146,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                 variant="default"
                                 onClick={onStartCreate}
                                 size="sm"
-                                className="h-8 rounded-md px-3 text-[12px]"
+                                className="h-8 rounded-sm px-3 text-[12px]"
                             >
                                 <Plus size={13} />
                             </Button>
@@ -220,7 +220,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                         <PopoverTrigger asChild>
                                                             <button
                                                                 type="button"
-                                                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted text-primary outline-none transition hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                                                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm bg-muted text-primary outline-none transition hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                                                                 title="Change project icon"
                                                                 onClick={(event) => event.stopPropagation()}
                                                                 onKeyDown={(event) => event.stopPropagation()}
@@ -254,7 +254,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                                                 setIconPickerOpenByProject((current) => ({ ...current, [project.id]: false }));
                                                                             }}
                                                                             className={cn(
-                                                                                'flex items-center gap-2 rounded-md border px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                                                'flex items-center gap-2 rounded-sm border px-2.5 py-2 text-left text-[11px] transition-colors',
                                                                                 isSelected
                                                                                     ? 'border-primary/60 bg-primary/10 text-foreground'
                                                                                     : 'border-border hover:bg-muted/60',
@@ -465,7 +465,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                 </div>
 
                 {error && (
-                    <div className="m-3 rounded-md bg-error/10 px-3 py-2 text-[12px] text-error">
+                    <div className="m-3 rounded-sm bg-error/10 px-3 py-2 text-[12px] text-error">
                         {error}
                     </div>
                 )}

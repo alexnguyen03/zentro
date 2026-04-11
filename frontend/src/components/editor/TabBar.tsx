@@ -225,7 +225,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     return (
         <div className="flex items-center bg-card h-9 shrink-0 overflow-hidden">
             <div
-                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-md [&:hover::-webkit-scrollbar-thumb]:bg-border"
+                className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border"
                 ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
             >
                 <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
@@ -264,7 +264,7 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {contextMenu && (
                 <div
-                    className="fixed z-popover min-w-[150px] rounded-md border border-border bg-card py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                    className="fixed z-popover min-w-[150px] rounded-sm border border-border bg-card py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >

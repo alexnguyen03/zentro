@@ -229,13 +229,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {errorMsg && (
-                <div className="flex items-start gap-1.5 rounded-md border border-destructive/20 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
+                <div className="flex items-start gap-1.5 rounded-sm border border-destructive/20 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
                     <AlertCircle size={12} className="mt-px shrink-0" />
                     <span className="flex-1 break-words">{errorMsg}</span>
                 </div>
             )}
             {successMsg && (
-                <div className="flex items-center gap-1.5 rounded-md border border-success/20 bg-success/10 px-2.5 py-1.5 text-[11px] text-success">
+                <div className="flex items-center gap-1.5 rounded-sm border border-success/20 bg-success/10 px-2.5 py-1.5 text-[11px] text-success">
                     <CheckCircle size={12} className="shrink-0" />
                     <span className="flex-1">{successMsg}</span>
                 </div>

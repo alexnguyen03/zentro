@@ -57,7 +57,7 @@ export const PanelFrame: React.FC<PanelFrameProps> = ({
                             size="icon"
                             onClick={onClose}
                             title={closeTitle}
-                            className="h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="h-8 w-8 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                             <X size={16} />
                         </Button>

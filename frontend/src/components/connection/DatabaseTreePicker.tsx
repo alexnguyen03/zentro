@@ -223,7 +223,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="shrink-0 border-b border-border/25 pb-2">
-                <div className="flex items-center gap-1.5 rounded-md bg-muted/55 p-1.5">
+                <div className="flex items-center gap-1.5 rounded-sm bg-muted/55 p-1.5">
                     <div className="relative min-w-0 flex-1">
                         <Search size={12} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground/80" />
                         <Input
@@ -284,15 +284,15 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
 
             <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-0.5">
                 {loading ? (
-                    <div className="flex h-40 items-center justify-center gap-2 rounded-md bg-muted/35 text-[12px] text-muted-foreground">
+                    <div className="flex h-40 items-center justify-center gap-2 rounded-sm bg-muted/35 text-[12px] text-muted-foreground">
                         <Spinner size={14} /> Loading connections...
                     </div>
                 ) : connections.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-border/35 bg-background/20 px-6 text-center text-[12px] leading-5 text-muted-foreground">
+                    <div className="flex h-40 items-center justify-center rounded-sm border border-dashed border-border/35 bg-background/20 px-6 text-center text-[12px] leading-5 text-muted-foreground">
                         No saved connections yet.
                     </div>
                 ) : visibleConnections.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center rounded-md border border-border/25 bg-background/20 px-6 text-center text-[12px] leading-5 text-muted-foreground">
+                    <div className="flex h-40 items-center justify-center rounded-sm border border-border/25 bg-background/20 px-6 text-center text-[12px] leading-5 text-muted-foreground">
                         No matches found.
                     </div>
                 ) : (
@@ -308,7 +308,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                         variant="ghost"
                                         onClick={() => toggleConnection(name)}
                                         className={cn(
-                                            'h-auto w-full justify-start rounded-md border px-2.5 py-1.5 pr-14 text-left transition-colors',
+                                            'h-auto w-full justify-start rounded-sm border px-2.5 py-1.5 pr-14 text-left transition-colors',
                                             profileSelected
                                                 ? 'border-accent/25 bg-accent/8'
                                                 : 'border-transparent hover:bg-muted/65',
@@ -395,7 +395,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                                         variant="ghost"
                                                         onClick={() => handleSelect(name, dbName)}
                                                         className={cn(
-                                                            'mt-1 h-auto w-full justify-start gap-1.5 rounded-md border px-2 py-1.5 text-left text-[12px] transition-colors',
+                                                            'mt-1 h-auto w-full justify-start gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[12px] transition-colors',
                                                             isDbSelected
                                                                 ? 'border-accent/35 bg-accent/10 text-foreground'
                                                                 : 'border-transparent text-foreground hover:bg-muted/70',

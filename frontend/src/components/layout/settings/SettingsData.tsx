@@ -134,7 +134,7 @@ export const SettingsData: React.FC<Props> = ({
 
                 <div className="space-y-1.5">
                     <Label>Strong Confirm From Environment</Label>
-                    <div className="rounded-md bg-muted/35 px-3 py-3">
+                    <div className="rounded-sm bg-muted/35 px-3 py-3">
                         <Slider
                             min={0}
                             max={maxSliderIndex}
@@ -182,7 +182,7 @@ export const SettingsData: React.FC<Props> = ({
 
                 <div className="space-y-1.5">
                     <Label>Telemetry (Opt-in)</Label>
-                    <div className="flex items-center justify-between rounded-md bg-muted/35 px-3 py-2">
+                    <div className="flex items-center justify-between rounded-sm bg-muted/35 px-3 py-2">
                         <span className="text-[12px] text-foreground">Share anonymized product telemetry</span>
                         <Switch
                             checked={telemetryOptIn}
@@ -198,7 +198,7 @@ export const SettingsData: React.FC<Props> = ({
                 <div className="space-y-1.5">
                     <Label>Export Telemetry Bundle</Label>
                     <div className="mt-1">
-                        <Button type="button" variant="ghost" size="sm" className="w-fit" onClick={onExportTelemetry}>
+                        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={onExportTelemetry}>
                             Export Pipeline Bundle
                         </Button>
                     </div>

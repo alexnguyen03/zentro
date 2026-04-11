@@ -154,7 +154,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     }, [theme]);
 
     const iconBtn = cn(
-        'flex items-center justify-center p-1 border border-transparent rounded-md',
+        'flex items-center justify-center p-1 border border-transparent rounded-sm',
         'text-muted-foreground hover:border-border hover:bg-card hover:text-foreground',
         'transition-colors cursor-pointer shrink-0'
     );
@@ -182,8 +182,8 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     </span>
 
                     {showTooltip && baseQuery && (
-                        <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-md border border-border bg-background shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                            <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-md bg-background/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
+                        <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-sm border border-border bg-background shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-sm bg-background/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
                                 <Button
                                     type="button"
                                     variant="ghost"

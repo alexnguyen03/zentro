@@ -46,13 +46,13 @@ export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToast
                 <div className="space-y-1.5">
                     <Label>Preview Notification</Label>
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" size="sm" variant="outline" onClick={() => onTestNotification('success')}>
+                        <Button type="button" size="sm" variant="outline" tone={'success'} onClick={() => onTestNotification('success')}>
                             Test Success
                         </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => onTestNotification('error')}>
+                        <Button type="button" size="sm" variant="outline" tone={'danger'} onClick={() => onTestNotification('error')}>
                             Test Error
                         </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => onTestNotification('info')}>
+                        <Button type="button" size="sm" variant="outline" tone={'neutral'} onClick={() => onTestNotification('info')}>
                             Test Info
                         </Button>
                     </div>

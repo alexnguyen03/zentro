@@ -38,7 +38,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                 Skip this version
             </Button>
             <div className="flex gap-2">
-                <Button variant="ghost" className="h-11 rounded-md px-6 text-[13px]" onClick={onClose}>
+                <Button variant="ghost" className="h-11 rounded-sm px-6 text-[13px]" onClick={onClose}>
                     Later
                 </Button>
                 <Button variant="default" className="h-11 gap-2 px-8 text-[13px] font-semibold" onClick={handleDownload}>
@@ -56,7 +56,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             title={(
                 <div className="flex flex-col gap-1">
                     <span className="inline-flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-success/10 text-success">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-success/10 text-success">
                             <Gift size={20} />
                         </span>
                         <span>New Update Available</span>
@@ -70,10 +70,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
             )}
             footer={footer}
             width={500}
-            className="max-h-[85vh] rounded-md border border-border/10 shadow-elevation-lg"
+            className="max-h-[85vh] rounded-sm border border-border/10 shadow-elevation-lg"
         >
             <div className="min-h-0 flex-1 overflow-y-auto">
-                <div className="flex-1 overflow-y-auto w-full px-8 py-4 text-[13px] leading-relaxed custom-scrollbar bg-background/30 mx-6 my-2 rounded-md border border-border/5">
+                <div className="flex-1 overflow-y-auto w-full px-8 py-4 text-[13px] leading-relaxed custom-scrollbar bg-background/30 mx-6 my-2 rounded-sm border border-border/5">
                     <div className="font-bold text-[11px] uppercase tracking-widest text-muted-foreground mb-3">Release Notes</div>
                     <ReactMarkdown 
                         remarkPlugins={[remarkGfm]}
@@ -85,7 +85,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
                             li: ({node, ...props}) => <li className="pl-1" {...props} />,
                             a: ({node, ...props}) => <a className="text-accent hover:underline" target="_blank" rel="noreferrer" {...props} />,
                             p: ({node, ...props}) => <p className="mb-4 text-muted-foreground" {...props} />,
-                            code: ({node, ...props}) => <code className="bg-muted px-1 rounded-md text-accent" {...props} />,
+                            code: ({node, ...props}) => <code className="bg-muted px-1 rounded-sm text-accent" {...props} />,
                         }}
                     >
                         {changelog}

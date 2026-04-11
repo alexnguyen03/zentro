@@ -18,7 +18,7 @@ const SelectTrigger = React.forwardRef<
         data-ui-state={state}
         aria-busy={state === 'loading' ? true : undefined}
         className={cn(
-            'flex h-8 w-full items-center justify-between rounded-[8px] border border-input bg-background px-3 text-foreground shadow-xs',
+            'flex h-8 w-full items-center justify-between rounded-sm border border-input bg-background px-3 text-foreground',
             'outline-none transition-colors duration-150 focus-visible:border-primary/65 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
             'disabled:cursor-not-allowed disabled:bg-muted/35 data-placeholder:text-muted-foreground',
             DENSITY_CLASS[density],

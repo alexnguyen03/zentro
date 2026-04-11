@@ -694,11 +694,11 @@ export const ConnectionTree: React.FC = () => {
 
                 <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                     {!activeCategory ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-md')}>
+                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-sm')}>
                             {emptyMessage}
                         </div>
                     ) : activeCategory.schemas.length === 0 ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-md')}>
+                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-sm')}>
                             {emptyMessage}
                         </div>
                     ) : (

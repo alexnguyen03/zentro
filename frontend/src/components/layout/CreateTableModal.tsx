@@ -168,7 +168,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
 
                     <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                         {columns.map((col, idx) => (
-                            <div key={idx} className="flex items-center gap-2 bg-background p-2 rounded-md border border-border">
+                            <div key={idx} className="flex items-center gap-2 bg-background p-2 rounded-sm border border-border">
                                 <Input
                                     type="text"
                                     value={col.Name}

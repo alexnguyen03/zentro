@@ -22,12 +22,12 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
             onClose={onClose}
             title="About Zentro"
             width={420}
-            className="rounded-md border border-border/10 shadow-elevation-lg"
+            className="rounded-sm border border-border/10 shadow-elevation-lg"
         >
             <div className="overflow-y-auto px-5 pb-5 pt-1">
                 <div className="flex flex-col items-center">
                     {/* Integrated Logo Section */}
-                    <div className="w-24 h-24 mb-6 bg-muted/40 rounded-md flex items-center justify-center p-4 border border-border/5">
+                    <div className="w-24 h-24 mb-6 bg-muted/40 rounded-sm flex items-center justify-center p-4 border border-border/5">
                         <img src={zentroLogo} alt="Zentro Logo" className="w-full h-full object-contain" />
                     </div>
 
@@ -43,7 +43,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
 
                     {/* Information Grid */}
                     <div className="w-full flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between px-5 py-4 rounded-md bg-muted/20 border border-border/5">
+                        <div className="flex items-center justify-between px-5 py-4 rounded-sm bg-muted/20 border border-border/5">
                             <span className="text-[13px] font-bold text-muted-foreground">Author</span>
                             <span className="text-[13px] font-medium text-foreground">AlexNguyen</span>
                         </div>
@@ -52,7 +52,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
                             href="https://github.com/alexnguyen03/zentro"
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center justify-between px-5 py-4 rounded-md bg-muted/20 border border-border/5 hover:bg-muted/40 hover:border-accent/10 transition-all group cursor-pointer"
+                            className="flex items-center justify-between px-5 py-4 rounded-sm bg-muted/20 border border-border/5 hover:bg-muted/40 hover:border-accent/10 transition-all group cursor-pointer"
                         >
                             <div className="flex items-center gap-3">
                                 <Github size={16} className="text-muted-foreground group-hover:text-accent transition-colors" />
@@ -65,7 +65,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
                             type="button"
                             variant="ghost"
                             onClick={() => setShowChangelog(true)}
-                            className="h-auto w-full justify-between rounded-md border border-border/5 bg-muted/20 px-5 py-4 transition-all group hover:bg-muted/40 hover:border-accent/10"
+                            className="h-auto w-full justify-between rounded-sm border border-border/5 bg-muted/20 px-5 py-4 transition-all group hover:bg-muted/40 hover:border-accent/10"
                         >
                             <div className="flex items-center gap-3">
                                 <FileText size={16} className="text-muted-foreground group-hover:text-accent transition-colors" />

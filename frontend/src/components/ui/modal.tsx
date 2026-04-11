@@ -50,7 +50,7 @@ export const Modal: React.FC<ModalProps> = ({
             <DialogContent
                 overlayClassName={isConfirmLayer ? 'z-modal-confirm bg-overlay-strong' : 'z-modal bg-overlay'}
                 className={cn(
-                    'max-h-[90vh] overflow-hidden rounded-md border border-border/30 bg-card p-0 text-card-foreground shadow-elevation-lg',
+                    'max-h-[90vh] overflow-hidden rounded-sm border border-border/30 bg-card p-0 text-card-foreground shadow-elevation-lg',
                     isConfirmLayer ? 'z-modal-confirm' : 'z-modal',
                     className,
                 )}

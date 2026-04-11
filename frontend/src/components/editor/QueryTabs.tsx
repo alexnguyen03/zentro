@@ -350,7 +350,7 @@ export const QueryTabs: React.FC = () => {
             <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center max-w-[320px]">
                     <h2 className="text-base font-medium mb-2 text-foreground">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-muted border border-border rounded-md px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <p className="text-[13px] my-1.5">Press <kbd className="bg-muted border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
                         <p className="text-xs">Connect to a database using the sidebar first.</p>
                     )}
@@ -377,7 +377,7 @@ export const QueryTabs: React.FC = () => {
             <div className="flex flex-col h-full w-full overflow-hidden">
                 {tabSwitcher.open && tabSwitcher.orderedIds.length > 0 && (
                     <div className="fixed left-1/2 top-40 z-topmost -translate-x-1/2 pointer-events-none">
-                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-md border border-border/60 bg-card/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
+                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-sm border border-border/60 bg-card/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
                             {tabSwitcher.orderedIds.map((id, index) => {
                                 const meta = tabMetaById.get(id);
                                 if (!meta) return null;
@@ -386,7 +386,7 @@ export const QueryTabs: React.FC = () => {
                                     <div
                                         key={id}
                                         className={cn(
-                                            'flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px]',
+                                            'flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12px]',
                                             isSelected ? 'bg-accent/25 text-foreground' : 'text-muted-foreground',
                                         )}
                                     >

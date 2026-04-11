@@ -58,7 +58,7 @@ export const CommandPalette: React.FC = () => {
     return (
         <OverlayDialog onClose={close} className="items-start pt-[15vh]">
             <div
-                className="w-[560px] max-h-[420px] flex flex-col bg-card border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
+                className="w-[560px] max-h-[420px] flex flex-col bg-card border border-border rounded-sm shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={(event) => event.stopPropagation()}
             >
                 <Command shouldFilter={false} loop className="h-full bg-card text-foreground">
@@ -68,7 +68,7 @@ export const CommandPalette: React.FC = () => {
                             onValueChange={setQuery}
                             placeholder="Search commands..."
                         />
-                        <kbd className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        <kbd className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 rounded-sm border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                             Esc
                         </kbd>
                     </div>
@@ -94,7 +94,7 @@ export const CommandPalette: React.FC = () => {
                                                 {command.keybinding.split(' ').map((keyPart, index) => (
                                                     <kbd
                                                         key={`${command.id}_key_${index}`}
-                                                        className="rounded-md border border-border bg-background px-1.5 py-px font-mono text-[10px] text-muted-foreground"
+                                                        className="rounded-sm border border-border bg-background px-1.5 py-px font-mono text-[10px] text-muted-foreground"
                                                     >
                                                         {keyPart}
                                                     </kbd>

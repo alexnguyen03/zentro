@@ -97,7 +97,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
 
             {/* Panel */}
             <div
-                className="fixed z-modal flex bg-card border border-border rounded-md shadow-elevation-lg overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
+                className="fixed z-modal flex bg-card border border-border rounded-sm shadow-elevation-lg overflow-hidden min-w-[520px] max-h-[400px] animate-in fade-in duration-150"
                 style={{ top, left, transform: 'translateX(-50%)' }}
                 onClick={(e) => e.stopPropagation()}
             >

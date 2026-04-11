@@ -78,7 +78,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
             disabled={action.disabled || action.loading}
             title={action.title || action.label}
             className={cx(
-                'h-7 w-7 rounded-md p-0',
+                'h-7 w-7 rounded-sm p-0',
                 action.danger ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : '',
             )}
         >
@@ -738,7 +738,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 </div>
                 <h2 className="text-xl font-bold text-foreground mb-2">Failed to load table</h2>
                 <p className="text-muted-foreground max-w-md mb-8">{fetchError}</p>
-                <Button onClick={() => loadInfo()} variant="secondary" className="rounded-md px-8">Try Again</Button>
+                <Button onClick={() => loadInfo()} variant="secondary" className="rounded-sm px-8">Try Again</Button>
             </div>
         );
     }
@@ -778,7 +778,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 setFilterCol('');
                             }}
                             className={cx(
-                                'relative h-8 w-8 shrink-0 rounded-md p-0 transition-colors outline-none',
+                                'relative h-8 w-8 shrink-0 rounded-sm p-0 transition-colors outline-none',
                                 activeTab === key
                                     ? 'text-primary'
                                     : 'text-muted-foreground/70 hover:text-foreground',

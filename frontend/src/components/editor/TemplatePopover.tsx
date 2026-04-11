@@ -389,12 +389,12 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
         <div
             ref={containerRef}
             style={popoverStyle}
-            className="z-popover flex flex-col overflow-hidden rounded-md border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="z-popover flex flex-col overflow-hidden rounded-sm border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
                     <h3 className="truncate text-[12px] font-bold text-foreground">TEMPLATES</h3>
-                    <span className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
                         {templates.length}
                     </span>
                 </div>
@@ -453,7 +453,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5">
                     {selectedIds.size > 0 && (
-                        <span className="rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] font-bold text-success">
+                        <span className="rounded-sm border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] font-bold text-success">
                             {selectedIds.size}
                         </span>
                     )}

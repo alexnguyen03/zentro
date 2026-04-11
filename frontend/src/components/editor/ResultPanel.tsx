@@ -487,7 +487,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             render: () => (
                 <Select value={String(defaultLimit)} onValueChange={handleLimitChange}>
                     <SelectTrigger
-                        className="h-7 w-[112px] border-border/40 bg-transparent px-2 py-0 text-[11px] text-muted-foreground hover:bg-muted/70"
+                        className="h-7 w-15 border-border/40 bg-transparent px-2 py-0 text-[11px] text-muted-foreground hover:bg-muted/70"
                         title="Row limit for next query"
                     >
                         <SelectValue />
@@ -521,7 +521,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             {hiddenCount > 0 && <span className="text-[10px]">-{hiddenCount}</span>}
                         </Button>
                         {showColumnsPopover && (
-                            <div className="absolute right-0 top-full mt-1 z-panel-overlay min-w-[180px] max-h-[320px] overflow-y-auto rounded-md border border-border bg-popover shadow-lg py-1">
+                            <div className="absolute right-0 top-full mt-1 z-panel-overlay min-w-[180px] max-h-[320px] overflow-y-auto rounded-sm border border-border bg-popover shadow-lg py-1">
                                 <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
                                     Columns
                                 </div>
@@ -1308,7 +1308,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             {contextMenu && contextMenuPosition && (
                 <div
                     ref={contextMenuRef}
-                    className="fixed z-panel-overlay w-45 rounded-md border border-border bg-background py-1 shadow-lg"
+                    className="fixed z-panel-overlay w-45 rounded-sm border border-border bg-background py-1 shadow-lg"
                     style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
                     onClick={(event) => event.stopPropagation()}
                 >
@@ -1439,7 +1439,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                 <div className="ml-auto flex items-center gap-3">
                     {exportJob?.status === 'running' && (
-                        <div className="flex items-center gap-2 text-[11px] border border-border rounded-md px-2 py-0.5">
+                        <div className="flex items-center gap-2 text-[11px] border border-border rounded-sm px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
                             <span>
                                 {exportJob.label || 'Exporting'} {typeof exportJob.progressPct === 'number' ? `${exportJob.progressPct}%` : 'running...'}
@@ -1482,7 +1482,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                             </p>
                         </div>
                     </div>
-                    <div className="p-3 bg-muted/50 border border-border/40 rounded-md font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-muted-foreground select-text">
+                    <div className="p-3 bg-muted/50 border border-border/40 rounded-sm font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-muted-foreground select-text">
                         {generatePendingScript()}
                     </div>
                 </div>
@@ -1573,7 +1573,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     {areAllExportColumnsSelected ? 'Clear all' : 'Select all'}
                                 </Button>
                             </div>
-                            <div className="max-h-44 overflow-auto rounded-md border border-border/50 bg-background p-2 space-y-1">
+                            <div className="max-h-44 overflow-auto rounded-sm border border-border/50 bg-background p-2 space-y-1">
                                 {allExportColumns.map((column) => (
                                     <label key={column} className="flex items-center gap-2 text-[12px] text-foreground">
                                         <Checkbox
@@ -1597,7 +1597,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                 Showing loaded rows preview only
                             </p>
                         </div>
-                        <div className="rounded-md border border-border/50 bg-background overflow-auto max-h-[360px]">
+                        <div className="rounded-sm border border-border/50 bg-background overflow-auto max-h-[360px]">
                             {orderedSelectedExportColumns.length === 0 ? (
                                 <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
                                     Select at least one column to preview.

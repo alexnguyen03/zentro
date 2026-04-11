@@ -100,7 +100,7 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                 align="start"
                 side="bottom"
                 sideOffset={4}
-                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[200px] rounded-md border border-border bg-popover p-1 shadow-elevation-md"
+                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[200px] rounded-sm border border-border bg-popover p-1 shadow-elevation-md"
             >
                 <div className="max-h-[220px] overflow-y-auto">
                     {columns.length === 0 && (
@@ -587,7 +587,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                         <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
                                                     )}
                                                     {row.current.Unique && !uniqueOnly && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-accent bg-accent/10 px-1 py-0.5 rounded-md shrink-0">UNIQUE</span>
+                                                        <span className="ml-1.5 text-[9px] font-bold text-accent bg-accent/10 px-1 py-0.5 rounded-sm shrink-0">UNIQUE</span>
                                                     )}
                                                 </div>
                                             )}

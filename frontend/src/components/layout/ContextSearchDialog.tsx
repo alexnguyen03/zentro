@@ -430,7 +430,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     return (
         <OverlayDialog onClose={onClose} className="items-start pt-[15vh]">
             <div
-                className="w-[720px] max-h-[560px] flex flex-col bg-card border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
+                className="w-[720px] max-h-[560px] flex flex-col bg-card border border-border rounded-sm shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={(event) => event.stopPropagation()}
             >
                 <Command shouldFilter={false} loop className="h-full bg-card text-foreground">
@@ -524,7 +524,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             </div>
             {contextMenu && (
                 <div
-                    className="fixed z-popover w-40 rounded-md border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
+                    className="fixed z-popover w-40 rounded-sm border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(event) => event.stopPropagation()}
                 >

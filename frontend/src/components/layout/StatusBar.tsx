@@ -128,7 +128,7 @@ export const StatusBar: React.FC = () => {
                 )}
                 {message && (
                     <span
-                        className="bg-white/10 px-2 py-0.5 rounded-md animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0 cursor-help"
+                        className="bg-white/10 px-2 py-0.5 rounded-sm animate-in fade-in slide-in-from-left-2 text-[10px] text-white/70 border border-white/5 shrink-0 cursor-help"
                         title={message}
                     >
                         {message}

@@ -143,7 +143,7 @@ const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                 align="start"
                 side="bottom"
                 sideOffset={4}
-                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[200px] rounded-md border border-border bg-popover p-1 shadow-elevation-md"
+                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[200px] rounded-sm border border-border bg-popover p-1 shadow-elevation-md"
             >
                 <div className="max-h-[220px] overflow-y-auto">
                     {columns.length === 0 && (

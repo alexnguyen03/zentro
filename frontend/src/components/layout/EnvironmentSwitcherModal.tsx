@@ -270,7 +270,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                 title={activeProject.name}
                 subtitle="Project"
                 onClose={onClose}
-                className="h-[588px] w-[900px] max-w-[calc(100vw-24px)] rounded-md"
+                className="h-[588px] w-[900px] max-w-[calc(100vw-24px)] rounded-sm"
                 titleClassName="text-[20px]"
                 bodyClassName="min-h-0 overflow-hidden"
                 footerClassName="flex items-center justify-between px-3 py-2.5"
@@ -283,7 +283,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 void handleExportConnection();
                             }}
                             disabled={exporting || mode === 'add'}
-                            className="rounded-md"
+                            className="rounded-sm"
                             title="Export selected environment connection"
                         >
                             {exporting ? <Spinner size={13} /> : <Download size={14} />}
@@ -292,7 +292,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                             variant="default"
                             onClick={() => void handleApply()}
                             disabled={applyDisabled}
-                            className="rounded-md"
+                            className="rounded-sm"
                         >
                             {saving ? (
                                 'Applying...'
@@ -323,7 +323,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                             variant="outline"
                                             onClick={() => setSelectedEnvironmentKey(environmentKey)}
                                             className={cn(
-                                                'h-auto w-full justify-start rounded-md border px-3 py-3 text-left transition-colors',
+                                                'h-auto w-full justify-start rounded-sm border px-3 py-3 text-left transition-colors',
                                                 isSelected
                                                     ? 'border-accent/40 bg-accent/8'
                                                     : 'border-border/25 bg-background/20 hover:bg-background/40',
@@ -356,7 +356,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
 
                     <section className="min-h-0 px-3 py-2.5">
                         {mode === 'choose' ? (
-                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-md bg-background/20">
+                            <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] rounded-sm bg-background/20">
                                 <div className="min-h-0 px-2.5 py-2">
                                     <DatabaseTreePicker
                                         onSelect={handleSelectFromTree}
@@ -395,7 +395,7 @@ export const EnvironmentSwitcherModal: React.FC<EnvironmentSwitcherModalProps> =
                                 />
 
                                 {isSelectingProvider ? (
-                                    <div className="h-full min-h-0 rounded-md bg-background/15 p-2">
+                                    <div className="h-full min-h-0 rounded-sm bg-background/15 p-2">
                                         <ProviderGrid
                                             selected={form.selectedProvider}
                                             locked={form.isEditing}

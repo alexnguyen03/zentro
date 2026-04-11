@@ -59,7 +59,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
     return (
         <div
             className={cn(
-                'grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md bg-background/20',
+                'grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-sm bg-background/20',
                 className,
             )}
         >
@@ -80,7 +80,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                             void handleImportConnection();
                         }}
                         disabled={form.isEditing || importing}
-                        className="h-9 w-9 rounded-md border-border/40 bg-background/60 text-muted-foreground hover:bg-background hover:text-foreground"
+                        className="h-9 w-9 rounded-sm border-border/40 bg-background/60 text-muted-foreground hover:bg-background hover:text-foreground"
                         title={form.isEditing ? 'Import disabled while editing' : 'Import connection package'}
                     >
                         {importing ? <Spinner size={13} /> : <Upload size={14} />}
@@ -94,7 +94,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                             onClick={handleOpenProviderPicker}
                             disabled={form.isEditing}
                             className={cn(
-                                'h-9 w-9 rounded-md border border-border/40 bg-background/60 transition-colors',
+                                'h-9 w-9 rounded-sm border border-border/40 bg-background/60 transition-colors',
                                 form.isEditing
                                     ? 'cursor-not-allowed opacity-50'
                                     : 'cursor-pointer hover:border-border hover:bg-background',
@@ -115,7 +115,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                 </div>
 
                 {isSelectingProvider && (
-                    <div className="flex h-9 items-center gap-2 rounded-md border border-border/30 bg-background/50 px-2.5 text-[11px] text-muted-foreground">
+                    <div className="flex h-9 items-center gap-2 rounded-sm border border-border/30 bg-background/50 px-2.5 text-[11px] text-muted-foreground">
                         {selectedProvider ? (
                             <img
                                 src={selectedProvider.icon}

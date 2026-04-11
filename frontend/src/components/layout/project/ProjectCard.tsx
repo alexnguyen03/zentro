@@ -41,10 +41,10 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
     const envMeta = getEnvironmentMeta(envKey);
 
     return (
-        <div className="rounded-md bg-background/50 px-5 py-5">
+        <div className="rounded-sm bg-background/50 px-5 py-5">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-card text-foreground">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-card text-foreground">
                         {React.createElement(PROJECT_ICON_MAP[editDraft.iconKey].icon, { size: 16 })}
                     </div>
                     <div>
@@ -75,7 +75,7 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
                             placeholder="/path/to/your/repo"
                         />
                         {onBrowseRepoPath && (
-                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-md" title="Browse folder" onClick={onBrowseRepoPath}>
+                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-sm" title="Browse folder" onClick={onBrowseRepoPath}>
                                 <FolderOpen size={14} />
                             </Button>
                         )}
@@ -95,7 +95,7 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
                                 key={option.key} type="button"
                                 variant="outline"
                                 onClick={() => setEditDraft((c) => ({ ...c, iconKey: option.key }))}
-                                className={cn('h-auto w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'border-accent/50 bg-accent/10 text-foreground' : 'border-border/30 bg-card text-muted-foreground hover:text-foreground')}
+                                className={cn('h-auto w-full justify-start gap-2 rounded-sm px-3 py-2 text-left text-[12px] transition-colors', active ? 'border-accent/50 bg-accent/10 text-foreground' : 'border-border/30 bg-card text-muted-foreground hover:text-foreground')}
                             >
                                 <OptionIcon size={14} /><span>{option.label}</span>
                             </Button>
@@ -105,8 +105,8 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
             </div>
 
             <div className="mt-4 flex items-center justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="rounded-md"><X size={14} /> Cancel</Button>
-                <Button variant="default" size="sm" onClick={() => onSave(project)} disabled={isSaving || !editDraft.name.trim()} className="rounded-md">
+                <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving} className="rounded-sm"><X size={14} /> Cancel</Button>
+                <Button variant="default" size="sm" onClick={() => onSave(project)} disabled={isSaving || !editDraft.name.trim()} className="rounded-sm">
                     {isSaving ? <><Spinner size={12} className="mr-1 text-white" /> Saving...</> : <><Check size={14} /> Save changes</>}
                 </Button>
             </div>
@@ -148,7 +148,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 type="button"
                 variant="ghost"
                 className={cn(
-                    'relative h-auto w-full justify-start rounded-md bg-background/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-background/60',
+                    'relative h-auto w-full justify-start rounded-sm bg-background/35 px-4 py-3.5 pr-24 text-left transition-colors hover:bg-background/60',
                     isCurrentProject && 'border border-accent/45',
                     disabled && 'cursor-not-allowed',
                 )}
@@ -156,7 +156,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 disabled={disabled}
                 title={`Open project ${project.name}`}
             >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-card text-foreground">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-card text-foreground">
                     <ProjectIcon size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -189,7 +189,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     variant="ghost"
                     size="icon"
                     disabled={isDeleting || isOpening}
-                    className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
+                    className="h-7 w-7 rounded-sm p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-accent/10 hover:text-accent group-hover:opacity-100 disabled:opacity-50"
                     title="Edit project"
                 >
                     <Pencil size={14} />
@@ -200,7 +200,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     variant="ghost"
                     size="icon"
                     disabled={isDeleting || isOpening}
-                    className="h-7 w-7 rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
+                    className="h-7 w-7 rounded-sm p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
                     title="Delete project"
                 >
                     {isDeleting ? <Spinner size={14} /> : <Trash2 size={14} />}

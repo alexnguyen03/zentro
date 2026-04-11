@@ -204,7 +204,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         <div className="flex h-full flex-col overflow-hidden bg-background">
             <div className="z-sticky flex h-16 items-center justify-between bg-background/92 px-10">
                 <div className="flex items-center gap-3 text-foreground">
-                    <div className="rounded-md bg-accent/5 p-2 text-accent">
+                    <div className="rounded-sm bg-accent/5 p-2 text-accent">
                         <SettingsIcon size={18} />
                     </div>
                     <h1 className="ui-text-section tracking-tight">System Settings</h1>
@@ -341,7 +341,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                 )}
 
                 {!hasSettingsMatch && (
-                    <div className="mt-4 rounded-md bg-card/35 p-4 text-center">
+                    <div className="mt-4 rounded-sm bg-card/35 p-4 text-center">
                         <h3 className="ui-text-section">No settings matched</h3>
                         <p className="ui-text-body text-muted-foreground">Try another keyword to find the setting you need.</p>
                     </div>

@@ -54,7 +54,7 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
                         }}
                         disabled={importDisabled || importingConnection}
                         className={cn(
-                            'inline-flex items-center gap-1 rounded-md border border-border/30 bg-background/40 p-2 text-[11px] font-semibold text-muted-foreground transition-colors',
+                            'inline-flex items-center gap-1 rounded-sm border border-border/30 bg-background/40 p-2 text-[11px] font-semibold text-muted-foreground transition-colors',
                             importDisabled || importingConnection
                                 ? 'cursor-not-allowed opacity-50'
                                 : 'cursor-pointer hover:bg-background hover:text-foreground',

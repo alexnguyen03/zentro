@@ -59,12 +59,12 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                 </div>
             )}
             width={720}
-            className="max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
+            className="max-h-[86vh] rounded-sm border border-border/10 shadow-elevation-lg"
         >
             <div className="min-h-0 overflow-y-auto px-1 py-1">
                 <div className="text-left">
                     {licenseState && (
-                        <div className="mb-3 rounded-md border border-border/30 bg-background/30 p-3 text-[11px] text-muted-foreground">
+                        <div className="mb-3 rounded-sm border border-border/30 bg-background/30 p-3 text-[11px] text-muted-foreground">
                             <div>Status: <span className="font-semibold text-foreground">{licenseState.status}</span></div>
                             <div>
                                 Plugin Commands: {new FeatureGate(licenseState).canUse('plugin.ui.commands') ? 'Enabled' : 'Disabled'}
@@ -80,7 +80,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                         </div>
                     )}
                     {!isLoading && !error && (
-                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-muted-foreground font-mono bg-background/40 rounded-md border border-border/20 p-4">
+                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-muted-foreground font-mono bg-background/40 rounded-sm border border-border/20 p-4">
                             {licenseText}
                         </pre>
                     )}

@@ -416,7 +416,7 @@ export const Toolbar: React.FC = () => {
                         onClick={() => { void handleToggleViewMode(); }}
                     >
                         {viewMode ? <Eye size={14} className="drop-shadow-[0_0_4px_rgba(245,158,11,0.55)]" /> : <Lock size={14} />}
-                        {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />}
+                        {viewMode && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-sm bg-warning animate-pulse" />}
                     </Button>
                     <Button
                         variant="ghost"
@@ -453,7 +453,7 @@ export const Toolbar: React.FC = () => {
                     <div
                         ref={quickEnvRef}
                         className={cn(
-                            'relative flex items-stretch w-full rounded-full text-xs font-medium text-muted-foreground select-none transition-all duration-200',
+                            'relative flex items-stretch w-full rounded-sm text-xs font-medium text-muted-foreground select-none transition-all duration-200',
                             envToolbarTone.base,
                             (quickEnvOpen || environmentSwitcherOpen) && cn(envToolbarTone.active, 'text-foreground'),
                         )}
@@ -468,7 +468,7 @@ export const Toolbar: React.FC = () => {
                         <Button
                             type="button"
                             variant="ghost"
-                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 rounded-l-full border-r border-border/30 hover:bg-card/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
+                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 hover:bg-card/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
                             title="Open Project Hub"
                             onClick={() => { setQuickEnvOpen(false); emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); }}
                         >
@@ -487,7 +487,7 @@ export const Toolbar: React.FC = () => {
                             type="button"
                             variant="ghost"
                             className={cn(
-                                'relative z-[1] h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/30 cursor-pointer transition-all duration-200 leading-none',
+                                'relative z-1 h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/50 cursor-pointer transition-all duration-200 leading-none',
                                 connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
                                 !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-foreground hover:border-border',
                             )}
@@ -522,7 +522,7 @@ export const Toolbar: React.FC = () => {
                             }}
                         >
                             {activeProject && (
-                                <span className={cn('shrink-0 px-1.5 py-0.5 rounded-full border font-bold uppercase tracking-wider leading-none text-[10px]', envMeta.colorClass)}>
+                                <span className={cn('shrink-0 px-1.5 py-0.5 rounded-sm border font-bold uppercase tracking-wider leading-none text-[10px]', envMeta.colorClass)}>
                                     {activeEnvironmentKey || activeProject.default_environment_key}
                                 </span>
                             )}
@@ -531,7 +531,7 @@ export const Toolbar: React.FC = () => {
                         {/* Quick env dropdown */}
                         {quickEnvOpen && activeProject && (
                             <div
-                                className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-md border border-border/40 bg-card shadow-xl p-2"
+                                className="absolute left-1/2 top-[calc(100%+6px)] z-dropdown w-2/3 min-w-[220px] -translate-x-1/2 rounded-sm border border-border/40 bg-card shadow-xl p-2"
                                 onMouseEnter={clearQuickEnvCloseTimer}
                             >
                                 <div className="space-y-1">
@@ -545,7 +545,7 @@ export const Toolbar: React.FC = () => {
                                                 key={envKey} type="button"
                                                 variant="ghost"
                                                 className={cn(
-                                                    'relative h-auto w-full justify-start rounded-md px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
+                                                    'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
                                                     isActive ? 'bg-accent/10 border border-accent/35 text-foreground' : isHighlighted ? 'bg-background/60 text-foreground' : 'hover:bg-background/50 text-muted-foreground',
                                                 )}
                                                 onClick={() => void handleQuickSwitchEnv(envKey)}
@@ -553,7 +553,7 @@ export const Toolbar: React.FC = () => {
                                             >
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2 min-w-0">
-                                                        <span className={cn('shrink-0 rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
+                                                        <span className={cn('shrink-0 rounded-sm border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
                                                         <span className="truncate font-semibold">{meta.label}</span>
                                                     </div>
                                                     <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-muted-foreground">

@@ -15,7 +15,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ onClose }) => {
             onClose={onClose}
             title="Changelog"
             width={700}
-            className="h-[80vh] max-h-[800px] rounded-md border border-border shadow-elevation-lg"
+            className="h-[80vh] max-h-[800px] rounded-sm border border-border shadow-elevation-lg"
         >
             <div className="min-h-0 flex-1 overflow-y-auto p-6 text-[13px] leading-relaxed markdown-body">
                 <ReactMarkdown 

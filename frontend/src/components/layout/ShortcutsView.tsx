@@ -108,7 +108,7 @@ const BindingCaptureModal: React.FC<{
                     <div
                         ref={captureRef}
                         tabIndex={0}
-                        className="h-11 rounded-md border border-border bg-background px-3 flex items-center justify-between outline-none focus:border-success"
+                        className="h-11 rounded-sm border border-border bg-background px-3 flex items-center justify-between outline-none focus:border-success"
                         onKeyDown={handleCaptureKeyDown}
                         data-shortcut-capture="true"
                     >
@@ -284,7 +284,7 @@ export const ShortcutsView: React.FC = () => {
         <div className="flex flex-col h-full bg-background overflow-hidden">
             <div className="z-sticky flex h-16 items-center justify-between border-b border-border/10 bg-background px-6">
                 <div className="flex items-center gap-3 text-foreground">
-                    <div className="p-2 rounded-md bg-accent/5 text-accent">
+                    <div className="p-2 rounded-sm bg-accent/5 text-accent">
                         <Keyboard size={18} />
                     </div>
                     <h1 className="text-[15px] font-bold tracking-tight">Keyboard Shortcuts</h1>
@@ -308,17 +308,16 @@ export const ShortcutsView: React.FC = () => {
                 <Button
                     variant="ghost"
                     size="default"
-                    className="gap-2 font-bold text-[11px] tracking-widest uppercase"
+                    className="gap-2 font-bold text-[11px] tracking-widest"
                     onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                     title="Reset all shortcuts to default"
                 >
                     <RotateCcw size={14} />
-                    <span className="hidden xl:inline">Reset All</span>
                 </Button>
             </div>
 
             <div className="flex-1 overflow-auto p-5">
-                <div className="rounded-md border border-border/30 overflow-hidden">
+                <div className="rounded-sm border border-border/30 overflow-hidden">
                     <table className="w-full text-[12px] table-fixed">
                         <thead className="bg-card/70 border-b border-border/30">
                             <tr>
@@ -375,7 +374,7 @@ export const ShortcutsView: React.FC = () => {
 
             {contextMenu && (
                 <div
-                    className="fixed z-modal bg-card border border-border rounded-md shadow-elevation-lg min-w-[220px] py-1"
+                    className="fixed z-modal bg-card border border-border rounded-sm shadow-elevation-lg min-w-[220px] py-1"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(event) => event.stopPropagation()}
                 >

@@ -197,7 +197,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         <div className={cn(
             'overflow-hidden bg-card text-foreground transition-all duration-200',
             overlay
-                ? 'h-[700px] w-[1080px] max-w-[calc(100vw-24px)] rounded-md'
+                ? 'h-[700px] w-[1080px] max-w-[calc(100vw-24px)] rounded-sm'
                 : 'h-full w-full',
         )}>
             {surface === 'entry' ? (

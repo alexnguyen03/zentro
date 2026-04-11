@@ -37,7 +37,7 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
 
     return (
         <div
-            className="pointer-events-auto flex flex-col overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-elevation-md"
+            className="pointer-events-auto flex flex-col overflow-hidden rounded-sm border border-border bg-popover text-popover-foreground shadow-elevation-md"
             style={{
                 width: 'min(560px, calc(100vw - 40px))',
                 maxWidth: 'min(560px, calc(100vw - 40px))',
@@ -65,13 +65,13 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
 
             <div className="min-h-0 flex-1 overflow-auto px-3 py-2.5 [scrollbar-gutter:stable_both-edges]">
                 {showEmptyState && (
-                    <div className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[12px] text-muted-foreground">
+                    <div className="rounded-sm border border-dashed border-border bg-background/40 px-3 py-2 text-[12px] text-muted-foreground">
                         {emptyStateMessage}
                     </div>
                 )}
 
                 {!loading && !message && hasColumns && (
-                    <div className="overflow-hidden rounded-md border border-border bg-background/30">
+                    <div className="overflow-hidden rounded-sm border border-border bg-background/30">
                         <Table className="table-fixed text-[12px]">
                             <colgroup>
                                 <col style={{ width: '42px' }} />

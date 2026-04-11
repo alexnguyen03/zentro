@@ -143,7 +143,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
 
   return (
     <OverlayDialog onClose={onClose} className="items-start pt-[8vh]">
-      <div className="flex h-[84vh] w-[92vw] flex-col overflow-hidden rounded-md border border-border bg-card shadow-2xl">
+      <div className="flex h-[84vh] w-[92vw] flex-col overflow-hidden rounded-sm border border-border bg-card shadow-2xl">
         <div className="h-11 px-4 border-b border-border flex items-center justify-between">
           <div className="text-sm font-semibold text-foreground">Compare Queries</div>
           <div className="flex items-center gap-2">

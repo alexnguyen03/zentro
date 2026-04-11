@@ -275,7 +275,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
     return (
         <div
             className={cn(
-                'flex flex-col gap-1 rounded-md p-0.5 transition-colors duration-150',
+                'flex flex-col gap-1 rounded-sm p-0.5 transition-colors duration-150',
                 isDirty && 'bg-warning/10',
                 isSelected && 'bg-success/12',
             )}
@@ -299,7 +299,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                         )}
                     >
                         {isPK && (
-                            <span className="rounded-md border border-primary/35 bg-primary/15 px-1 py-[1px] text-[9px] font-bold tracking-[0.04em] text-primary">
+                            <span className="rounded-sm border border-primary/35 bg-primary/15 px-1 py-[1px] text-[9px] font-bold tracking-[0.04em] text-primary">
                                 PK
                             </span>
                         )}
@@ -310,7 +310,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
+                    className="h-5 w-5 shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
                     onClick={onCopy}
                     title="Copy value"
                     disabled={isNull || isJsonField}
@@ -321,7 +321,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             {isPK || isJsonField ? (
                 <div
                     className={cn(
-                        'min-h-[28px] overflow-auto rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground opacity-85',
+                        'min-h-[28px] overflow-auto rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground opacity-85',
                         'whitespace-pre-wrap break-all select-text',
                         isNull && 'bg-muted italic text-muted-foreground',
                         isJsonField && 'max-h-[200px]',
@@ -335,7 +335,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             ) : (
                 <Textarea
                     className={cn(
-                        'min-h-[28px] w-full resize-y rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground',
+                        'min-h-[28px] w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground',
                         'whitespace-pre-wrap break-all leading-normal shadow-none',
                         'focus-visible:border-primary focus-visible:ring-primary/30 focus-visible:ring-offset-0',
                         isNull && 'bg-muted italic text-muted-foreground',

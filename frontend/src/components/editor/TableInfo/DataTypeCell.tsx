@@ -161,7 +161,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                 side="bottom"
                 sideOffset={4}
                 data-dtype-popover
-                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-md border border-border bg-popover p-1 shadow-elevation-md"
+                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-sm border border-border bg-popover p-1 shadow-elevation-md"
             >
                 <Command className="border-0 bg-transparent">
                     <CommandList className="max-h-[220px]">
