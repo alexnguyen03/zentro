@@ -524,7 +524,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             </div>
             {contextMenu && (
                 <div
-                    className="fixed z-popover min-w-[160px] rounded-md border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
+                    className="fixed z-popover w-40 rounded-md border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(event) => event.stopPropagation()}
                 >

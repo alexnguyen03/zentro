@@ -603,7 +603,7 @@ export const ConnectionTree: React.FC = () => {
                     <Input
                         ref={filterInputRef}
                         type="text"
-                        className="h-7 w-full rounded-sm py-1.25 pl-5.5 pr-1.5 text-[11px]"
+                        className="h-7 w-full py-1.25 pl-5.5 pr-1.5 text-[11px]"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(event) => updateExplorerUiState({ filter: event.target.value })}
