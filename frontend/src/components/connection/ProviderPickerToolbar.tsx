@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Settings2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Search, Settings2, Upload, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import type { ProviderConfig } from '../../lib/providers';
 import { Button, Input, Spinner } from '../ui';
@@ -34,10 +34,10 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
     <div className={cn('flex items-center justify-between gap-2 border-b border-border/15 px-1 pb-2', className)}>
         <Button
             type="button"
-            variant="outline"
-            size="icon"
+            variant="ghost"
+            size="sm"
             onClick={onBack}
-            className="h-8 w-8 border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground"
+            className='h-8 w-8 border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground'
             title="Back"
         >
             <ArrowLeft size={12} />
@@ -79,14 +79,19 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
 
         {isSelectingProvider && (
             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <Input
-                    type="text"
-                    value={providerFilter}
-                    onChange={(event) => onProviderFilterChange(event.target.value)}
-                    placeholder="Filter providers..."
-                    inputSize="sm"
-                    className="w-full placeholder:text-muted-foreground/60"
-                />
+                <div className="relative min-w-0 flex-1">
+                    <Search size={12} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground/80" />
+                    <Input
+                        type="text"
+                        value={providerFilter}
+                        onChange={(event) => onProviderFilterChange(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Escape') onClearProviderFilter();
+                        }}
+                        placeholder="Filter providers..."
+                        className="w-full pr-2 pl-7 placeholder:text-muted-foreground/70"
+                    />
+                </div>
                 {providerFilter && (
                     <Button
                         type="button"
