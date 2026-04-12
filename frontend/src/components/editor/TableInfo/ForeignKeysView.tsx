@@ -41,6 +41,8 @@ interface FKRowState {
     isNew?: boolean;
 }
 
+type EditField = 'name' | 'columns' | 'refSchema' | 'refTable' | 'refColumns' | 'onDelete' | 'onUpdate';
+
 // --- Helpers ------------------------------------------------------------------
 
 const normalizeFKRule = (value: string | undefined): FKRule => {
@@ -85,6 +87,53 @@ const isEmptyFKDraft = (fk: FKDraft): boolean =>
     !fk.name.trim() && fk.columns.length === 0 && !fk.refSchema.trim() && !fk.refTable.trim() && fk.refColumns.length === 0;
 
 const toRefCacheKey = (s: string, t: string) => `${s}.${t}`;
+const normalizeIdent = (value: string) => value.trim().toLowerCase();
+
+// --- FKSelectCell -------------------------------------------------------------
+// Renders a Select that auto-opens when mounted (edit mode).
+// Uses a ref to programmatically click the trigger after mount so that
+// Radix can measure and position the dropdown correctly.
+
+interface FKSelectCellProps {
+    value: string | undefined;
+    options: string[];
+    placeholder?: string;
+    disabled?: boolean;
+    onValueChange: (value: string) => void;
+    onClose: () => void;
+}
+
+const FKSelectCell: React.FC<FKSelectCellProps> = ({
+    value, options, placeholder, disabled, onValueChange, onClose,
+}) => {
+    const triggerRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        // Defer one frame so the trigger is painted before we open it
+        const id = requestAnimationFrame(() => {
+            triggerRef.current?.click();
+        });
+        return () => cancelAnimationFrame(id);
+    }, []);
+
+    return (
+        <Select
+            value={value}
+            onValueChange={(v) => { onValueChange(v); onClose(); }}
+            onOpenChange={(open) => { if (!open) onClose(); }}
+            disabled={disabled}
+        >
+            <SelectTrigger ref={triggerRef} className="h-6 font-mono text-[11px] border-accent w-full">
+                <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+                {options.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+};
 
 // --- Props --------------------------------------------------------------------
 
@@ -114,9 +163,12 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [rows, setRows] = useState<FKRowState[]>([]);
-    const [editingNameId, setEditingNameId] = useState<string | null>(null);
+    const [editCell, setEditCell] = useState<{ rowId: string; field: EditField } | null>(null);
     const [refColumnCache, setRefColumnCache] = useState<Record<string, string[]>>({});
     const refColumnCacheRef = useRef<Record<string, string[]>>({});
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+    const [dragStartRowId, setDragStartRowId] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((s) => s.activeEnvironmentKey);
@@ -125,27 +177,67 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
 
-    // Schema/table options for dropdowns
+    // Schema/table options
     const schemaNodes = useMemo(() => {
         if (!activeProfile?.name || !activeProfile?.db_name) return [];
         return treeMap[`${activeProfile.name}:${activeProfile.db_name}`] ?? [];
     }, [activeProfile?.db_name, activeProfile?.name, treeMap]);
 
-    const schemaOptions = useMemo(
-        () => schemaNodes.map((n) => n.Name).sort((a, b) => a.localeCompare(b)),
-        [schemaNodes],
-    );
+    const schemaOptions = useMemo(() => {
+        const byNormalized = new Map<string, string>();
+
+        schemaNodes.forEach((node) => {
+            const name = node.Name?.trim() || '';
+            if (!name) return;
+            byNormalized.set(normalizeIdent(name), name);
+        });
+
+        // Fallback: keep referenced schemas visible even when schema tree is stale/partial.
+        rows.forEach((row) => {
+            const name = row.current.refSchema?.trim() || '';
+            if (!name) return;
+            const key = normalizeIdent(name);
+            if (!byNormalized.has(key)) byNormalized.set(key, name);
+        });
+
+        return [...byNormalized.values()].sort((a, b) => a.localeCompare(b));
+    }, [rows, schemaNodes]);
 
     const tablesBySchema = useMemo(() => {
-        const map = new Map<string, string[]>();
+        const tableSetsBySchema = new Map<string, Set<string>>();
+
+        const ensureSet = (schemaName: string): Set<string> => {
+            const key = normalizeIdent(schemaName);
+            const existing = tableSetsBySchema.get(key);
+            if (existing) return existing;
+            const next = new Set<string>();
+            tableSetsBySchema.set(key, next);
+            return next;
+        };
+
         schemaNodes.forEach((node) => {
-            const all = [...(node.Tables || []), ...(node.ForeignTables || [])]
+            const schemaName = node.Name?.trim() || '';
+            if (!schemaName) return;
+            const targetSet = ensureSet(schemaName);
+            [...(node.Tables || []), ...(node.ForeignTables || [])]
                 .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b));
-            map.set(node.Name, all);
+                .forEach((tableName) => targetSet.add(tableName));
+        });
+
+        // Fallback: keep referenced tables visible even when schema tree is stale/partial.
+        rows.forEach((row) => {
+            const refSchema = row.current.refSchema?.trim() || '';
+            const refTable = row.current.refTable?.trim() || '';
+            if (!refSchema || !refTable) return;
+            ensureSet(refSchema).add(refTable);
+        });
+
+        const map = new Map<string, string[]>();
+        tableSetsBySchema.forEach((tableSet, normalizedSchema) => {
+            map.set(normalizedSchema, [...tableSet].sort((a, b) => a.localeCompare(b)));
         });
         return map;
-    }, [schemaNodes]);
+    }, [rows, schemaNodes]);
 
     // -- Ref column cache ------------------------------------------------------
 
@@ -183,11 +275,11 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                 return { id: `fk-${i}-${current.name}`, original: cloneFKDraft(current), current, deleted: false };
             });
             setRows(fkRows);
-            setEditingNameId(null);
+            setEditCell(null);
+            setSelectedRows(new Set());
             setRefColumnCache({});
             refColumnCacheRef.current = {};
 
-            // Pre-load ref columns for existing FKs
             const uniqueTargets = new Set<string>();
             fkRows.forEach((row) => {
                 if (row.current.refSchema && row.current.refTable) {
@@ -207,7 +299,6 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
 
     useEffect(() => { void load(); }, [load, refreshKey]);
 
-    // Auto-load ref columns when rows change
     useEffect(() => {
         rows.forEach((row) => {
             if (row.deleted) return;
@@ -224,7 +315,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     );
     useEffect(() => { onDirtyCountChange?.(dirtyCount); }, [dirtyCount, onDirtyCountChange]);
 
-    // -- Update row ------------------------------------------------------------
+    // -- Row mutations ---------------------------------------------------------
 
     const updateRow = useCallback((rowId: string, patch: Partial<FKDraft>) => {
         setRows((prev) => prev.map((row) => {
@@ -235,6 +326,15 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
             }
             return { ...row, current: next };
         }));
+    }, []);
+
+    const discardRow = useCallback((id: string) => {
+        setRows((prev) => prev.map((r) =>
+            r.id === id
+                ? { ...r, current: cloneFKDraft(r.original), deleted: false }
+                : r,
+        ));
+        setEditCell(null);
     }, []);
 
     // -- Validate --------------------------------------------------------------
@@ -260,7 +360,8 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     // -- Discard ---------------------------------------------------------------
 
     const discard = useCallback(() => {
-        setEditingNameId(null);
+        setEditCell(null);
+        setSelectedRows(new Set());
         setRows((prev) => prev
             .filter((row) => !row.isNew)
             .map((row) => ({ ...row, current: cloneFKDraft(row.original), deleted: false })));
@@ -319,6 +420,72 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
         }
     }, [activeProfile?.name, load, readOnlyMode, rows, schema, tableName, toast, validateDraft, writeSafetyGuard]);
 
+    // -- Selection -------------------------------------------------------------
+
+    const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+
+    const handleRowMouseDown = useCallback((e: React.MouseEvent, rowId: string) => {
+        if (e.button !== 0) return;
+        setIsDragging(true);
+        setDragStartRowId(rowId);
+        if (e.ctrlKey || e.metaKey) {
+            setSelectedRows((prev) => {
+                const next = new Set(prev);
+                if (next.has(rowId)) next.delete(rowId);
+                else next.add(rowId);
+                return next;
+            });
+        } else if (e.shiftKey && selectedRows.size > 0) {
+            const currentIdx = rowIds.indexOf(rowId);
+            if (currentIdx === -1) return;
+            const anchorId = dragStartRowId && rowIds.includes(dragStartRowId)
+                ? dragStartRowId
+                : Array.from(selectedRows)[0];
+            const anchorIdx = rowIds.indexOf(anchorId);
+            if (anchorIdx === -1) return;
+            const min = Math.min(anchorIdx, currentIdx);
+            const max = Math.max(anchorIdx, currentIdx);
+            const next = new Set<string>();
+            for (let i = min; i <= max; i++) next.add(rowIds[i]);
+            setSelectedRows(next);
+        } else {
+            setSelectedRows(new Set([rowId]));
+        }
+    }, [dragStartRowId, rowIds, selectedRows]);
+
+    const handleRowMouseEnter = useCallback((rowId: string) => {
+        if (!isDragging || dragStartRowId === null) return;
+        const startIdx = rowIds.indexOf(dragStartRowId);
+        const currentIdx = rowIds.indexOf(rowId);
+        if (startIdx === -1 || currentIdx === -1) return;
+        const min = Math.min(startIdx, currentIdx);
+        const max = Math.max(startIdx, currentIdx);
+        const next = new Set<string>();
+        for (let i = min; i <= max; i++) next.add(rowIds[i]);
+        setSelectedRows(next);
+    }, [dragStartRowId, rowIds, isDragging]);
+
+    useEffect(() => {
+        const h = () => { setIsDragging(false); setDragStartRowId(null); };
+        window.addEventListener('mouseup', h);
+        return () => window.removeEventListener('mouseup', h);
+    }, []);
+
+    const toggleDeleteSelected = useCallback(() => {
+        if (readOnlyMode || !selectedRows.size) return;
+        setRows((prev) =>
+            prev
+                .map((r) => {
+                    if (!selectedRows.has(r.id)) return r;
+                    if (r.isNew) return null as never;
+                    return { ...r, deleted: !r.deleted };
+                })
+                .filter(Boolean) as FKRowState[],
+        );
+        setSelectedRows(new Set());
+        setEditCell(null);
+    }, [readOnlyMode, selectedRows]);
+
     // -- Actions ---------------------------------------------------------------
 
     const hasChanges = dirtyCount > 0;
@@ -345,8 +512,20 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                         isNew: true,
                     };
                     setRows((prev) => [...prev, row]);
-                    setEditingNameId(row.id);
+                    setEditCell({ rowId: row.id, field: 'name' });
+                    setSelectedRows(new Set());
                 },
+            });
+        }
+        if (selectedRows.size > 0) {
+            result.push({
+                id: 'fk-delete-selected',
+                icon: <Trash2 size={12} />,
+                label: 'Delete',
+                title: 'Delete selected',
+                onClick: toggleDeleteSelected,
+                disabled: saving,
+                danger: true,
             });
         }
         if (hasChanges) {
@@ -370,7 +549,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
             });
         }
         return result;
-    }, [readOnlyMode, saving, hasChanges, schema, discard, save]);
+    }, [readOnlyMode, saving, hasChanges, schema, selectedRows.size, discard, save, toggleDeleteSelected]);
 
     useEffect(() => { onActionsChange?.(actions); }, [onActionsChange, actions]);
 
@@ -384,10 +563,17 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                 e.preventDefault();
                 void save();
             }
+            if (e.key === 'Delete' || (e.key === 'Backspace' && (e.ctrlKey || e.metaKey))) {
+                toggleDeleteSelected();
+            }
+            if (e.key === 'Escape') {
+                setSelectedRows(new Set());
+                setEditCell(null);
+            }
         };
         window.addEventListener('keydown', h);
         return () => window.removeEventListener('keydown', h);
-    }, [isActive, save]);
+    }, [isActive, save, toggleDeleteSelected]);
 
     // -- Render ----------------------------------------------------------------
 
@@ -396,183 +582,334 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     }
 
     return (
-        <div className="flex flex-col min-h-0">
-            <div className="px-3 py-2 flex flex-col gap-2">
-                {rows.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground italic py-2">No foreign keys defined.</p>
-                )}
-                {rows.map((row) => {
-                    const refTableOptions = tablesBySchema.get(row.current.refSchema) ?? [];
-                    const refColumnOptions = row.current.refSchema && row.current.refTable
-                        ? (refColumnCache[toRefCacheKey(row.current.refSchema, row.current.refTable)] ?? [])
-                        : [];
-                    const rowDirty = isFKDirty(row);
-
-                    return (
-                        <div
-                            key={row.id}
-                            className={`rounded border px-2.5 py-2 ${row.deleted ? 'border-error/50 bg-error/5 opacity-70' : 'border-border/60 bg-background/60'}`}
-                        >
-                            {/* Header row: name + badges + delete */}
-                            <div className="flex items-center gap-2 mb-2">
-                                {editingNameId === row.id && !readOnlyMode && !row.deleted ? (
-                                    <Input
-                                        autoFocus
-                                        placeholder="fk_constraint_name"
-                                        value={row.current.name}
-                                        onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                                        onBlur={() => setEditingNameId(null)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                            if (e.key === 'Escape') setEditingNameId(null);
-                                        }}
-                                        disabled={saving}
-                                        className="rt-cell-input font-mono min-w-45 w-55"
-                                    />
-                                ) : (
-                                    <span
-                                        className={`font-mono text-[12px] truncate cursor-pointer hover:text-accent ${row.isNew ? 'text-success' : 'text-foreground font-medium'} ${row.deleted ? 'opacity-50 cursor-default pointer-events-none' : ''}`}
-                                        title={row.current.name}
-                                        onClick={() => !readOnlyMode && !row.deleted && setEditingNameId(row.id)}
-                                        onDoubleClick={() => !readOnlyMode && !row.deleted && setEditingNameId(row.id)}
-                                    >
-                                        {row.current.name || <span className="italic text-muted-foreground/50">untitled</span>}
-                                    </span>
-                                )}
-                                {row.isNew && <span className="text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded">NEW</span>}
-                                {!row.isNew && rowDirty && !row.deleted && (
-                                    <span className="text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded">EDITED</span>
-                                )}
-                                {row.deleted && (
-                                    <span className="text-[9px] font-bold text-error bg-error/10 px-1 py-0.5 rounded">DROP PENDING</span>
-                                )}
-                                {!readOnlyMode && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        onClick={() => {
-                                            if (row.isNew) {
-                                                setRows((prev) => prev.filter((r) => r.id !== row.id));
-                                                return;
-                                            }
-                                            if (row.deleted) {
-                                                setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, deleted: false } : r));
-                                                return;
-                                            }
-                                            setRows((prev) => prev.map((r) => r.id === row.id ? { ...r, deleted: true } : r));
-                                        }}
-                                        disabled={saving}
-                                        className="ml-auto h-6 px-2 text-[11px] text-error/70 hover:text-error"
-                                    >
-                                        <Trash2 size={11} />
-                                    </Button>
-                                )}
-                            </div>
-
-                            {/* Grid fields */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Source Columns</p>
-                                    <ColumnPickerCell
-                                        columns={tableColumns}
-                                        selected={row.current.columns}
-                                        onChange={(cols) => updateRow(row.id, { columns: cols })}
-                                        onClose={() => {}}
-                                        autoOpen={false}
-                                    />
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Referenced Schema</p>
-                                    <Select
-                                        value={row.current.refSchema || undefined}
-                                        onValueChange={(value) => updateRow(row.id, { refSchema: value, refTable: '' })}
-                                        disabled={readOnlyMode || saving || row.deleted}
-                                    >
-                                        <SelectTrigger className="h-7 font-mono text-[12px]">
-                                            <SelectValue placeholder="Select schema" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {schemaOptions.map((s) => (
-                                                <SelectItem key={s} value={s}>{s}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Referenced Table</p>
-                                    <Select
-                                        value={row.current.refTable || undefined}
-                                        onValueChange={(value) => {
-                                            updateRow(row.id, { refTable: value });
-                                            void loadRefColumns(row.current.refSchema, value);
-                                        }}
-                                        disabled={readOnlyMode || saving || row.deleted || !row.current.refSchema}
-                                    >
-                                        <SelectTrigger className="h-7 font-mono text-[12px]">
-                                            <SelectValue placeholder="Select table" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {refTableOptions.map((t) => (
-                                                <SelectItem key={t} value={t}>{t}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Referenced Columns</p>
-                                    <ColumnPickerCell
-                                        columns={refColumnOptions}
-                                        selected={row.current.refColumns}
-                                        onChange={(cols) => updateRow(row.id, { refColumns: cols })}
-                                        onClose={() => {}}
-                                        autoOpen={false}
-                                    />
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ON DELETE</p>
-                                    <Select
-                                        value={row.current.onDelete}
-                                        onValueChange={(value) => updateRow(row.id, { onDelete: normalizeFKRule(value) })}
-                                        disabled={readOnlyMode || saving || row.deleted}
-                                    >
-                                        <SelectTrigger className="h-7 font-mono text-[12px]">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {FK_RULE_OPTIONS.map((rule) => (
-                                                <SelectItem key={`del-${rule}`} value={rule}>{rule}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ON UPDATE</p>
-                                    <Select
-                                        value={row.current.onUpdate}
-                                        onValueChange={(value) => updateRow(row.id, { onUpdate: normalizeFKRule(value) })}
-                                        disabled={readOnlyMode || saving || row.deleted}
-                                    >
-                                        <SelectTrigger className="h-7 font-mono text-[12px]">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {FK_RULE_OPTIONS.map((rule) => (
-                                                <SelectItem key={`upd-${rule}`} value={rule}>{rule}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
             {writeSafetyGuard.modals}
+
+            <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="flex-1 overflow-auto scrollbar-thin px-3">
+                    <table
+                        className="result-table-tanstack border-collapse table-fixed select-none"
+                        style={{ width: '100%', minWidth: '900px' }}
+                    >
+                        <thead>
+                            <tr className="border-b-2 border-border">
+                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                                    <div className="rt-th-label justify-center">#</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '160px' }}>
+                                    <div className="rt-th-label">Name</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '160px' }}>
+                                    <div className="rt-th-label">Source Columns</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '110px' }}>
+                                    <div className="rt-th-label">Ref Schema</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '140px' }}>
+                                    <div className="rt-th-label">Ref Table</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '160px' }}>
+                                    <div className="rt-th-label">Ref Columns</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '120px' }}>
+                                    <div className="rt-th-label">On Delete</div>
+                                </th>
+                                <th className="rt-th" style={{ width: '120px' }}>
+                                    <div className="rt-th-label">On Update</div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/20">
+                            {rows.map((row, displayIdx) => {
+                                const isDeleted = row.deleted;
+                                const isNew = row.isNew;
+                                const isDirty = isFKDirty(row);
+                                const isSelected = selectedRows.has(row.id);
+
+                                const isEditingName = editCell?.rowId === row.id && editCell.field === 'name';
+                                const isEditingCols = editCell?.rowId === row.id && editCell.field === 'columns';
+                                const isEditingRefSchema = editCell?.rowId === row.id && editCell.field === 'refSchema';
+                                const isEditingRefTable = editCell?.rowId === row.id && editCell.field === 'refTable';
+                                const isEditingRefCols = editCell?.rowId === row.id && editCell.field === 'refColumns';
+                                const isEditingOnDelete = editCell?.rowId === row.id && editCell.field === 'onDelete';
+                                const isEditingOnUpdate = editCell?.rowId === row.id && editCell.field === 'onUpdate';
+
+                                const refTableOptions = tablesBySchema.get(normalizeIdent(row.current.refSchema || '')) ?? [];
+                                const refColumnOptions = row.current.refSchema && row.current.refTable
+                                    ? (refColumnCache[toRefCacheKey(row.current.refSchema, row.current.refTable)] ?? [])
+                                    : [];
+
+                                const rowCls = `
+                                    group relative transition-all duration-150
+                                    ${displayIdx % 2 !== 0 ? 'rt-row-alt' : ''}
+                                    ${isSelected ? 'rt-row-selected' : ''}
+                                    ${isDeleted ? 'rt-row-deleted' : ''}
+                                `;
+
+                                return (
+                                    <tr
+                                        key={row.id}
+                                        className={rowCls}
+                                        onMouseDown={(e) => handleRowMouseDown(e, row.id)}
+                                        onMouseEnter={() => handleRowMouseEnter(row.id)}
+                                    >
+                                        {/* # */}
+                                        <td className="w-10 text-center border-b border-border">
+                                            <div
+                                                className="rt-cell-content rt-cell-content--compact row-num-col"
+                                                onDoubleClick={() => (isDirty || isDeleted) && !isNew && discardRow(row.id)}
+                                                title={(isDirty || isDeleted) && !isNew ? 'Double-click to discard changes' : undefined}
+                                            >
+                                                {displayIdx + 1}
+                                            </div>
+                                        </td>
+
+                                        {/* Name */}
+                                        <td className="p-0 border-b border-border" style={{ width: '160px' }}>
+                                            {isEditingName ? (
+                                                <Input
+                                                    autoFocus
+                                                    onFocus={(e) => e.target.select()}
+                                                    placeholder="fk_constraint_name"
+                                                    className="rt-cell-input font-mono"
+                                                    value={row.current.name}
+                                                    onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                                                    onBlur={() => setEditCell(null)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                                        if (e.key === 'Escape') setEditCell(null);
+                                                    }}
+                                                    disabled={saving}
+                                                />
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-medium
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    title={row.current.name || '(unnamed)'}
+                                                    onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'name' })}
+                                                >
+                                                    <span className="truncate font-mono text-[11px]">
+                                                        {row.current.name || <span className="italic text-muted-foreground/50">untitled</span>}
+                                                    </span>
+                                                    {isNew && (
+                                                        <span className="ml-1.5 text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
+                                                    )}
+                                                    {!isNew && isDirty && !isDeleted && (
+                                                        <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
+                                                    )}
+                                                    {isDeleted && (
+                                                        <span className="ml-1.5 text-[9px] font-bold text-error bg-error/10 px-1 py-0.5 rounded shrink-0">DROP</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* Source Columns */}
+                                        <td className="p-0 border-b border-border" style={{ width: '160px' }}>
+                                            {isEditingCols ? (
+                                                <div
+                                                    className="px-1.5 py-0.75"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <ColumnPickerCell
+                                                        columns={tableColumns}
+                                                        selected={row.current.columns}
+                                                        onChange={(cols) => updateRow(row.id, { columns: cols })}
+                                                        onClose={() => setEditCell(null)}
+                                                        autoOpen
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    title={row.current.columns.join(', ')}
+                                                    onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'columns' })}
+                                                >
+                                                    {row.current.columns.length > 0
+                                                        ? row.current.columns.join(', ')
+                                                        : <span className="italic text-muted-foreground/40">select cols</span>}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* Ref Schema */}
+                                        <td className="p-0 border-b border-border" style={{ width: '110px' }}>
+                                            {isEditingRefSchema ? (
+                                                <div
+                                                    className="px-1 py-0.5"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <FKSelectCell
+                                                        value={row.current.refSchema || undefined}
+                                                        options={schemaOptions}
+                                                        placeholder="schema"
+                                                        disabled={saving}
+                                                        onValueChange={(value) => updateRow(row.id, { refSchema: value, refTable: '' })}
+                                                        onClose={() => setEditCell(null)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    title={row.current.refSchema}
+                                                    onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'refSchema' })}
+                                                >
+                                                    {row.current.refSchema || <span className="italic text-muted-foreground/40">schema</span>}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* Ref Table */}
+                                        <td className="p-0 border-b border-border" style={{ width: '140px' }}>
+                                            {isEditingRefTable ? (
+                                                <div
+                                                    className="px-1 py-0.5"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <FKSelectCell
+                                                        value={row.current.refTable || undefined}
+                                                        options={refTableOptions}
+                                                        placeholder="table"
+                                                        disabled={saving}
+                                                        onValueChange={(value) => {
+                                                            updateRow(row.id, { refTable: value });
+                                                            void loadRefColumns(row.current.refSchema, value);
+                                                        }}
+                                                        onClose={() => setEditCell(null)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    title={row.current.refTable}
+                                                    onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'refTable' })}
+                                                >
+                                                    {row.current.refTable || <span className="italic text-muted-foreground/40">table</span>}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* Ref Columns */}
+                                        <td className="p-0 border-b border-border" style={{ width: '160px' }}>
+                                            {isEditingRefCols ? (
+                                                <div
+                                                    className="px-1.5 py-0.75"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <ColumnPickerCell
+                                                        columns={refColumnOptions}
+                                                        selected={row.current.refColumns}
+                                                        onChange={(cols) => updateRow(row.id, { refColumns: cols })}
+                                                        onClose={() => setEditCell(null)}
+                                                        autoOpen
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    title={row.current.refColumns.join(', ')}
+                                                    onDoubleClick={() => {
+                                                        if (readOnlyMode || isDeleted) return;
+                                                        if (!row.current.refTable) {
+                                                            setEditCell({ rowId: row.id, field: 'refTable' });
+                                                        } else {
+                                                            setEditCell({ rowId: row.id, field: 'refColumns' });
+                                                        }
+                                                    }}
+                                                >
+                                                    {row.current.refColumns.length > 0
+                                                        ? row.current.refColumns.join(', ')
+                                                        : <span className="italic text-muted-foreground/40">select cols</span>}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* On Delete */}
+                                        <td className="p-0 border-b border-border" style={{ width: '120px' }}>
+                                            {isEditingOnDelete ? (
+                                                <div
+                                                    className="px-1 py-0.5"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <FKSelectCell
+                                                        value={row.current.onDelete}
+                                                        options={FK_RULE_OPTIONS}
+                                                        disabled={saving}
+                                                        onValueChange={(value) => updateRow(row.id, { onDelete: normalizeFKRule(value) })}
+                                                        onClose={() => setEditCell(null)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'onDelete' })}
+                                                >
+                                                    {row.current.onDelete}
+                                                </div>
+                                            )}
+                                        </td>
+
+                                        {/* On Update */}
+                                        <td className="p-0 border-b border-border" style={{ width: '120px' }}>
+                                            {isEditingOnUpdate ? (
+                                                <div
+                                                    className="px-1 py-0.5"
+                                                    onMouseDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <FKSelectCell
+                                                        value={row.current.onUpdate}
+                                                        options={FK_RULE_OPTIONS}
+                                                        disabled={saving}
+                                                        onValueChange={(value) => updateRow(row.id, { onUpdate: normalizeFKRule(value) })}
+                                                        onClose={() => setEditCell(null)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                        ${isDeleted ? 'opacity-40' : ''}
+                                                        ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
+                                                    `}
+                                                    onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'onUpdate' })}
+                                                >
+                                                    {row.current.onUpdate}
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+
+                            {rows.length === 0 && !loading && (
+                                <tr>
+                                    <td colSpan={8} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                        {readOnlyMode
+                                            ? 'No foreign keys defined for this table.'
+                                            : 'No foreign keys yet. Click "Add FK" to create one.'}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 };
