@@ -4,7 +4,7 @@ import { GetUniqueConstraints, CreateUniqueConstraint, DropUniqueConstraint } fr
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { useToast } from '../../layout/Toast';
-import { Button, Input } from '../../ui';
+import { Button, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { ColumnPickerCell } from './ColumnPickerCell';
@@ -371,24 +371,24 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin px-3">
-                    <table
+                    <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
                         style={{ width: '100%', minWidth: '560px' }}
                     >
-                        <thead>
-                            <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                        <TableHeader className="[&_tr]:border-b-0">
+                            <TableRow className="border-b-2 border-border hover:bg-transparent">
+                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '180px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '180px' }}>
                                     <div className="rt-th-label">Name</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '280px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '280px' }}>
                                     <div className="rt-th-label">Columns</div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/20">
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-border/20 [&_tr:last-child]:border-b">
                             {rows.map((row, displayIdx) => {
                                 const rowIsDirty = isDirty(row);
                                 const rowIsDeleted = row.deleted;
@@ -406,13 +406,13 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
                                 `;
 
                                 return (
-                                    <tr
+                                    <TableRow
                                         key={row.id}
-                                        className={rowClassName}
+                                        className={`${rowClassName} border-b-0 hover:bg-transparent`}
                                         onMouseDown={(event) => handleRowMouseDown(event, row.id)}
                                         onMouseEnter={() => handleRowMouseEnter(row.id)}
                                     >
-                                        <td className="w-10 text-center border-b border-border">
+                                        <TableCell className="w-10 text-center border-b border-border">
                                             <div
                                                 className="rt-cell-content rt-cell-content--compact row-num-col"
                                                 onDoubleClick={() => (rowIsDirty || rowIsDeleted) && !rowIsNew && discardRow(row.id)}
@@ -420,9 +420,9 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
                                             >
                                                 {displayIdx + 1}
                                             </div>
-                                        </td>
+                                        </TableCell>
 
-                                        <td className="p-0 border-b border-border" style={{ width: '180px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '180px' }}>
                                             {isEditingName ? (
                                                 <Input
                                                     autoFocus
@@ -461,9 +461,9 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
                                                     )}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
-                                        <td className="p-0 border-b border-border" style={{ width: '280px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '280px' }}>
                                             {isEditingColumns ? (
                                                 <div className="px-1.5 py-0.75" onMouseDown={(event) => event.stopPropagation()}>
                                                     <ColumnPickerCell
@@ -488,22 +488,22 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
                                                         : <span className="italic text-muted-foreground/40">select columns</span>}
                                                 </div>
                                             )}
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
 
                             {rows.length === 0 && !loading && (
-                                <tr>
-                                    <td colSpan={3} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={3} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
                                         {readOnlyMode
                                             ? 'No unique constraints defined for this table.'
                                             : 'No unique constraints yet. Click "Add Unique" to create one.'}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </div>

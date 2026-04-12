@@ -7,7 +7,7 @@ import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
-import { Button, Input, Switch } from '../../ui';
+import { Button, Input, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui';
 import { ColumnPickerCell } from './ColumnPickerCell';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
@@ -406,29 +406,29 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin px-3">
-                    <table
+                    <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
                         style={{ width: '100%', minWidth: '560px' }}
                     >
-                        <thead>
-                            <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                        <TableHeader className="[&_tr]:border-b-0">
+                            <TableRow className="border-b-2 border-border hover:bg-transparent">
+                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
-                                </th>
-                                <th className="rt-th">
+                                </TableHead>
+                                <TableHead className="rt-th">
                                     <div className="rt-th-label">Name</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '320px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '320px' }}>
                                     <div className="rt-th-label">Columns</div>
-                                </th>
+                                </TableHead>
                                 {!uniqueOnly && (
-                                    <th className="rt-th w-20">
+                                    <TableHead className="rt-th w-20">
                                         <div className="rt-th-label justify-center">Unique</div>
-                                    </th>
+                                    </TableHead>
                                 )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/20">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-border/20 [&_tr:last-child]:border-b">
                             {filteredRows.map((row, displayIdx) => {
                                 const isDeleted = row.deleted;
                                 const isNew = row.isNew;
@@ -445,14 +445,14 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                 `;
 
                                 return (
-                                    <tr
+                                    <TableRow
                                         key={row.id}
-                                        className={rowCls}
+                                        className={`${rowCls} border-b-0 hover:bg-transparent`}
                                         onMouseDown={(e) => handleRowMouseDown(e, row.id)}
                                         onMouseEnter={() => handleRowMouseEnter(row.id)}
                                     >
                                         {/* # — double-click to discard row (matches columns tab) */}
-                                        <td className="w-10 text-center border-b border-border">
+                                        <TableCell className="w-10 text-center border-b border-border">
                                             <div
                                                 className="rt-cell-content rt-cell-content--compact row-num-col"
                                                 onDoubleClick={() => (isDirty || isDeleted) && !isNew && discardRow(row.id)}
@@ -460,10 +460,10 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                             >
                                                 {displayIdx + 1}
                                             </div>
-                                        </td>
+                                        </TableCell>
 
                                         {/* Name */}
-                                        <td className="p-0 border-b border-border">
+                                        <TableCell className="p-0 border-b border-border">
                                             {isEditingName ? (
                                                 <Input
                                                     autoFocus
@@ -499,10 +499,10 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                     )}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Columns */}
-                                        <td className="p-0 border-b border-border" style={{ width: '320px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '320px' }}>
                                             {isEditingCols ? (
                                                 <div
                                                     className="px-1.5 py-[3px]"
@@ -531,11 +531,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                         : <span className="italic text-muted-foreground/40">no columns</span>}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Unique — always interactive, no double-click needed */}
                                         {!uniqueOnly && (
-                                            <td className="w-20 text-center border-b border-border">
+                                            <TableCell className="w-20 text-center border-b border-border">
                                                 <div
                                                     className="rt-cell-content rt-cell-content--compact justify-center"
                                                     onMouseDown={(e) => e.stopPropagation()}
@@ -547,31 +547,31 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                         className="scale-75 origin-center"
                                                     />
                                                 </div>
-                                            </td>
+                                            </TableCell>
                                         )}
-                                    </tr>
+                                    </TableRow>
                                 );
                             })}
 
                             {rows.length === 0 && !loading && (
-                                <tr>
-                                    <td colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
                                         {readOnlyMode
                                             ? (uniqueOnly ? 'No unique keys found for this table.' : 'No indexes found for this table.')
                                             : (uniqueOnly ? 'No unique keys yet. Click "Add Unique Key" to create one.' : 'No indexes yet. Click "Add Index" to create one.')}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
 
                             {rows.length > 0 && filteredRows.length === 0 && filterText && (
-                                <tr>
-                                    <td colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-[12px]">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-[12px]">
                                         {uniqueOnly ? `No unique keys match "${filterText}"` : `No indexes match "${filterText}"`}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </div>
