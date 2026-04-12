@@ -115,7 +115,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                 </div>
             </aside>
 
-            <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-card">
+            <div className="flex min-h-0 flex-1 flex-col rounded-sm bg-card">
                 <div className="px-3 py-3 lg:px-4">
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
                         <div className="text-[12px] font-semibold text-foreground">
@@ -187,15 +187,16 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                 const DisplayIcon = PROJECT_ICON_MAP[displayIconKey].icon;
 
                                 return (
-                                    <div key={project.id} className="rounded-lg bg-card">
+                                    <div key={project.id} className="rounded-sm bg-card">
                                         <div
                                             role={canOpenProject ? 'button' : undefined}
                                             tabIndex={canOpenProject ? 0 : -1}
                                             data-testid={`recent-project-${project.id}`}
                                             className={cn(
-                                                'bg-card/50 shadow-sm group relative flex items-start gap-3 rounded-lg px-3 py-3 text-left transition-all',
-                                                'hover:bg-muted/50 focus-visible:bg-muted/20',
-                                                isActive ? 'border border-primary/35' : 'bg-muted/10',
+                                                'bg-primary/3',
+                                                'hover:bg-primary/8',
+                                                ' group relative flex items-start gap-3 rounded-sm px-3 py-3 text-left transition-all',
+                                                // isActive ? 'border border-primary/35' : 'bg-muted/10',
                                                 canOpenProject ? 'cursor-pointer' : 'cursor-default',
                                                 isDisabled ? 'pointer-events-none opacity-70' : '',
                                             )}
@@ -269,7 +270,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                         </PopoverContent>
                                                     </Popover>
 
-                                                    <div className="w-full">
+                                                    <div className="w-full mb-5">
                                                         {isEditing ? (
                                                             <div>
                                                                 <div className="my-1 text-[10px] font-medium tracking-wide text-muted-foreground">

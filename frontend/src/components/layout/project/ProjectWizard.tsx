@@ -407,7 +407,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                     />
                                 </div>
                             ) : (
-                                <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] px-4 py-3">
+                                <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] p-1.5">
                                     <ProviderPickerToolbar
                                         isSelectingProvider={isSelectingProvider}
                                         providerFilter={providerFilter}
@@ -420,7 +420,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                                         importingConnection={importingFormConnection}
                                     />
                                     {isSelectingProvider ? (
-                                        <div className="h-full min-h-0 rounded-sm bg-background/15 p-2">
+                                        <div className="h-full min-h-0 rounded-sm p-2">
                                             <ProviderGrid selected={form.selectedProvider} locked={form.isEditing} filterText={providerFilter} onSelect={handleProviderSelect} />
                                         </div>
                                     ) : (

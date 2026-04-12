@@ -513,7 +513,7 @@ export const Toolbar: React.FC = () => {
                         <Button
                             type="button"
                             variant="ghost"
-                            className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 rounded-r-full hover:bg-card/40 transition-colors leading-none"
+                            className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 hover:bg-card/40 transition-colors leading-none"
                             title="Configure environment bindings"
                             onClick={() => {
                                 setQuickEnvOpen(false);

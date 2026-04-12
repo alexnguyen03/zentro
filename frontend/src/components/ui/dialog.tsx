@@ -36,14 +36,14 @@ const DialogContent = React.forwardRef<
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                'fixed top-[50%] left-[50%] z-modal grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[12px] border border-border bg-card p-5 text-card-foreground shadow-elevation-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+                'fixed top-[50%] left-[50%] z-modal grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-md border border-border bg-card p-5 text-card-foreground shadow-elevation-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
                 className,
             )}
             {...props}
         >
             {children}
             {showCloseButton ? (
-                <DialogPrimitive.Close className={cn('absolute top-3 right-3 rounded-[6px] p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', closeClassName)}>
+                <DialogPrimitive.Close className={cn('absolute top-3 right-3 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', closeClassName)}>
                     <X className="h-4 w-4" />
                     <span className="sr-only">Close</span>
                 </DialogPrimitive.Close>

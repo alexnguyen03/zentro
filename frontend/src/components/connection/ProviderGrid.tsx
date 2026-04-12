@@ -29,7 +29,7 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
         className={cn(
             'relative aspect-square h-auto w-full rounded-sm border p-2 transition-all duration-200 select-none',
             active
-                ? 'border-success/60 shadow-[0_2px_8px_rgba(0,0,0,0.05)]'
+                ? 'border-primary/60 shadow-[0_2px_8px_rgba(0,0,0,0.05)]'
                 : disabled
                     ? 'border-transparent cursor-not-allowed opacity-40 grayscale'
                     : 'border-transparent hover:border-border/80'
@@ -41,9 +41,6 @@ const ProviderButton: React.FC<ProviderButtonProps> = ({ provider, active, disab
             alt={provider.label}
             className="h-9 w-9 max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-110"
         />
-        {active && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-bg-secondary bg-success shadow-[0_0_4px_rgba(34,197,94,0.6)]" />
-        )}
     </Button>
 );
 
@@ -61,7 +58,7 @@ export const ProviderGrid: React.FC<ProviderGridProps> = ({
         : PROVIDERS;
 
     return (
-        <div className={cn('grid h-full min-h-0 content-start gap-3 overflow-y-auto bg-background px-3 py-3 [grid-template-columns:repeat(auto-fill,minmax(96px,1fr))]', className)}>
+        <div className={cn('grid h-full min-h-0 content-start gap-3 overflow-y-auto grid-cols-[repeat(auto-fill,minmax(96px,1fr))]', className)}>
             {visibleProviders.map((provider) => (
                 <ProviderButton
                     key={provider.key}

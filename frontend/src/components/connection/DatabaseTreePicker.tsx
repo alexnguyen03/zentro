@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, Server, Database, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, Server, Database, Pencil, Plus, Search, Trash2, Upload, X, Download } from 'lucide-react';
 import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { Button, Input, Spinner } from '../ui';
@@ -223,7 +223,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="shrink-0 border-b border-border/25 pb-2">
-                <div className="flex items-center gap-1.5 rounded-sm bg-muted/55 p-1.5">
+                <div className="flex items-center gap-1.5 p-1.5">
                     <div className="relative min-w-0 flex-1">
                         <Search size={12} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground/80" />
                         <Input
@@ -234,8 +234,8 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 if (event.key === 'Escape') setFilter('');
                             }}
                             placeholder="Filter connections or databases..."
-                            className="w-full border-border/60 bg-background/90 pr-2 pl-7 placeholder:text-muted-foreground/70"
-                        />
+                            className="w-full  pr-2 pl-7 placeholder:text-muted-foreground/70"
+                            />
                     </div>
                     {filter && (
                         <Button
@@ -247,18 +247,6 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             title="Clear filter"
                         >
                             <X size={13} />
-                        </Button>
-                    )}
-                    {onAddNew && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={onAddNew}
-                            className="h-8 w-8 border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
-                            title="Add new connection"
-                        >
-                            <Plus size={14} />
                         </Button>
                     )}
                     {onImport && (
@@ -273,10 +261,22 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 importing || importDisabled
                                     ? 'cursor-not-allowed opacity-55'
                                     : 'cursor-pointer hover:border-border/80 hover:bg-background hover:text-foreground',
-                            )}
-                            title={importDisabled ? 'Import disabled in this context' : 'Import connection package'}
+                                )}
+                                title={importDisabled ? 'Import disabled in this context' : 'Import connection package'}
+                                >
+                            {importing ? <Spinner size={13} /> : <Download size={14} />}
+                        </Button>
+                    )}
+                    {onAddNew && (
+                        <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onAddNew}
+                        className="h-8 w-8 border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+                        title="Add new connection"
                         >
-                            {importing ? <Spinner size={13} /> : <Upload size={14} />}
+                            <Plus size={14} />
                         </Button>
                     )}
                 </div>

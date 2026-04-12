@@ -103,7 +103,7 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
     return (
         <div className="absolute inset-0 z-modal p-2" onMouseDown={onClose}>
             <div
-                className="mx-auto mt-1 w-full max-w-[620px] overflow-hidden rounded-[8px] border border-border/90 bg-card shadow-elevation-lg"
+                className="mx-auto mt-1 w-full max-w-[620px] overflow-hidden rounded-sm border border-border/90 bg-card shadow-elevation-lg"
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 <div className="border-b border-border/70 bg-muted/35 p-1.5">
