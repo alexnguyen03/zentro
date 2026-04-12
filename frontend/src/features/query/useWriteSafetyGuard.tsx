@@ -48,6 +48,7 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
     const guardFromAnalysis = React.useCallback(async (
         analysis: SqlRiskAnalysis | OperationRiskAnalysis,
         actionLabel: string,
+        operationsList?: string[],
     ): Promise<WriteSafetyGuardResult> => {
         const policy = resolveQueryPolicy(environmentKey || undefined);
         const decision = evaluateWriteSafetyDecision({
@@ -57,6 +58,10 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
             safetyLevel: policy.safetyLevel,
             strongConfirmFromEnvironment: policy.strongConfirmFromEnvironment,
         });
+
+        if (operationsList?.length) {
+            decision.description = operationsList.join('\n');
+        }
 
         if (decision.action === 'allow') {
             return { allowed: true };
@@ -79,8 +84,9 @@ export function useWriteSafetyGuard(environmentKey?: string | null) {
     const guardOperations = React.useCallback(async (
         operations: WriteOperationKind[],
         actionLabel: string,
+        operationsList?: string[],
     ): Promise<WriteSafetyGuardResult> => {
-        return guardFromAnalysis(analyzeOperationRisk(operations), actionLabel);
+        return guardFromAnalysis(analyzeOperationRisk(operations), actionLabel, operationsList);
     }, [guardFromAnalysis]);
 
     const handlePrimaryClose = React.useCallback(() => {

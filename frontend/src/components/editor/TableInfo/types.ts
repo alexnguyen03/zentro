@@ -9,7 +9,7 @@ export interface RowState {
     isNew?: boolean;
 }
 
-export type TableInfoTab = 'columns' | 'data' | 'erd' | 'indexes' | 'unique_keys' | 'constraints' | 'ddl';
+export type TableInfoTab = 'columns' | 'data' | 'erd' | 'keys' | 'ddl';
 export type SortDir = 'asc' | 'desc' | null;
 export type SortCol = 'idx' | 'Name' | 'DataType' | 'IsPrimaryKey' | 'IsNullable' | 'DefaultValue';
 
