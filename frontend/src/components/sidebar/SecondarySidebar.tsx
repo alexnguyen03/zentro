@@ -64,7 +64,7 @@ export const SecondarySidebar: React.FC = () => {
                         </TabsList>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-hidden bg-card/10 p-1.5">
+                    <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
                         {panels.map((panel) => (
                             <TabsContent key={panel.id} value={panel.id} className="mt-0 h-full outline-none">
                                 {panel.render()}

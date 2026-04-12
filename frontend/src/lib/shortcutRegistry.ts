@@ -10,6 +10,8 @@ import { useProjectStore } from '../stores/projectStore';
 import { DOM_EVENT, ENVIRONMENT_KEY, TRANSACTION_STATUS, type EnvironmentKey, TAB_TYPE } from './constants';
 import { emitCommand } from './commandBus';
 import { utils } from '../../wailsjs/go/models';
+import { getEnvironmentLabel } from './projects';
+import { toast as sonnerToast } from 'sonner';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
 
@@ -70,11 +72,23 @@ async function switchProjectEnvironmentShortcut(environmentKey: EnvironmentKey) 
   const activeProject = projectStore.activeProject;
   if (!activeProject) return;
 
-  if (environmentStore.activeEnvironmentKey !== environmentKey) {
-    environmentStore.setActiveEnvironment(environmentKey);
+  if (environmentStore.activeEnvironmentKey === environmentKey) return;
+
+  const hasBoundConnection = (activeProject.connections || []).some(
+    (connection) => connection.environment_key === environmentKey,
+  );
+  if (!hasBoundConnection) {
+    sonnerToast.error(`Cannot switch to ${getEnvironmentLabel(environmentKey)}: no bound connection.`);
+    return;
   }
 
-  await projectStore.setProjectEnvironment(environmentKey);
+  const updated = await projectStore.setProjectEnvironment(environmentKey);
+  if (!updated) {
+    sonnerToast.error('Could not switch environment.');
+    return;
+  }
+
+  environmentStore.setActiveEnvironment(environmentKey);
 }
 
 async function toggleViewModeShortcut() {
