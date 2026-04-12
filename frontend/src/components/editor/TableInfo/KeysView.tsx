@@ -4,7 +4,6 @@ import { ChevronRight } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../../ui/collapsible';
 import { Button, Spinner } from '../../ui';
 import { IndexInfoView } from './IndexInfoView';
-import { UniqueConstraintsView } from './UniqueConstraintsView';
 import { PrimaryKeyView } from './PrimaryKeyView';
 import { ForeignKeysView } from './ForeignKeysView';
 import { CheckConstraintsView } from './CheckConstraintsView';
@@ -52,7 +51,7 @@ interface SectionHeaderProps {
 }
 
 const SectionHeader: React.FC<SectionHeaderProps> = ({ title, isOpen, onToggle, actions }) => (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-border/30">
+    <div className={cx('flex h-10 items-center justify-between px-3', isOpen && 'border-b border-border/30')}>
         <CollapsibleTrigger
             className="flex items-center gap-1.5 min-w-0 cursor-pointer select-none hover:opacity-80 transition-opacity"
             onClick={onToggle}
@@ -87,149 +86,150 @@ export const KeysView: React.FC<KeysViewProps> = ({
 
     const [indexOpen, setIndexOpen] = useState(true);
     const [uniqueOpen, setUniqueOpen] = useState(true);
-    const [uniqueConstrOpen, setUniqueConstrOpen] = useState(true);
     const [pkOpen, setPkOpen] = useState(true);
     const [fkOpen, setFkOpen] = useState(true);
     const [checkOpen, setCheckOpen] = useState(true);
 
     const [indexActions, setIndexActions] = useState<TabAction[]>([]);
     const [uniqueActions, setUniqueActions] = useState<TabAction[]>([]);
-    const [uniqueConstrActions, setUniqueConstrActions] = useState<TabAction[]>([]);
     const [pkActions, setPkActions] = useState<TabAction[]>([]);
     const [fkActions, setFkActions] = useState<TabAction[]>([]);
     const [checkActions, setCheckActions] = useState<TabAction[]>([]);
 
-    const dirtyRef = useRef({ index: 0, unique: 0, uniqueConstr: 0, pk: 0, fk: 0, check: 0 });
+    const dirtyRef = useRef({ index: 0, unique: 0, pk: 0, fk: 0, check: 0 });
 
     const notifyDirty = useCallback(() => {
         const d = dirtyRef.current;
-        const total = d.index + d.unique + d.uniqueConstr + d.pk + d.fk + d.check;
+        const total = d.index + d.unique + d.pk + d.fk + d.check;
         onDirtyCountChange?.(total);
     }, [onDirtyCountChange]);
 
     const handleIndexDirty = useCallback((n: number) => { dirtyRef.current.index = n; notifyDirty(); }, [notifyDirty]);
     const handleUniqueDirty = useCallback((n: number) => { dirtyRef.current.unique = n; notifyDirty(); }, [notifyDirty]);
-    const handleUniqueConstrDirty = useCallback((n: number) => { dirtyRef.current.uniqueConstr = n; notifyDirty(); }, [notifyDirty]);
     const handlePkDirty = useCallback((n: number) => { dirtyRef.current.pk = n; notifyDirty(); }, [notifyDirty]);
     const handleFkDirty = useCallback((n: number) => { dirtyRef.current.fk = n; notifyDirty(); }, [notifyDirty]);
     const handleCheckDirty = useCallback((n: number) => { dirtyRef.current.check = n; notifyDirty(); }, [notifyDirty]);
+    const contentAnimClass = 'accordion-content-animation';
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto gap-2 p-2">
 
-            {/* Indexes */}
-            <Collapsible open={indexOpen} onOpenChange={setIndexOpen}>
-                <SectionHeader
-                    title="Indexes"
-                    isOpen={indexOpen}
-                    onToggle={() => setIndexOpen((v) => !v)}
-                    actions={indexActions}
-                />
-                <CollapsibleContent forceMount className="data-[state=closed]:hidden">
-                    <div className="border-b border-border/30" style={{ height: 280 }}>
-                        <IndexInfoView
-                            schema={schema}
-                            tableName={tableName}
-                            filterText=""
-                            refreshKey={refreshKey}
-                            readOnlyMode={readOnlyMode}
-                            isActive={isActive && indexOpen}
-                            tableColumns={tableColumns}
-                            onActionsChange={setIndexActions}
-                            onDirtyCountChange={handleIndexDirty}
+            {/* Row 1: Unique Keys + Indexes */}
+            <div className="grid grid-cols-1 items-start gap-2 xl:grid-cols-2">
+                <div className="self-start overflow-hidden rounded-sm border border-border/30 bg-background/20">
+                    <Collapsible open={uniqueOpen} onOpenChange={setUniqueOpen}>
+                        <SectionHeader
+                            title="Unique Keys"
+                            isOpen={uniqueOpen}
+                            onToggle={() => setUniqueOpen((v) => !v)}
+                            actions={uniqueActions}
                         />
-                    </div>
-                </CollapsibleContent>
-            </Collapsible>
+                        <CollapsibleContent forceMount className={contentAnimClass}>
+                            <div style={{ height: 280 }}>
+                                <IndexInfoView
+                                    schema={schema}
+                                    tableName={tableName}
+                                    filterText=""
+                                    refreshKey={refreshKey}
+                                    readOnlyMode={readOnlyMode}
+                                    isActive={isActive && uniqueOpen}
+                                    tableColumns={tableColumns}
+                                    onActionsChange={setUniqueActions}
+                                    onDirtyCountChange={handleUniqueDirty}
+                                    uniqueOnly
+                                />
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </div>
 
-            {/* Unique Keys (index-based) */}
-            <Collapsible open={uniqueOpen} onOpenChange={setUniqueOpen}>
-                <SectionHeader
-                    title="Unique Keys"
-                    isOpen={uniqueOpen}
-                    onToggle={() => setUniqueOpen((v) => !v)}
-                    actions={uniqueActions}
-                />
-                <CollapsibleContent forceMount className="data-[state=closed]:hidden">
-                    <div className="border-b border-border/30" style={{ height: 280 }}>
-                        <IndexInfoView
-                            schema={schema}
-                            tableName={tableName}
-                            filterText=""
-                            refreshKey={refreshKey}
-                            readOnlyMode={readOnlyMode}
-                            isActive={isActive && uniqueOpen}
-                            tableColumns={tableColumns}
-                            onActionsChange={setUniqueActions}
-                            onDirtyCountChange={handleUniqueDirty}
-                            uniqueOnly
+                <div className="self-start overflow-hidden rounded-sm border border-border/30 bg-background/20">
+                    <Collapsible open={indexOpen} onOpenChange={setIndexOpen}>
+                        <SectionHeader
+                            title="Indexes"
+                            isOpen={indexOpen}
+                            onToggle={() => setIndexOpen((v) => !v)}
+                            actions={indexActions}
                         />
-                    </div>
-                </CollapsibleContent>
-            </Collapsible>
+                        <CollapsibleContent forceMount className={contentAnimClass}>
+                            <div style={{ height: 280 }}>
+                                <IndexInfoView
+                                    schema={schema}
+                                    tableName={tableName}
+                                    filterText=""
+                                    refreshKey={refreshKey}
+                                    readOnlyMode={readOnlyMode}
+                                    isActive={isActive && indexOpen}
+                                    tableColumns={tableColumns}
+                                    onActionsChange={setIndexActions}
+                                    onDirtyCountChange={handleIndexDirty}
+                                />
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </div>
+            </div>
 
-            {/* Unique Constraints (hidden on SQLite) */}
-            {!isSQLite && (
-                <Collapsible open={uniqueConstrOpen} onOpenChange={setUniqueConstrOpen}>
-                    <SectionHeader
-                        title="Unique Constraints"
-                        isOpen={uniqueConstrOpen}
-                        onToggle={() => setUniqueConstrOpen((v) => !v)}
-                        actions={uniqueConstrActions}
-                    />
-                    <CollapsibleContent forceMount className="data-[state=closed]:hidden">
-                        <div className="border-b border-border/30">
-                            <UniqueConstraintsView
+            {/* Row 2: Primary Key + Check Constraints */}
+            <div className="grid grid-cols-1 items-start gap-2 xl:grid-cols-2">
+                <div className="self-start overflow-hidden rounded-sm border border-border/30 bg-background/20">
+                    <Collapsible open={pkOpen} onOpenChange={setPkOpen}>
+                        <SectionHeader
+                            title="Primary Key"
+                            isOpen={pkOpen}
+                            onToggle={() => setPkOpen((v) => !v)}
+                            actions={pkActions}
+                        />
+                        <CollapsibleContent forceMount className={contentAnimClass}>
+                            <PrimaryKeyView
                                 schema={schema}
                                 tableName={tableName}
                                 refreshKey={refreshKey}
                                 readOnlyMode={readOnlyMode}
-                                isActive={isActive && uniqueConstrOpen}
+                                isActive={isActive && pkOpen}
                                 tableColumns={tableColumns}
-                                onActionsChange={setUniqueConstrActions}
-                                onDirtyCountChange={handleUniqueConstrDirty}
+                                onActionsChange={setPkActions}
+                                onDirtyCountChange={handlePkDirty}
+                                driver={driver}
                             />
-                        </div>
-                    </CollapsibleContent>
-                </Collapsible>
-            )}
+                        </CollapsibleContent>
+                    </Collapsible>
+                </div>
 
-            {/* Primary Key */}
-            <Collapsible open={pkOpen} onOpenChange={setPkOpen}>
-                <SectionHeader
-                    title="Primary Key"
-                    isOpen={pkOpen}
-                    onToggle={() => setPkOpen((v) => !v)}
-                    actions={pkActions}
-                />
-                <CollapsibleContent forceMount className="data-[state=closed]:hidden">
-                    <div className="border-b border-border/30">
-                        <PrimaryKeyView
-                            schema={schema}
-                            tableName={tableName}
-                            refreshKey={refreshKey}
-                            readOnlyMode={readOnlyMode}
-                            isActive={isActive && pkOpen}
-                            tableColumns={tableColumns}
-                            onActionsChange={setPkActions}
-                            onDirtyCountChange={handlePkDirty}
-                            driver={driver}
+                <div className="self-start overflow-hidden rounded-sm border border-border/30 bg-background/20">
+                    <Collapsible open={checkOpen} onOpenChange={setCheckOpen}>
+                        <SectionHeader
+                            title="Check Constraints"
+                            isOpen={checkOpen}
+                            onToggle={() => setCheckOpen((v) => !v)}
+                            actions={checkActions}
                         />
-                    </div>
-                </CollapsibleContent>
-            </Collapsible>
+                        <CollapsibleContent forceMount className={contentAnimClass}>
+                            <CheckConstraintsView
+                                schema={schema}
+                                tableName={tableName}
+                                refreshKey={refreshKey}
+                                readOnlyMode={readOnlyMode}
+                                isActive={isActive && checkOpen}
+                                onActionsChange={setCheckActions}
+                                onDirtyCountChange={handleCheckDirty}
+                            />
+                        </CollapsibleContent>
+                    </Collapsible>
+                </div>
+            </div>
 
             {/* Foreign Keys (hidden on SQLite) */}
             {!isSQLite && (
-                <Collapsible open={fkOpen} onOpenChange={setFkOpen}>
-                    <SectionHeader
-                        title="Foreign Keys"
-                        isOpen={fkOpen}
-                        onToggle={() => setFkOpen((v) => !v)}
-                        actions={fkActions}
-                    />
-                    <CollapsibleContent forceMount className="data-[state=closed]:hidden">
-                        <div className="border-b border-border/30">
+                <div className="overflow-hidden rounded-sm border border-border/30 bg-background/20">
+                    <Collapsible open={fkOpen} onOpenChange={setFkOpen}>
+                        <SectionHeader
+                            title="Foreign Keys"
+                            isOpen={fkOpen}
+                            onToggle={() => setFkOpen((v) => !v)}
+                            actions={fkActions}
+                        />
+                        <CollapsibleContent forceMount className={contentAnimClass}>
                             <ForeignKeysView
                                 schema={schema}
                                 tableName={tableName}
@@ -240,34 +240,10 @@ export const KeysView: React.FC<KeysViewProps> = ({
                                 onActionsChange={setFkActions}
                                 onDirtyCountChange={handleFkDirty}
                             />
-                        </div>
-                    </CollapsibleContent>
-                </Collapsible>
+                        </CollapsibleContent>
+                    </Collapsible>
+                </div>
             )}
-
-            {/* Check Constraints */}
-            <Collapsible open={checkOpen} onOpenChange={setCheckOpen}>
-                <SectionHeader
-                    title="Check Constraints"
-                    isOpen={checkOpen}
-                    onToggle={() => setCheckOpen((v) => !v)}
-                    actions={checkActions}
-                />
-                <CollapsibleContent forceMount className="data-[state=closed]:hidden">
-                    <div className="border-b border-border/30">
-                        <CheckConstraintsView
-                            schema={schema}
-                            tableName={tableName}
-                            refreshKey={refreshKey}
-                            readOnlyMode={readOnlyMode}
-                            isActive={isActive && checkOpen}
-                            onActionsChange={setCheckActions}
-                            onDirtyCountChange={handleCheckDirty}
-                        />
-                    </div>
-                </CollapsibleContent>
-            </Collapsible>
-
         </div>
     );
 };

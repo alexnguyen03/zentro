@@ -96,3 +96,36 @@
     background-size: 180% 100%;
     animation: statusbar-connecting-shift 1.2s ease-in-out infinite alternate;
 }
+
+@keyframes accordion-down {
+    from {
+        height: 0;
+    }
+
+    to {
+        height: var(--radix-collapsible-content-height);
+    }
+}
+
+@keyframes accordion-up {
+    from {
+        height: var(--radix-collapsible-content-height);
+    }
+
+    to {
+        height: 0;
+    }
+}
+
+.accordion-content-animation {
+    overflow: hidden;
+}
+
+.accordion-content-animation[data-state='open'] {
+    animation: accordion-down 200ms ease-out;
+}
+
+.accordion-content-animation[data-state='closed'] {
+    animation: accordion-up 200ms ease-out;
+    height: 0;
+}

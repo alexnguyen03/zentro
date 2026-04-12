@@ -10,7 +10,21 @@ import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { useSchemaStore } from '../../../stores/schemaStore';
 import { useToast } from '../../layout/Toast';
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
+import {
+    Button,
+    Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '../../ui';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { ColumnPickerCell } from './ColumnPickerCell';
@@ -587,39 +601,39 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin px-3">
-                    <table
+                    <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
                         style={{ width: '100%', minWidth: '900px' }}
                     >
-                        <thead>
-                            <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                        <TableHeader className="[&_tr]:border-b-0">
+                            <TableRow className="border-b-2 border-border hover:bg-transparent">
+                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '160px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '160px' }}>
                                     <div className="rt-th-label">Name</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '160px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '160px' }}>
                                     <div className="rt-th-label">Source Columns</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '110px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '110px' }}>
                                     <div className="rt-th-label">Ref Schema</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '140px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '140px' }}>
                                     <div className="rt-th-label">Ref Table</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '160px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '160px' }}>
                                     <div className="rt-th-label">Ref Columns</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '120px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '120px' }}>
                                     <div className="rt-th-label">On Delete</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '120px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '120px' }}>
                                     <div className="rt-th-label">On Update</div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/20">
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-border/20 [&_tr:last-child]:border-b">
                             {rows.map((row, displayIdx) => {
                                 const isDeleted = row.deleted;
                                 const isNew = row.isNew;
@@ -647,14 +661,14 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                 `;
 
                                 return (
-                                    <tr
+                                    <TableRow
                                         key={row.id}
-                                        className={rowCls}
+                                        className={`${rowCls} border-b-0 hover:bg-transparent`}
                                         onMouseDown={(e) => handleRowMouseDown(e, row.id)}
                                         onMouseEnter={() => handleRowMouseEnter(row.id)}
                                     >
                                         {/* # */}
-                                        <td className="w-10 text-center border-b border-border">
+                                        <TableCell className="w-10 text-center border-b border-border">
                                             <div
                                                 className="rt-cell-content rt-cell-content--compact row-num-col"
                                                 onDoubleClick={() => (isDirty || isDeleted) && !isNew && discardRow(row.id)}
@@ -662,10 +676,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                             >
                                                 {displayIdx + 1}
                                             </div>
-                                        </td>
+                                        </TableCell>
 
                                         {/* Name */}
-                                        <td className="p-0 border-b border-border" style={{ width: '160px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '160px' }}>
                                             {isEditingName ? (
                                                 <Input
                                                     autoFocus
@@ -704,10 +718,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                     )}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Source Columns */}
-                                        <td className="p-0 border-b border-border" style={{ width: '160px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '160px' }}>
                                             {isEditingCols ? (
                                                 <div
                                                     className="px-1.5 py-0.75"
@@ -735,10 +749,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                         : <span className="italic text-muted-foreground/40">select cols</span>}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Ref Schema */}
-                                        <td className="p-0 border-b border-border" style={{ width: '110px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '110px' }}>
                                             {isEditingRefSchema ? (
                                                 <div
                                                     className="px-1 py-0.5"
@@ -765,10 +779,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                     {row.current.refSchema || <span className="italic text-muted-foreground/40">schema</span>}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Ref Table */}
-                                        <td className="p-0 border-b border-border" style={{ width: '140px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '140px' }}>
                                             {isEditingRefTable ? (
                                                 <div
                                                     className="px-1 py-0.5"
@@ -798,10 +812,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                     {row.current.refTable || <span className="italic text-muted-foreground/40">table</span>}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Ref Columns */}
-                                        <td className="p-0 border-b border-border" style={{ width: '160px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '160px' }}>
                                             {isEditingRefCols ? (
                                                 <div
                                                     className="px-1.5 py-0.75"
@@ -836,10 +850,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                         : <span className="italic text-muted-foreground/40">select cols</span>}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* On Delete */}
-                                        <td className="p-0 border-b border-border" style={{ width: '120px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '120px' }}>
                                             {isEditingOnDelete ? (
                                                 <div
                                                     className="px-1 py-0.5"
@@ -864,10 +878,10 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                     {row.current.onDelete}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* On Update */}
-                                        <td className="p-0 border-b border-border" style={{ width: '120px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '120px' }}>
                                             {isEditingOnUpdate ? (
                                                 <div
                                                     className="px-1 py-0.5"
@@ -892,22 +906,22 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                     {row.current.onUpdate}
                                                 </div>
                                             )}
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
 
                             {rows.length === 0 && !loading && (
-                                <tr>
-                                    <td colSpan={8} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={8} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
                                         {readOnlyMode
                                             ? 'No foreign keys defined for this table.'
                                             : 'No foreign keys yet. Click "Add FK" to create one.'}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </div>
