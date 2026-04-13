@@ -14,6 +14,7 @@ interface UseResultTableDataModelArgs {
     quickFilter: string;
     isDone: boolean;
     hasMore: boolean;
+    disableClientSort?: boolean;
 }
 
 export interface ResultTableDataModel {
@@ -40,13 +41,14 @@ export function useResultTableDataModel({
     quickFilter,
     isDone,
     hasMore,
+    disableClientSort = false,
 }: UseResultTableDataModelArgs): ResultTableDataModel {
     const displayRows = useMemo(() => buildDisplayRows(rows, draftRows), [rows, draftRows]);
     const displayRowsByKey = useMemo(() => new Map(displayRows.map((row) => [row.key, row])), [displayRows]);
     const rowOrder = useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
 
     const viewportState = resolveResultFetchStrategy(displayRows.length, hasMore, isDone);
-    const canSortClientSide = isDone && !hasMore;
+    const canSortClientSide = !disableClientSort && isDone && !hasMore;
     const shouldUseDeferredSort = canSortClientSide && viewportState.strategy === 'incremental_client';
 
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -54,6 +56,11 @@ export function useResultTableDataModel({
     const [isDeferredSorting, setIsDeferredSorting] = useState(false);
     const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[]>(displayRows);
     const [isDeferredFiltering, setIsDeferredFiltering] = useState(false);
+
+    useEffect(() => {
+        if (!disableClientSort) return;
+        setSorting([]);
+    }, [disableClientSort]);
 
     const dataColumns = useMemo<DataColumnMeta[]>(
         () => columns.map((columnName, index) => ({

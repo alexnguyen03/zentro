@@ -45,6 +45,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
     const hasMore = Boolean(resultState?.hasMore);
+    const hasServerOrder = Boolean((resultState?.orderByExpr || '').trim());
 
     const dataModel = useResultTableDataModel({
         columns,
@@ -53,6 +54,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         quickFilter,
         isDone,
         hasMore,
+        disableClientSort: hasServerOrder,
     });
 
     const isEditable = useMemo(() => {

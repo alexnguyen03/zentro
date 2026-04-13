@@ -1,14 +1,15 @@
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
-import { Copy, PlusSquare, ExternalLink } from 'lucide-react';
+import { ArrowLeftRight, Copy, ExternalLink, Plus, PlusSquare, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { buildFilterOrderQuery } from '../../lib/queryBuilder';
+import { OrderDirection, OrderTerm, parseOrderByTerms, serializeOrderByTerms } from '../../lib/orderByBuilder';
 import { useToast } from '../layout/Toast';
 import { setClipboardText } from '../../services/clipboardService';
 import { createResultFilterModelPath, registerResultFilterCompletion } from '../../lib/monaco/resultFilterCompletion';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button, Input } from '../ui';
+import { Badge, Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
 
 interface ResultFilterBarProps {
     value: string;
@@ -57,11 +58,19 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const onClearRef = useRef(onClear);
     const onChangeRef = useRef(onChange);
     const onOrderChangeRef = useRef(onOrderChange);
+    const valueRef = useRef(value);
     const orderValueRef = useRef(orderValue);
     const { toast } = useToast();
     const { theme } = useSettingsStore();
     const driver = useConnectionStore((s) => s.activeProfile?.driver || '');
     const [showTooltip, setShowTooltip] = React.useState(false);
+    const [orderTerms, setOrderTerms] = React.useState<OrderTerm[]>([]);
+    const [orderInputMode, setOrderInputMode] = React.useState<'chips' | 'text'>('chips');
+    const [orderBuilderOpen, setOrderBuilderOpen] = React.useState(false);
+    const [editingOrderIndex, setEditingOrderIndex] = React.useState<number | null>(null);
+    const [selectedOrderField, setSelectedOrderField] = React.useState<string>('');
+    const [selectedOrderDir, setSelectedOrderDir] = React.useState<OrderDirection>('ASC');
+    const debounceTimerRef = useRef<number | null>(null);
     const tooltipTimeout = useRef<number>();
 
     useEffect(() => {
@@ -77,12 +86,53 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     }, [onChange]);
 
     useEffect(() => {
+        valueRef.current = value;
+    }, [value]);
+
+    useEffect(() => {
         onOrderChangeRef.current = onOrderChange;
     }, [onOrderChange]);
 
     useEffect(() => {
         orderValueRef.current = orderValue;
     }, [orderValue]);
+
+    useEffect(() => {
+        const parsed = parseOrderByTerms(orderValue, columns);
+        setOrderTerms(parsed.terms);
+        if (parsed.isCustom && orderValue.trim()) {
+            setOrderInputMode('text');
+        } else if (!orderValue.trim()) {
+            setOrderInputMode('chips');
+        }
+    }, [columns, orderValue]);
+
+    const clearAutoRunTimer = useCallback(() => {
+        if (debounceTimerRef.current !== null) {
+            window.clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => () => clearAutoRunTimer(), [clearAutoRunTimer]);
+
+    const runNow = useCallback((nextFilterRaw: string, nextOrderRaw: string) => {
+        clearAutoRunTimer();
+        const nextFilter = nextFilterRaw.trim();
+        const nextOrder = nextOrderRaw.trim();
+        if (!nextFilter && !nextOrder) {
+            onClearRef.current();
+            return;
+        }
+        onRunRef.current(nextFilterRaw, nextOrderRaw);
+    }, [clearAutoRunTimer]);
+
+    const scheduleAutoRun = useCallback((nextFilterRaw: string, nextOrderRaw: string) => {
+        clearAutoRunTimer();
+        debounceTimerRef.current = window.setTimeout(() => {
+            runNow(nextFilterRaw, nextOrderRaw);
+        }, 600);
+    }, [clearAutoRunTimer, runNow]);
 
     const modelPath = useMemo(() => {
         const suffix = tableName ? tableName.replace(/[^a-zA-Z0-9_-]/g, '_') : 'result';
@@ -105,8 +155,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
         return () => {
             completionDisposableRef.current?.dispose();
             completionDisposableRef.current = null;
+            clearAutoRunTimer();
         };
-    }, [registerCompletion]);
+    }, [clearAutoRunTimer, registerCompletion]);
 
     const handleMonacoMount: OnMount = useCallback((editor, monaco) => {
         monacoRef.current = monaco;
@@ -153,13 +204,14 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             const currentValue = editor.getValue();
             const nextValue = currentValue.trim();
             onChangeRef.current(currentValue);
-            if (!nextValue) {
+            const nextOrder = orderValueRef.current.trim();
+            if (!nextValue && !nextOrder) {
                 onClearRef.current();
                 return;
             }
-            onRunRef.current(currentValue, orderValueRef.current);
+            runNow(currentValue, orderValueRef.current);
         });
-    }, [registerCompletion]);
+    }, [registerCompletion, runNow]);
 
     const getMonacoTheme = useCallback(() => {
         if (theme === 'dark') return 'vs-dark';
@@ -176,6 +228,72 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const renderQueryPreview = (q: string) => {
         return buildFilterOrderQuery(q, value || '<condition>', orderValue || '<order_expr>');
     };
+
+    const handleFilterChange = useCallback((nextValue: string) => {
+        onChangeRef.current(nextValue);
+        scheduleAutoRun(nextValue, orderValueRef.current);
+    }, [scheduleAutoRun]);
+
+    const handleOrderValueChange = useCallback((nextOrderValue: string) => {
+        onOrderChangeRef.current?.(nextOrderValue);
+    }, []);
+
+    const commitOrderTerms = useCallback((nextTerms: OrderTerm[]) => {
+        const nextExpr = serializeOrderByTerms(nextTerms);
+        onOrderChangeRef.current?.(nextExpr);
+    }, []);
+
+    const handleAddOrderTerm = useCallback(() => {
+        const field = selectedOrderField.trim();
+        if (!field) return;
+        const nextTerms = [...orderTerms, { field, dir: selectedOrderDir }];
+        const nextExpr = serializeOrderByTerms(nextTerms);
+        onOrderChangeRef.current?.(nextExpr);
+        runNow(valueRef.current, nextExpr);
+        setSelectedOrderField('');
+        setSelectedOrderDir('ASC');
+        setOrderBuilderOpen(false);
+    }, [orderTerms, runNow, selectedOrderDir, selectedOrderField]);
+
+    const handleRemoveOrderTerm = useCallback((index: number) => {
+        const nextTerms = orderTerms.filter((_, idx) => idx !== index);
+        const nextExpr = serializeOrderByTerms(nextTerms);
+        onOrderChangeRef.current?.(nextExpr);
+        runNow(valueRef.current, nextExpr);
+    }, [orderTerms, runNow]);
+
+    const handleOpenEditOrderTerm = useCallback((index: number) => {
+        const target = orderTerms[index];
+        if (!target) return;
+        setSelectedOrderField(target.field);
+        setSelectedOrderDir(target.dir);
+        setEditingOrderIndex(index);
+    }, [orderTerms]);
+
+    const handleSaveOrderTerm = useCallback(() => {
+        if (editingOrderIndex === null) return;
+        const field = selectedOrderField.trim();
+        if (!field) return;
+        const nextTerms = [...orderTerms];
+        nextTerms[editingOrderIndex] = { field, dir: selectedOrderDir };
+        commitOrderTerms(nextTerms);
+        setEditingOrderIndex(null);
+        setSelectedOrderField('');
+        setSelectedOrderDir('ASC');
+    }, [commitOrderTerms, editingOrderIndex, orderTerms, selectedOrderDir, selectedOrderField]);
+
+    const toggleOrderInputMode = useCallback(() => {
+        if (orderInputMode === 'chips') {
+            setOrderInputMode('text');
+            return;
+        }
+        const parsed = parseOrderByTerms(orderValueRef.current, columns);
+        if (parsed.isCustom && orderValueRef.current.trim()) {
+            toast.error('Cannot switch to chip mode: ORDER BY contains custom expression.');
+            return;
+        }
+        setOrderInputMode('chips');
+    }, [columns, orderInputMode, toast]);
 
     return (
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-card/40 shrink-0 relative">
@@ -259,7 +377,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                         defaultLanguage="sql"
                         value={value}
                         onMount={handleMonacoMount}
-                        onChange={(next) => onChange(next ?? '')}
+                        onChange={(next) => handleFilterChange(next ?? '')}
                         options={{
                             automaticLayout: true,
                             minimap: { enabled: false },
@@ -304,24 +422,165 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     <span className="text-[11px] uppercase font-semibold text-muted-foreground tracking-wide shrink-0 select-none">
                         ORDER BY
                     </span>
-                    <Input
-                        value={orderValue}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => onOrderChangeRef.current?.(event.target.value)}
-                        onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
-                            if (event.key !== 'Enter') return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            const nextFilter = value.trim();
-                            const nextOrder = (event.currentTarget.value || '').trim();
-                            if (!nextFilter && !nextOrder) {
-                                onClearRef.current();
-                                return;
-                            }
-                            onRunRef.current(value, event.currentTarget.value);
-                        }}
-                        className="ml-2 h-6 min-w-40 w-56 bg-transparent border-border/50 font-mono text-[12px]"
-                        placeholder="created_at DESC, id ASC"
-                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                        title={orderInputMode === 'chips' ? 'Switch to text mode' : 'Switch to chip mode'}
+                        onClick={toggleOrderInputMode}
+                    >
+                        <ArrowLeftRight size={12} />
+                    </Button>
+                    {orderInputMode === 'chips' ? (
+                        <>
+                            {orderTerms.length > 0 && (
+                                <div className="ml-2 flex items-center gap-1 overflow-x-auto scrollbar-thin">
+                                    {orderTerms.map((term, index) => (
+                                        <Popover key={`${term.field}:${index}`} open={editingOrderIndex === index} onOpenChange={(open) => setEditingOrderIndex(open ? index : null)}>
+                                            <PopoverTrigger asChild>
+                                                <Badge
+                                                    variant="default"
+                                                    className="cursor-pointer normal-case gap-1 pl-2 pr-1 py-1 text-[10px] shrink-0"
+                                                    onClick={() => handleOpenEditOrderTerm(index)}
+                                                >
+                                                    <span className="font-mono text-[11px]">{term.field}</span>
+                                                    <span className="text-muted-foreground">{term.dir}</span>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-4 w-4 p-0 hover:bg-muted"
+                                                        title="Remove order term"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            handleRemoveOrderTerm(index);
+                                                        }}
+                                                    >
+                                                        <X size={10} />
+                                                    </Button>
+                                                </Badge>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-68 p-2" align="start" sideOffset={6}>
+                                                <div
+                                                    className="space-y-2"
+                                                    onKeyDown={(event) => {
+                                                        if (event.key !== 'Enter') return;
+                                                        event.preventDefault();
+                                                        event.stopPropagation();
+                                                        if (!selectedOrderField.trim()) return;
+                                                        handleSaveOrderTerm();
+                                                    }}
+                                                >
+                                                    <div className="text-[11px] text-muted-foreground font-medium">Edit sort term</div>
+                                                    <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
+                                                        <SelectTrigger className="h-7 text-[12px]">
+                                                            <SelectValue placeholder="Choose field" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {columns.map((column) => (
+                                                                <SelectItem key={column} value={column}>
+                                                                    <span className="font-mono text-[12px]">{column}</span>
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
+                                                        <SelectTrigger className="h-7 text-[12px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="ASC">ASC</SelectItem>
+                                                            <SelectItem value="DESC">DESC</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        className="h-7 w-full text-[12px]"
+                                                        disabled={!selectedOrderField.trim()}
+                                                        onClick={handleSaveOrderTerm}
+                                                    >
+                                                        Save
+                                                    </Button>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    ))}
+                                </div>
+                            )}
+                            <Popover open={orderBuilderOpen} onOpenChange={setOrderBuilderOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                        title="Add ORDER BY term"
+                                    >
+                                        <Plus size={12} />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-68 p-2" align="start" sideOffset={6}>
+                                    <div
+                                        className="space-y-2"
+                                        onKeyDown={(event) => {
+                                            if (event.key !== 'Enter') return;
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            if (!selectedOrderField.trim()) return;
+                                            handleAddOrderTerm();
+                                        }}
+                                    >
+                                        <div className="text-[11px] text-muted-foreground font-medium">Add sort term</div>
+                                        <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
+                                            <SelectTrigger className="h-7 text-[12px]">
+                                                <SelectValue placeholder="Choose field" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {columns.map((column) => (
+                                                    <SelectItem key={column} value={column}>
+                                                        <span className="font-mono text-[12px]">{column}</span>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
+                                            <SelectTrigger className="h-7 text-[12px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ASC">ASC</SelectItem>
+                                                <SelectItem value="DESC">DESC</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="h-7 w-full text-[12px]"
+                                            disabled={!selectedOrderField.trim()}
+                                            onClick={handleAddOrderTerm}
+                                        >
+                                            Add
+                                        </Button>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        </>
+                    ) : (
+                        <Input
+                            value={orderValue}
+                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => handleOrderValueChange(event.target.value)}
+                            onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                                if (event.key !== 'Enter') return;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                runNow(valueRef.current, event.currentTarget.value);
+                            }}
+                            className="ml-2 h-6 min-w-40 w-56 bg-transparent border-border/50 font-mono text-[12px]"
+                            placeholder="created_at DESC, id ASC"
+                        />
+                    )}
                 </div>
                 </div>
             )}

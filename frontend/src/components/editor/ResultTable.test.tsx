@@ -7,9 +7,11 @@ vi.mock('../../services/queryService', () => ({
     FetchMoreRows: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockResults: Record<string, unknown> = {};
+
 vi.mock('../../stores/resultStore', () => ({
     useResultStore: () => ({
-        results: {},
+        results: mockResults,
         setOffset: vi.fn(),
     }),
 }));
@@ -143,5 +145,40 @@ describe('ResultTable', () => {
             colIdx: 1,
             cellId: 'p:0|1',
         }));
+    });
+
+    it('disables client-side sorting when server ORDER BY is active', () => {
+        mockResults['tab-order'] = {
+            hasMore: false,
+            orderByExpr: 'id DESC',
+        };
+
+        render(
+            <ResultTable
+                tabId="tab-order"
+                columns={['id', 'name']}
+                rows={[['2', 'Bob'], ['1', 'Alice']]}
+                isDone={true}
+                editedCells={new Map()}
+                setEditedCells={vi.fn()}
+                selectedCells={new Set()}
+                setSelectedCells={vi.fn()}
+                draftRows={[]}
+                setDraftRows={vi.fn()}
+                columnDefs={[
+                    { Name: 'id', DataType: 'integer' },
+                    { Name: 'name', DataType: 'character varying' },
+                ] as any}
+                focusCellRequest={null}
+                onFocusCellRequestHandled={vi.fn()}
+                onRemoveDraftRows={vi.fn()}
+                onViewStatsChange={vi.fn()}
+            />,
+        );
+
+        const idHeader = screen.getByText('id').closest('th');
+        expect(idHeader?.className).not.toContain('rt-th-sortable');
+
+        delete mockResults['tab-order'];
     });
 });
