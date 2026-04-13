@@ -76,7 +76,7 @@ interface ResultPanelProps {
     contextTabId?: string;
     result?: TabResult;
     onRun?: () => void;
-    onFilterRun?: (filter: string) => void;
+    onFilterRun?: (filter: string, orderByExpr?: string) => void;
     onActionsChange?: (actions: ResultPanelAction[]) => void;
     baseQuery?: string;
     onAppendToQuery?: (fullQuery: string) => void;
@@ -168,14 +168,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         useResultStore.getState().setFilterExpr(tabId, value);
         updateTabContext(contextTabId || tabId, { resultFilterExpr: value });
     }, [contextTabId, tabId, updateTabContext]);
+    const setOrderByExpr = React.useCallback((value: string) => {
+        useResultStore.getState().setOrderByExpr(tabId, value);
+        updateTabContext(contextTabId || tabId, { resultOrderByExpr: value });
+    }, [contextTabId, tabId, updateTabContext]);
     const filterExpr = result?.filterExpr || '';
+    const orderByExpr = result?.orderByExpr || '';
     const sourceQuery = baseQuery || result?.lastExecutedQuery;
-    const handleHeaderFilterRun = React.useCallback((expr: string) => {
-        keepFilterFocusRef.current = true;
-        setFilterExpr(expr);
-        onFilterRun?.(expr);
-    }, [onFilterRun, setFilterExpr]);
-
     React.useEffect(() => {
         const nextFilter = persistedContext?.resultQuickFilter || '';
         setQuickFilter(nextFilter);
@@ -186,6 +185,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         if (typeof nextExpr !== 'string') return;
         useResultStore.getState().setFilterExpr(tabId, nextExpr);
     }, [persistedContext?.resultFilterExpr, tabId]);
+    React.useEffect(() => {
+        const nextExpr = persistedContext?.resultOrderByExpr;
+        if (typeof nextExpr !== 'string') return;
+        useResultStore.getState().setOrderByExpr(tabId, nextExpr);
+    }, [persistedContext?.resultOrderByExpr, tabId]);
 
     React.useEffect(() => {
         updateTabContext(contextTabId || tabId, { resultQuickFilter: quickFilter });
@@ -322,12 +326,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
         // Re-run immediately so the new limit applies without requiring manual reload.
         const activeFilter = filterExpr.trim();
-        if (activeFilter && onFilterRun) {
-            onFilterRun(activeFilter);
+        const activeOrderBy = orderByExpr.trim();
+        if ((activeFilter || activeOrderBy) && onFilterRun) {
+            onFilterRun(activeFilter, activeOrderBy);
             return;
         }
         onRun?.();
-    }, [filterExpr, fontSize, onFilterRun, onRun, save, theme]);
+    }, [filterExpr, fontSize, onFilterRun, onRun, orderByExpr, save, theme]);
     const handleOpenExportModal = React.useCallback(() => {
         if (!result?.columns?.length) {
             toast.error('No columns available to export.');
@@ -1128,18 +1133,26 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             key={result.lastExecutedQuery}
             value={filterExpr}
             onChange={setFilterExpr}
+            orderValue={orderByExpr}
+            onOrderChange={setOrderByExpr}
             baseQuery={baseQuery}
             columns={result.columns}
             tableName={result.tableName}
             showFilterInput={shouldShowFilterInput}
             onAppendToQuery={onAppendToQuery}
             onOpenInNewTab={onOpenInNewTab}
-            onRun={(currentValue) => {
+            onRun={(currentValue, currentOrder) => {
                 keepFilterFocusRef.current = true;
                 const nextExpr = typeof currentValue === 'string' ? currentValue : filterExpr;
-                if (nextExpr.trim()) onFilterRun?.(nextExpr);
+                const nextOrder = typeof currentOrder === 'string' ? currentOrder : orderByExpr;
+                if (nextExpr.trim() || nextOrder.trim()) onFilterRun?.(nextExpr, nextOrder);
             }}
-            onClear={() => { keepFilterFocusRef.current = true; setFilterExpr(''); onFilterRun?.(''); }}
+            onClear={() => {
+                keepFilterFocusRef.current = true;
+                setFilterExpr('');
+                setOrderByExpr('');
+                onFilterRun?.('', '');
+            }}
         >
             {!onActionsChange && panelActions.length > 0 && (
                 <>
@@ -1279,8 +1292,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     rows={result.rows}
                                     isDone={result.isDone}
                                     quickFilter={quickFilter}
-                                    filterExpr={filterExpr}
-                                    onHeaderFilterRun={handleHeaderFilterRun}
                                     onViewStatsChange={({ visibleRows: nextVisible }) => setVisibleRows(nextVisible)}
                                     editedCells={editedCells}
                                     setEditedCells={setEditedCells}

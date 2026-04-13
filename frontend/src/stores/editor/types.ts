@@ -5,6 +5,7 @@ export interface TabQueryContext {
     scriptProjectId?: string;
     scriptConnectionName?: string;
     resultFilterExpr?: string;
+    resultOrderByExpr?: string;
     resultQuickFilter?: string;
     compareLeftTabId?: string;
     compareRightTabId?: string;

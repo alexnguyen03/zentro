@@ -22,11 +22,6 @@ vi.mock('../layout/Toast', () => ({
     }),
 }));
 
-vi.mock('../../stores/connectionStore', () => ({
-    useConnectionStore: (selector: (state: { activeProfile: { driver: string } }) => unknown) =>
-        selector({ activeProfile: { driver: 'postgres' } }),
-}));
-
 vi.mock('@tanstack/react-virtual', () => ({
     useVirtualizer: ({ count }: { count: number }) => ({
         getVirtualItems: () => Array.from({ length: count }, (_, index) => ({
@@ -43,7 +38,6 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 describe('ResultTable', () => {
     it('renders compact data type on header and sticky index column', () => {
-        const onHeaderFilterRun = vi.fn();
         render(
             <ResultTable
                 tabId="tab-1"
@@ -63,7 +57,6 @@ describe('ResultTable', () => {
                 focusCellRequest={null}
                 onFocusCellRequestHandled={vi.fn()}
                 onRemoveDraftRows={vi.fn()}
-                onHeaderFilterRun={onHeaderFilterRun}
                 onViewStatsChange={vi.fn()}
             />,
         );
@@ -72,20 +65,6 @@ describe('ResultTable', () => {
         const readonlyIndicator = screen.getByTitle('Read-only (No Primary Key or missing PK in SELECT)');
         const indexHeader = readonlyIndicator.closest('th');
         expect(indexHeader?.className).toContain('rt-index-sticky');
-
-        const filterButtons = screen.getAllByTitle('Filter this column');
-        fireEvent.click(filterButtons[0]);
-        const input = screen.getByPlaceholderText('Contains in id');
-        fireEvent.change(input, { target: { value: '12' } });
-        fireEvent.keyDown(input, { key: 'Enter' });
-
-        expect(onHeaderFilterRun).toHaveBeenCalled();
-
-        fireEvent.click(filterButtons[0]);
-        const reopenInput = screen.getByPlaceholderText('Contains in id');
-        fireEvent.change(reopenInput, { target: { value: 'abc' } });
-        fireEvent.keyDown(reopenInput, { key: 'Escape' });
-        expect(onHeaderFilterRun).toHaveBeenCalledTimes(2);
     });
 
     it('auto-fits column width when double-clicking resize handle', () => {
@@ -109,7 +88,6 @@ describe('ResultTable', () => {
                 focusCellRequest={null}
                 onFocusCellRequestHandled={vi.fn()}
                 onRemoveDraftRows={vi.fn()}
-                onHeaderFilterRun={vi.fn()}
                 onViewStatsChange={vi.fn()}
             />,
         );
@@ -150,7 +128,6 @@ describe('ResultTable', () => {
                 focusCellRequest={null}
                 onFocusCellRequestHandled={vi.fn()}
                 onRemoveDraftRows={vi.fn()}
-                onHeaderFilterRun={vi.fn()}
                 onViewStatsChange={vi.fn()}
                 onCellContextMenu={onCellContextMenu}
             />,

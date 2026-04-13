@@ -107,4 +107,16 @@ export function buildFilterQuery(rawQuery: string, condition: string): string {
     return prefix ? `${prefix}${filtered}` : filtered;
 }
 
+export function buildFilterOrderQuery(rawQuery: string, condition: string, orderByExpr: string): string {
+    const withFilter = buildFilterQuery(rawQuery, condition);
+    const trimmedOrder = orderByExpr.trim();
+    if (!trimmedOrder) return withFilter;
+
+    const normalized = stripLegacyFilterWrapper(withFilter.trim().replace(/;\s*$/, ''));
+    const { prefix, base } = splitLastQuery(normalized);
+    const inner = stripLegacyFilterWrapper(base.replace(/;\s*$/, '').trim());
+    const ordered = `select * from (${inner}) as _zentro_order order by ${trimmedOrder}`;
+    return prefix ? `${prefix}${ordered}` : ordered;
+}
+
 export { getQueryShape };

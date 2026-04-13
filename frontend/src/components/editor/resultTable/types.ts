@@ -35,8 +35,6 @@ export interface ResultTableProps {
     onRemoveDraftRows: (draftIds: string[]) => void;
     readOnlyMode?: boolean;
     quickFilter?: string;
-    filterExpr?: string;
-    onHeaderFilterRun?: (filterExpr: string) => void;
     onViewStatsChange?: (stats: { visibleRows: number; totalRows: number }) => void;
     onCellContextMenu?: (payload: ResultCellContextMenuPayload) => void;
     columnVisibility?: Record<string, boolean>;

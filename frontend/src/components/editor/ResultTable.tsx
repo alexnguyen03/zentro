@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 
 import { DisplayRow } from '../../lib/dataEditing';
-import { useConnectionStore } from '../../stores/connectionStore';
 import { useResultStore, type TabResult } from '../../stores/resultStore';
 import { normalizeDataTypeLabel } from './resultTableUtils';
 import { useToast } from '../layout/Toast';
@@ -37,8 +36,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     onRemoveDraftRows,
     readOnlyMode = false,
     quickFilter = '',
-    filterExpr = '',
-    onHeaderFilterRun,
     onViewStatsChange,
     onCellContextMenu,
     columnVisibility: externalColumnVisibility,
@@ -47,7 +44,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     const { results, setOffset } = useResultStore();
     const { toast } = useToast();
     const resultState = results[tabId] as TabResult | undefined;
-    const driver = useConnectionStore((state) => state.activeProfile?.driver);
     const hasMore = Boolean(resultState?.hasMore);
 
     const dataModel = useResultTableDataModel({
@@ -79,9 +75,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         dataColumnById: dataModel.dataColumnById,
         dataTypeByColumn,
         tableData: dataModel.tableData,
-        filterExpr,
-        driver,
-        onHeaderFilterRun,
     });
 
     const interactions = useResultTableInteractions({
@@ -178,13 +171,6 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             paddingBottom={virtualization.paddingBottom}
             dataColumnById={dataModel.dataColumnById}
             dataTypeByColumn={dataTypeByColumn}
-            columnFilterApplied={columnState.columnFilterApplied}
-            columnFilterDrafts={columnState.columnFilterDrafts}
-            activeFilterPopoverColumn={columnState.activeFilterPopoverColumn}
-            setColumnFilterDrafts={columnState.setColumnFilterDrafts}
-            setActiveFilterPopoverColumn={columnState.setActiveFilterPopoverColumn}
-            applyHeaderFilter={columnState.applyHeaderFilter}
-            clearHeaderFilter={columnState.clearHeaderFilter}
             handleAutoFitColumn={columnState.handleAutoFitColumn}
             handleHeaderDragEnd={columnState.handleHeaderDragEnd}
             selectedCells={selectedCells}

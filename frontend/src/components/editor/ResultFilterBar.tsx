@@ -2,18 +2,20 @@ import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { Copy, PlusSquare, ExternalLink } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { buildFilterQuery } from '../../lib/queryBuilder';
+import { buildFilterOrderQuery } from '../../lib/queryBuilder';
 import { useToast } from '../layout/Toast';
 import { setClipboardText } from '../../services/clipboardService';
 import { createResultFilterModelPath, registerResultFilterCompletion } from '../../lib/monaco/resultFilterCompletion';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { Button } from '../ui';
+import { Button, Input } from '../ui';
 
 interface ResultFilterBarProps {
     value: string;
     onChange: (v: string) => void;
-    onRun: (currentValue?: string) => void;
+    orderValue?: string;
+    onOrderChange?: (v: string) => void;
+    onRun: (currentValue?: string, currentOrderBy?: string) => void;
     /** Clears the filter and re-runs the original query */
     onClear: () => void;
     /** The base query being wrapped */
@@ -35,6 +37,8 @@ interface ResultFilterBarProps {
 export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     value,
     onChange,
+    orderValue = '',
+    onOrderChange,
     onRun,
     onClear,
     baseQuery,
@@ -52,6 +56,8 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const onRunRef = useRef(onRun);
     const onClearRef = useRef(onClear);
     const onChangeRef = useRef(onChange);
+    const onOrderChangeRef = useRef(onOrderChange);
+    const orderValueRef = useRef(orderValue);
     const { toast } = useToast();
     const { theme } = useSettingsStore();
     const driver = useConnectionStore((s) => s.activeProfile?.driver || '');
@@ -69,6 +75,14 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     useEffect(() => {
         onChangeRef.current = onChange;
     }, [onChange]);
+
+    useEffect(() => {
+        onOrderChangeRef.current = onOrderChange;
+    }, [onOrderChange]);
+
+    useEffect(() => {
+        orderValueRef.current = orderValue;
+    }, [orderValue]);
 
     const modelPath = useMemo(() => {
         const suffix = tableName ? tableName.replace(/[^a-zA-Z0-9_-]/g, '_') : 'result';
@@ -143,7 +157,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                 onClearRef.current();
                 return;
             }
-            onRunRef.current(currentValue);
+            onRunRef.current(currentValue, orderValueRef.current);
         });
     }, [registerCompletion]);
 
@@ -160,7 +174,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     );
 
     const renderQueryPreview = (q: string) => {
-        return buildFilterQuery(q, value || '<condition>');
+        return buildFilterOrderQuery(q, value || '<condition>', orderValue || '<order_expr>');
     };
 
     return (
@@ -191,7 +205,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                     className={iconBtn}
                                     title="Copy query"
                                     onClick={() => {
-                                        void setClipboardText(buildFilterQuery(baseQuery, value || '<condition>'))
+                                        void setClipboardText(buildFilterOrderQuery(baseQuery, value || '<condition>', orderValue || '<order_expr>'))
                                             .then(() => toast.success('Query copied to clipboard'))
                                             .catch(() => toast.error('Failed to copy query'));
                                     }}
@@ -207,7 +221,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
                                         title="Append to current tab (last line)"
                                         onClick={() => {
-                                            onAppendToQuery(buildFilterQuery(baseQuery, value || '<condition>'));
+                                            onAppendToQuery(buildFilterOrderQuery(baseQuery, value || '<condition>', orderValue || '<order_expr>'));
                                             setShowTooltip(false);
                                         }}
                                     >
@@ -223,7 +237,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         className={cn(iconBtn, 'text-muted-foreground hover:text-foreground')}
                                         title="Open in new tab"
                                         onClick={() => {
-                                            onOpenInNewTab(buildFilterQuery(baseQuery, value || '<condition>'));
+                                            onOpenInNewTab(buildFilterOrderQuery(baseQuery, value || '<condition>', orderValue || '<order_expr>'));
                                             setShowTooltip(false);
                                         }}
                                     >
@@ -284,6 +298,30 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                             Filter rows... e.g. id &gt; 100 AND name LIKE '%foo%'
                         </span>
                     )}
+                </div>
+
+                <div className="ml-2 flex items-center min-w-0 border-l pl-2">
+                    <span className="text-[11px] uppercase font-semibold text-muted-foreground tracking-wide shrink-0 select-none">
+                        ORDER BY
+                    </span>
+                    <Input
+                        value={orderValue}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => onOrderChangeRef.current?.(event.target.value)}
+                        onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const nextFilter = value.trim();
+                            const nextOrder = (event.currentTarget.value || '').trim();
+                            if (!nextFilter && !nextOrder) {
+                                onClearRef.current();
+                                return;
+                            }
+                            onRunRef.current(value, event.currentTarget.value);
+                        }}
+                        className="ml-2 h-6 min-w-40 w-56 bg-transparent border-border/50 font-mono text-[12px]"
+                        placeholder="created_at DESC, id ASC"
+                    />
                 </div>
                 </div>
             )}

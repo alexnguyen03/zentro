@@ -1,14 +1,15 @@
-import { buildFilterQuery } from '../../lib/queryBuilder';
+import { buildFilterOrderQuery } from '../../lib/queryBuilder';
 
 export type QueryExecutionSource = 'editor' | 'filter' | 'other';
 
-type UpdateTabContext = (tabId: string, patch: { resultFilterExpr?: string; resultQuickFilter?: string }) => void;
+type UpdateTabContext = (tabId: string, patch: { resultFilterExpr?: string; resultOrderByExpr?: string; resultQuickFilter?: string }) => void;
 
 type ApplyPreExecuteFilterPolicyInput = {
     source: QueryExecutionSource;
     sourceTabId: string;
     resultTabIds: string[];
     clearResultFilterExpr: (tabId: string) => void;
+    clearResultOrderByExpr: (tabId: string) => void;
     updateTabContext: UpdateTabContext;
 };
 
@@ -16,6 +17,7 @@ type ResolveExecuteQueryInput = {
     source: QueryExecutionSource;
     editorQuery: string;
     filterExpr?: string;
+    orderByExpr?: string;
     filterBaseQuery?: string;
 };
 
@@ -32,6 +34,7 @@ export function applyPreExecuteFilterPolicy({
     sourceTabId,
     resultTabIds,
     clearResultFilterExpr,
+    clearResultOrderByExpr,
     updateTabContext,
 }: ApplyPreExecuteFilterPolicyInput) {
     if (source === 'filter') return;
@@ -39,10 +42,12 @@ export function applyPreExecuteFilterPolicy({
     const relatedResultTabIds = getRelatedResultTabIds(sourceTabId, resultTabIds);
     relatedResultTabIds.forEach((tabId) => {
         clearResultFilterExpr(tabId);
+        clearResultOrderByExpr(tabId);
     });
 
     updateTabContext(sourceTabId, {
         resultFilterExpr: '',
+        resultOrderByExpr: '',
         resultQuickFilter: '',
     });
 }
@@ -51,6 +56,7 @@ export function resolveExecuteQuery({
     source,
     editorQuery,
     filterExpr,
+    orderByExpr,
     filterBaseQuery,
 }: ResolveExecuteQueryInput): string {
     if (source !== 'filter') {
@@ -59,9 +65,10 @@ export function resolveExecuteQuery({
 
     const baseQuery = filterBaseQuery ?? editorQuery;
     const nextFilter = (filterExpr || '').trim();
-    if (!nextFilter) {
+    const nextOrderBy = (orderByExpr || '').trim();
+    if (!nextFilter && !nextOrderBy) {
         return baseQuery;
     }
-    return buildFilterQuery(baseQuery, nextFilter);
+    return buildFilterOrderQuery(baseQuery, nextFilter, nextOrderBy);
 }
 

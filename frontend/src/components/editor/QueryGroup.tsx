@@ -116,6 +116,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             sourceTabId: activeTab.id,
             resultTabIds: Object.keys(resultStore.results),
             clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            clearResultOrderByExpr: (tabId) => resultStore.setOrderByExpr(tabId, ''),
             updateTabContext,
         });
 

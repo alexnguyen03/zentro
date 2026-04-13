@@ -56,7 +56,7 @@ export const QueryTabs: React.FC = () => {
 
     const executeActiveTabQuery = React.useCallback(async (
         source: QueryExecutionSource,
-        options?: { filterExpr?: string; filterBaseQuery?: string },
+        options?: { filterExpr?: string; orderByExpr?: string; filterBaseQuery?: string },
     ) => {
         if (!isConnected) return;
 
@@ -71,6 +71,7 @@ export const QueryTabs: React.FC = () => {
             sourceTabId: latestActiveTab.id,
             resultTabIds: Object.keys(resultStore.results),
             clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            clearResultOrderByExpr: (tabId) => resultStore.setOrderByExpr(tabId, ''),
             updateTabContext,
         });
 
@@ -78,6 +79,7 @@ export const QueryTabs: React.FC = () => {
             source,
             editorQuery: latestActiveTab.query,
             filterExpr: options?.filterExpr,
+            orderByExpr: options?.orderByExpr,
             filterBaseQuery: options?.filterBaseQuery,
         });
 
@@ -92,7 +94,7 @@ export const QueryTabs: React.FC = () => {
         await executeActiveTabQuery('editor');
     }, [executeActiveTabQuery]);
 
-    const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
+    const handleFilterRunGlobal = React.useCallback(async (filter: string, orderByExpr = '') => {
         if (!isConnected) return;
 
         const editorState = useEditorStore.getState();
@@ -104,6 +106,7 @@ export const QueryTabs: React.FC = () => {
         const baseForFilter = splitLastQuery(latestActiveTab.query || '').base.trim() || latestActiveTab.query;
         await executeActiveTabQuery('filter', {
             filterExpr: filter,
+            orderByExpr,
             filterBaseQuery: baseForFilter,
         });
     }, [executeActiveTabQuery, isConnected]);

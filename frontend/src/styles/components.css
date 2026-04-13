@@ -125,6 +125,14 @@
     letter-spacing: 0.2px;
 }
 
+.rt-th-drag-target {
+    cursor: grab;
+}
+
+.rt-th-drag-target:active {
+    cursor: grabbing;
+}
+
 .rt-th-sortable {
     cursor: pointer;
 }
