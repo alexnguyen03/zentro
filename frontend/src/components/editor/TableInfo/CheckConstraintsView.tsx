@@ -367,7 +367,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
             {writeSafetyGuard.modals}
 
             <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-auto scrollbar-thin px-3">
+                <div className="flex-1 overflow-auto scrollbar-thin">
                     <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
                         style={{ width: '100%', minWidth: '640px' }}

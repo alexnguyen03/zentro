@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui';
 import { ColumnRow } from './ColumnRow';
 import { RowState, SortCol, SortDir } from './types';
@@ -33,10 +33,10 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const SortIcon = ({ col }: { col: SortCol }) => {
-        if (sortCol !== col || !sortDir) return <ArrowUpDown size={11} className="ml-1 opacity-20" />;
+        if (sortCol !== col || !sortDir) return <ChevronUp size={11} className="ml-1 opacity-20" />;
         return sortDir === 'asc'
-            ? <ArrowUp size={11} className="ml-1 text-success" />
-            : <ArrowDown size={11} className="ml-1 text-success" />;
+            ? <ChevronUp size={11} className="ml-1 text-success" />
+            : <ChevronDown size={11} className="ml-1 text-success" />;
     };
 
     return (
@@ -44,7 +44,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div
                     ref={tableContainerRef}
-                    className="flex-1 overflow-auto scrollbar-thin px-3"
+                    className="flex-1 overflow-auto scrollbar-thin"
                 >
                     <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
@@ -59,40 +59,45 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('Name')}
                                 >
-                                    <div className="rt-th-label">
-                                        Name <SortIcon col="Name" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Name</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="Name" /></span>
                                     </div>
                                 </TableHead>
                                 <TableHead
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('DataType')}
                                 >
-                                    <div className="rt-th-label">
-                                        Data Type <SortIcon col="DataType" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Data Type</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="DataType" /></span>
                                     </div>
                                 </TableHead>
                                 <TableHead
                                     className="rt-th rt-th-sortable w-12"
                                     onClick={() => onSort('IsPrimaryKey')}
                                 >
-                                    <div className="rt-th-label justify-center">
-                                        PK <SortIcon col="IsPrimaryKey" />
+                                    <div className="rt-th-label w-full">
+                                        <span>PK</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="IsPrimaryKey" /></span>
                                     </div>
                                 </TableHead>
                                 <TableHead
                                     className="rt-th rt-th-sortable w-16"
                                     onClick={() => onSort('IsNullable')}
                                 >
-                                    <div className="rt-th-label justify-center">
-                                        Null <SortIcon col="IsNullable" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Null</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="IsNullable" /></span>
                                     </div>
                                 </TableHead>
                                 <TableHead
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('DefaultValue')}
                                 >
-                                    <div className="rt-th-label">
-                                        Default <SortIcon col="DefaultValue" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Default</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="DefaultValue" /></span>
                                     </div>
                                 </TableHead>
                             </TableRow>
