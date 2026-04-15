@@ -87,6 +87,8 @@ interface ResultPanelProps {
     onToggleMaximize?: () => void;
     showMaximizeControl?: boolean;
     showResultFilterBar?: boolean;
+    /** Prefer provided baseQuery over runtime lastExecutedQuery when composing filter SQL */
+    preferBaseQueryForFilter?: boolean;
 }
 
 export const ResultPanel: React.FC<ResultPanelProps> = ({
@@ -105,6 +107,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     onToggleMaximize,
     showMaximizeControl = true,
     showResultFilterBar = true,
+    preferBaseQueryForFilter = false,
 }) => {
     const actionsSignatureRef = React.useRef<string>('');
     const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
@@ -179,7 +182,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // 1) Persisted filter base captured from the last non-filter statement used by filter flow.
     // 2) The exact last executed statement from runtime events (works for highlighted/aliased statements).
     // 3) Fallback base query inferred from editor text.
-    const sourceQuery = persistedFilterBaseQuery || result?.lastExecutedQuery || (baseQuery || '').trim() || '';
+    const providedBaseQuery = (baseQuery || '').trim();
+    const sourceQuery = persistedFilterBaseQuery
+        || (preferBaseQueryForFilter
+            ? (providedBaseQuery || result?.lastExecutedQuery || '')
+            : (result?.lastExecutedQuery || providedBaseQuery || ''));
     React.useEffect(() => {
         const nextFilter = persistedContext?.resultQuickFilter || '';
         setQuickFilter(nextFilter);

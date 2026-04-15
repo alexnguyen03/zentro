@@ -57,6 +57,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 onActionsChange={handleActionsChange}
                 onFilterRun={handleFilterRun}
                 baseQuery={canonicalBaseQuery}
+                preferBaseQueryForFilter
                 isReadOnlyTab={isReadOnlyMode}
                 showMaximizeControl={false}
             />
