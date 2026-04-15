@@ -113,13 +113,6 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                 }));
 
                 setConnections(conns);
-
-                // Keep the tree expanded by default (requested UX).
-                const defaultExpanded = new Set<string>();
-                conns.forEach((c) => {
-                    if (c.profile.name) defaultExpanded.add(c.profile.name);
-                });
-                setExpandedConnections(defaultExpanded);
             })
             .catch(() => {
                 if (!cancelled) setConnections([]);
@@ -149,12 +142,12 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
         connections.forEach((node) => {
             const name = node.profile.name || '';
             if (!name) return;
-            const shouldExpand = lowerFilter ? true : expandedConnections.has(name);
-            if (shouldExpand && !node.databasesLoaded && !node.loadingDatabases) {
+            const shouldLoad = expandedConnections.has(name) || name === selectedProfile;
+            if (shouldLoad && !node.databasesLoaded && !node.loadingDatabases) {
                 void loadDatabasesForConnection(name);
             }
         });
-    }, [connections, expandedConnections, lowerFilter, loadDatabasesForConnection]);
+    }, [connections, expandedConnections, loadDatabasesForConnection, selectedProfile]);
 
     const toggleConnection = useCallback((name: string | undefined) => {
         if (!name) return;
@@ -212,7 +205,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
         acc.push({
             name,
             node,
-            isExpanded: lowerFilter ? true : expandedConnections.has(name),
+            isExpanded: expandedConnections.has(name),
             profileSelected: name === selectedProfile,
             connectionMatched,
             visibleDatabases,

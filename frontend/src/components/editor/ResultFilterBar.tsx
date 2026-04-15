@@ -290,7 +290,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     return (
         <div className="flex items-center gap-1 shrink-0 relative py-1">
             {showFilterInput && (
-                <div className="flex items-center w-full min-w-0 gap-1">
+                <div className="flex items-center w-full min-w-0 gap-2">
                     <div className={cn(
                         'flex items-center min-w-0 bg-card px-2 rounded-sm',
                         children ? 'flex-4' : 'flex-1',
@@ -573,7 +573,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                     event.stopPropagation();
                                     runNow(valueRef.current, event.currentTarget.value);
                                 }}
-                                className="ml-2 h-6 min-w-40 w-56 bg-transparent font-mono text-[12px]"
+                                className="ml-2 h-6 w-full bg-transparent font-mono text-[12px]"
                                 placeholder="created_at DESC, id ASC"
                             />
                         )}

@@ -37,8 +37,8 @@ func (d *MSSQLDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mssql: open: %w", err)
 	}
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(1)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	db.SetConnMaxIdleTime(2 * time.Minute)
 	return db, nil

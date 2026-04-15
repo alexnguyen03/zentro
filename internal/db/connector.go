@@ -25,11 +25,11 @@ func OpenConnection(p *models.ConnectionProfile) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Add pool configuration to prevent firewall cuts
-	// Best practice: close idle connections before external constraints (usually 5 mins)
+	// Connection policy (hard-cap): keep server sessions low per app instance.
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(1)
 	db.SetConnMaxIdleTime(2 * time.Minute)
-	// Optionally set max lifetime to recycle connections fully (e.g. 1 hour)
-	db.SetConnMaxLifetime(1 * time.Hour)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db, nil
 }
