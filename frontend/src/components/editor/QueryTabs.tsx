@@ -94,7 +94,7 @@ export const QueryTabs: React.FC = () => {
         await executeActiveTabQuery('editor');
     }, [executeActiveTabQuery]);
 
-    const handleFilterRunGlobal = React.useCallback(async (filter: string, orderByExpr = '') => {
+    const handleFilterRunGlobal = React.useCallback(async (filter: string, orderByExpr = '', filterBaseQuery = '') => {
         if (!isConnected) return;
 
         const editorState = useEditorStore.getState();
@@ -103,13 +103,18 @@ export const QueryTabs: React.FC = () => {
         if (!latestActiveTab) return;
 
         // Filter should target the current executable statement, not the whole script.
-        const baseForFilter = splitLastQuery(latestActiveTab.query || '').base.trim() || latestActiveTab.query;
+        const baseForFilter =
+            filterBaseQuery.trim()
+            || globalActiveResult?.lastExecutedQuery?.trim()
+            || splitLastQuery(latestActiveTab.query || '').base.trim()
+            || latestActiveTab.query;
+        updateTabContext(latestActiveTab.id, { resultFilterBaseQuery: baseForFilter });
         await executeActiveTabQuery('filter', {
             filterExpr: filter,
             orderByExpr,
             filterBaseQuery: baseForFilter,
         });
-    }, [executeActiveTabQuery, isConnected]);
+    }, [executeActiveTabQuery, globalActiveResult?.lastExecutedQuery, isConnected, updateTabContext]);
 
     const handleAppendToQuery = React.useCallback((fullQuery: string) => {
         if (!globalActiveTabId) return;
@@ -425,9 +430,9 @@ export const QueryTabs: React.FC = () => {
                         minSize={100} 
                         visible={showResultPanel && activeTabIsQuery}
                     >
-                        <div className="h-full border-t border-border flex flex-col">
+                        <div className="h-full flex flex-col">
                             {globalActiveResultKeys.length > 1 && (
-                                <div className="flex bg-card border-b border-border overflow-x-auto">
+                                <div className="flex overflow-x-auto">
                                     {globalActiveResultKeys.map((subTabId) => {
                                         let label = 'Result 1';
                                         if (subTabId !== globalActiveTabId) {

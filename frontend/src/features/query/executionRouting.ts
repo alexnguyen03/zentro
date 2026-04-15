@@ -2,7 +2,12 @@ import { buildFilterOrderQuery } from '../../lib/queryBuilder';
 
 export type QueryExecutionSource = 'editor' | 'filter' | 'other';
 
-type UpdateTabContext = (tabId: string, patch: { resultFilterExpr?: string; resultOrderByExpr?: string; resultQuickFilter?: string }) => void;
+type UpdateTabContext = (tabId: string, patch: {
+    resultFilterExpr?: string;
+    resultOrderByExpr?: string;
+    resultQuickFilter?: string;
+    resultFilterBaseQuery?: string;
+}) => void;
 
 type ApplyPreExecuteFilterPolicyInput = {
     source: QueryExecutionSource;
@@ -49,6 +54,7 @@ export function applyPreExecuteFilterPolicy({
         resultFilterExpr: '',
         resultOrderByExpr: '',
         resultQuickFilter: '',
+        resultFilterBaseQuery: '',
     });
 }
 

@@ -76,7 +76,7 @@ interface ResultPanelProps {
     contextTabId?: string;
     result?: TabResult;
     onRun?: () => void;
-    onFilterRun?: (filter: string, orderByExpr?: string) => void;
+    onFilterRun?: (filter: string, orderByExpr?: string, filterBaseQuery?: string) => void;
     onActionsChange?: (actions: ResultPanelAction[]) => void;
     baseQuery?: string;
     onAppendToQuery?: (fullQuery: string) => void;
@@ -174,7 +174,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     }, [contextTabId, tabId, updateTabContext]);
     const filterExpr = result?.filterExpr || '';
     const orderByExpr = result?.orderByExpr || '';
-    const sourceQuery = baseQuery || result?.lastExecutedQuery;
+    const persistedFilterBaseQuery = (persistedContext?.resultFilterBaseQuery || '').trim();
+    // Preferred order:
+    // 1) Persisted filter base captured from the last non-filter statement used by filter flow.
+    // 2) The exact last executed statement from runtime events (works for highlighted/aliased statements).
+    // 3) Fallback base query inferred from editor text.
+    const sourceQuery = persistedFilterBaseQuery || result?.lastExecutedQuery || (baseQuery || '').trim() || '';
     React.useEffect(() => {
         const nextFilter = persistedContext?.resultQuickFilter || '';
         setQuickFilter(nextFilter);
@@ -328,11 +333,11 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         const activeFilter = filterExpr.trim();
         const activeOrderBy = orderByExpr.trim();
         if ((activeFilter || activeOrderBy) && onFilterRun) {
-            onFilterRun(activeFilter, activeOrderBy);
+            onFilterRun(activeFilter, activeOrderBy, sourceQuery);
             return;
         }
         onRun?.();
-    }, [filterExpr, fontSize, onFilterRun, onRun, orderByExpr, save, theme]);
+    }, [filterExpr, fontSize, onFilterRun, onRun, orderByExpr, save, sourceQuery, theme]);
     const handleOpenExportModal = React.useCallback(() => {
         if (!result?.columns?.length) {
             toast.error('No columns available to export.');
@@ -1135,7 +1140,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             onChange={setFilterExpr}
             orderValue={orderByExpr}
             onOrderChange={setOrderByExpr}
-            baseQuery={baseQuery}
+            baseQuery={sourceQuery}
             columns={result.columns}
             tableName={result.tableName}
             showFilterInput={shouldShowFilterInput}
@@ -1145,13 +1150,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 keepFilterFocusRef.current = true;
                 const nextExpr = typeof currentValue === 'string' ? currentValue : filterExpr;
                 const nextOrder = typeof currentOrder === 'string' ? currentOrder : orderByExpr;
-                if (nextExpr.trim() || nextOrder.trim()) onFilterRun?.(nextExpr, nextOrder);
+                if (nextExpr.trim() || nextOrder.trim()) onFilterRun?.(nextExpr, nextOrder, sourceQuery);
             }}
             onClear={() => {
                 keepFilterFocusRef.current = true;
                 setFilterExpr('');
                 setOrderByExpr('');
-                onFilterRun?.('', '');
+                onFilterRun?.('', '', sourceQuery);
             }}
         >
             {!onActionsChange && panelActions.length > 0 && (

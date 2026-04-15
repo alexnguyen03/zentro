@@ -7,6 +7,7 @@ export interface TabQueryContext {
     resultFilterExpr?: string;
     resultOrderByExpr?: string;
     resultQuickFilter?: string;
+    resultFilterBaseQuery?: string;
     compareLeftTabId?: string;
     compareRightTabId?: string;
     compareSyncScroll?: boolean;

@@ -78,6 +78,7 @@ describe('executionRouting', () => {
             resultFilterExpr: '',
             resultOrderByExpr: '',
             resultQuickFilter: '',
+            resultFilterBaseQuery: '',
         });
     });
 
