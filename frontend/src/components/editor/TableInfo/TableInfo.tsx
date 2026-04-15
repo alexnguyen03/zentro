@@ -5,7 +5,6 @@ import {
     FileCode2,
     Info,
     KeyRound,
-    Loader,
     Network,
     Plus,
     RefreshCw,
@@ -31,8 +30,8 @@ import { useResultStore } from '../../../stores/resultStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
-import { buildFilterQuery } from '../../../lib/queryBuilder';
-import { Button, Indicator, Input, Spinner } from '../../ui';
+import { buildFilterOrderQuery } from '../../../lib/queryBuilder';
+import { Button, Indicator, Input } from '../../ui';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { getErrorMessage } from '../../../lib/errors';
 import { useToast } from '../../layout/Toast';
@@ -79,7 +78,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
                 action.danger ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : '',
             )}
         >
-            {action.loading ? <Spinner size={12} /> : action.icon}
+            {action.icon}
         </Button>
     );
 };
@@ -114,12 +113,11 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [pendingOpenExport, setPendingOpenExport] = useState(false);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
-    const [fadeInContent, setFadeInContent] = useState(false);
     const prevConnRef = useRef<string>('');
-    const fadeInTimerRef = useRef<number | null>(null);
     const autoRetryTimerRef = useRef<number | null>(null);
     const autoRetryAttemptRef = useRef(0);
     const autoRetryConnectionRef = useRef('');
+    const latestLoadRequestRef = useRef(0);
     const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns']), []);
 
     const { activeProfile, isConnected } = useConnectionStore();
@@ -151,19 +149,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             'bad connection',
         ].some((needle) => normalized.includes(needle));
     }, [fetchError]);
-    const triggerContentFadeIn = useCallback(() => {
-        setFadeInContent(false);
-        if (fadeInTimerRef.current !== null) {
-            window.clearTimeout(fadeInTimerRef.current);
-        }
-        fadeInTimerRef.current = window.setTimeout(() => {
-            setFadeInContent(true);
-            fadeInTimerRef.current = window.setTimeout(() => {
-                setFadeInContent(false);
-                fadeInTimerRef.current = null;
-            }, 260);
-        }, 0);
-    }, []);
     const clearAutoRetryTimer = useCallback(() => {
         if (autoRetryTimerRef.current !== null) {
             window.clearTimeout(autoRetryTimerRef.current);
@@ -235,11 +220,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             return;
         }
 
+        const requestId = latestLoadRequestRef.current + 1;
+        latestLoadRequestRef.current = requestId;
+
         try {
             if (silent) setReloading(true);
             else setLoading(true);
             if (!silent) setFetchError(null);
             const cols = await FetchTableColumns(schema, table);
+            if (latestLoadRequestRef.current != requestId) return;
             const rs: RowState[] = (cols || []).map((c, i) => ({
                 id: `col-${i}-${c.Name}`,
                 original: { ...c },
@@ -249,21 +238,24 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             setRows(rs);
             setRowErrors({});
             setFetchError(null);
-            triggerContentFadeIn();
         } catch (error: unknown) {
+            if (latestLoadRequestRef.current != requestId) return;
             setFetchError(getErrorMessage(error));
         } finally {
+            if (latestLoadRequestRef.current != requestId) return;
             setLoading(false);
             setReloading(false);
         }
-    }, [driver, isCreateMode, schema, table, triggerContentFadeIn]);
+    }, [driver, isCreateMode, schema, table]);
 
-    const loadData = useCallback(async (filter?: string) => {
+    const loadData = useCallback(async (filter = '', orderByExpr = '', filterBaseQuery?: string) => {
         if (isCreateMode) return;
         if (!activeGroupId) return;
-        const baseTableQuery = `SELECT * FROM "${schema}"."${table}"`;
-        const query = filter?.trim() ? buildFilterQuery(baseTableQuery, filter) : baseTableQuery;
-        useResultStore.getState().setLastExecutedQuery(dataTabId, baseTableQuery);
+        const canonicalBaseQuery = `SELECT * FROM "${schema}"."${table}"`;
+        const providedBaseQuery = (filterBaseQuery || '').trim();
+        const baseQuery = providedBaseQuery || canonicalBaseQuery;
+        const query = buildFilterOrderQuery(baseQuery, filter, orderByExpr);
+        useResultStore.getState().setLastExecutedQuery(dataTabId, canonicalBaseQuery);
         ExecuteQuery(dataTabId, query).catch(console.error);
     }, [isCreateMode, schema, table, activeGroupId, dataTabId]);
 
@@ -371,9 +363,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
     useEffect(() => () => {
-        if (fadeInTimerRef.current !== null) {
-            window.clearTimeout(fadeInTimerRef.current);
-        }
         clearAutoRetryTimer();
     }, [clearAutoRetryTimer]);
     useEffect(() => {
@@ -710,8 +699,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center gap-4 h-full bg-background">
-                <Loader size={24} className="animate-spin text-accent" />
-                <span className="text-sm text-muted-foreground font-medium animate-pulse">Fetching table schema...</span>
+                <Table2 size={24} className="text-accent" />
+                <span className="text-sm text-muted-foreground font-medium">Fetching table schema...</span>
             </div>
         );
     }
@@ -764,13 +753,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 setFilterCol('');
                             }}
                             className={cx(
-                                'relative h-8 w-8 shrink-0 rounded-sm p-0 transition-colors outline-none',
+                                'relative h-8 w-8 shrink-0 rounded-sm p-0 outline-none',
                                 activeTab === key
                                     ? 'text-primary'
                                     : 'text-muted-foreground/70 hover:text-foreground',
                             )}
                         >
-                            <span className={cx('transition-opacity', activeTab === key ? 'opacity-100' : 'opacity-75')}>{icon}</span>
+                            <span className={cx(activeTab === key ? 'opacity-100' : 'opacity-75')}>{icon}</span>
                             {count !== undefined && count !== null && (
                                 <Indicator
                                     mode="count"
@@ -796,7 +785,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
                     {!isCreateMode && filterTabs.has(activeTab) && (
                         <div className="relative group flex items-center w-[180px] min-w-[180px]">
-                            <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent transition-colors" />
+                            <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent" />
                             <Input
                                 ref={filterInputRef}
                                 type="text"
@@ -814,14 +803,14 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 }}
                                 inputSize="sm"
                                 variant="ghost"
-                                className="w-full border-border/30 pl-8 pr-3 transition-all placeholder:text-muted-foreground/40"
+                                className="w-full border-border/30 pl-8 pr-3 placeholder:text-muted-foreground/40"
                             />
                         </div>
                     )}
                 </div>
             </div>
 
-            <main className={`flex-1 flex flex-col min-h-0 relative ${fadeInContent ? 'ti-fade-in' : ''}`}>
+            <main className="flex-1 flex flex-col min-h-0 relative">
                 {activeTab === 'columns' && (
                     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                         <SchemaInfoView

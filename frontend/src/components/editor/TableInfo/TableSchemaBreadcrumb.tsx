@@ -61,7 +61,7 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
 
     return (
         <Breadcrumb>
-            <BreadcrumbList className="flex-nowrap">
+            <BreadcrumbList className="flex-nowrap h-8">
                 <BreadcrumbItem>
                     <BreadcrumbPage className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground">
                         <Database size={12} className="shrink-0 text-muted-foreground" />
@@ -103,7 +103,7 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
                                         variant="ghost"
                                         size="sm"
                                         className={cn(
-                                            'h-6 max-w-[260px] items-center gap-1 rounded-sm px-1.5 text-[11px] font-semibold text-foreground',
+                                            'h-8 max-w-65 items-center gap-1 rounded-sm px-1.5 text-[11px] font-semibold text-foreground',
                                             !hasTableOptions && 'opacity-80',
                                         )}
                                         disabled={!hasTableOptions}
