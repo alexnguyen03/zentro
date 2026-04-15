@@ -4,6 +4,7 @@ import { ArrowLeftRight, Copy, ExternalLink, Plus, PlusSquare, X } from 'lucide-
 import { cn } from '../../lib/cn';
 import { buildFilterOrderQuery } from '../../lib/queryBuilder';
 import { OrderDirection, OrderTerm, parseOrderByTerms, serializeOrderByTerms } from '../../lib/orderByBuilder';
+import { extractSelectAliases, extractTableAliases } from '../../lib/sqlAliases';
 import { useToast } from '../layout/Toast';
 import { setClipboardText } from '../../services/clipboardService';
 import { createResultFilterModelPath, registerResultFilterCompletion } from '../../lib/monaco/resultFilterCompletion';
@@ -50,6 +51,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     showFilterInput = true,
     children,
 }) => {
+    const normalizeFilterInput = useCallback((raw: string) => raw.replace(/[\r\n]+/g, ' '), []);
     const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
     const completionDisposableRef = useRef<{ dispose: () => void } | null>(null);
     const editorInstanceKey = useRef(`result-filter-${Math.random().toString(36).slice(2)}`);
@@ -70,8 +72,17 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const [editingOrderIndex, setEditingOrderIndex] = React.useState<number | null>(null);
     const [selectedOrderField, setSelectedOrderField] = React.useState<string>('');
     const [selectedOrderDir, setSelectedOrderDir] = React.useState<OrderDirection>('ASC');
-    const debounceTimerRef = useRef<number | null>(null);
     const tooltipTimeout = useRef<number>();
+    const completionColumns = useMemo(() => {
+        const selectAliases = baseQuery ? extractSelectAliases(baseQuery) : [];
+        const tableAliases = baseQuery ? extractTableAliases(baseQuery) : [];
+        const qualifiedColumns = tableAliases.flatMap((tableAlias) => (
+            columns.map((column) => `${tableAlias}.${column}`)
+        ));
+        return Array.from(
+            new Set([...columns, ...selectAliases, ...qualifiedColumns].filter((column) => column && column.trim().length > 0)),
+        );
+    }, [baseQuery, columns]);
 
     useEffect(() => {
         onRunRef.current = onRun;
@@ -98,26 +109,16 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     }, [orderValue]);
 
     useEffect(() => {
-        const parsed = parseOrderByTerms(orderValue, columns);
+        const parsed = parseOrderByTerms(orderValue, completionColumns);
         setOrderTerms(parsed.terms);
         if (parsed.isCustom && orderValue.trim()) {
             setOrderInputMode('text');
         } else if (!orderValue.trim()) {
             setOrderInputMode('chips');
         }
-    }, [columns, orderValue]);
-
-    const clearAutoRunTimer = useCallback(() => {
-        if (debounceTimerRef.current !== null) {
-            window.clearTimeout(debounceTimerRef.current);
-            debounceTimerRef.current = null;
-        }
-    }, []);
-
-    useEffect(() => () => clearAutoRunTimer(), [clearAutoRunTimer]);
+    }, [completionColumns, orderValue]);
 
     const runNow = useCallback((nextFilterRaw: string, nextOrderRaw: string) => {
-        clearAutoRunTimer();
         const nextFilter = nextFilterRaw.trim();
         const nextOrder = nextOrderRaw.trim();
         if (!nextFilter && !nextOrder) {
@@ -125,14 +126,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             return;
         }
         onRunRef.current(nextFilterRaw, nextOrderRaw);
-    }, [clearAutoRunTimer]);
-
-    const scheduleAutoRun = useCallback((nextFilterRaw: string, nextOrderRaw: string) => {
-        clearAutoRunTimer();
-        debounceTimerRef.current = window.setTimeout(() => {
-            runNow(nextFilterRaw, nextOrderRaw);
-        }, 600);
-    }, [clearAutoRunTimer, runNow]);
+    }, []);
 
     const modelPath = useMemo(() => {
         const suffix = tableName ? tableName.replace(/[^a-zA-Z0-9_-]/g, '_') : 'result';
@@ -145,19 +139,18 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
         completionDisposableRef.current?.dispose();
         completionDisposableRef.current = registerResultFilterCompletion({
             monaco,
-            columns,
+            columns: completionColumns,
             driver,
         });
-    }, [columns, driver]);
+    }, [completionColumns, driver]);
 
     useEffect(() => {
         registerCompletion();
         return () => {
             completionDisposableRef.current?.dispose();
             completionDisposableRef.current = null;
-            clearAutoRunTimer();
         };
-    }, [clearAutoRunTimer, registerCompletion]);
+    }, [registerCompletion]);
 
     const handleMonacoMount: OnMount = useCallback((editor, monaco) => {
         monacoRef.current = monaco;
@@ -201,7 +194,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             if (suggestVisible) return;
             event.preventDefault();
             event.stopPropagation();
-            const currentValue = editor.getValue();
+            const currentValue = normalizeFilterInput(editor.getValue());
             const nextValue = currentValue.trim();
             onChangeRef.current(currentValue);
             const nextOrder = orderValueRef.current.trim();
@@ -211,7 +204,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             }
             runNow(currentValue, orderValueRef.current);
         });
-    }, [registerCompletion, runNow]);
+    }, [normalizeFilterInput, registerCompletion, runNow]);
 
     const getMonacoTheme = useCallback(() => {
         if (theme === 'dark') return 'vs-dark';
@@ -226,13 +219,12 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     );
 
     const renderQueryPreview = (q: string) => {
-        return buildFilterOrderQuery(q, value || '<condition>', orderValue || '<order_expr>');
+        return buildFilterOrderQuery(q, value, orderValue);
     };
 
     const handleFilterChange = useCallback((nextValue: string) => {
-        onChangeRef.current(nextValue);
-        scheduleAutoRun(nextValue, orderValueRef.current);
-    }, [scheduleAutoRun]);
+        onChangeRef.current(normalizeFilterInput(nextValue));
+    }, [normalizeFilterInput]);
 
     const handleOrderValueChange = useCallback((nextOrderValue: string) => {
         onOrderChangeRef.current?.(nextOrderValue);
@@ -287,307 +279,317 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             setOrderInputMode('text');
             return;
         }
-        const parsed = parseOrderByTerms(orderValueRef.current, columns);
+        const parsed = parseOrderByTerms(orderValueRef.current, completionColumns);
         if (parsed.isCustom && orderValueRef.current.trim()) {
             toast.error('Cannot switch to chip mode: ORDER BY contains custom expression.');
             return;
         }
         setOrderInputMode('chips');
-    }, [columns, orderInputMode, toast]);
+    }, [completionColumns, orderInputMode, toast]);
 
     return (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-card/40 shrink-0 relative">
+        <div className="flex items-center gap-1 shrink-0 relative py-1">
             {showFilterInput && (
-                <div className="flex items-center flex-3 min-w-0">
-                <div
-                    className="relative flex items-center border-r pr-2 mr-2"
-                    onMouseEnter={() => {
-                        tooltipTimeout.current && clearTimeout(tooltipTimeout.current);
-                        setShowTooltip(true);
-                    }}
-                    onMouseLeave={() => {
-                        tooltipTimeout.current = setTimeout(() => setShowTooltip(false), 200);
-                    }}
-                >
-                    <span className="text-[11px] uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
-                        WHERE
-                    </span>
+                <div className="flex items-center w-full min-w-0 gap-1">
+                    <div className={cn(
+                        'flex items-center min-w-0 bg-card px-2 rounded-sm',
+                        children ? 'flex-4' : 'flex-1',
+                    )}>
+                        <div
+                            className="relative flex items-center"
+                            onMouseEnter={() => {
+                                tooltipTimeout.current && clearTimeout(tooltipTimeout.current);
+                                setShowTooltip(true);
+                            }}
+                            onMouseLeave={() => {
+                                tooltipTimeout.current = setTimeout(() => setShowTooltip(false), 200);
+                            }}
+                        >
+                            <span className="text-[11px] uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
+                                WHERE
+                            </span>
 
-                    {showTooltip && baseQuery && (
-                        <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-sm border border-border bg-background shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                            <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-sm bg-background/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className={iconBtn}
-                                    title="Copy query"
-                                    onClick={() => {
-                                        void setClipboardText(buildFilterOrderQuery(baseQuery, value || '<condition>', orderValue || '<order_expr>'))
-                                            .then(() => toast.success('Query copied to clipboard'))
-                                            .catch(() => toast.error('Failed to copy query'));
-                                    }}
-                                >
-                                    <Copy size={12} />
-                                </Button>
+                            {showTooltip && baseQuery && (
+                                <div className="group min-h-40 absolute top-full left-0 z-panel-overlay mt-2 w-120 overflow-hidden rounded-sm bg-card shadow-2xl border border-border/50 animate-in fade-in zoom-in-95 duration-100">
+                                    <div className="absolute right-2 top-2 z-10 flex flex-col items-center gap-0.5 rounded-sm bg-background/95 p-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className={iconBtn}
+                                            title="Copy query"
+                                            onClick={() => {
+                                                void setClipboardText(buildFilterOrderQuery(baseQuery, value, orderValue))
+                                                    .then(() => toast.success('Query copied to clipboard'))
+                                                    .catch(() => toast.error('Failed to copy query'));
+                                            }}
+                                        >
+                                            <Copy size={12} />
+                                        </Button>
 
-                                {onAppendToQuery && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
-                                        title="Append to current tab (last line)"
-                                        onClick={() => {
-                                            onAppendToQuery(buildFilterOrderQuery(baseQuery, value || '<condition>', orderValue || '<order_expr>'));
-                                            setShowTooltip(false);
-                                        }}
-                                    >
-                                        <PlusSquare size={12} />
-                                    </Button>
+                                        {onAppendToQuery && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className={cn(iconBtn, 'text-success hover:bg-success/10 hover:border-success/30')}
+                                                title="Append to current tab (last line)"
+                                                onClick={() => {
+                                                    onAppendToQuery(buildFilterOrderQuery(baseQuery, value, orderValue));
+                                                    setShowTooltip(false);
+                                                }}
+                                            >
+                                                <PlusSquare size={12} />
+                                            </Button>
+                                        )}
+
+                                        {onOpenInNewTab && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className={cn(iconBtn, 'text-muted-foreground hover:text-foreground')}
+                                                title="Open in new tab"
+                                                onClick={() => {
+                                                    onOpenInNewTab(buildFilterOrderQuery(baseQuery, value, orderValue));
+                                                    setShowTooltip(false);
+                                                }}
+                                            >
+                                                <ExternalLink size={12} />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="p-3 pr-12 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-muted-foreground">
+                                        {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim())}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="ml-2 items-end flex-1 min-w-12.5 h-6 relative">
+                            <Editor
+                                path={modelPath}
+                                theme={getMonacoTheme()}
+                                defaultLanguage="sql"
+                                value={value}
+                                onMount={handleMonacoMount}
+                                onChange={(next) => handleFilterChange(next ?? '')}
+                                options={{
+                                    automaticLayout: true,
+                                    minimap: { enabled: false },
+                                    glyphMargin: false,
+                                    lineNumbers: 'off',
+                                    folding: false,
+                                    lineDecorationsWidth: 0,
+                                    lineNumbersMinChars: 0,
+                                    renderLineHighlight: 'none',
+                                    overviewRulerLanes: 0,
+                                    overviewRulerBorder: false,
+                                    hideCursorInOverviewRuler: true,
+                                    wordWrap: 'off',
+                                    scrollBeyondLastLine: false,
+                                    contextmenu: true,
+                                    fontSize: 11,
+                                    lineHeight: 24,
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                    quickSuggestions: { other: true, comments: false, strings: false },
+                                    wordBasedSuggestions: 'off',
+                                    suggestOnTriggerCharacters: true,
+                                    acceptSuggestionOnEnter: 'on',
+                                    tabCompletion: 'on',
+                                    scrollbar: {
+                                        vertical: 'hidden',
+                                        verticalScrollbarSize: 0,
+                                        horizontal: 'auto',
+                                        horizontalScrollbarSize: 6,
+                                        handleMouseWheel: true,
+                                    },
+                                    padding: { top: 0, bottom: 0 },
+                                }}
+                            />
+                        </div>
+
+                    </div>
+
+                    <div className={cn(
+                        'flex items-center min-w-0 bg-card rounded-sm',
+                        children ? 'flex-[4]' : 'flex-1',
+                    )}>
+                        <span className="text-[11px] uppercase ml-2 font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
+                            ORDER BY
+                        </span>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                            title={orderInputMode === 'chips' ? 'Switch to text mode' : 'Switch to chip mode'}
+                            onClick={toggleOrderInputMode}
+                        >
+                            <ArrowLeftRight size={12} />
+                        </Button>
+                        {orderInputMode === 'chips' ? (
+                            <>
+                                {orderTerms.length > 0 && (
+                                    <div className="ml-2 flex items-center gap-1 overflow-x-auto scrollbar-thin">
+                                        {orderTerms.map((term, index) => (
+                                            <Popover key={`${term.field}:${index}`} open={editingOrderIndex === index} onOpenChange={(open) => setEditingOrderIndex(open ? index : null)}>
+                                                <PopoverTrigger asChild>
+                                                    <Badge
+                                                        variant="default"
+                                                        className="cursor-pointer normal-case gap-1 pl-2 pr-1 py-1 text-[10px] shrink-0"
+                                                        onClick={() => handleOpenEditOrderTerm(index)}
+                                                    >
+                                                        <span className="font-mono text-[11px]">{term.field}</span>
+                                                        <span className="text-muted-foreground">{term.dir}</span>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-4 w-4 p-0 hover:bg-muted"
+                                                            title="Remove order term"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                handleRemoveOrderTerm(index);
+                                                            }}
+                                                        >
+                                                            <X size={10} />
+                                                        </Button>
+                                                    </Badge>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-68 p-2" align="start" sideOffset={6}>
+                                                    <div
+                                                        className="space-y-2"
+                                                        onKeyDown={(event) => {
+                                                            if (event.key !== 'Enter') return;
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            if (!selectedOrderField.trim()) return;
+                                                            handleSaveOrderTerm();
+                                                        }}
+                                                    >
+                                                        <div className="text-[11px] text-muted-foreground font-medium">Edit sort term</div>
+                                                        <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
+                                                            <SelectTrigger className="h-7 text-[12px]">
+                                                                <SelectValue placeholder="Choose field" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {completionColumns.map((column) => (
+                                                                    <SelectItem key={column} value={column}>
+                                                                        <span className="font-mono text-[12px]">{column}</span>
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
+                                                            <SelectTrigger className="h-7 text-[12px]">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="ASC">ASC</SelectItem>
+                                                                <SelectItem value="DESC">DESC</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            className="h-7 w-full text-[12px]"
+                                                            disabled={!selectedOrderField.trim()}
+                                                            onClick={handleSaveOrderTerm}
+                                                        >
+                                                            Save
+                                                        </Button>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        ))}
+                                    </div>
                                 )}
+                                <Popover open={orderBuilderOpen} onOpenChange={setOrderBuilderOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                            title="Add ORDER BY term"
+                                        >
+                                            <Plus size={12} />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-68 p-2" align="start" sideOffset={6}>
+                                        <div
+                                            className="space-y-2"
+                                            onKeyDown={(event) => {
+                                                if (event.key !== 'Enter') return;
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                                if (!selectedOrderField.trim()) return;
+                                                handleAddOrderTerm();
+                                            }}
+                                        >
+                                            <div className="text-[11px] text-muted-foreground font-medium">Add sort term</div>
+                                            <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
+                                                <SelectTrigger className="h-7 text-[12px]">
+                                                    <SelectValue placeholder="Choose field" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {completionColumns.map((column) => (
+                                                        <SelectItem key={column} value={column}>
+                                                            <span className="font-mono text-[12px]">{column}</span>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
+                                                <SelectTrigger className="h-7 text-[12px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="ASC">ASC</SelectItem>
+                                                    <SelectItem value="DESC">DESC</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-7 w-full text-[12px]"
+                                                disabled={!selectedOrderField.trim()}
+                                                onClick={handleAddOrderTerm}
+                                            >
+                                                Add
+                                            </Button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            </>
+                        ) : (
+                            <Input
+                                value={orderValue}
+                                onChange={(event: React.ChangeEvent<HTMLInputElement>) => handleOrderValueChange(event.target.value)}
+                                onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                                    if (event.key !== 'Enter') return;
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    runNow(valueRef.current, event.currentTarget.value);
+                                }}
+                                className="ml-2 h-6 min-w-40 w-56 bg-transparent font-mono text-[12px]"
+                                placeholder="created_at DESC, id ASC"
+                            />
+                        )}
+                    </div>
 
-                                {onOpenInNewTab && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className={cn(iconBtn, 'text-muted-foreground hover:text-foreground')}
-                                        title="Open in new tab"
-                                        onClick={() => {
-                                            onOpenInNewTab(buildFilterOrderQuery(baseQuery, value || '<condition>', orderValue || '<order_expr>'));
-                                            setShowTooltip(false);
-                                        }}
-                                    >
-                                        <ExternalLink size={12} />
-                                    </Button>
-                                )}
-                            </div>
-                            <div className="p-3 pr-12 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-muted-foreground">
-                                {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim())}
-                            </div>
+                    {children && (
+                        <div className="flex items-center justify-end min-w-0 gap-1 overflow-visible">
+                            {children}
                         </div>
                     )}
                 </div>
-
-                <div className="flex-1 min-w-12.5 h-5.5 relative zentro-filter-monaco">
-                    <Editor
-                        path={modelPath}
-                        theme={getMonacoTheme()}
-                        defaultLanguage="sql"
-                        value={value}
-                        onMount={handleMonacoMount}
-                        onChange={(next) => handleFilterChange(next ?? '')}
-                        options={{
-                            automaticLayout: true,
-                            minimap: { enabled: false },
-                            glyphMargin: false,
-                            lineNumbers: 'off',
-                            folding: false,
-                            lineDecorationsWidth: 0,
-                            lineNumbersMinChars: 0,
-                            renderLineHighlight: 'none',
-                            overviewRulerLanes: 0,
-                            overviewRulerBorder: false,
-                            hideCursorInOverviewRuler: true,
-                            wordWrap: 'off',
-                            scrollBeyondLastLine: false,
-                            contextmenu: true,
-                            fontSize: 12,
-                            lineHeight: 20,
-                            fontFamily: 'var(--font-mono, monospace)',
-                            quickSuggestions: { other: true, comments: false, strings: false },
-                            wordBasedSuggestions: 'off',
-                            suggestOnTriggerCharacters: true,
-                            acceptSuggestionOnEnter: 'on',
-                            tabCompletion: 'on',
-                            scrollbar: {
-                                vertical: 'hidden',
-                                verticalScrollbarSize: 0,
-                                horizontal: 'auto',
-                                horizontalScrollbarSize: 6,
-                                handleMouseWheel: true,
-                            },
-                            padding: { top: 0, bottom: 0 },
-                        }}
-                    />
-                    {!value && (
-                        <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-[12px] text-muted-foreground font-mono select-none">
-                            Filter rows... e.g. id &gt; 100 AND name LIKE '%foo%'
-                        </span>
-                    )}
-                </div>
-
-                <div className="ml-2 flex items-center min-w-0 border-l pl-2">
-                    <span className="text-[11px] uppercase font-semibold text-muted-foreground tracking-wide shrink-0 select-none">
-                        ORDER BY
-                    </span>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-                        title={orderInputMode === 'chips' ? 'Switch to text mode' : 'Switch to chip mode'}
-                        onClick={toggleOrderInputMode}
-                    >
-                        <ArrowLeftRight size={12} />
-                    </Button>
-                    {orderInputMode === 'chips' ? (
-                        <>
-                            {orderTerms.length > 0 && (
-                                <div className="ml-2 flex items-center gap-1 overflow-x-auto scrollbar-thin">
-                                    {orderTerms.map((term, index) => (
-                                        <Popover key={`${term.field}:${index}`} open={editingOrderIndex === index} onOpenChange={(open) => setEditingOrderIndex(open ? index : null)}>
-                                            <PopoverTrigger asChild>
-                                                <Badge
-                                                    variant="default"
-                                                    className="cursor-pointer normal-case gap-1 pl-2 pr-1 py-1 text-[10px] shrink-0"
-                                                    onClick={() => handleOpenEditOrderTerm(index)}
-                                                >
-                                                    <span className="font-mono text-[11px]">{term.field}</span>
-                                                    <span className="text-muted-foreground">{term.dir}</span>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-4 w-4 p-0 hover:bg-muted"
-                                                        title="Remove order term"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            handleRemoveOrderTerm(index);
-                                                        }}
-                                                    >
-                                                        <X size={10} />
-                                                    </Button>
-                                                </Badge>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-68 p-2" align="start" sideOffset={6}>
-                                                <div
-                                                    className="space-y-2"
-                                                    onKeyDown={(event) => {
-                                                        if (event.key !== 'Enter') return;
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        if (!selectedOrderField.trim()) return;
-                                                        handleSaveOrderTerm();
-                                                    }}
-                                                >
-                                                    <div className="text-[11px] text-muted-foreground font-medium">Edit sort term</div>
-                                                    <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
-                                                        <SelectTrigger className="h-7 text-[12px]">
-                                                            <SelectValue placeholder="Choose field" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {columns.map((column) => (
-                                                                <SelectItem key={column} value={column}>
-                                                                    <span className="font-mono text-[12px]">{column}</span>
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
-                                                        <SelectTrigger className="h-7 text-[12px]">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="ASC">ASC</SelectItem>
-                                                            <SelectItem value="DESC">DESC</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        className="h-7 w-full text-[12px]"
-                                                        disabled={!selectedOrderField.trim()}
-                                                        onClick={handleSaveOrderTerm}
-                                                    >
-                                                        Save
-                                                    </Button>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
-                                    ))}
-                                </div>
-                            )}
-                            <Popover open={orderBuilderOpen} onOpenChange={setOrderBuilderOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
-                                        title="Add ORDER BY term"
-                                    >
-                                        <Plus size={12} />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-68 p-2" align="start" sideOffset={6}>
-                                    <div
-                                        className="space-y-2"
-                                        onKeyDown={(event) => {
-                                            if (event.key !== 'Enter') return;
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            if (!selectedOrderField.trim()) return;
-                                            handleAddOrderTerm();
-                                        }}
-                                    >
-                                        <div className="text-[11px] text-muted-foreground font-medium">Add sort term</div>
-                                        <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
-                                            <SelectTrigger className="h-7 text-[12px]">
-                                                <SelectValue placeholder="Choose field" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {columns.map((column) => (
-                                                    <SelectItem key={column} value={column}>
-                                                        <span className="font-mono text-[12px]">{column}</span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
-                                            <SelectTrigger className="h-7 text-[12px]">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="ASC">ASC</SelectItem>
-                                                <SelectItem value="DESC">DESC</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="h-7 w-full text-[12px]"
-                                            disabled={!selectedOrderField.trim()}
-                                            onClick={handleAddOrderTerm}
-                                        >
-                                            Add
-                                        </Button>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                        </>
-                    ) : (
-                        <Input
-                            value={orderValue}
-                            onChange={(event: React.ChangeEvent<HTMLInputElement>) => handleOrderValueChange(event.target.value)}
-                            onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
-                                if (event.key !== 'Enter') return;
-                                event.preventDefault();
-                                event.stopPropagation();
-                                runNow(valueRef.current, event.currentTarget.value);
-                            }}
-                            className="ml-2 h-6 min-w-40 w-56 bg-transparent border-border/50 font-mono text-[12px]"
-                            placeholder="created_at DESC, id ASC"
-                        />
-                    )}
-                </div>
-                </div>
             )}
-            {children && (
+            {!showFilterInput && children && (
                 <div className={cn(
                     'flex items-center justify-end min-w-0 gap-1 overflow-visible',
-                    showFilterInput ? 'flex-2 pl-2' : 'flex-1',
+                    'flex-1',
                 )}>
                     {children}
                 </div>

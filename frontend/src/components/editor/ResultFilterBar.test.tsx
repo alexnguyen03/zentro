@@ -1,11 +1,11 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ResultFilterBar } from './ResultFilterBar';
 
 vi.mock('@monaco-editor/react', () => ({
     default: ({ value, onChange }: { value: string; onChange?: (next: string) => void }) => (
-        <input
+        <textarea
             data-testid="filter-editor"
             value={value}
             onChange={(event) => onChange?.(event.target.value)}
@@ -64,8 +64,32 @@ describe('ResultFilterBar', () => {
         fireEvent.click(screen.getByTitle('Switch to text mode'));
     };
 
+    it('does not auto-run when WHERE filter changes', () => {
+        const onRun = vi.fn();
+        const onClear = vi.fn();
+        render(<Harness onRun={onRun} onClear={onClear} />);
+
+        const filterInput = screen.getByTestId('filter-editor');
+        fireEvent.change(filterInput, { target: { value: 'id > 10' } });
+
+        expect(onRun).not.toHaveBeenCalled();
+        expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it('normalizes pasted multi-line filter into a single line', () => {
+        const onRun = vi.fn();
+        const onClear = vi.fn();
+        render(<Harness onRun={onRun} onClear={onClear} />);
+
+        const filterInput = screen.getByTestId('filter-editor') as HTMLInputElement;
+        fireEvent.change(filterInput, { target: { value: 'a.account_id = 1\nOR a.account_id = 2' } });
+
+        expect(filterInput.value).toBe('a.account_id = 1 OR a.account_id = 2');
+        expect(onRun).not.toHaveBeenCalled();
+        expect(onClear).not.toHaveBeenCalled();
+    });
+
     it('does not auto-run when ORDER BY changes', () => {
-        vi.useFakeTimers();
         const onRun = vi.fn();
         const onClear = vi.fn();
         render(<Harness onRun={onRun} onClear={onClear} />);
@@ -75,17 +99,10 @@ describe('ResultFilterBar', () => {
         fireEvent.change(orderInput, { target: { value: 'created_at DESC' } });
 
         expect(onRun).not.toHaveBeenCalled();
-        act(() => {
-            vi.advanceTimersByTime(1000);
-        });
-        expect(onRun).not.toHaveBeenCalled();
         expect(onClear).not.toHaveBeenCalled();
-
-        vi.useRealTimers();
     });
 
-    it('runs immediately on Enter and cancels pending debounce', () => {
-        vi.useFakeTimers();
+    it('runs immediately on Enter', () => {
         const onRun = vi.fn();
         const onClear = vi.fn();
         render(<Harness onRun={onRun} onClear={onClear} />);
@@ -97,14 +114,7 @@ describe('ResultFilterBar', () => {
 
         expect(onRun).toHaveBeenCalledTimes(1);
         expect(onRun).toHaveBeenCalledWith('', 'id ASC');
-
-        act(() => {
-            vi.advanceTimersByTime(700);
-        });
-        expect(onRun).toHaveBeenCalledTimes(1);
         expect(onClear).not.toHaveBeenCalled();
-
-        vi.useRealTimers();
     });
 
     it('edits term when clicking chip', () => {

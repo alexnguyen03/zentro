@@ -135,7 +135,7 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 useStatusStore.getState().setQueryRuntime('running');
 
                 const executedText = payload.statementText || payload.query;
-                if (executedText && !executedText.includes('_zentro_filter')) {
+                if (executedText) {
                     useResultStore.getState().setLastExecutedQuery(payload.tabID, executedText);
                 }
 

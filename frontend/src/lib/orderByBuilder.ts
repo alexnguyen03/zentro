@@ -6,6 +6,7 @@ export interface OrderTerm {
 }
 
 const SIMPLE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_$]*$/;
+const QUALIFIED_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$/;
 
 const splitTerms = (expr: string): string[] => {
     const out: string[] = [];
@@ -44,12 +45,12 @@ const parseIdentifier = (raw: string): string | null => {
     if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
         return trimmed.slice(1, -1).replace(/""/g, '"');
     }
-    if (!SIMPLE_IDENTIFIER_RE.test(trimmed)) return null;
+    if (!QUALIFIED_IDENTIFIER_RE.test(trimmed)) return null;
     return trimmed;
 };
 
 const quoteIdentifier = (identifier: string): string => {
-    if (SIMPLE_IDENTIFIER_RE.test(identifier)) return identifier;
+    if (QUALIFIED_IDENTIFIER_RE.test(identifier)) return identifier;
     return `"${identifier.replace(/"/g, '""')}"`;
 };
 
@@ -93,4 +94,3 @@ export function serializeOrderByTerms(terms: OrderTerm[]): string {
         .map((term) => `${quoteIdentifier(term.field)} ${term.dir}`)
         .join(', ');
 }
-
