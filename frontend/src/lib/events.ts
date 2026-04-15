@@ -17,7 +17,6 @@ export const EVENT = {
     QUERY_STARTED: 'query:started',
     QUERY_CHUNK: 'query:chunk',
     QUERY_DONE: 'query:done',
-    QUERY_ROW_COUNT: 'query:row_count',
     TRANSACTION_STATUS: 'transaction:status',
 } as const;
 
@@ -95,14 +94,6 @@ export interface QueryDonePayload {
     statementCount: number;
 }
 
-export interface QueryRowCountPayload {
-    tabID: string;
-    sourceTabID?: string;
-    requestID: number;
-    count: number;
-    error?: string;
-}
-
 export interface TransactionStatusPayload {
     status: typeof TRANSACTION_STATUS[keyof typeof TRANSACTION_STATUS];
     error?: string;
@@ -139,10 +130,6 @@ export function onQueryChunk(cb: (data: QueryChunkPayload) => void): Unsubscribe
 
 export function onQueryDone(cb: (data: QueryDonePayload) => void): Unsubscribe {
     return EventsOn(EVENT.QUERY_DONE, cb);
-}
-
-export function onQueryRowCount(cb: (data: QueryRowCountPayload) => void): Unsubscribe {
-    return EventsOn(EVENT.QUERY_ROW_COUNT, cb);
 }
 
 export function onTransactionStatus(cb: (data: TransactionStatusPayload) => void): Unsubscribe {

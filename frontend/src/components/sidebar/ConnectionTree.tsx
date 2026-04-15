@@ -9,7 +9,6 @@ import {
     List,
     Plus,
     RefreshCw,
-    Search,
     Sigma,
     SpellCheck2,
     Table2,
@@ -207,8 +206,8 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group flex items-center gap-1 px-1.5 py-1 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
-                    expanded && 'sticky top-0 z-sticky bg-card -mx-0.5 rounded-none px-2',
+                    'group h-6 flex bg-card/10 items-center gap-1 px-1.5 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none px-2',
                 )}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -217,7 +216,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
             >
                 {expanded ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
                 {renderIcon('schema')}
-                <span className="truncate flex-1">{bucket.schemaName}</span>
+                <span className="truncate bg-card/10 flex-1 cursor-pointer">{bucket.schemaName}</span>
                 {category.allowCreateTable && (
                     <Button
                         type="button"
@@ -598,12 +597,11 @@ export const ConnectionTree: React.FC = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex items-center gap-1.5 px-2 py-1 shrink-0">
-                <div className="flex-1 relative flex items-center min-w-0 outline-none">
-                    <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
+                <div className="relative flex-1 min-w-0 outline-none">
                     <Input
                         ref={filterInputRef}
                         type="text"
-                        className="h-7 w-full py-1.25 pl-5.5 pr-1.5 text-[11px]"
+                        className="h-7 w-full px-2 pr-8 py-1.25 text-[11px]"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(event) => updateExplorerUiState({ filter: event.target.value })}
@@ -611,21 +609,21 @@ export const ConnectionTree: React.FC = () => {
                             if (event.key === 'Escape') updateExplorerUiState({ filter: '' });
                         }}
                     />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            'absolute right-1 top-1/2 h-5 w-5 -translate-y-1/2 p-0 text-muted-foreground hover:text-foreground',
+                            fuzzyMatch && 'bg-muted/80 text-accent',
+                        )}
+                        title={fuzzyMatch ? 'Fuzzy match: On' : 'Fuzzy match: Off'}
+                        aria-label="Toggle fuzzy match"
+                        aria-pressed={fuzzyMatch}
+                        onClick={() => updateExplorerUiState({ fuzzyMatch: !fuzzyMatch })}
+                    >
+                        <SpellCheck2 size={12} className="opacity-90" />
+                    </Button>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                        'p-0 text-muted-foreground hover:text-foreground',
-                        fuzzyMatch && 'bg-muted/80 text-accent',
-                    )}
-                    title={fuzzyMatch ? 'Fuzzy match: On' : 'Fuzzy match: Off'}
-                    aria-label="Toggle fuzzy match"
-                    aria-pressed={fuzzyMatch}
-                    onClick={() => updateExplorerUiState({ fuzzyMatch: !fuzzyMatch })}
-                >
-                    <SpellCheck2 size={12} className="opacity-90" />
-                </Button>
             </div>
             <div className="px-2 pb-1 shrink-0">
                 <div className="flex items-center gap-1.5 justify-between">
@@ -678,7 +676,7 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'h-auto w-full justify-start gap-1.5 rounded-sm py-1 text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'h-6 w-full justify-start gap-1.5 rounded-sm text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}

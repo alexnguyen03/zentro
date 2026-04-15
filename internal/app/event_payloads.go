@@ -64,14 +64,6 @@ type QueryDoneEvent struct {
 	Error          string `json:"error,omitempty"`
 }
 
-type QueryRowCountEvent struct {
-	TabID       string `json:"tabID"`
-	RequestID   int64  `json:"requestID"`
-	Count       int64  `json:"count"`
-	Error       string `json:"error,omitempty"`
-	SourceTabID string `json:"sourceTabID,omitempty"`
-}
-
 type TransactionStatusEvent struct {
 	Status string `json:"status"`
 	Driver string `json:"driver"`

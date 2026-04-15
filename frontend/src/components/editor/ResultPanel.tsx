@@ -251,7 +251,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setShowExportModal(true);
     }, [result?.columns, result?.tableName, toast]);
 
-    const { totalCount, isCounting } = useResultPanelCommands({
+    useResultPanelCommands({
         tabId,
         result,
         viewMode,
@@ -554,9 +554,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             : null;
 
     let displayTotalCount: number | undefined;
-    if (totalCount !== null && totalCount >= 0) {
-        displayTotalCount = totalCount;
-    } else if (result.isDone && !result.hasMore) {
+    if (result.isDone && !result.hasMore) {
         displayTotalCount = result.rows.length;
     }
     const viewportState = resolveResultFetchStrategy(result.rows.length, result.hasMore, result.isDone);
@@ -703,12 +701,6 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                     <span className="flex items-center gap-1">
                         {displayTotalCount !== undefined ? (
                             <span className="flex items-center gap-1">(Total: <strong>{displayTotalCount.toLocaleString()}</strong>)</span>
-                        ) : totalCount === -1 ? (
-                            <span className="flex items-center gap-1 text-warning" title="Failed to count total rows in background">(Total: ?)</span>
-                        ) : isCounting ? (
-                            <span className="flex items-center gap-1 opacity-70">
-                                <Loader size={12} className="animate-spin inline-block align-middle mr-1" />Counting...
-                            </span>
                         ) : null}
                         <strong>{(quickFilter.trim() ? visibleRows : (result.rows.length + draftRows.length)).toLocaleString()}</strong>
                         of&nbsp;
@@ -773,7 +765,5 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         </div>
     );
 };
-
-
 
 

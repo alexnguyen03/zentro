@@ -6,7 +6,6 @@ const gatewayMock = vi.hoisted(() => ({
     ExplainQuery: vi.fn(),
     ExecuteUpdateSync: vi.fn(),
     FetchMoreRows: vi.fn(),
-    FetchTotalRowCount: vi.fn(),
     FormatSQL: vi.fn(),
     CompareQueries: vi.fn(),
     ExportCSV: vi.fn(),

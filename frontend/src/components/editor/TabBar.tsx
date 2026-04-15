@@ -72,7 +72,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {...attributes}
             {...listeners}
             className={cn(
-                'group flex items-center h-full gap-1.5 px-2.5 pl-3.5 cursor-pointer border-r border-r-border text-xs text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground',
+                'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-xs text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground',
                 isActive && 'bg-background -mb-px text-primary'
             )}
             onClick={onActivate}
@@ -223,7 +223,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     const contextMenuItemClass = 'h-auto w-full justify-start rounded-none px-4 py-1.5 text-[13px]';
 
     return (
-        <div className="flex items-center bg-card h-9 shrink-0 overflow-hidden">
+        <div className="flex items-center bg-card h-8 shrink-0 overflow-hidden">
             <div
                 className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border"
                 ref={(el) => { setDroppableRef(el); (tabsScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}

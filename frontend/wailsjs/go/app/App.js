@@ -198,10 +198,6 @@ export function FetchTableRelationships(arg1, arg2) {
   return window['go']['app']['App']['FetchTableRelationships'](arg1, arg2);
 }
 
-export function FetchTotalRowCount(arg1) {
-  return window['go']['app']['App']['FetchTotalRowCount'](arg1);
-}
-
 export function ForceQuit() {
   return window['go']['app']['App']['ForceQuit']();
 }
@@ -480,10 +476,6 @@ export function Shutdown() {
 
 export function SnapshotStoredProcedures(arg1) {
   return window['go']['app']['App']['SnapshotStoredProcedures'](arg1);
-}
-
-export function StartFetchTotalRowCount(arg1, arg2) {
-  return window['go']['app']['App']['StartFetchTotalRowCount'](arg1, arg2);
 }
 
 export function SwitchDatabase(arg1) {

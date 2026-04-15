@@ -105,8 +105,6 @@ export function FetchTableColumns(arg1:string,arg2:string):Promise<Array<models.
 
 export function FetchTableRelationships(arg1:string,arg2:string):Promise<Array<models.TableRelationship>>;
 
-export function FetchTotalRowCount(arg1:string):Promise<number>;
-
 export function ForceQuit():Promise<void>;
 
 export function FormatSQL(arg1:string,arg2:string):Promise<string>;
@@ -246,8 +244,6 @@ export function SetPreferences(arg1:utils.Preferences):Promise<void>;
 export function Shutdown():Promise<void>;
 
 export function SnapshotStoredProcedures(arg1:string):Promise<number>;
-
-export function StartFetchTotalRowCount(arg1:string,arg2:number):Promise<void>;
 
 export function SwitchDatabase(arg1:string):Promise<void>;
 

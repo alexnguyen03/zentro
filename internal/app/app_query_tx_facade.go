@@ -8,14 +8,6 @@ func (a *App) ExplainQuery(tabID, query string, analyze bool) error {
 
 func (a *App) FetchMoreRows(tabID string, offset int) { a.query.FetchMoreRows(tabID, offset) }
 
-func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
-	return a.query.FetchTotalRowCount(tabID)
-}
-
-func (a *App) StartFetchTotalRowCount(tabID string, requestID int64) {
-	a.query.StartFetchTotalRowCount(tabID, requestID)
-}
-
 func (a *App) CancelQuery(tabID string) { a.query.CancelQuery(tabID) }
 
 func (a *App) ExecuteUpdateSync(query string) (int64, error) {
