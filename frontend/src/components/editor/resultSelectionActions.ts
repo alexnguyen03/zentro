@@ -183,27 +183,164 @@ export function buildRowAsUpdateStatement(params: {
     tableName: string;
     driver: string | undefined;
 }): string {
-    const { columns, pkColumns, tableName, driver } = params;
-    const matrix = buildSelectionMatrix(params);
-    if (matrix.length === 0) return '';
+    const { selectedCells, displayRows, editedCells, columns, pkColumns, tableName, driver } = params;
+    if (selectedCells.size === 0) return '';
 
     const tbl = quoteIdent(tableName, driver);
-    return matrix
-        .map((row) => {
+
+    const persistedRowIndices = Array.from(new Set(
+        Array.from(selectedCells)
+            .map((cellId) => parseCellId(cellId).rowKey)
+            .filter((rowKey) => rowKey.startsWith('p:'))
+            .map((rowKey) => Number(rowKey.slice(2)))
+            .filter((rowIndex) => Number.isFinite(rowIndex)),
+    )).sort((a, b) => a - b);
+    if (persistedRowIndices.length === 0) return '';
+
+    const displayRowsByPersistedIndex = new Map<number, DisplayRowLike>();
+    displayRows.forEach((row) => {
+        if (row.kind === 'persisted' && typeof row.persistedIndex === 'number') {
+            displayRowsByPersistedIndex.set(row.persistedIndex, row);
+        }
+    });
+
+    return persistedRowIndices
+        .map((rowIndex) => {
+            const row = displayRowsByPersistedIndex.get(rowIndex);
+            if (!row) return '';
             const setClauses = columns
-                .map((col, i) => `${quoteIdent(col, driver)} = ${quoteLiteral(row[i] ?? '')}`)
+                .map((col, colIdx) => {
+                    const val = editedCells.get(`${rowIndex}:${colIdx}`) ?? row.values[colIdx] ?? '';
+                    return `${quoteIdent(col, driver)} = ${quoteLiteral(val)}`;
+                })
                 .join(',\n    ');
             const whereClauses = pkColumns.length > 0
                 ? pkColumns
                     .map((pkCol) => {
-                        const i = columns.indexOf(pkCol);
-                        return `${quoteIdent(pkCol, driver)} = ${quoteLiteral(i >= 0 ? (row[i] ?? '') : '')}`;
+                        const colIdx = columns.indexOf(pkCol);
+                        const val = colIdx >= 0 ? (editedCells.get(`${rowIndex}:${colIdx}`) ?? row.values[colIdx] ?? '') : '';
+                        return `${quoteIdent(pkCol, driver)} = ${quoteLiteral(val)}`;
                     })
                     .join('\n    AND ')
                 : '/* add WHERE condition */';
             return `UPDATE ${tbl}\nSET\n    ${setClauses}\nWHERE\n    ${whereClauses};`;
         })
+        .filter(Boolean)
         .join('\n\n');
+}
+
+function getPersistedRowByIndex(displayRows: DisplayRowLike[], rowIndex: number): DisplayRowLike | undefined {
+    return displayRows.find((row) => row.kind === 'persisted' && row.persistedIndex === rowIndex);
+}
+
+export function buildWhereClauseByPrimaryKeys(params: {
+    persistedRowIndices: number[];
+    displayRows: DisplayRowLike[];
+    editedCells: Map<string, string>;
+    columns: string[];
+    pkColumns: string[];
+    driver: string | undefined;
+}): string {
+    const { persistedRowIndices, displayRows, editedCells, columns, pkColumns, driver } = params;
+    if (persistedRowIndices.length === 0 || pkColumns.length === 0) return '';
+
+    const rowClauses = persistedRowIndices
+        .map((rowIndex) => {
+            const row = getPersistedRowByIndex(displayRows, rowIndex);
+            if (!row) return '';
+            const parts = pkColumns
+                .map((pkCol) => {
+                    const colIdx = columns.indexOf(pkCol);
+                    if (colIdx < 0) return '';
+                    const value = editedCells.get(`${rowIndex}:${colIdx}`) ?? row.values[colIdx] ?? '';
+                    return `${quoteIdent(pkCol, driver)} = ${quoteLiteral(value)}`;
+                })
+                .filter(Boolean);
+            if (parts.length === 0) return '';
+            return parts.length > 1 ? `(${parts.join(' AND ')})` : parts[0];
+        })
+        .filter(Boolean);
+
+    if (rowClauses.length === 0) return '';
+    return rowClauses.join(' OR ');
+}
+
+export function buildWhereClauseBySelectionIn(params: {
+    selectedCells: Set<string>;
+    displayRowsByKey: Map<string, DisplayRowLike>;
+    editedCells: Map<string, string>;
+    columns: string[];
+    driver: string | undefined;
+}): string {
+    const { selectedCells, displayRowsByKey, editedCells, columns, driver } = params;
+    if (selectedCells.size === 0) return '';
+
+    let selectedColIdx: number | null = null;
+    const values: string[] = [];
+
+    selectedCells.forEach((cellId) => {
+        const { rowKey, colIdx } = parseCellId(cellId);
+        const row = displayRowsByKey.get(rowKey);
+        if (!row || colIdx < 0 || colIdx >= columns.length) return;
+        if (selectedColIdx === null) selectedColIdx = colIdx;
+        if (selectedColIdx !== colIdx) {
+            selectedColIdx = -1;
+            return;
+        }
+        const value =
+            row.kind === 'persisted'
+                ? (editedCells.get(`${row.persistedIndex}:${colIdx}`) ?? row.values[colIdx] ?? '')
+                : (row.values[colIdx] ?? '');
+        values.push(value);
+    });
+
+    if (selectedColIdx === null || selectedColIdx < 0) return '';
+    const column = columns[selectedColIdx];
+    if (!column) return '';
+
+    const uniqueValues = Array.from(new Set(values));
+    if (uniqueValues.length === 0) return '';
+
+    const nonNullValues = uniqueValues.filter((value) => value !== '');
+    const hasNull = uniqueValues.length !== nonNullValues.length;
+    const clauses: string[] = [];
+    const quotedColumn = quoteIdent(column, driver);
+
+    if (nonNullValues.length === 1) {
+        clauses.push(`${quotedColumn} = ${quoteLiteral(nonNullValues[0])}`);
+    } else if (nonNullValues.length > 1) {
+        clauses.push(`${quotedColumn} IN (${nonNullValues.map(quoteLiteral).join(', ')})`);
+    }
+
+    if (hasNull) {
+        clauses.push(`${quotedColumn} IS NULL`);
+    }
+
+    if (clauses.length === 0) return '';
+    return clauses.length > 1 ? `(${clauses.join(' OR ')})` : clauses[0];
+}
+
+export function buildSelectByPrimaryKeyQuery(params: {
+    persistedRowIndex: number;
+    displayRows: DisplayRowLike[];
+    editedCells: Map<string, string>;
+    columns: string[];
+    pkColumns: string[];
+    tableName: string;
+    driver: string | undefined;
+}): string {
+    const { persistedRowIndex, displayRows, editedCells, columns, pkColumns, tableName, driver } = params;
+    if (!tableName || pkColumns.length === 0) return '';
+    const whereClause = buildWhereClauseByPrimaryKeys({
+        persistedRowIndices: [persistedRowIndex],
+        displayRows,
+        editedCells,
+        columns,
+        pkColumns,
+        driver,
+    });
+    if (!whereClause) return '';
+    return `SELECT * FROM ${quoteIdent(tableName, driver)} WHERE ${whereClause};`;
 }
 
 export function applySetNullToSelection(params: {

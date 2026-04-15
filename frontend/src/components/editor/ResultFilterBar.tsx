@@ -53,6 +53,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
 }) => {
     const normalizeFilterInput = useCallback((raw: string) => raw.replace(/[\r\n]+/g, ' '), []);
     const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
+    const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
     const completionDisposableRef = useRef<{ dispose: () => void } | null>(null);
     const editorInstanceKey = useRef(`result-filter-${Math.random().toString(36).slice(2)}`);
     const focusContextKey = useRef(`isResultFilterFocused_${Math.random().toString(36).slice(2)}`);
@@ -87,6 +88,38 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     useEffect(() => {
         onRunRef.current = onRun;
     }, [onRun]);
+
+    useEffect(() => () => {
+        if (tooltipTimeout.current) {
+            window.clearTimeout(tooltipTimeout.current);
+            tooltipTimeout.current = undefined;
+        }
+    }, []);
+
+    // Dispose Monaco editor and model on unmount to prevent memory accumulation.
+    // ResultFilterBar is remounted on every lastExecutedQuery change (via key prop),
+    // so without this, Monaco accrues a new model in the global registry each time.
+    useEffect(() => {
+        return () => {
+            completionDisposableRef.current?.dispose();
+            completionDisposableRef.current = null;
+            const monaco = monacoRef.current;
+            if (monaco) {
+                try {
+                    const uri = monaco.Uri.parse(modelPath);
+                    monaco.editor.getModel(uri)?.dispose();
+                } catch {
+                    // ignore — model may already be gone
+                }
+            }
+            editorRef.current?.dispose();
+            editorRef.current = null;
+            monacoRef.current = null;
+        };
+    // modelPath is stable per component instance (depends only on tableName which
+    // doesn't change during the lifetime of a keyed ResultFilterBar mount)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         onClearRef.current = onClear;
@@ -153,6 +186,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     }, [registerCompletion]);
 
     const handleMonacoMount: OnMount = useCallback((editor, monaco) => {
+        editorRef.current = editor;
         monacoRef.current = monaco;
         registerCompletion();
         const filterEditorFocusContext = editor.createContextKey<boolean>(focusContextKey.current, false);
@@ -302,6 +336,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                 setShowTooltip(true);
                             }}
                             onMouseLeave={() => {
+                                if (tooltipTimeout.current) {
+                                    window.clearTimeout(tooltipTimeout.current);
+                                }
                                 tooltipTimeout.current = setTimeout(() => setShowTooltip(false), 200);
                             }}
                         >

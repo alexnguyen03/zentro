@@ -29,16 +29,34 @@ export function useResultPanelCommands({
     const [totalCount, setTotalCount] = React.useState<number | null>(null);
     const [isCounting, setIsCounting] = React.useState(false);
     const [pendingOpenExportModal, setPendingOpenExportModal] = React.useState(false);
+    const isMountedRef = React.useRef(true);
+    const countRequestSeqRef = React.useRef(0);
+    const focusTimerRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+            if (focusTimerRef.current !== null) {
+                window.clearTimeout(focusTimerRef.current);
+                focusTimerRef.current = null;
+            }
+        };
+    }, []);
 
     const handleCountTotal = React.useCallback(async () => {
         if (!tabId) return;
+        const requestSeq = countRequestSeqRef.current + 1;
+        countRequestSeqRef.current = requestSeq;
         setIsCounting(true);
         try {
             const count = await FetchTotalRowCount(tabId);
+            if (!isMountedRef.current || countRequestSeqRef.current !== requestSeq) return;
             setTotalCount(count);
         } catch {
+            if (!isMountedRef.current || countRequestSeqRef.current !== requestSeq) return;
             setTotalCount(-1);
         } finally {
+            if (!isMountedRef.current || countRequestSeqRef.current !== requestSeq) return;
             setIsCounting(false);
         }
     }, [tabId]);
@@ -53,7 +71,13 @@ export function useResultPanelCommands({
                 resetEditState();
                 void handleCountTotal();
                 if (!keepFilterFocusRef.current) {
-                    setTimeout(() => containerRef.current?.focus({ preventScroll: true }), 50);
+                    if (focusTimerRef.current !== null) {
+                        window.clearTimeout(focusTimerRef.current);
+                    }
+                    focusTimerRef.current = window.setTimeout(() => {
+                        containerRef.current?.focus({ preventScroll: true });
+                        focusTimerRef.current = null;
+                    }, 50);
                 }
             } else {
                 keepFilterFocusRef.current = false;
@@ -64,6 +88,11 @@ export function useResultPanelCommands({
             prevIsDone.current = result.isDone;
         }
     }, [containerRef, handleCountTotal, keepFilterFocusRef, resetEditState, result]);
+
+    React.useEffect(() => {
+        if (result?.isDone) return;
+        countRequestSeqRef.current += 1;
+    }, [result?.isDone, result?.lastExecutedQuery]);
 
     React.useEffect(() => {
         const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {

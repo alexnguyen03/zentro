@@ -29,6 +29,7 @@ interface UseResultKeyboardOptions {
     onRun?: () => void;
     onSaveRequest: () => Promise<void> | void;
     onDeleteSelected: () => void;
+    onUndoLastAction?: () => void;
     onSetShowRightSidebar: (show: boolean) => void;
     onFocusSearch?: () => void;
     onFocusJump?: () => void;
@@ -62,6 +63,7 @@ export function useResultKeyboard({
     onRun,
     onSaveRequest,
     onDeleteSelected,
+    onUndoLastAction,
     onSetShowRightSidebar,
     onFocusSearch,
     onFocusJump,
@@ -125,6 +127,14 @@ export function useResultKeyboard({
                 if (viewMode || !hasPendingChanges || isSavingDraftRows) return;
                 event.preventDefault();
                 void onSaveRequest();
+                return;
+            }
+
+            // Ctrl+Z — undo last grid/context action
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+                if (!onUndoLastAction) return;
+                event.preventDefault();
+                onUndoLastAction();
                 return;
             }
 
@@ -193,7 +203,7 @@ export function useResultKeyboard({
             deletedRows, displayRows, displayRowsByKey, draftRows, editedCells,
             hasPendingChanges, isEditable, isSavingDraftRows, isReadOnlyTab,
             onDeleteSelected, onRun, onSaveRequest, onSetShowRightSidebar,
-            onFocusJump, onFocusSearch, onSearchNext, onSearchPrev,
+            onFocusJump, onFocusSearch, onSearchNext, onSearchPrev, onUndoLastAction,
             result, rowOrder, selectedCells, selectedRowKeys, isTextEntryContext,
             setDraftRows, setEditedCells, setSelectedCells, toast, viewMode,
         ],

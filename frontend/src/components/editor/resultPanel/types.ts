@@ -34,6 +34,16 @@ export interface ResultContextMenuPayload {
     cellId?: string;
 }
 
+export interface ResultContextCopyAsAction {
+    id: string;
+    label: string;
+    onSelect: () => void;
+    disabled?: boolean;
+    title?: string;
+}
+
+export type ResultContextWhereAction = ResultContextCopyAsAction;
+
 export interface ResultContextMenuDeps {
     result: TabResult | undefined;
     driver: string | undefined;
@@ -55,6 +65,7 @@ export interface ResultContextMenuDeps {
     isSavingDraftRows: boolean;
     getPersistedRowValues: (rowIndex: number) => string[];
     removeDraftRows: (draftIds: string[]) => void;
+    openQueryTab: (query: string, title?: string) => void;
     setEditedCells: React.Dispatch<React.SetStateAction<Map<string, string>>>;
     setDraftRows: React.Dispatch<React.SetStateAction<DraftRow[]>>;
     setSelectedCells: React.Dispatch<React.SetStateAction<Set<string>>>;

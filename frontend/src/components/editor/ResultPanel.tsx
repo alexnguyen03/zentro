@@ -132,6 +132,27 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     });
 
     // ── Row Detail sidebar sync ───────────────────────────────────────────────
+    // Stable save callback — uses setter functions so it doesn't need to capture
+    // snapshot values of displayRowsByKey or draftRows, avoiding effect re-fires.
+    const handleRowDetailSave = React.useCallback((rowKey: string, colIdx: number, newVal: string) => {
+        if (rowKey.startsWith('p:')) {
+            const persistedIndex = Number(rowKey.slice(2));
+            setEditedCells((prev) => {
+                const next = new Map(prev);
+                next.set(`${persistedIndex}:${colIdx}`, newVal);
+                return next;
+            });
+        } else {
+            const draftId = rowKey.slice(2);
+            setDraftRows((prev) => prev.map((dr) => {
+                if (dr.id !== draftId) return dr;
+                const vals = [...dr.values];
+                vals[colIdx] = newVal;
+                return { ...dr, values: vals };
+            }));
+        }
+    }, [setEditedCells, setDraftRows]);
+
     React.useEffect(() => {
         if (!showRightSidebar || selectedRowKeys.length === 0 || !result?.isDone) return;
         const activeRowKey = selectedRowKeys[0];
@@ -153,19 +174,9 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             row: rowValues,
             tableName: qualifiedTableName || result.tableName,
             primaryKeys: result.primaryKeys,
-            onSave: (colIdx, newVal) => {
-                if (displayRow.kind === 'persisted') {
-                    setEditedCells((prev) => { const next = new Map(prev); next.set(`${displayRow.persistedIndex}:${colIdx}`, newVal); return next; });
-                } else {
-                    setDraftRows((prev: unknown) => (prev as typeof draftRows).map((dr) => {
-                        if (dr.id !== displayRow.draft?.id) return dr;
-                        const vals = [...dr.values]; vals[colIdx] = newVal;
-                        return { ...dr, values: vals };
-                    }));
-                }
-            },
+            onSave: (colIdx, newVal) => handleRowDetailSave(activeRowKey, colIdx, newVal),
         });
-    }, [columnDefsByName, displayRowsByKey, getPersistedRowValues, openDetail, qualifiedTableName, result, selectedRowKeys, showRightSidebar, toast]);
+    }, [columnDefsByName, displayRowsByKey, getPersistedRowValues, handleRowDetailSave, openDetail, qualifiedTableName, result?.columns, result?.isDone, result?.primaryKeys, result?.tableName, selectedRowKeys, showRightSidebar]);
 
     // ── Save flow ─────────────────────────────────────────────────────────────
     const handleDirectExecute = React.useCallback(async () => {
@@ -204,6 +215,12 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setShowSaveModal(false);
         toast.success('Script opened in a new tab.');
     }, [addTab, generatePendingScript, result?.tableName, toast]);
+    const openContextQueryTab = React.useCallback((query: string, title?: string) => {
+        addTab({
+            name: title || `Row ${result?.tableName || 'query'}`,
+            query,
+        });
+    }, [addTab, result?.tableName]);
 
     // ── Panel actions (bubbled to toolbar) ────────────────────────────────────
     const { runExport, exportJob, cancelExport } = useResultExport({ tabId, result });
@@ -377,22 +394,30 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         contextMenu,
         contextMenuRef,
         contextMenuPosition,
-        hasEditableCellSelection,
-        canMutateCells,
-        canMutateRows,
+        canCopy,
+        canPaste,
+        canSetNull,
         canDeleteRows,
         canDuplicateRows,
+        copyDisabledTitle,
+        pasteDisabledTitle,
+        setNullDisabledTitle,
+        duplicateDisabledTitle,
+        deleteDisabledTitle,
+        copyAsActions,
         handleCellContextMenu,
         handleContextCopy,
-        handleContextCopyCellValue,
-        handleContextCopyWithHeaders,
-        handleContextCopyAsJson,
-        handleContextCopyAsInsert,
-        handleContextCopyAsUpdate,
         handleContextSetNull,
         handleContextPaste,
         handleContextDelete,
         handleContextDuplicate,
+        whereActions,
+        canOpenRowInNewQueryTab,
+        canUndoLastContextAction,
+        undoDisabledTitle,
+        openRowQueryDisabledTitle,
+        handleOpenRowInNewQueryTab,
+        handleUndoLastContextAction,
     } = useResultContextMenuActions({
         result,
         driver,
@@ -419,6 +444,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setSelectedCells,
         setDeletedRows,
         setFocusCellRequest,
+        openQueryTab: openContextQueryTab,
     });
 
     React.useEffect(() => {
@@ -441,7 +467,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         tabId, result, hasPendingChanges, isReadOnlyTab, viewMode, isEditable,
         selectedCells, setSelectedCells, selectedRowKeys,
         displayRows, displayRowsByKey, rowOrder, editedCells, deletedRows, draftRows, isSavingDraftRows,
-        onRun, onSaveRequest: handleSaveRequest, onDeleteSelected: requestDeleteSelectedRows,
+        onRun, onSaveRequest: handleSaveRequest, onDeleteSelected: handleContextDelete,
+        onUndoLastAction: handleUndoLastContextAction,
         onSetShowRightSidebar: setShowRightSidebar,
         onFocusSearch: () => { if (canUseResultSearch) quickFilterRef.current?.focus(); },
         onFocusJump: () => { if (canUseResultJump) jumpRowRef.current?.focus(); },
@@ -645,22 +672,29 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 contextMenu={contextMenu}
                 contextMenuRef={contextMenuRef}
                 contextMenuPosition={contextMenuPosition}
-                hasEditableCellSelection={hasEditableCellSelection}
-                canMutateCells={canMutateCells}
-                canMutateRows={canMutateRows}
+                canCopy={canCopy}
+                canPaste={canPaste}
+                canSetNull={canSetNull}
                 canDeleteRows={canDeleteRows}
                 canDuplicateRows={canDuplicateRows}
-                hasTableName={Boolean(result?.tableName)}
-                onCopyCellValue={handleContextCopyCellValue}
+                copyDisabledTitle={copyDisabledTitle}
+                pasteDisabledTitle={pasteDisabledTitle}
+                setNullDisabledTitle={setNullDisabledTitle}
+                duplicateDisabledTitle={duplicateDisabledTitle}
+                deleteDisabledTitle={deleteDisabledTitle}
+                copyAsActions={copyAsActions}
+                whereActions={whereActions}
+                canOpenRowInNewQueryTab={canOpenRowInNewQueryTab}
+                canUndoLastContextAction={canUndoLastContextAction}
+                undoDisabledTitle={undoDisabledTitle}
+                openRowQueryDisabledTitle={openRowQueryDisabledTitle}
                 onCopy={handleContextCopy}
-                onCopyWithHeaders={handleContextCopyWithHeaders}
-                onCopyAsJson={handleContextCopyAsJson}
-                onCopyAsInsert={handleContextCopyAsInsert}
-                onCopyAsUpdate={handleContextCopyAsUpdate}
                 onSetNull={handleContextSetNull}
                 onPaste={handleContextPaste}
                 onDeleteRow={handleContextDelete}
                 onDuplicateRow={handleContextDuplicate}
+                onOpenRowInNewQueryTab={handleOpenRowInNewQueryTab}
+                onUndoLastContextAction={handleUndoLastContextAction}
             />
 
             {/* Status bar (info only) */}
