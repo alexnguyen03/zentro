@@ -327,6 +327,22 @@ func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
 	return count, nil
 }
 
+func (s *QueryService) StartFetchTotalRowCount(tabID string, requestID int64) {
+	go func() {
+		count, err := s.FetchTotalRowCount(tabID)
+		payload := QueryRowCountEvent{
+			TabID:       tabID,
+			SourceTabID: sourceTabID(tabID),
+			RequestID:   requestID,
+			Count:       count,
+		}
+		if err != nil {
+			payload.Error = err.Error()
+		}
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventQueryRowCount, constant.EventQueryRowCountV2, payload)
+	}()
+}
+
 func (s *QueryService) CancelQuery(tabID string) {
 	s.sessionsMu.Lock()
 	defer s.sessionsMu.Unlock()

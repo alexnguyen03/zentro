@@ -102,6 +102,19 @@ func toLegacyEventPayload(payload any) any {
 			legacy["error"] = p.Error
 		}
 		return legacy
+	case QueryRowCountEvent:
+		legacy := map[string]any{
+			"tabID":     p.TabID,
+			"requestID": p.RequestID,
+			"count":     p.Count,
+		}
+		if p.Error != "" {
+			legacy["error"] = p.Error
+		}
+		if p.SourceTabID != "" {
+			legacy["sourceTabID"] = p.SourceTabID
+		}
+		return legacy
 	case TransactionStatusEvent:
 		legacy := map[string]any{
 			"status": p.Status,

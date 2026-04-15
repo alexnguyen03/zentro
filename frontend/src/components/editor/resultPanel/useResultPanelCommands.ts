@@ -1,7 +1,8 @@
 import React from 'react';
 import { DOM_EVENT } from '../../../lib/constants';
 import { onCommand } from '../../../lib/commandBus';
-import { FetchTotalRowCount } from '../../../services/queryService';
+import { onQueryRowCount } from '../../../lib/events';
+import { StartFetchTotalRowCount } from '../../../services/queryService';
 import type { ResultPanelCommandDeps } from './types';
 
 interface UseResultPanelCommandsOptions extends ResultPanelCommandDeps {
@@ -48,17 +49,11 @@ export function useResultPanelCommands({
         const requestSeq = countRequestSeqRef.current + 1;
         countRequestSeqRef.current = requestSeq;
         setIsCounting(true);
-        try {
-            const count = await FetchTotalRowCount(tabId);
-            if (!isMountedRef.current || countRequestSeqRef.current !== requestSeq) return;
-            setTotalCount(count);
-        } catch {
+        void StartFetchTotalRowCount(tabId, requestSeq).catch(() => {
             if (!isMountedRef.current || countRequestSeqRef.current !== requestSeq) return;
             setTotalCount(-1);
-        } finally {
-            if (!isMountedRef.current || countRequestSeqRef.current !== requestSeq) return;
             setIsCounting(false);
-        }
+        });
     }, [tabId]);
 
     const prevIsDone = React.useRef(result?.isDone);
@@ -92,7 +87,20 @@ export function useResultPanelCommands({
     React.useEffect(() => {
         if (result?.isDone) return;
         countRequestSeqRef.current += 1;
+        setIsCounting(false);
     }, [result?.isDone, result?.lastExecutedQuery]);
+
+    React.useEffect(() => onQueryRowCount((payload) => {
+        if (payload.tabID !== tabId) return;
+        if (payload.requestID !== countRequestSeqRef.current) return;
+        if (!isMountedRef.current) return;
+        if (payload.error) {
+            setTotalCount(-1);
+        } else {
+            setTotalCount(payload.count);
+        }
+        setIsCounting(false);
+    }), [tabId]);
 
     React.useEffect(() => {
         const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {

@@ -247,6 +247,8 @@ export function Shutdown():Promise<void>;
 
 export function SnapshotStoredProcedures(arg1:string):Promise<number>;
 
+export function StartFetchTotalRowCount(arg1:string,arg2:number):Promise<void>;
+
 export function SwitchDatabase(arg1:string):Promise<void>;
 
 export function TestConnection(arg1:models.ConnectionProfile):Promise<void>;

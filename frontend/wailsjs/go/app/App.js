@@ -482,6 +482,10 @@ export function SnapshotStoredProcedures(arg1) {
   return window['go']['app']['App']['SnapshotStoredProcedures'](arg1);
 }
 
+export function StartFetchTotalRowCount(arg1, arg2) {
+  return window['go']['app']['App']['StartFetchTotalRowCount'](arg1, arg2);
+}
+
 export function SwitchDatabase(arg1) {
   return window['go']['app']['App']['SwitchDatabase'](arg1);
 }

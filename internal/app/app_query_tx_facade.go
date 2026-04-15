@@ -12,6 +12,10 @@ func (a *App) FetchTotalRowCount(tabID string) (int64, error) {
 	return a.query.FetchTotalRowCount(tabID)
 }
 
+func (a *App) StartFetchTotalRowCount(tabID string, requestID int64) {
+	a.query.StartFetchTotalRowCount(tabID, requestID)
+}
+
 func (a *App) CancelQuery(tabID string) { a.query.CancelQuery(tabID) }
 
 func (a *App) ExecuteUpdateSync(query string) (int64, error) {

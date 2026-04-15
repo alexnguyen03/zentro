@@ -5,6 +5,7 @@ export const CancelQuery = (tabId: string) => wailsGateway.CancelQuery(tabId);
 export const ExplainQuery = (tabId: string, query: string, analyze: boolean) => wailsGateway.ExplainQuery(tabId, query, analyze);
 export const ExecuteUpdateSync = (sql: string) => wailsGateway.ExecuteUpdateSync(sql);
 export const FetchMoreRows = (tabId: string, offset: number) => wailsGateway.FetchMoreRows(tabId, offset);
+export const StartFetchTotalRowCount = (tabId: string, requestId: number) => wailsGateway.StartFetchTotalRowCount(tabId, requestId);
 export const FetchTotalRowCount = (tabId: string) => wailsGateway.FetchTotalRowCount(tabId);
 export const FormatSQL = (query: string, driver: string) => wailsGateway.FormatSQL(query, driver);
 export const CompareQueries = (original: string, modified: string) => wailsGateway.CompareQueries(original, modified);

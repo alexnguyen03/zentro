@@ -85,6 +85,7 @@ export interface AppApiGateway {
     ExplainQuery(tabId: string, query: string, analyze: boolean): Promise<void>;
     ExecuteUpdateSync(sql: string): Promise<number>;
     FetchMoreRows(tabId: string, offset: number): Promise<void>;
+    StartFetchTotalRowCount(tabId: string, requestId: number): Promise<void>;
     FetchTotalRowCount(tabId: string): Promise<number>;
     FormatSQL(query: string, driver: string): Promise<string>;
     CompareQueries(original: string, modified: string): Promise<string>;
