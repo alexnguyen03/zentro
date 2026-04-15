@@ -94,6 +94,8 @@ import {
     SCCreateBranchFrom,
     SCCheckoutDetached,
     SCInitRepo,
+    SCReadGitIgnore,
+    SCWriteGitIgnore,
     SCStageAll,
     SCStageFile,
     SCUnstageFile,
@@ -259,6 +261,8 @@ export const wailsGateway: AppApiGateway = {
         return result as import('./types').SCStatus;
     },
     SCInitRepo,
+    SCReadGitIgnore,
+    SCWriteGitIgnore,
     SCStageAll,
     SCStageFile,
     SCUnstageFile,

@@ -16,3 +16,5 @@ export const SCCreateBranch = (branchName: string): Promise<void> => wailsGatewa
 export const SCCreateBranchFrom = (branchName: string, fromRef: string): Promise<void> => wailsGateway.SCCreateBranchFrom(branchName, fromRef);
 export const SCCheckoutDetached = (ref: string): Promise<void> => wailsGateway.SCCheckoutDetached(ref);
 export const SCInitRepo = (): Promise<void> => wailsGateway.SCInitRepo();
+export const SCReadGitIgnore = (): Promise<string> => wailsGateway.SCReadGitIgnore();
+export const SCWriteGitIgnore = (content: string): Promise<void> => wailsGateway.SCWriteGitIgnore(content);

@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/uuid"
 
 	"zentro/internal/models"
@@ -67,10 +70,63 @@ func (s *ProjectService) CreateProject(input models.Project) (*models.Project, e
 	if err := utils.UpsertProject(project); err != nil {
 		return nil, err
 	}
+
+	created, err := utils.LoadProject(project.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto-initialize git repository in project directory so source control
+	// is ready immediately after creating a project.
+	repoPath := strings.TrimSpace(created.StoragePath)
+	if repoPath != "" {
+		if err := ensureGitRepository(repoPath); err != nil {
+			_ = utils.DeleteProject(created.ID)
+			return nil, fmt.Errorf("initialize project git repository: %w", err)
+		}
+		created.GitRepoPath = repoPath
+		created.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+		if err := utils.UpsertProject(created); err != nil {
+			_ = utils.DeleteProject(created.ID)
+			return nil, fmt.Errorf("persist project git repository path: %w", err)
+		}
+	}
+
 	if s.logger != nil {
 		s.logger.Info("created project", "project_id", project.ID, "slug", project.Slug)
 	}
 	return utils.LoadProject(project.ID)
+}
+
+func ensureGitRepository(repoPath string) error {
+	if strings.TrimSpace(repoPath) == "" {
+		return fmt.Errorf("repository path is required")
+	}
+	if _, err := git.PlainOpen(repoPath); err == nil {
+		if ensureErr := ensureManagedProjectGitIgnore(repoPath); ensureErr != nil {
+			return ensureErr
+		}
+		repo, openErr := git.PlainOpen(repoPath)
+		if openErr != nil {
+			return openErr
+		}
+		return ensureInitialProjectCommit(repo, repoPath, initialProjectCommitMessage)
+	} else if !errors.Is(err, git.ErrRepositoryNotExists) {
+		return err
+	}
+	repo, err := git.PlainInit(repoPath, false)
+	if err != nil {
+		return err
+	}
+	if err := repo.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	); err != nil {
+		return err
+	}
+	if err := ensureManagedProjectGitIgnore(repoPath); err != nil {
+		return err
+	}
+	return ensureInitialProjectCommit(repo, repoPath, initialProjectCommitMessage)
 }
 
 func (s *ProjectService) SaveProject(project models.Project) (*models.Project, error) {

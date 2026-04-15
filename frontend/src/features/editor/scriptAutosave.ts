@@ -59,6 +59,7 @@ export function clearAutosaveStateForMissingTabs(liveTabIds: Set<string>): void 
 
 export function isAutosaveEligible(tab: Tab): boolean {
     if (tab.type !== TAB_TYPE.QUERY) return false;
+    if (tab.context?.sourceControlFile) return false;
     if (!tab.query?.trim()) return false;
     const { projectId, profileName } = resolveScopeForTab(tab);
     return Boolean(projectId && profileName);
@@ -82,6 +83,7 @@ export async function saveQueryTabById(tabId: string): Promise<boolean> {
     const task = (async () => {
         const tab = getQueryTab(tabId);
         if (!tab || !tab.query?.trim()) return false;
+        if (tab.context?.sourceControlFile) return false;
 
         const { projectId, profileName } = resolveScopeForTab(tab);
         if (!projectId || !profileName) return false;

@@ -20,6 +20,7 @@ import { applyPreExecuteFilterPolicy, resolveExecuteQuery } from '../../features
 import { useToast } from '../layout/Toast';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 import { saveQueryTabById } from '../../features/editor/scriptAutosave';
+import { SCWriteGitIgnore } from '../../services/sourceControlService';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -55,6 +56,16 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const writeSafety = useWriteSafetyGuard(activeEnvironmentKey);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
+    const findTabById = useCallback((tabId: string) => tabs.find((t) => t.id === tabId), [tabs]);
+
+    const saveSourceControlTab = useCallback(async (tabId: string): Promise<boolean> => {
+        const tab = findTabById(tabId);
+        if (!tab || tab.type !== TAB_TYPE.QUERY) return false;
+        if (tab.context?.sourceControlFile !== 'gitignore') return false;
+        await SCWriteGitIgnore(tab.query || '');
+        toast.success('Saved .gitignore');
+        return true;
+    }, [findTabById, toast]);
 
     // Edge drop zones for splitting
     const { setNodeRef: setLeftNodeRef, isOver: isLeftOver, active: dragActive } = useDroppable({
@@ -90,7 +101,10 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         try {
             if (tab?.type === TAB_TYPE.QUERY) {
                 try {
-                    await saveQueryTabById(tab.id);
+                    const savedBySourceControl = await saveSourceControlTab(tab.id);
+                    if (!savedBySourceControl) {
+                        await saveQueryTabById(tab.id);
+                    }
                 } catch (error) {
                     console.error('Auto save failed before close', error);
                 }
@@ -98,15 +112,20 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         } finally {
             removeTab(id, groupId);
         }
-    }, [tabs, removeTab, groupId]);
+    }, [tabs, removeTab, groupId, saveSourceControlTab]);
 
     useEffect(() => {
         const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {
             if (!detail) return;
-            void saveQueryTabById(detail);
+            void (async () => {
+                const savedBySourceControl = await saveSourceControlTab(detail);
+                if (!savedBySourceControl) {
+                    await saveQueryTabById(detail);
+                }
+            })();
         });
         return off;
-    }, []);
+    }, [saveSourceControlTab]);
 
     const executeQueryNow = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;

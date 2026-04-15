@@ -46,7 +46,7 @@ func TestGitTrackingService_TrackScriptSave_DeduplicatesUnchangedContentWithoutC
 	if len(pending) < 1 {
 		t.Fatalf("expected pending changes after first save")
 	}
-	expectedScriptPath := "scripts/local-postgres/script-1.sql"
+	expectedScriptPath := "scripts/queries/local-postgres/script-1.sql"
 	foundScript := false
 	for _, file := range pending {
 		if file == expectedScriptPath {
@@ -97,7 +97,7 @@ func TestGitTrackingService_ManualCommit_CleanAndDirty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("repo root failed: %v", err)
 	}
-	filePath := filepath.Join(repoRoot, "scripts", "manual", "scratch.sql")
+	filePath := filepath.Join(repoRoot, "scripts", "queries", "manual", "scratch.sql")
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestGitTrackingService_FlushAndCommitOnClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("repo root failed: %v", err)
 	}
-	filePath := filepath.Join(repoRoot, "scripts", "flush", "pending.sql")
+	filePath := filepath.Join(repoRoot, "scripts", "queries", "flush", "pending.sql")
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
@@ -179,6 +179,13 @@ func TestGitTrackingService_TrackScriptDelete_StagedUntilCloseCommit(t *testing.
 	if err := svc.TrackScriptSave(project, script, "select 1;"); err != nil {
 		t.Fatalf("seed save failed: %v", err)
 	}
+	seedCommit, err := svc.ManualCommit(project, "manual.commit: seed script")
+	if err != nil {
+		t.Fatalf("seed manual commit failed: %v", err)
+	}
+	if seedCommit.NoChanges {
+		t.Fatalf("expected seed commit to include initial script")
+	}
 	if err := svc.TrackScriptDelete(project, script.ConnectionName, script.ID); err != nil {
 		t.Fatalf("delete failed: %v", err)
 	}
@@ -187,8 +194,8 @@ func TestGitTrackingService_TrackScriptDelete_StagedUntilCloseCommit(t *testing.
 	if err != nil {
 		t.Fatalf("list timeline failed: %v", err)
 	}
-	if len(items) != 0 {
-		t.Fatalf("expected no commit on save/delete before close/manual, got %d commits", len(items))
+	if len(items) != 1 {
+		t.Fatalf("expected one seed commit before close flush, got %d commits", len(items))
 	}
 
 	if err := svc.FlushAndCommitOnClose(project); err != nil {
@@ -201,5 +208,30 @@ func TestGitTrackingService_TrackScriptDelete_StagedUntilCloseCommit(t *testing.
 	}
 	if len(items) == 0 {
 		t.Fatalf("expected close flush commit to include delete")
+	}
+}
+
+func TestGitTrackingService_ManualCommit_IgnoresTrackingConfigFiles(t *testing.T) {
+	svc := NewGitTrackingService(nil)
+	project := testTrackingProject(t)
+	if err := svc.BindProject(project); err != nil {
+		t.Fatalf("bind project failed: %v", err)
+	}
+
+	repoRoot, err := svc.repoRoot(project)
+	if err != nil {
+		t.Fatalf("repo root failed: %v", err)
+	}
+	configPath := filepath.Join(repoRoot, "project.json")
+	if err := os.WriteFile(configPath, []byte("{\"enabled\":false}\n"), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	result, err := svc.ManualCommit(project, "manual.commit: config only")
+	if err != nil {
+		t.Fatalf("manual commit failed: %v", err)
+	}
+	if !result.NoChanges {
+		t.Fatalf("expected no_changes=true when only tracking config changed, got files=%v", result.Files)
 	}
 }

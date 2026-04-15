@@ -2,6 +2,7 @@ import React from 'react';
 import {
     ChevronDown,
     ChevronRight,
+    FileCode2,
     GitBranch,
     History,
     Minus,
@@ -18,6 +19,7 @@ import {
     SCGetFileDiffs,
     SCGetWorkingFileDiff,
     SCInitRepo,
+    SCReadGitIgnore,
 } from '../../services/sourceControlService';
 import type { SCFileStatus, SCCommit as SCCommitType, GitCommitFileDiff } from '../../platform/app-api/types';
 import { useProjectStore } from '../../stores/projectStore';
@@ -82,6 +84,7 @@ export const SourceControlPanel: React.FC = () => {
 
     const [repoNotInitialized, setRepoNotInitialized] = React.useState(false);
     const [initLoading, setInitLoading] = React.useState(false);
+    const [gitIgnoreLoading, setGitIgnoreLoading] = React.useState(false);
 
     const hasRepoPath = Boolean(activeProject?.git_repo_path);
     const scriptNameById = React.useMemo(() => {
@@ -118,8 +121,9 @@ export const SourceControlPanel: React.FC = () => {
         setRepoNotInitialized(false);
         try {
             const status = await SCGetStatus();
-            setStaged(status.files.filter((f) => f.staged));
-            setUnstaged(status.files.filter((f) => !f.staged));
+            const files = Array.isArray(status.files) ? status.files : [];
+            setStaged(files.filter((f) => f.staged));
+            setUnstaged(files.filter((f) => !f.staged));
         } catch (error) {
             const errorMsg = String(error);
             if (errorMsg.includes('cannot open repo') || errorMsg.includes('not a git repository')) {
@@ -230,6 +234,29 @@ export const SourceControlPanel: React.FC = () => {
             }
         }
     }, [expandedHash, fileDiffsCache, toast]);
+
+    const handleOpenGitIgnoreEditor = React.useCallback(async () => {
+        try {
+            setGitIgnoreLoading(true);
+            const content = await SCReadGitIgnore();
+            addTab({
+                id: 'source-control:.gitignore',
+                type: TAB_TYPE.QUERY,
+                name: '.gitignore',
+                query: content || '',
+                context: {
+                    sourceControlFile: 'gitignore',
+                    savedScriptId: undefined,
+                    scriptProjectId: undefined,
+                    scriptConnectionName: undefined,
+                },
+            });
+        } catch (error) {
+            toast.error(`Load .gitignore failed: ${error}`);
+        } finally {
+            setGitIgnoreLoading(false);
+        }
+    }, [addTab, toast]);
 
     const handleOpenDiff = React.useCallback((hash: string, file: GitCommitFileDiff) => {
         const fileKey = `sc:${hash}:${file.path}`;
@@ -372,6 +399,17 @@ export const SourceControlPanel: React.FC = () => {
                     <History size={13} />
                 </Button>
                 <div className="flex-1" />
+                <Button
+                    type="button" variant="ghost" size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                        void handleOpenGitIgnoreEditor();
+                    }}
+                    title="Edit .gitignore"
+                    disabled={gitIgnoreLoading}
+                >
+                    <FileCode2 size={13} className={cn(gitIgnoreLoading && 'animate-pulse')} />
+                </Button>
                 <Button
                     type="button" variant="ghost" size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"

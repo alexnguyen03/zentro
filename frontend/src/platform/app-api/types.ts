@@ -175,6 +175,8 @@ export interface AppApiGateway {
     SCCreateBranchFrom(branchName: string, fromRef: string): Promise<void>;
     SCCheckoutDetached(ref: string): Promise<void>;
     SCInitRepo(): Promise<void>;
+    SCReadGitIgnore(): Promise<string>;
+    SCWriteGitIgnore(content: string): Promise<void>;
 
     // App-level lifecycle
     ForceQuit(): Promise<void>;

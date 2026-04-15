@@ -221,11 +221,15 @@ export function SCInitRepo():Promise<void>;
 
 export function SCListBranches():Promise<Array<string>>;
 
+export function SCReadGitIgnore():Promise<string>;
+
 export function SCStageAll():Promise<void>;
 
 export function SCStageFile(arg1:string):Promise<void>;
 
 export function SCUnstageFile(arg1:string):Promise<void>;
+
+export function SCWriteGitIgnore(arg1:string):Promise<void>;
 
 export function SaveBookmark(arg1:string,arg2:string,arg3:models.Bookmark):Promise<void>;
 

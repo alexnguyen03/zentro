@@ -13,6 +13,7 @@ export interface TabQueryContext {
     compareSyncScroll?: boolean;
     compareIgnoreWhitespace?: boolean;
     compareShowUnified?: boolean;
+    sourceControlFile?: 'gitignore';
 }
 
 export interface Tab {

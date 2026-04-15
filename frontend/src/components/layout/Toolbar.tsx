@@ -82,7 +82,7 @@ export const Toolbar: React.FC = () => {
     const activeTab = activeGroup?.tabs.find((t) => t.id === activeGroup.activeTabId);
     const isQueryTab = activeTab?.type === 'query';
 
-    const serverLabel = activeProfile?.name || activeProfile?.host || 'No server';
+    const serverLabel = activeProfile?.host || 'No server';
     const databaseLabel = activeProfile?.db_name || 'No database';
     const activeProjectIconKey = getProjectIconKey(activeProject);
     const ActiveProjectIcon = PROJECT_ICON_MAP[activeProjectIconKey].icon;
@@ -421,7 +421,7 @@ export const Toolbar: React.FC = () => {
                                             : 'text-muted-foreground',
                                 )}
                             />
-                            <span className="truncate max-w-[170px] text-foreground font-semibold leading-none">{activeProject?.name || 'No Project'}</span>
+                            <span className="truncate max-w-42.5 text-foreground font-semibold leading-none h-4">{activeProject?.name || 'No Project'}</span>
                         </Button>
 
                         <div

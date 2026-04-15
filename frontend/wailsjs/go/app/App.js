@@ -430,6 +430,10 @@ export function SCListBranches() {
   return window['go']['app']['App']['SCListBranches']();
 }
 
+export function SCReadGitIgnore() {
+  return window['go']['app']['App']['SCReadGitIgnore']();
+}
+
 export function SCStageAll() {
   return window['go']['app']['App']['SCStageAll']();
 }
@@ -440,6 +444,10 @@ export function SCStageFile(arg1) {
 
 export function SCUnstageFile(arg1) {
   return window['go']['app']['App']['SCUnstageFile'](arg1);
+}
+
+export function SCWriteGitIgnore(arg1) {
+  return window['go']['app']['App']['SCWriteGitIgnore'](arg1);
 }
 
 export function SaveBookmark(arg1, arg2, arg3) {
