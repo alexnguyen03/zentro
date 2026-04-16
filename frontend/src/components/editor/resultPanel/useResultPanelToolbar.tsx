@@ -4,6 +4,7 @@ import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
 import { cn } from '../../../lib/cn';
 import { LIMIT_OPTIONS } from '../resultPanelUtils';
 import { listResultActionContributions } from '../../../features/query/contributionRegistry';
+import { makeDataColumnId } from '../resultTable/cellUtils';
 import type { ResultPanelToolbarDeps, ResultPanelAction } from './types';
 
 const RESULT_TOOLBAR_ICON_SIZE = 12;
@@ -151,10 +152,19 @@ export function useResultPanelToolbar({
         });
 
         if (result && result.columns.length > 0) {
-            const hiddenCount = Object.values(columnVisibility).filter((v) => v === false).length;
+            const hiddenColumnIds = result.columns
+                .map((col, index) => makeDataColumnId(col, index))
+                .filter((columnId) => columnVisibility[columnId] === false);
+            const hiddenCount = hiddenColumnIds.length;
+            const visibilitySignature = result.columns
+                .map((col, index) => {
+                    const columnId = makeDataColumnId(col, index);
+                    return `${columnId}:${columnVisibility[columnId] === false ? 0 : 1}`;
+                })
+                .join(',');
             actions.push({
                 id: 'columns-toggle',
-                signature: `cols:${hiddenCount}:${showColumnsPopover ? 1 : 0}`,
+                signature: `cols:${showColumnsPopover ? 1 : 0}:${visibilitySignature}`,
                 render: () => (
                     <div className="relative" ref={columnsPopoverRef}>
                         <Button
@@ -172,15 +182,24 @@ export function useResultPanelToolbar({
                                 <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
                                     Columns
                                 </div>
-                                {result.columns.map((col) => {
-                                    const isVisible = columnVisibility[col] !== false;
+                                {result.columns.map((col, index) => {
+                                    const columnId = makeDataColumnId(col, index);
+                                    const isVisible = columnVisibility[columnId] !== false;
                                     return (
                                         <Button
                                             key={col}
                                             type="button"
                                             variant="ghost"
                                             className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-left transition-colors h-auto justify-start"
-                                            onClick={() => setColumnVisibility((prev) => ({ ...prev, [col]: !isVisible }))}
+                                            onClick={() => setColumnVisibility((prev) => {
+                                                const next = { ...prev };
+                                                if (next[columnId] === false) {
+                                                    delete next[columnId];
+                                                } else {
+                                                    next[columnId] = false;
+                                                }
+                                                return next;
+                                            })}
                                         >
                                             <span className={cn('w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center', isVisible ? 'bg-success border-success text-white' : 'border-border')}>
                                                 {isVisible && <span className="text-[8px] leading-none">✓</span>}
@@ -189,7 +208,7 @@ export function useResultPanelToolbar({
                                         </Button>
                                     );
                                 })}
-                                {Object.values(columnVisibility).some((v) => v === false) && (
+                                {hiddenCount > 0 && (
                                     <div className="border-t border-border mt-1 pt-1 px-2 pb-1">
                                         <Button
                                             type="button"
