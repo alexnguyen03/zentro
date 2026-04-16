@@ -61,7 +61,7 @@ export function useResultTableColumns({
                         onDoubleClick={() => meta?.handleRevertRow?.(row.original.key)}
                         title={row.original.kind === 'draft' ? 'Double-click to remove this unsaved row' : 'Double-click to revert changes to this row'}
                     >
-                        {row.original.kind === 'draft' ? '+' : (row.original.persistedIndex as number) + 1}
+                        {row.original.kind === 'draft' ? row.index + 1 : (row.original.persistedIndex as number) + 1}
                     </div>
                 );
             },

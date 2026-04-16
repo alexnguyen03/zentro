@@ -193,7 +193,7 @@
 }
 
 .rt-cell-dirty {
-    background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
+    background: color-mix(in srgb, var(--status-warning) 30%, transparent) !important;
 }
 
 .row-num-col {
@@ -233,6 +233,22 @@
     z-index: calc(var(--layer-table-sticky) + 1);
     background: var(--card) !important;
     box-shadow: 1px 0 0 var(--border);
+}
+
+.result-table-tanstack td.rt-index-sticky.rt-index-sticky-deleted {
+    background: color-mix(in srgb, var(--destructive) 6%, var(--background)) !important;
+}
+
+.result-table-tanstack tr.rt-row-alt td.rt-index-sticky.rt-index-sticky-deleted {
+    background: color-mix(in srgb, var(--destructive) 6%, var(--card)) !important;
+}
+
+.result-table-tanstack td.rt-index-sticky.rt-index-sticky-draft {
+    background: color-mix(in srgb, var(--status-success) 12%, var(--background)) !important;
+}
+
+.result-table-tanstack tr.rt-row-alt td.rt-index-sticky.rt-index-sticky-draft {
+    background: color-mix(in srgb, var(--status-success) 14%, var(--card)) !important;
 }
 
 .result-table-tanstack th.rt-index-sticky {
@@ -407,19 +423,19 @@
 }
 
 .result-table-tanstack tr.rt-row-draft td {
-    background: color-mix(in srgb, var(--primary) 10%, var(--background)) !important;
+    background: color-mix(in srgb, var(--status-success) 12%, var(--background)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft:hover td {
-    background: color-mix(in srgb, var(--primary) 14%, var(--background)) !important;
+    background: color-mix(in srgb, var(--status-success) 16%, var(--background)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft.rt-row-alt td {
-    background: color-mix(in srgb, var(--primary) 12%, var(--card)) !important;
+    background: color-mix(in srgb, var(--status-success) 14%, var(--card)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft.rt-row-selected td {
-    background: color-mix(in srgb, var(--primary) 16%, var(--background)) !important;
+    background: color-mix(in srgb, var(--status-success) 18%, var(--background)) !important;
 }
 
 /* ── Skeleton shimmer animation ────────────────────────── */

@@ -168,13 +168,16 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
                             const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
                             const hasRowSel = Array.from(selectedCells).some((cellId) => parseCellId(cellId).rowKey === displayRow.key);
                             const draftClass = displayRow.kind === 'draft' ? 'rt-row-draft' : '';
+                            const fixedCellStateClass = isDeleted
+                                ? 'rt-index-sticky-deleted'
+                                : (displayRow.kind === 'draft' ? 'rt-index-sticky-draft' : '');
                             return (
                                 <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
                                     {fixedCell && (
                                         <td
                                             key={fixedCell.id}
                                             style={{ width: fixedCell.column.getSize(), minWidth: fixedCell.column.getSize(), maxWidth: fixedCell.column.getSize() }}
-                                            className="rt-index-sticky"
+                                            className={`rt-index-sticky ${fixedCellStateClass}`}
                                         >
                                             {flexRender(fixedCell.column.columnDef.cell, fixedCell.getContext())}
                                         </td>
