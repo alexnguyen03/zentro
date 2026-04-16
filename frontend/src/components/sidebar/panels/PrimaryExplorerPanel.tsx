@@ -37,7 +37,7 @@ export const PrimaryExplorerPanel: React.FC = () => {
                     onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
                 >
                     <Plus size={13} />
-                    New Connection
+                    Configure Env
                 </Button>
             </div>
 

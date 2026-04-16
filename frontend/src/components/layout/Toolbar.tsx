@@ -19,9 +19,9 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useShortcutStore } from '../../stores/shortcutStore';
 import { WindowMinimise, WindowToggleMaximise, Quit } from '../../../wailsjs/runtime/runtime';
 
-import { EnvironmentSwitcherModal } from './EnvironmentSwitcherModal';
 import { AboutModal } from './AboutModal';
 import { UpdateModal } from './UpdateModal';
 import { LicenseModal } from './LicenseModal';
@@ -34,7 +34,7 @@ import { DOM_EVENT, CONNECTION_STATUS, ENVIRONMENT_KEY } from '../../lib/constan
 import { useToast } from './Toast';
 import type { EnvironmentKey } from '../../types/project';
 import { utils } from '../../../wailsjs/go/models';
-import { emitCommand, onCommand } from '../../lib/commandBus';
+import { emitCommand } from '../../lib/commandBus';
 import { WindowControls } from './toolbar/WindowControls';
 import { AppMenu } from './toolbar/AppMenu';
 import { Reconnect } from '../../services/connectionService';
@@ -61,13 +61,13 @@ export const Toolbar: React.FC = () => {
     const transactionStatus = useStatusStore((s) => s.transactionStatus);
     const viewMode = useSettingsStore((s) => s.viewMode);
     const savePrefs = useSettingsStore((s) => s.save);
+    const getShortcutBinding = useShortcutStore((s) => s.getBinding);
 
     const { hasUpdate, updateInfo, dismiss, check, isChecking } = useUpdateCheck();
 
     const [aboutOpen, setAboutOpen] = useState(false);
     const [updateModalOpen, setUpdateModalOpen] = useState(false);
     const [licenseOpen, setLicenseOpen] = useState(false);
-    const [environmentSwitcherOpen, setEnvironmentSwitcherOpen] = useState(false);
     const [quickEnvOpen, setQuickEnvOpen] = useState(false);
     const [branchSpotlightOpen, setBranchSpotlightOpen] = useState(false);
     const [gitBranch, setGitBranch] = useState('');
@@ -157,6 +157,16 @@ export const Toolbar: React.FC = () => {
         return byKey;
     }, [activeEnvKey, activeProfile?.db_name, activeProfile?.host, activeProfile?.name, activeProject?.connections, activeProject?.environments, quickEnvOptions]);
 
+    const quickEnvShortcutDetails = useMemo(() => {
+        const byKey = new Map<EnvironmentKey, string>();
+        byKey.set(ENVIRONMENT_KEY.LOCAL, getShortcutBinding('connection.switchEnvLocal'));
+        byKey.set(ENVIRONMENT_KEY.DEVELOPMENT, getShortcutBinding('connection.switchEnvDevelopment'));
+        byKey.set(ENVIRONMENT_KEY.TESTING, getShortcutBinding('connection.switchEnvTesting'));
+        byKey.set(ENVIRONMENT_KEY.STAGING, getShortcutBinding('connection.switchEnvStaging'));
+        byKey.set(ENVIRONMENT_KEY.PRODUCTION, getShortcutBinding('connection.switchEnvProduction'));
+        return byKey;
+    }, [getShortcutBinding]);
+
     const clearQuickEnvCloseTimer = useCallback(() => {
         if (quickEnvCloseTimerRef.current === null) return;
         window.clearTimeout(quickEnvCloseTimerRef.current);
@@ -175,15 +185,6 @@ export const Toolbar: React.FC = () => {
             quickEnvCloseTimerRef.current = null;
         }, 120);
     }, [clearQuickEnvCloseTimer]);
-
-    // ── Environment switcher command ──────────────────────────────────────────
-    useEffect(() => {
-        const off = onCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, () => {
-            setQuickEnvOpen(false);
-            setEnvironmentSwitcherOpen(true);
-        });
-        return off;
-    }, []);
 
     useEffect(() => () => clearQuickEnvCloseTimer(), [clearQuickEnvCloseTimer]);
 
@@ -397,7 +398,7 @@ export const Toolbar: React.FC = () => {
                         className={cn(
                             'relative flex items-stretch w-full rounded-sm text-xs font-medium text-muted-foreground select-none transition-all duration-200',
                             envToolbarTone.base,
-                            (quickEnvOpen || environmentSwitcherOpen) && cn(envToolbarTone.active, 'text-foreground'),
+                            quickEnvOpen && cn(envToolbarTone.active, 'text-foreground'),
                         )}
                     >
                         <Button
@@ -428,7 +429,7 @@ export const Toolbar: React.FC = () => {
                             className={cn(
                                 'relative z-1 h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/50 transition-all duration-200 leading-none',
                                 connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
-                                !quickEnvOpen && !environmentSwitcherOpen && 'hover:text-foreground hover:border-border',
+                                !quickEnvOpen && 'hover:text-foreground hover:border-border',
                             )}
                             title="Connection details"
                         >
@@ -457,7 +458,17 @@ export const Toolbar: React.FC = () => {
                                     onBlur={scheduleQuickEnvClose}
                                     onClick={() => {
                                         setQuickEnvOpen(false);
-                                        setEnvironmentSwitcherOpen(true);
+                                        if (!activeProject?.id) {
+                                            emitCommand(DOM_EVENT.OPEN_PROJECT_HUB);
+                                            return;
+                                        }
+                                        emitCommand(DOM_EVENT.OPEN_PROJECT_HUB, {
+                                            surface: 'wizard',
+                                            wizardMode: 'edit',
+                                            launchContext: 'env-config',
+                                            projectId: activeProject.id,
+                                            initialEnvironmentKey: activeEnvironmentKey || activeProject.default_environment_key,
+                                        });
                                     }}
                                 >
                                     {activeProject && (
@@ -481,6 +492,7 @@ export const Toolbar: React.FC = () => {
                                             const meta = getEnvironmentMeta(envKey);
                                             const isActive = envKey === (activeEnvironmentKey || activeProject.default_environment_key);
                                             const details = quickEnvConnectionDetails.get(envKey);
+                                            const shortcut = quickEnvShortcutDetails.get(envKey);
                                             return (
                                                 <Button
                                                     key={envKey}
@@ -500,6 +512,9 @@ export const Toolbar: React.FC = () => {
                                                         <div className="flex min-w-0 items-center gap-2">
                                                             <span className={cn('shrink-0 rounded-sm border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
                                                             <span className="truncate font-semibold">{meta.label}</span>
+                                                            <span className="ml-auto shrink-0 text-[10px] font-mono text-muted-foreground">
+                                                                {shortcut}
+                                                            </span>
                                                         </div>
                                                         <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-muted-foreground">
                                                             <span className="inline-flex min-w-0 w-full items-center gap-1">
@@ -512,11 +527,6 @@ export const Toolbar: React.FC = () => {
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    {isActive && (
-                                                        <span className="pointer-events-none absolute right-2.5 top-2 text-[10px] font-semibold text-accent">
-                                                            Active
-                                                        </span>
-                                                    )}
                                                 </Button>
                                             );
                                         })}
@@ -527,7 +537,6 @@ export const Toolbar: React.FC = () => {
                     </div>
                 </div>
 
-                {environmentSwitcherOpen && <EnvironmentSwitcherModal onClose={() => setEnvironmentSwitcherOpen(false)} />}
             </div>
 
             {/* Right: 3/10 */}

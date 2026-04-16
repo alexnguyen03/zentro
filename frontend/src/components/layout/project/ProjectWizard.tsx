@@ -1,6 +1,12 @@
 import React from 'react';
-import { BadgeCheck, ChevronRight, FolderOpen } from 'lucide-react';
-import { Disconnect, ImportConnectionPackage } from '../../../services/connectionService';
+import { ChevronRight, Download, FolderOpen } from 'lucide-react';
+import {
+    DeleteConnection,
+    Disconnect,
+    ExportConnectionPackage,
+    ImportConnectionPackage,
+    LoadConnections,
+} from '../../../services/connectionService';
 import { GetDefaultProjectStorageRoot, PickDirectory } from '../../../services/projectService';
 import { useProjectStore } from '../../../stores/projectStore';
 import { useConnectionStore } from '../../../stores/connectionStore';
@@ -10,29 +16,44 @@ import { useConnectionForm } from '../../../hooks/useConnectionForm';
 import { ConnectionForm } from '../../connection/ConnectionForm';
 import { ProviderPickerToolbar } from '../../connection/ProviderPickerToolbar';
 import { ProviderGrid } from '../../connection/ProviderGrid';
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui';
+import {
+    Button,
+    ConfirmationModal,
+    Input,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+    Spinner,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '../../ui';
 import { DatabaseTreePicker } from '../../connection/DatabaseTreePicker';
-import { ENVIRONMENT_KEY } from '../../../lib/constants';
+import { ENVIRONMENT_KEY, type ProjectHubLaunchContext, type ProjectWizardMode } from '../../../lib/constants';
 import { cn } from '../../../lib/cn';
 import { getProvider } from '../../../lib/providers';
-import type { EnvironmentKey } from '../../../types/project';
+import type { EnvironmentKey, Project } from '../../../types/project';
 import type { ConnectionProfile } from '../../../types/connection';
 import { useToast } from '../Toast';
 import {
     PROJECT_ICON_MAP,
     PROJECT_ICON_OPTIONS,
     buildTagsWithProjectIcon,
+    getProjectIconKey,
     type ProjectIconKey,
 } from '../projectHubMeta';
 import { PanelFrame } from '../PanelFrame';
 
 type ConnectionMode = 'existing' | 'new';
+type SubmitIntent = 'apply' | 'save';
 
 interface WizardDraft {
     name: string;
     description: string;
     iconKey: ProjectIconKey;
     starterEnv: EnvironmentKey;
+    gitRepoPath: string;
 }
 
 function slugifyProjectName(value: string): string {
@@ -65,14 +86,95 @@ function joinPath(parent: string, child: string): string {
     return `${normalized}${separator}${child}`;
 }
 
+function resolveDefaultEnvironment(project?: Project): EnvironmentKey {
+    return (project?.last_active_environment_key || project?.default_environment_key || ENVIRONMENT_KEY.LOCAL) as EnvironmentKey;
+}
+
+function buildBoundProjectDraft(
+    project: Project,
+    environmentKey: EnvironmentKey,
+    profile: ConnectionProfile,
+    database: string,
+    profileName: string,
+): Pick<Project, 'environments' | 'connections'> {
+    const existingConnection = (project.connections || []).find((connection) => connection.environment_key === environmentKey);
+    const nextConnectionId = existingConnection?.id || crypto.randomUUID();
+    const nextConnection = {
+        id: nextConnectionId,
+        project_id: project.id,
+        environment_key: environmentKey,
+        name: profileName,
+        driver: profile.driver,
+        host: profile.host,
+        port: profile.port,
+        database,
+        username: profile.username,
+        password: profile.password,
+        save_password: profile.save_password,
+        ssl_mode: profile.ssl_mode,
+        use_socket: false,
+        ssh_enabled: false,
+        advanced_meta: {
+            profile_name: profileName,
+            encrypt_password: String(Boolean(profile.encrypt_password)),
+            show_all_schemas: String(Boolean(profile.show_all_schemas)),
+            trust_server_cert: String(Boolean(profile.trust_server_cert)),
+        },
+    };
+
+    const nextEnvironments = (project.environments || []).some((environment) => environment.key === environmentKey)
+        ? (project.environments || []).map((environment) => (
+            environment.key === environmentKey
+                ? { ...environment, connection_id: nextConnectionId }
+                : environment
+        ))
+        : [
+            ...(project.environments || []),
+            {
+                id: crypto.randomUUID(),
+                project_id: project.id,
+                key: environmentKey,
+                label: getEnvironmentMeta(environmentKey).label,
+                badge_color: environmentKey,
+                is_protected: environmentKey === ENVIRONMENT_KEY.STAGING || environmentKey === ENVIRONMENT_KEY.PRODUCTION,
+                is_read_only: environmentKey === ENVIRONMENT_KEY.PRODUCTION,
+                connection_id: nextConnectionId,
+            },
+        ];
+
+    const nextConnections = (project.connections || []).some((connection) => connection.environment_key === environmentKey)
+        ? (project.connections || []).map((connection) => (
+            connection.environment_key === environmentKey ? nextConnection : connection
+        ))
+        : [...(project.connections || []), nextConnection];
+
+    return {
+        environments: nextEnvironments,
+        connections: nextConnections,
+    };
+}
+
 interface ProjectWizardProps {
+    mode?: ProjectWizardMode;
+    project?: Project;
+    initialEnvironmentKey?: EnvironmentKey;
+    launchContext?: ProjectHubLaunchContext;
     overlay?: boolean;
     onClose?: () => void;
     onDone: () => void;
 }
 
-export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, onClose, onDone }) => {
+export const ProjectWizard: React.FC<ProjectWizardProps> = ({
+    mode = 'create',
+    project,
+    initialEnvironmentKey,
+    launchContext = 'default',
+    overlay = false,
+    onClose,
+    onDone,
+}) => {
     const createProject = useProjectStore((s) => s.createProject);
+    const saveProject = useProjectStore((s) => s.saveProject);
     const bindEnvironmentConnection = useProjectStore((s) => s.bindEnvironmentConnection);
     const setProjectEnvironment = useProjectStore((s) => s.setProjectEnvironment);
     const setActiveProject = useProjectStore((s) => s.setActiveProject);
@@ -80,11 +182,14 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
     const { toast } = useToast();
 
+    const isEditMode = mode === 'edit';
+
     const [draft, setDraft] = React.useState<WizardDraft>({
         name: '',
         description: '',
         iconKey: 'general',
         starterEnv: ENVIRONMENT_KEY.LOCAL,
+        gitRepoPath: '',
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
     const [selectedProfile, setSelectedProfile] = React.useState<ConnectionProfile | null>(null);
@@ -94,12 +199,19 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
     const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [submitting, setSubmitting] = React.useState(false);
     const [storageParentPath, setStorageParentPath] = React.useState('');
+    const [storagePath, setStoragePath] = React.useState('');
     const [loadingStorageRoot, setLoadingStorageRoot] = React.useState(true);
     const [importingConnection, setImportingConnection] = React.useState(false);
     const [importingFormConnection, setImportingFormConnection] = React.useState(false);
+    const [exportingConnection, setExportingConnection] = React.useState(false);
     const [treeRefreshKey, setTreeRefreshKey] = React.useState(0);
     const [showStorage, setShowStorage] = React.useState(false);
     const [showConnection, setShowConnection] = React.useState(true);
+    const [connections, setConnections] = React.useState<ConnectionProfile[]>([]);
+    const [editingProfile, setEditingProfile] = React.useState<ConnectionProfile | null>(null);
+    const [pendingDeleteProfile, setPendingDeleteProfile] = React.useState<ConnectionProfile | null>(null);
+    const [deletingConnectionName, setDeletingConnectionName] = React.useState<string | null>(null);
+    const [submitIntent, setSubmitIntent] = React.useState<SubmitIntent | null>(null);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -125,38 +237,106 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         };
     }, []);
 
-    const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
-        setSelectedProfile(profile);
-        setSelectedProfileName(profile.name || null);
-        setSelectedDatabase(database);
-    }, []);
-
-    const handlePickStorageFolder = React.useCallback(async () => {
+    const loadConnections = React.useCallback(async () => {
         try {
-            const picked = await PickDirectory(storageParentPath);
-            if (picked) {
-                setStorageParentPath(picked);
-            }
+            const loaded = await LoadConnections();
+            const next = loaded || [];
+            setConnections(next);
+            return next;
         } catch (error) {
-            toast.error(`Could not pick folder: ${error}`);
+            toast.error(`Could not load connections: ${error}`);
+            setConnections([]);
+            return [];
         }
-    }, [storageParentPath, toast]);
+    }, [toast]);
+
+    React.useEffect(() => {
+        void loadConnections();
+    }, [loadConnections]);
+
+    React.useEffect(() => {
+        if (isEditMode && project) {
+            const nextEnv = (initialEnvironmentKey || resolveDefaultEnvironment(project)) as EnvironmentKey;
+            const boundConnection = (project.connections || []).find((connection) => connection.environment_key === nextEnv);
+            setDraft({
+                name: project.name || '',
+                description: project.description || '',
+                iconKey: getProjectIconKey(project),
+                starterEnv: nextEnv,
+                gitRepoPath: project.git_repo_path || '',
+            });
+            setStoragePath(project.storage_path || '');
+            setSelectedProfileName(boundConnection?.advanced_meta?.profile_name || boundConnection?.name || null);
+            setSelectedDatabase(boundConnection?.database || '');
+        } else {
+            setDraft({
+                name: '',
+                description: '',
+                iconKey: 'general',
+                starterEnv: initialEnvironmentKey || ENVIRONMENT_KEY.LOCAL,
+                gitRepoPath: '',
+            });
+            setStoragePath('');
+            setSelectedProfileName(null);
+            setSelectedDatabase('');
+            setSelectedProfile(null);
+        }
+
+        setConnectionMode('existing');
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+        setEditingProfile(null);
+    }, [initialEnvironmentKey, isEditMode, project]);
+
+    React.useEffect(() => {
+        if (!isEditMode || !project) return;
+        const boundConnection = (project.connections || []).find((connection) => connection.environment_key === draft.starterEnv);
+        setSelectedProfileName(boundConnection?.advanced_meta?.profile_name || boundConnection?.name || null);
+        setSelectedDatabase(boundConnection?.database || '');
+    }, [draft.starterEnv, isEditMode, project]);
+
+    React.useEffect(() => {
+        if (!selectedProfileName) {
+            setSelectedProfile(null);
+            return;
+        }
+        const matched = connections.find((connection) => connection.name === selectedProfileName) || null;
+        if (matched) {
+            setSelectedProfile(matched);
+            return;
+        }
+        setSelectedProfile((current) => (current?.name === selectedProfileName ? current : null));
+    }, [connections, selectedProfileName]);
+
+    const existingNames = React.useMemo(
+        () => connections.map((connection) => connection.name).filter(Boolean),
+        [connections],
+    );
 
     const form = useConnectionForm({
-        existingNames: [],
+        profile: editingProfile,
+        isOpen: connectionMode === 'new',
+        existingNames,
         onSaved: async () => {
             const savedName = form.formData.name || '';
-            if (savedName) setSelectedProfileName(savedName);
-            setSelectedProfile(form.formData as ConnectionProfile);
-            if (form.formData.db_name) setSelectedDatabase(form.formData.db_name);
+            const refreshed = await loadConnections();
+            const matched = refreshed.find((connection) => connection.name === savedName) || null;
+            setSelectedProfile(matched || (form.formData as ConnectionProfile));
+            setSelectedProfileName(savedName || null);
+            if (form.formData.db_name) {
+                setSelectedDatabase(form.formData.db_name);
+            }
             setConnectionMode('existing');
             setIsSelectingProvider(false);
             setProviderFilter('');
+            setEditingProfile(null);
+            setTreeRefreshKey((key) => key + 1);
         },
         onClose: () => {
             setConnectionMode('existing');
             setIsSelectingProvider(false);
             setProviderFilter('');
+            setEditingProfile(null);
         },
     });
 
@@ -171,24 +351,81 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         setProviderFilter('');
     }, [form.handleDriverChange]);
 
+    const handleAutoBindFromTree = React.useCallback(async (profile: ConnectionProfile, database: string) => {
+        const profileName = (profile.name || '').trim();
+        const dbName = database.trim();
+        if (!isEditMode || !project || !profileName || !dbName || submitting) {
+            return;
+        }
+
+        setSubmitIntent('apply');
+        setSubmitting(true);
+        try {
+            const bindingDraft = buildBoundProjectDraft(
+                project,
+                draft.starterEnv,
+                profile,
+                dbName,
+                profileName,
+            );
+            const bindingOnlySaved = await saveProject({
+                ...project,
+                ...bindingDraft,
+            });
+            if (!bindingOnlySaved) {
+                toast.error('Could not save environment binding.');
+                return;
+            }
+            setActiveProject(bindingOnlySaved);
+        } catch (error) {
+            toast.error(`Could not save binding: ${error}`);
+        } finally {
+            setSubmitting(false);
+            setSubmitIntent(null);
+        }
+    }, [draft.starterEnv, isEditMode, project, saveProject, setActiveProject, submitting, toast]);
+
+    const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
+        setSelectedProfile(profile);
+        setSelectedProfileName(profile.name || null);
+        setSelectedDatabase(database);
+        void handleAutoBindFromTree(profile, database);
+    }, [handleAutoBindFromTree]);
+
+    const handlePickStorageFolder = React.useCallback(async () => {
+        try {
+            const initialPath = isEditMode ? storagePath : storageParentPath;
+            const picked = await PickDirectory(initialPath);
+            if (!picked) return;
+            if (isEditMode) {
+                setStoragePath(picked);
+                return;
+            }
+            setStorageParentPath(picked);
+        } catch (error) {
+            toast.error(`Could not pick folder: ${error}`);
+        }
+    }, [isEditMode, storageParentPath, storagePath, toast]);
+
     const handleImportConnection = React.useCallback(async () => {
         setImportingConnection(true);
         try {
             const imported = await ImportConnectionPackage();
             if (!imported) return;
             const importedProfile = imported as ConnectionProfile;
-            const profileName = importedProfile.name || null;
-            setSelectedProfile(importedProfile);
-            setSelectedProfileName(profileName);
-            setSelectedDatabase(importedProfile.db_name || '');
+            const refreshed = await loadConnections();
+            const matched = refreshed.find((connection) => connection.name === importedProfile.name) || importedProfile;
+            setSelectedProfile(matched);
+            setSelectedProfileName(matched.name || null);
+            setSelectedDatabase(matched.db_name || '');
             setTreeRefreshKey((key) => key + 1);
-            toast.success(`Imported connection${profileName ? ` "${profileName}"` : ''}.`);
+            toast.success(`Imported connection${matched.name ? ` "${matched.name}"` : ''}.`);
         } catch (error) {
             toast.error(`Could not import connection: ${error}`);
         } finally {
             setImportingConnection(false);
         }
-    }, [toast]);
+    }, [loadConnections, toast]);
 
     const handleImportConnectionToForm = React.useCallback(async () => {
         setImportingFormConnection(true);
@@ -208,291 +445,572 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         }
     }, [form, toast]);
 
-    const canSubmit = React.useMemo(
+    const handleEditConnection = React.useCallback((profile: ConnectionProfile) => {
+        setEditingProfile(profile);
+        setConnectionMode('new');
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+    }, []);
+
+    const handleRequestDeleteConnection = React.useCallback((profile: ConnectionProfile) => {
+        setPendingDeleteProfile(profile);
+    }, []);
+
+    const handleConfirmDeleteConnection = React.useCallback(async () => {
+        const profileName = pendingDeleteProfile?.name;
+        if (!profileName) return;
+
+        setDeletingConnectionName(profileName);
+        try {
+            await DeleteConnection(profileName);
+            const refreshed = await loadConnections();
+
+            if (selectedProfileName === profileName) {
+                const fallback = refreshed[0] || null;
+                setSelectedProfile(fallback);
+                setSelectedProfileName(fallback?.name || null);
+                setSelectedDatabase(fallback?.db_name || '');
+            }
+
+            if (editingProfile?.name === profileName) {
+                setEditingProfile(null);
+                setConnectionMode('existing');
+                setIsSelectingProvider(false);
+                setProviderFilter('');
+            }
+
+            setTreeRefreshKey((key) => key + 1);
+            toast.success(`Deleted connection "${profileName}".`);
+        } catch (error) {
+            toast.error(`Could not delete connection: ${error}`);
+        } finally {
+            setDeletingConnectionName(null);
+            setPendingDeleteProfile(null);
+        }
+    }, [editingProfile?.name, loadConnections, pendingDeleteProfile?.name, selectedProfileName, toast]);
+
+    const handleExportConnection = React.useCallback(async () => {
+        setExportingConnection(true);
+        try {
+            const exportedPath = await ExportConnectionPackage(draft.starterEnv);
+            if (!exportedPath) return;
+            toast.success(`Connection exported: ${exportedPath}`);
+        } catch (error) {
+            toast.error(`Could not export connection: ${error}`);
+        } finally {
+            setExportingConnection(false);
+        }
+    }, [draft.starterEnv, toast]);
+
+    const storagePathPreview = React.useMemo(() => {
+        if (isEditMode) {
+            return storagePath.trim();
+        }
+        const slug = slugifyProjectName(draft.name);
+        return storageParentPath.trim() ? joinPath(storageParentPath, slug) : '';
+    }, [draft.name, isEditMode, storageParentPath, storagePath]);
+
+    const environmentBindings = React.useMemo(() => {
+        const bindings = new Map<EnvironmentKey, { profileName: string; database: string }>();
+        (project?.connections || []).forEach((connection) => {
+            const envKey = connection.environment_key as EnvironmentKey;
+            bindings.set(envKey, {
+                profileName: (connection.advanced_meta?.profile_name || connection.name || '').trim(),
+                database: (connection.database || '').trim(),
+            });
+        });
+        return bindings;
+    }, [project]);
+
+    const canSave = React.useMemo(
         () => Boolean(draft.name.trim() && draft.starterEnv && selectedProfileName && selectedDatabase.trim()),
         [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase],
     );
 
-    const storagePathPreview = React.useMemo(() => {
-        const slug = slugifyProjectName(draft.name);
-        return storageParentPath.trim() ? joinPath(storageParentPath, slug) : '';
-    }, [draft.name, storageParentPath]);
+    const canApplyBinding = React.useMemo(
+        () => Boolean(draft.starterEnv && selectedProfileName && selectedDatabase.trim()),
+        [draft.starterEnv, selectedProfileName, selectedDatabase],
+    );
 
-    const handleCreateAndEnter = async () => {
-        if (!selectedProfileName || !selectedProfile) return;
+    const resolveSelectedProfile = React.useCallback(async () => {
+        if (selectedProfile?.name === selectedProfileName) {
+            return selectedProfile;
+        }
+        if (selectedProfileName) {
+            const fromCache = connections.find((connection) => connection.name === selectedProfileName);
+            if (fromCache) {
+                setSelectedProfile(fromCache);
+                return fromCache;
+            }
+            const refreshed = await loadConnections();
+            const fromRefreshed = refreshed.find((connection) => connection.name === selectedProfileName) || null;
+            setSelectedProfile(fromRefreshed);
+            return fromRefreshed;
+        }
+        return null;
+    }, [connections, loadConnections, selectedProfile, selectedProfileName]);
+
+    const handleCreateAndEnter = async (closeOnSuccess = true) => {
+        const resolvedProfile = await resolveSelectedProfile();
+        if (!selectedProfileName || !resolvedProfile) {
+            toast.error('Please choose a connection profile.');
+            return;
+        }
+
+        setSubmitIntent(isEditMode && !closeOnSuccess ? 'apply' : 'save');
         setSubmitting(true);
         try {
-            try { await Disconnect(); } catch { /* ignore */ }
-            resetRuntime();
+            if (!isEditMode) {
+                try { await Disconnect(); } catch { /* ignore */ }
+                resetRuntime();
 
-            const project = await createProject({
+                const createdProject = await createProject({
+                    name: draft.name.trim(),
+                    description: draft.description.trim(),
+                    tags: buildTagsWithProjectIcon([], draft.iconKey),
+                    storage_path: storagePathPreview || undefined,
+                });
+                if (!createdProject) {
+                    toast.error('Could not create project.');
+                    return;
+                }
+
+                let projectToBind = createdProject;
+                const gitPath = draft.gitRepoPath.trim();
+                if (gitPath) {
+                    const projectWithGit = await saveProject({
+                        ...createdProject,
+                        git_repo_path: gitPath,
+                    });
+                    if (projectWithGit) {
+                        projectToBind = projectWithGit;
+                        setActiveProject(projectWithGit);
+                    }
+                }
+
+                const dbName = selectedDatabase.trim();
+                const boundProject = await bindEnvironmentConnection(draft.starterEnv, {
+                    ...resolvedProfile,
+                    name: selectedProfileName,
+                    db_name: dbName,
+                });
+                if (!boundProject) {
+                    toast.error('Could not bind starter environment.');
+                    return;
+                }
+
+                const envProject = await setProjectEnvironment(draft.starterEnv);
+                setActiveProject(envProject || boundProject || projectToBind);
+                setActiveEnvironment(draft.starterEnv);
+                onDone();
+                return;
+            }
+
+            if (!project) {
+                toast.error('Project was not found for editing.');
+                return;
+            }
+
+            const dbName = selectedDatabase.trim();
+            const bindingDraft = buildBoundProjectDraft(
+                project,
+                draft.starterEnv,
+                resolvedProfile,
+                dbName,
+                selectedProfileName,
+            );
+
+            if (!closeOnSuccess) {
+                const bindingOnlySaved = await saveProject({
+                    ...project,
+                    ...bindingDraft,
+                });
+                if (!bindingOnlySaved) {
+                    toast.error('Could not save environment binding.');
+                    return;
+                }
+                setActiveProject(bindingOnlySaved);
+                toast.success(`Saved ${getEnvironmentMeta(draft.starterEnv).label} binding.`);
+                return;
+            }
+
+            const metadataSaved = await saveProject({
+                ...project,
                 name: draft.name.trim(),
                 description: draft.description.trim(),
-                tags: buildTagsWithProjectIcon([], draft.iconKey),
+                tags: buildTagsWithProjectIcon(project.tags, draft.iconKey),
+                git_repo_path: draft.gitRepoPath.trim() || undefined,
                 storage_path: storagePathPreview || undefined,
+                default_environment_key: draft.starterEnv,
+                last_active_environment_key: draft.starterEnv,
+                ...bindingDraft,
             });
-            if (!project) { toast.error('Could not create project.'); return; }
+            if (!metadataSaved) {
+                toast.error('Could not save project changes.');
+                return;
+            }
 
-            setActiveProject(project);
-            const dbName = selectedDatabase.trim();
-            const boundProject = await bindEnvironmentConnection(draft.starterEnv, {
-                ...selectedProfile,
-                name: selectedProfileName,
-                db_name: dbName,
-            });
-            if (!boundProject) { toast.error('Could not bind starter environment.'); return; }
-
-            const envProject = await setProjectEnvironment(draft.starterEnv);
-            setActiveProject(envProject || boundProject);
+            setActiveProject(metadataSaved);
             setActiveEnvironment(draft.starterEnv);
             onDone();
         } catch (error) {
             toast.error(`Could not finish setup: ${error}`);
         } finally {
             setSubmitting(false);
+            setSubmitIntent(null);
         }
     };
 
-    return (
-        <PanelFrame
-            title="Create project"
-            onClose={overlay && onClose ? onClose : undefined}
-            className="h-full"
-            headerClassName="px-6 py-4"
-            bodyClassName="min-h-0 overflow-y-auto px-6 py-5"
-            titleClassName="text-[20px]"
-            footerClassName="flex items-center justify-end gap-2 px-6 py-4"
-            footer={(
-                <>
-                    <Button variant="ghost" onClick={onClose} className="rounded-sm" disabled={!onClose}>Cancel</Button>
-                    <Button
-                        variant="default"
-                        onClick={() => void handleCreateAndEnter()}
-                        disabled={!canSubmit || submitting}
-                        className="rounded-sm px-5"
-                    >
-                        {submitting ? <><Spinner size={12} className="mr-2 text-white" />Creating...</> : <>Create &amp; enter</>}
-                    </Button>
-                </>
-            )}
-        >
-            <div className="mx-auto max-w-190 flex flex-col gap-4 pb-4">
+    const title = isEditMode ? 'Edit project' : 'Create project';
+    const submitLabel = isEditMode ? 'Save & apply' : 'Create & enter';
 
-                {/* ── Basics ── */}
-                <div className="flex gap-3">
-                    {/* Icon picker — aligned to top of name input */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <button
-                                type="button"
-                                className="mt-5 flex h-16 w-16 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground outline-none transition hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring"
-                                title="Change project icon"
+    return (
+        <>
+            <ConfirmationModal
+                isOpen={Boolean(pendingDeleteProfile)}
+                onClose={() => {
+                    if (deletingConnectionName) return;
+                    setPendingDeleteProfile(null);
+                }}
+                onConfirm={() => {
+                    void handleConfirmDeleteConnection();
+                }}
+                title="Delete Connection"
+                message={`Delete "${pendingDeleteProfile?.name || ''}"?`}
+                description="This action removes the saved connection profile."
+                confirmLabel={deletingConnectionName ? 'Deleting...' : 'Delete'}
+                variant="destructive"
+            />
+            <PanelFrame
+                title={title}
+                subtitle={launchContext === 'env-config' ? 'Configure environment' : undefined}
+                onClose={overlay && onClose ? onClose : undefined}
+                className="h-full"
+                headerClassName="px-6 py-4"
+                bodyClassName="min-h-0 overflow-y-auto px-6 py-5"
+                titleClassName="text-[20px]"
+                footerClassName="flex items-center justify-between gap-2 px-6 py-4"
+                footer={(
+                    <>
+                        <div>
+                            {isEditMode && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                        void handleExportConnection();
+                                    }}
+                                    disabled={exportingConnection || submitting}
+                                    className="rounded-sm"
+                                    title="Export selected environment connection"
+                                >
+                                    {exportingConnection ? <Spinner size={13} /> : <Download size={14} />}
+                                </Button>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="ghost" onClick={onClose} className="rounded-sm" disabled={!onClose || submitting}>Cancel</Button>
+                            {isEditMode && (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => void handleCreateAndEnter(false)}
+                                    disabled={!canApplyBinding || submitting}
+                                    className="rounded-sm px-5"
+                                >
+                                    {submitting && submitIntent === 'apply' ? <><Spinner size={12} className="mr-2" />Applying...</> : <>Apply</>}
+                                </Button>
+                            )}
+                            <Button
+                                variant="default"
+                                onClick={() => void handleCreateAndEnter(true)}
+                                disabled={!canSave || submitting}
+                                className="rounded-sm px-5"
                             >
-                                {React.createElement(PROJECT_ICON_MAP[draft.iconKey].icon, { size: 28 })}
-                            </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="z-topmost w-120 max-w-[calc(100vw-28px)] p-2" align="start" sideOffset={8}>
-                            <div className="grid grid-cols-3 gap-1">
-                                {PROJECT_ICON_OPTIONS.map((option) => {
-                                    const OptionIcon = option.icon;
-                                    const active = draft.iconKey === option.key;
+                                {submitting
+                                    ? <><Spinner size={12} className="mr-2 text-white" />{isEditMode ? 'Saving...' : 'Creating...'}</>
+                                    : <>{submitLabel}</>}
+                            </Button>
+                        </div>
+                    </>
+                )}
+            >
+                <div className="mx-auto max-w-190 flex flex-col gap-4 pb-4">
+                    <div className="flex gap-3">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="mt-5 flex h-16 w-16 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground outline-none transition hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring"
+                                    title="Change project icon"
+                                >
+                                    {React.createElement(PROJECT_ICON_MAP[draft.iconKey].icon, { size: 28 })}
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="z-topmost w-120 max-w-[calc(100vw-28px)] p-2" align="start" sideOffset={8}>
+                                <div className="grid grid-cols-3 gap-1">
+                                    {PROJECT_ICON_OPTIONS.map((option) => {
+                                        const OptionIcon = option.icon;
+                                        const active = draft.iconKey === option.key;
+                                        return (
+                                            <button
+                                                key={option.key}
+                                                type="button"
+                                                onClick={() => setDraft((current) => ({ ...current, iconKey: option.key }))}
+                                                className={cn(
+                                                    'flex items-center gap-2 rounded-sm border px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                    active ? 'border-primary/60 bg-primary/10 text-foreground' : 'border-border hover:bg-muted/60',
+                                                )}
+                                            >
+                                                <OptionIcon size={14} />
+                                                <span className="truncate">{option.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+
+                        <div className="flex flex-1 flex-col gap-2">
+                            <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-foreground">Project name <span className="text-destructive">*</span></label>
+                                <Input
+                                    value={draft.name}
+                                    onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))}
+                                    placeholder="Payments Platform"
+                                    inputSize="md"
+                                    className="bg-card w-full"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-foreground">Description</label>
+                                <Input
+                                    value={draft.description}
+                                    onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
+                                    placeholder="Optional context"
+                                    inputSize="md"
+                                    className="bg-card w-full"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-[11px] font-semibold text-foreground">Git location</label>
+                                <Input
+                                    value={draft.gitRepoPath}
+                                    onChange={(e) => setDraft((current) => ({ ...current, gitRepoPath: e.target.value }))}
+                                    placeholder="Optional git repository path"
+                                    inputSize="md"
+                                    className="bg-card w-full"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="mb-2 text-[12px] font-semibold text-foreground">Starter environment</div>
+                        <TooltipProvider delayDuration={150}>
+                            <div className="grid grid-cols-2 gap-2">
+                                {ENVIRONMENT_KEYS.map((envKey) => {
+                                    const meta = getEnvironmentMeta(envKey);
+                                    const active = draft.starterEnv === envKey;
+                                    const isProduction = envKey === ENVIRONMENT_KEY.PRODUCTION;
+                                    const persistedBinding = environmentBindings.get(envKey);
+                                    const previewProfile = active ? (selectedProfileName || '') : (persistedBinding?.profileName || '');
+                                    const previewDatabase = active ? selectedDatabase : (persistedBinding?.database || '');
+                                    const bindingSummary = [previewProfile, previewDatabase].filter(Boolean).join(' / ') || 'No binding';
                                     return (
-                                        <button
-                                            key={option.key}
-                                            type="button"
-                                            onClick={() => setDraft((c) => ({ ...c, iconKey: option.key }))}
-                                            className={cn(
-                                                'flex items-center gap-2 rounded-sm border px-2.5 py-2 text-left text-[11px] transition-colors',
-                                                active ? 'border-primary/60 bg-primary/10 text-foreground' : 'border-border hover:bg-muted/60',
-                                            )}
-                                        >
-                                            <OptionIcon size={14} />
-                                            <span className="truncate">{option.label}</span>
-                                        </button>
+                                        <Tooltip key={envKey}>
+                                            <TooltipTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDraft((current) => ({ ...current, starterEnv: envKey }))}
+                                                    className={cn(
+                                                        'flex w-full items-center gap-2 rounded-sm border px-3 py-2 transition-colors',
+                                                        isProduction && 'col-span-2',
+                                                        active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40',
+                                                    )}
+                                                >
+                                                    <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
+                                                        {envKey}
+                                                    </span>
+                                                    {isEditMode && (
+                                                        <span
+                                                            className={cn(
+                                                                'min-w-0 flex-1 truncate text-left text-[10px]',
+                                                                previewDatabase ? 'text-muted-foreground' : 'text-muted-foreground/70',
+                                                            )}
+                                                            title={bindingSummary}
+                                                        >
+                                                            {bindingSummary}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="max-w-40 text-center">
+                                                <span className="font-semibold">{meta.label}</span>
+                                                <p className="mt-0.5 text-[11px] font-normal opacity-80">{meta.description}</p>
+                                                {isEditMode && (
+                                                    <p className="mt-1 text-[10px] font-medium opacity-90">{bindingSummary}</p>
+                                                )}
+                                            </TooltipContent>
+                                        </Tooltip>
                                     );
                                 })}
                             </div>
-                        </PopoverContent>
-                    </Popover>
-
-                    {/* Name + description stacked */}
-                    <div className="flex flex-1 flex-col gap-2">
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-foreground">Project name <span className="text-destructive">*</span></label>
-                            <Input
-                                value={draft.name}
-                                onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))}
-                                placeholder="Payments Platform"
-                                inputSize="md"
-                                className="bg-card w-full"
-                                autoFocus
-                            />
-                        </div>
-                        <div>
-                            <label className="mb-1 block text-[11px] font-semibold text-foreground">Description</label>
-                            <Input
-                                value={draft.description}
-                                onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))}
-                                placeholder="Optional context"
-                                inputSize="md"
-                                className="bg-card w-full"
-                            />
-                        </div>
+                        </TooltipProvider>
                     </div>
-                </div>
 
-                {/* ── Environment ── */}
-                <div>
-                    <div className="mb-2 text-[12px] font-semibold text-foreground">Starter environment</div>
-                    <TooltipProvider delayDuration={150}>
-                        <div className="flex gap-2">
-                            {ENVIRONMENT_KEYS.map((envKey) => {
-                                const meta = getEnvironmentMeta(envKey);
-                                const active = draft.starterEnv === envKey;
-                                return (
-                                    <Tooltip key={envKey}>
-                                        <TooltipTrigger asChild>
-                                            <button
-                                                type="button"
-                                                onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
-                                                className={cn(
-                                                    'flex flex-1 items-center justify-between rounded-sm border px-3 py-2.5 transition-colors',
-                                                    active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40',
-                                                )}
-                                            >
-                                                <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
-                                                    {envKey}
-                                                </span>
-                                                {active && <BadgeCheck size={13} className="text-accent" />}
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" className="max-w-40 text-center">
-                                            <span className="font-semibold">{meta.label}</span>
-                                            <p className="mt-0.5 text-[11px] font-normal opacity-80">{meta.description}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                );
-                            })}
-                        </div>
-                    </TooltipProvider>
-                </div>
-
-                {/* ── Connection ── */}
-                <div>
-                    <button
-                        type="button"
-                        onClick={() => setShowConnection((v) => !v)}
-                        className="flex w-full items-center gap-1.5 text-[12px] font-semibold text-foreground hover:text-accent"
-                    >
-                        <ChevronRight size={13} className={cn('transition-transform duration-150', showConnection && 'rotate-90')} />
-                        Database connection <span className="text-destructive">*</span>
-                        {!showConnection && selectedProfileName && (
-                            <span className="ml-auto text-[11px] font-normal text-muted-foreground">
-                                {selectedProfileName}{selectedDatabase ? ` / ${selectedDatabase}` : ''}
-                            </span>
-                        )}
-                    </button>
-                    {showConnection && (
-                        <div className="mt-2 flex min-h-100 flex-col rounded-sm bg-background/20">
-                            {connectionMode === 'existing' ? (
-                                <div className="flex-1 overflow-hidden">
-                                    <DatabaseTreePicker
-                                        key={treeRefreshKey}
-                                        onSelect={handleSelectFromTree}
-                                        selectedProfile={selectedProfileName}
-                                        selectedDatabase={selectedDatabase}
-                                        onImport={handleImportConnection}
-                                        importing={importingConnection}
-                                        onAddNew={() => { form.resetForm(); setConnectionMode('new'); setIsSelectingProvider(true); setProviderFilter(''); }}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] p-1.5">
-                                    <ProviderPickerToolbar
-                                        isSelectingProvider={isSelectingProvider}
-                                        providerFilter={providerFilter}
-                                        selectedProvider={selectedProvider}
-                                        onBack={() => { setConnectionMode('existing'); setIsSelectingProvider(false); setProviderFilter(''); }}
-                                        onShowProviderPicker={() => setIsSelectingProvider(true)}
-                                        onProviderFilterChange={setProviderFilter}
-                                        onClearProviderFilter={() => setProviderFilter('')}
-                                        onImportConnection={handleImportConnectionToForm}
-                                        importingConnection={importingFormConnection}
-                                    />
-                                    {isSelectingProvider ? (
-                                        <div className="h-full min-h-0 rounded-sm p-2">
-                                            <ProviderGrid selected={form.selectedProvider} locked={form.isEditing} filterText={providerFilter} onSelect={handleProviderSelect} />
-                                        </div>
-                                    ) : (
-                                        <div className="h-full overflow-hidden">
-                                            <div className="mx-auto flex min-h-full w-full max-w-155 items-start justify-center">
-                                                <div className="w-full">
-                                                    <ConnectionForm
-                                                        formData={form.formData} connString={form.connString}
-                                                        testing={form.testing} saving={form.saving}
-                                                        testResult={form.testResult} errorMsg={form.errorMsg}
-                                                        successMsg={form.successMsg} isEditing={form.isEditing}
-                                                        showUriField={true}
-                                                        onChange={form.handleChange}
-                                                        onConnStringChange={form.handleParseConnectionString}
-                                                        onTest={form.handleTest} onSave={form.handleSave}
-                                                        onCancel={() => { setConnectionMode('existing'); setIsSelectingProvider(false); setProviderFilter(''); }}
-                                                    />
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setShowConnection((value) => !value)}
+                            className="flex w-full items-center gap-1.5 text-[12px] font-semibold text-foreground hover:text-accent"
+                        >
+                            <ChevronRight size={13} className={cn('transition-transform duration-150', showConnection && 'rotate-90')} />
+                            Database connection <span className="text-destructive">*</span>
+                            {!showConnection && selectedProfileName && (
+                                <span className="ml-auto text-[11px] font-normal text-muted-foreground">
+                                    {selectedProfileName}{selectedDatabase ? ` / ${selectedDatabase}` : ''}
+                                </span>
+                            )}
+                        </button>
+                        {showConnection && (
+                            <div className="mt-2 flex min-h-100 flex-col rounded-sm bg-background/20">
+                                {connectionMode === 'existing' ? (
+                                    <div className="flex-1 overflow-hidden">
+                                        <DatabaseTreePicker
+                                            key={treeRefreshKey}
+                                            onSelect={handleSelectFromTree}
+                                            selectedProfile={selectedProfileName}
+                                            selectedDatabase={selectedDatabase}
+                                            onImport={handleImportConnection}
+                                            importing={importingConnection}
+                                            onAddNew={() => {
+                                                form.resetForm();
+                                                setEditingProfile(null);
+                                                setConnectionMode('new');
+                                                setIsSelectingProvider(true);
+                                                setProviderFilter('');
+                                            }}
+                                            onEditConnection={handleEditConnection}
+                                            onDeleteConnection={handleRequestDeleteConnection}
+                                            deletingConnectionName={deletingConnectionName}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] p-1.5">
+                                        <ProviderPickerToolbar
+                                            isSelectingProvider={isSelectingProvider}
+                                            providerFilter={providerFilter}
+                                            selectedProvider={selectedProvider}
+                                            onBack={() => {
+                                                setConnectionMode('existing');
+                                                setIsSelectingProvider(false);
+                                                setProviderFilter('');
+                                                setEditingProfile(null);
+                                            }}
+                                            onShowProviderPicker={() => setIsSelectingProvider(true)}
+                                            onProviderFilterChange={setProviderFilter}
+                                            onClearProviderFilter={() => setProviderFilter('')}
+                                            onImportConnection={handleImportConnectionToForm}
+                                            importingConnection={importingFormConnection}
+                                        />
+                                        {isSelectingProvider ? (
+                                            <div className="h-full min-h-0 rounded-sm p-2">
+                                                <ProviderGrid
+                                                    selected={form.selectedProvider}
+                                                    locked={form.isEditing}
+                                                    filterText={providerFilter}
+                                                    onSelect={handleProviderSelect}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="h-full overflow-hidden">
+                                                <div className="mx-auto flex min-h-full w-full max-w-155 items-start justify-center">
+                                                    <div className="w-full">
+                                                        <ConnectionForm
+                                                            formData={form.formData}
+                                                            connString={form.connString}
+                                                            testing={form.testing}
+                                                            saving={form.saving}
+                                                            testResult={form.testResult}
+                                                            errorMsg={form.errorMsg}
+                                                            successMsg={form.successMsg}
+                                                            isEditing={form.isEditing}
+                                                            showUriField={true}
+                                                            onChange={form.handleChange}
+                                                            onConnStringChange={form.handleParseConnectionString}
+                                                            onTest={form.handleTest}
+                                                            onSave={form.handleSave}
+                                                            onCancel={() => {
+                                                                setConnectionMode('existing');
+                                                                setIsSelectingProvider(false);
+                                                                setProviderFilter('');
+                                                                setEditingProfile(null);
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Storage location (optional, collapsible) ── */}
-                <div>
-                    <button
-                        type="button"
-                        onClick={() => setShowStorage((v) => !v)}
-                        className="flex w-full items-center gap-1.5 text-[12px] font-semibold text-foreground hover:text-accent"
-                    >
-                        <ChevronRight size={13} className={cn('transition-transform duration-150', showStorage && 'rotate-90')} />
-                        Storage location
-                        <span className="ml-1 text-[11px] font-normal text-muted-foreground">(optional)</span>
-                        {!showStorage && storagePathPreview && (
-                            <span className="ml-auto truncate text-[11px] font-normal text-muted-foreground" title={storagePathPreview}>
-                                {storagePathPreview}
-                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         )}
-                    </button>
-                    {showStorage && (
-                        <div className="mt-2">
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    value={storageParentPath}
-                                    onChange={(e) => setStorageParentPath(e.target.value)}
-                                    placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
-                                    inputSize="xl"
-                                    className="bg-card"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    className="h-10 rounded-sm px-3"
-                                    onClick={() => { void handlePickStorageFolder(); }}
-                                    disabled={loadingStorageRoot}
-                                    title="Browse folder"
-                                >
-                                    <FolderOpen size={14} />
-                                </Button>
-                            </div>
-                            <div className="mt-1 truncate text-[11px] text-muted-foreground" title={storagePathPreview || undefined}>
-                                {storagePathPreview || 'Project folder will use the app default location.'}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                    </div>
 
-            </div>
-        </PanelFrame>
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => setShowStorage((value) => !value)}
+                            className="flex w-full items-center gap-1.5 text-[12px] font-semibold text-foreground hover:text-accent"
+                        >
+                            <ChevronRight size={13} className={cn('transition-transform duration-150', showStorage && 'rotate-90')} />
+                            Storage location
+                            <span className="ml-1 text-[11px] font-normal text-muted-foreground">(optional)</span>
+                            {!showStorage && storagePathPreview && (
+                                <span className="ml-auto truncate text-[11px] font-normal text-muted-foreground" title={storagePathPreview}>
+                                    {storagePathPreview}
+                                </span>
+                            )}
+                        </button>
+                        {showStorage && (
+                            <div className="mt-2">
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        value={isEditMode ? storagePath : storageParentPath}
+                                        onChange={(event) => {
+                                            if (isEditMode) {
+                                                setStoragePath(event.target.value);
+                                                return;
+                                            }
+                                            setStorageParentPath(event.target.value);
+                                        }}
+                                        placeholder={loadingStorageRoot ? 'Loading default storage root...' : (isEditMode ? 'Set project folder path' : 'Choose parent folder...')}
+                                        inputSize="xl"
+                                        className="bg-card"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        className="h-10 rounded-sm px-3"
+                                        onClick={() => {
+                                            void handlePickStorageFolder();
+                                        }}
+                                        disabled={loadingStorageRoot}
+                                        title="Browse folder"
+                                    >
+                                        <FolderOpen size={14} />
+                                    </Button>
+                                </div>
+                                <div className="mt-1 truncate text-[11px] text-muted-foreground" title={storagePathPreview || undefined}>
+                                    {storagePathPreview || 'Project folder will use the app default location.'}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                </div>
+            </PanelFrame>
+        </>
     );
 };

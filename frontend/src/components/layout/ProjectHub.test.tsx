@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
     openProject: vi.fn(),
     saveProject: vi.fn(),
     deleteProject: vi.fn(),
+    loadConnections: vi.fn(),
+    importConnectionPackage: vi.fn(),
+    exportConnectionPackage: vi.fn(),
+    deleteConnection: vi.fn(),
     getDefaultRoot: vi.fn(),
     pickDirectory: vi.fn(),
     openProjectFromDirectory: vi.fn(),
@@ -50,6 +54,10 @@ function makeProject(id: string, name: string): Project {
 
 vi.mock('../../services/connectionService', () => ({
     Disconnect: mocks.disconnect,
+    LoadConnections: mocks.loadConnections,
+    ImportConnectionPackage: mocks.importConnectionPackage,
+    ExportConnectionPackage: mocks.exportConnectionPackage,
+    DeleteConnection: mocks.deleteConnection,
 }));
 
 vi.mock('../../services/projectService', () => ({
@@ -96,6 +104,22 @@ describe('ProjectHub', () => {
         mocks.openProjectFromDirectory.mockResolvedValue(makeProject('p2', 'Project Two'));
         mocks.openDirectoryInExplorer.mockResolvedValue(undefined);
         mocks.disconnect.mockResolvedValue(undefined);
+        mocks.loadConnections.mockResolvedValue([
+            {
+                name: 'demo-connection',
+                driver: 'postgres',
+                host: 'localhost',
+                port: 5432,
+                db_name: 'postgres',
+                username: 'postgres',
+                password: '',
+                save_password: false,
+                ssl_mode: 'disable',
+            },
+        ]);
+        mocks.importConnectionPackage.mockResolvedValue(null);
+        mocks.exportConnectionPackage.mockResolvedValue(null);
+        mocks.deleteConnection.mockResolvedValue(undefined);
     });
 
     it('renders projects with search and actions in card layout', () => {
@@ -122,24 +146,14 @@ describe('ProjectHub', () => {
         expect(onClose).toHaveBeenCalled();
     });
 
-    it('does not open project when clicking Edit and supports inline edit save flow', async () => {
+    it('does not open project when clicking Edit and opens wizard in edit mode', async () => {
         render(<ProjectHub />);
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Edit project' })[0]);
 
         expect(mocks.openProject).not.toHaveBeenCalled();
-        expect(screen.getByPlaceholderText('Project name')).toBeInTheDocument();
-
-        const nameInput = screen.getByPlaceholderText('Project name');
-        fireEvent.change(nameInput, { target: { value: '   ' } });
-        expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-
-        fireEvent.change(nameInput, { target: { value: 'Renamed Project' } });
-        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-        await waitFor(() => {
-            expect(mocks.saveProject).toHaveBeenCalled();
-        });
+        expect(screen.getByText('Edit project')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Save & apply' })).toBeInTheDocument();
     });
 
     it('disables row while opening a project', async () => {

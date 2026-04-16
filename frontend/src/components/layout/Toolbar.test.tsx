@@ -170,12 +170,6 @@ vi.mock('./LicenseModal', () => ({
     ),
 }));
 
-vi.mock('./EnvironmentSwitcherModal', () => ({
-    EnvironmentSwitcherModal: ({ onClose }: { onClose: () => void }) => (
-        <div data-testid="env-modal" onClick={onClose}>Env Modal</div>
-    ),
-}));
-
 describe('Toolbar app menu', () => {
     beforeEach(() => {
         vi.clearAllMocks();

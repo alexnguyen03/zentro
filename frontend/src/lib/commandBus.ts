@@ -1,7 +1,7 @@
-import { DOM_EVENT } from './constants';
+import { DOM_EVENT, type ProjectHubLaunchIntent } from './constants';
 
 export type CommandPayloadMap = {
-    [DOM_EVENT.OPEN_PROJECT_HUB]: undefined;
+    [DOM_EVENT.OPEN_PROJECT_HUB]: ProjectHubLaunchIntent | undefined;
     [DOM_EVENT.OPEN_CONTEXT_SEARCH]: undefined;
     [DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER]: undefined;
     [DOM_EVENT.CLOSE_ACTIVE_TAB]: undefined;

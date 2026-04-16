@@ -36,6 +36,18 @@ export const DOM_EVENT = {
     RENAME_TAB: 'zentro:rename-tab',
 } as const;
 
+export type ProjectHubSurface = 'entry' | 'wizard';
+export type ProjectWizardMode = 'create' | 'edit';
+export type ProjectHubLaunchContext = 'default' | 'env-config';
+
+export interface ProjectHubLaunchIntent {
+    surface?: ProjectHubSurface;
+    wizardMode?: ProjectWizardMode;
+    projectId?: string;
+    initialEnvironmentKey?: EnvironmentKey;
+    launchContext?: ProjectHubLaunchContext;
+}
+
 export const TAB_TYPE = {
     QUERY: 'query',
     TABLE: 'table',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderOpen, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import { FolderOpen, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { cn } from '../../../lib/cn';
 import { getEnvironmentMeta } from '../../../lib/projects';
 import type { Project } from '../../../types/project';
@@ -18,38 +18,22 @@ import {
     PopoverContent,
     PopoverTrigger,
     Spinner,
-    Textarea,
 } from '../../ui';
-
-export interface EditDraft {
-    name: string;
-    description: string;
-    iconKey: ProjectIconKey;
-    gitRepoPath: string;
-}
 
 interface ProjectHubEntryScreenProps {
     projects: Project[];
     allProjectCount: number;
     isLoading: boolean;
     error: string | null;
-    activeProjectId?: string;
     searchQuery: string;
     setSearchQuery: (value: string) => void;
     openingProjectId: string | null;
     deletingProjectId: string | null;
-    editingProjectId: string | null;
-    isSavingEdit: boolean;
     openingFolder: boolean;
-    editDraft: EditDraft;
-    setEditDraft: React.Dispatch<React.SetStateAction<EditDraft>>;
     onOpenProject: (projectId: string) => void;
     onStartCreate: () => void;
     onOpenProjectFolder: () => void;
     onStartEdit: (project: Project) => void;
-    onCancelEdit: () => void;
-    onSaveEdit: (project: Project) => void;
-    onBrowseRepoPath: () => void;
     onOpenProjectInExplorer: (project: Project) => void;
     onSelectProjectIcon: (project: Project, iconKey: ProjectIconKey) => void;
     iconUpdatingProjectId: string | null;
@@ -82,23 +66,15 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
     allProjectCount,
     isLoading,
     error,
-    activeProjectId,
     searchQuery,
     setSearchQuery,
     openingProjectId,
     deletingProjectId,
-    editingProjectId,
-    isSavingEdit,
     openingFolder,
-    editDraft,
-    setEditDraft,
     onOpenProject,
     onStartCreate,
     onOpenProjectFolder,
     onStartEdit,
-    onCancelEdit,
-    onSaveEdit,
-    onBrowseRepoPath,
     onOpenProjectInExplorer,
     onSelectProjectIcon,
     iconUpdatingProjectId,
@@ -175,16 +151,13 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                         <div className="space-y-2 px-3 pb-3 lg:px-4">
                             {projects.map((project) => {
                                 const iconKey = getProjectIconKey(project);
-                                const isActive = activeProjectId === project.id;
                                 const isOpening = openingProjectId === project.id;
                                 const isDeleting = deletingProjectId === project.id;
-                                const isEditing = editingProjectId === project.id;
                                 const environmentTags = buildEnvironmentTags(project);
                                 const isDisabled = isOpening || isDeleting;
-                                const canOpenProject = !isDisabled && !isEditing;
+                                const canOpenProject = !isDisabled;
                                 const isUpdatingIcon = iconUpdatingProjectId === project.id;
-                                const displayIconKey = isEditing ? editDraft.iconKey : iconKey;
-                                const DisplayIcon = PROJECT_ICON_MAP[displayIconKey].icon;
+                                const DisplayIcon = PROJECT_ICON_MAP[iconKey].icon;
 
                                 return (
                                     <div key={project.id} className="rounded-sm bg-card">
@@ -239,7 +212,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             <div className="grid grid-cols-3 gap-1">
                                                                 {PROJECT_ICON_OPTIONS.map((option) => {
                                                                     const OptionIcon = option.icon;
-                                                                    const isSelected = displayIconKey === option.key;
+                                                                    const isSelected = iconKey === option.key;
 
                                                                     return (
                                                                         <button
@@ -247,11 +220,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                                             type="button"
                                                                             onClick={(event) => {
                                                                                 event.stopPropagation();
-                                                                                if (isEditing) {
-                                                                                    setEditDraft((current) => ({ ...current, iconKey: option.key }));
-                                                                                } else {
-                                                                                    onSelectProjectIcon(project, option.key);
-                                                                                }
+                                                                                onSelectProjectIcon(project, option.key);
                                                                                 setIconPickerOpenByProject((current) => ({ ...current, [project.id]: false }));
                                                                             }}
                                                                             className={cn(
@@ -271,73 +240,10 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                     </Popover>
 
                                                     <div className="w-full mb-5">
-                                                        {isEditing ? (
-                                                            <div>
-                                                                <div className="my-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-                                                                    Project name
-                                                                </div>
-                                                                <Input
-                                                                    value={editDraft.name}
-                                                                    onChange={(event) => setEditDraft((current) => ({ ...current, name: event.target.value }))}
-                                                                    placeholder="Project name"
-                                                                    className="h-8 text-[13px] font-semibold"
-                                                                    onClick={(event) => event.stopPropagation()}
-                                                                    onKeyDown={(event) => event.stopPropagation()}
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="truncate text-[13px] font-semibold text-foreground">{project.name}</div>
-                                                        )}
-
-                                                        {isEditing ? (
-                                                            <div className="">
-                                                                <div className="my-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-                                                                    Description
-                                                                </div>
-                                                                <Textarea
-                                                                    value={editDraft.description}
-                                                                    onChange={(event) => setEditDraft((current) => ({ ...current, description: event.target.value }))}
-                                                                    placeholder="Description"
-                                                                    className="mt-1 min-h-16 text-[11px]"
-                                                                    onClick={(event) => event.stopPropagation()}
-                                                                    onKeyDown={(event) => event.stopPropagation()}
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
-                                                                {project.description?.trim() || 'No description yet.'}
-                                                            </div>
-                                                        )}
-                                                        {isEditing && (
-                                                            <div className="mt-2">
-                                                                <div className="mb-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-                                                                    Git location
-                                                                </div>
-                                                                <div className="flex gap-1.5">
-                                                                    <Input
-                                                                        value={editDraft.gitRepoPath}
-                                                                        onChange={(event) => setEditDraft((current) => ({ ...current, gitRepoPath: event.target.value }))}
-                                                                        placeholder="Repository path"
-                                                                        className="h-8 text-[11px]"
-                                                                        onClick={(event) => event.stopPropagation()}
-                                                                        onKeyDown={(event) => event.stopPropagation()}
-                                                                    />
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="h-8 px-2"
-                                                                        title="Browse folder"
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            onBrowseRepoPath();
-                                                                        }}
-                                                                    >
-                                                                        <FolderOpen size={13} />
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                        <div className="truncate text-[13px] font-semibold text-foreground">{project.name}</div>
+                                                        <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                                                            {project.description?.trim() || 'No description yet.'}
+                                                        </div>
                                                     </div>
 
                                                     <div className="flex min-h-18 shrink-0 flex-col items-end justify-between">
@@ -375,83 +281,49 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                         className={cn(
                                                             'flex items-center gap-1 opacity-0 transition-opacity',
                                                             'group-hover:opacity-100 group-focus-within:opacity-100',
-                                                            isEditing ? 'opacity-100' : '',
                                                             isDeleting ? 'opacity-100' : '',
                                                         )}
                                                     >
-                                                        {isEditing ? (
-                                                            <>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 px-2 text-[11px]"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onCancelEdit();
-                                                                    }}
-                                                                    disabled={isSavingEdit}
-                                                                >
-                                                                    <X size={13} className="mr-1" />
-                                                                    Cancel
-                                                                </Button>
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="sm"
-                                                                    className="h-8 px-2 text-[11px]"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onSaveEdit(project);
-                                                                    }}
-                                                                    disabled={isSavingEdit || !editDraft.name.trim()}
-                                                                >
-                                                                    {isSavingEdit ? <Spinner size={11} className="mr-1" /> : <Save size={13} className="mr-1" />}
-                                                                    Save
-                                                                </Button>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-7 px-2 text-[11px]"
-                                                                    title="Edit project"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onStartEdit(project);
-                                                                    }}
-                                                                >
-                                                                    <Pencil size={12} />
-                                                                </Button>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-7 px-2 text-[11px]"
-                                                                    title="Open in file explorer"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onOpenProjectInExplorer(project);
-                                                                    }}
-                                                                >
-                                                                    <FolderOpen size={12} />
-                                                                </Button>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-7 px-2 text-[11px] text-destructive hover:text-destructive"
-                                                                    title="Delete project"
-                                                                    onClick={(event) => {
-                                                                        event.stopPropagation();
-                                                                        onRequestDelete(project);
-                                                                    }}
-                                                                    disabled={isDeleting}
-                                                                >
-                                                                    {isDeleting ? <Spinner size={11} /> : <Trash2 size={12} />}
-                                                                </Button>
-                                                            </>
-                                                        )}
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 px-2 text-[11px]"
+                                                            title="Edit project"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                onStartEdit(project);
+                                                            }}
+                                                        >
+                                                            <Pencil size={12} />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 px-2 text-[11px]"
+                                                            title="Open in file explorer"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                onOpenProjectInExplorer(project);
+                                                            }}
+                                                        >
+                                                            <FolderOpen size={12} />
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 px-2 text-[11px] text-destructive hover:text-destructive"
+                                                            title="Delete project"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                onRequestDelete(project);
+                                                            }}
+                                                            disabled={isDeleting}
+                                                        >
+                                                            {isDeleting ? <Spinner size={11} /> : <Trash2 size={12} />}
+                                                        </Button>
                                                     </div>
                                                 </div>
 

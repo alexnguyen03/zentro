@@ -314,10 +314,10 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
   },
   {
     id: 'connection.openEnvironmentSwitcher',
-    label: 'Switch Environment / Connection',
+    label: 'Open Project Hub',
     category: 'Connection',
-    defaultBinding: 'Ctrl+Shift+C',
-    action: () => { emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER); },
+    defaultBinding: 'Ctrl+P',
+    action: () => { emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); },
   },
   {
     id: 'connection.switchEnvLocal',

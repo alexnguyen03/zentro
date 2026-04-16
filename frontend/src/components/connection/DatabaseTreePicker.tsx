@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, Server, Database, Pencil, Plus, Search, Trash2, Upload, X, Download } from 'lucide-react';
+import { ChevronRight, ChevronDown, Database, Pencil, Plus, Search, Trash2, Upload, X, Download } from 'lucide-react';
 import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
+import { getProvider } from '../../lib/providers';
 import { Button, Input, Spinner } from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
@@ -228,7 +229,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             }}
                             placeholder="Filter connections or databases..."
                             className="w-full  pr-2 pl-7 placeholder:text-muted-foreground/70"
-                            />
+                        />
                     </div>
                     {filter && (
                         <Button
@@ -254,20 +255,20 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 importing || importDisabled
                                     ? 'cursor-not-allowed opacity-55'
                                     : 'cursor-pointer hover:border-border/80 hover:bg-background hover:text-foreground',
-                                )}
-                                title={importDisabled ? 'Import disabled in this context' : 'Import connection package'}
-                                >
+                            )}
+                            title={importDisabled ? 'Import disabled in this context' : 'Import connection package'}
+                        >
                             {importing ? <Spinner size={13} /> : <Download size={14} />}
                         </Button>
                     )}
                     {onAddNew && (
                         <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={onAddNew}
-                        className="h-8 w-8 border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
-                        title="Add new connection"
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onAddNew}
+                            className="h-8 w-8 border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+                            title="Add new connection"
                         >
                             <Plus size={14} />
                         </Button>
@@ -293,6 +294,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                         const hostLabel = node.profile.host
                             ? `${node.profile.host}${node.profile.port ? `:${node.profile.port}` : ''}`
                             : '';
+                        const provider = getProvider(node.profile.driver || '');
                         return (
                             <div key={name} className="mb-1">
                                 <div className="group relative">
@@ -314,12 +316,11 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                             ) : (
                                                 <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
                                             )}
-                                            <Server
-                                                size={13}
-                                                className={cn(
-                                                    'shrink-0',
-                                                    profileSelected || connectionMatched ? 'text-accent' : 'text-success',
-                                                )}
+                                            <img
+                                                src={provider.icon}
+                                                alt={provider.label}
+                                                className="h-5 w-5 shrink-0 object-contain"
+                                                title={provider.label}
                                             />
                                             <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
                                                 {name}
@@ -327,24 +328,20 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                             {node.loadingDatabases && <Spinner size={12} className="shrink-0 text-muted-foreground" />}
                                         </div>
                                         <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
-                                            <span className="truncate">{node.profile.driver || 'unknown driver'}</span>
                                             {hostLabel && (
-                                                <>
-                                                    <span className="opacity-65">|</span>
-                                                    <span className="truncate">{hostLabel}</span>
-                                                </>
+                                                <span className="truncate">{hostLabel}</span>
                                             )}
                                         </div>
                                     </Button>
 
                                     {(onEditConnection || onDeleteConnection) && (
-                                        <div className="pointer-events-none absolute top-2 right-2 flex items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                                        <div className="pointer-events-none absolute top-1 right-2 flex items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
                                             {onEditConnection && (
                                                 <Button
                                                     type="button"
-                                                    variant="outline"
+                                                    variant="ghost"
                                                     size="icon"
-                                                    className="pointer-events-auto h-6 w-6 border-border/45 bg-background/70 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+                                                    className="pointer-events-auto h-6 w-6 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
                                                     title={`Edit ${name}`}
                                                     onClick={(event) => handleEditConnection(event, node.profile)}
                                                 >
@@ -354,9 +351,9 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                             {onDeleteConnection && (
                                                 <Button
                                                     type="button"
-                                                    variant="outline"
+                                                    variant="ghost"
                                                     size="icon"
-                                                    className="pointer-events-auto h-6 w-6 border-border/45 bg-background/70 text-muted-foreground hover:border-destructive/50 hover:bg-destructive/12 hover:text-destructive"
+                                                    className="pointer-events-auto h-6 w-6 text-muted-foreground hover:border-destructive/50 hover:bg-destructive/12 hover:text-destructive"
                                                     title={`Delete ${name}`}
                                                     onClick={(event) => handleDeleteConnection(event, node.profile)}
                                                     disabled={deletingConnectionName === name}

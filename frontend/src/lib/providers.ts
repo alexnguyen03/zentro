@@ -1,5 +1,5 @@
 import PostgresLogo from '../assets/images/postgresql-logo-svgrepo-com.svg';
-import SqlServerLogo from '../assets/images/microsoft-sql-server-logo-svgrepo-com.svg';
+import SqlServerLogo from '../assets/images/sql-server.svg';
 import MySqlLogo from '../assets/images/mysql-logo-svgrepo-com.svg';
 import SqliteLogo from '../assets/images/sqlite-svgrepo-com.svg';
 import { DRIVER } from './constants';

@@ -6,6 +6,7 @@ import { QueryTabs } from './components/editor/QueryTabs';
 import { useConnectionStore } from './stores/connectionStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useProjectStore } from './stores/projectStore';
+import { useEnvironmentStore } from './stores/environmentStore';
 import { useToast } from './components/layout/Toast';
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
@@ -13,7 +14,7 @@ import { ContextSearchDialog } from './components/layout/ContextSearchDialog';
 import { QueryCompareModal } from './components/editor/QueryCompareModal';
 import { ProjectHub } from './components/layout/ProjectHub';
 import { ConfirmationModal } from './components/ui/ConfirmationModal';
-import { DOM_EVENT } from './lib/constants';
+import { DOM_EVENT, type ProjectHubLaunchIntent } from './lib/constants';
 import { emitCommand, onCommand } from './lib/commandBus';
 import { Disconnect } from './services/connectionService';
 import { Button } from './components/ui';
@@ -31,12 +32,14 @@ function App() {
     const activeProject = useProjectStore((state) => state.activeProject);
     const projects = useProjectStore((state) => state.projects);
     const openProject = useProjectStore((state) => state.openProject);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
 
     const [showForceQuitConfirm, setShowForceQuitConfirm] = useState(false);
     const [showCompareModal, setShowCompareModal] = useState(false);
     const [showProjectHub, setShowProjectHub] = useState(false);
+    const [projectHubLaunchIntent, setProjectHubLaunchIntent] = useState<ProjectHubLaunchIntent | undefined>(undefined);
     const [showContextSearch, setShowContextSearch] = useState(false);
 
     const { sidebarWidth, startResizing } = useSidebarResize();
@@ -54,9 +57,31 @@ function App() {
     }, []);
 
     useEffect(() => {
-        const off = onCommand(DOM_EVENT.OPEN_PROJECT_HUB, () => setShowProjectHub(true));
+        const off = onCommand(DOM_EVENT.OPEN_PROJECT_HUB, (intent) => {
+            setProjectHubLaunchIntent(intent);
+            setShowProjectHub(true);
+        });
         return off;
     }, []);
+
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, () => {
+            if (!activeProject?.id) {
+                setProjectHubLaunchIntent(undefined);
+                setShowProjectHub(true);
+                return;
+            }
+            setProjectHubLaunchIntent({
+                surface: 'wizard',
+                wizardMode: 'edit',
+                launchContext: 'env-config',
+                projectId: activeProject.id,
+                initialEnvironmentKey: activeEnvironmentKey || activeProject.default_environment_key,
+            });
+            setShowProjectHub(true);
+        });
+        return off;
+    }, [activeEnvironmentKey, activeProject?.default_environment_key, activeProject?.id]);
 
     useEffect(() => {
         const off = onCommand(DOM_EVENT.OPEN_CONTEXT_SEARCH, () => setShowContextSearch(true));
@@ -93,7 +118,16 @@ function App() {
             {showCommandPalette && <CommandPalette />}
             {showContextSearch && <ContextSearchDialog onClose={() => setShowContextSearch(false)} />}
             {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
-            {showProjectHub && <ProjectHub overlay onClose={() => setShowProjectHub(false)} />}
+            {showProjectHub && (
+                <ProjectHub
+                    overlay
+                    launchIntent={projectHubLaunchIntent}
+                    onClose={() => {
+                        setShowProjectHub(false);
+                        setProjectHubLaunchIntent(undefined);
+                    }}
+                />
+            )}
             <ConfirmationModal
                 isOpen={showForceQuitConfirm}
                 onClose={() => setShowForceQuitConfirm(false)}
@@ -129,7 +163,7 @@ function App() {
                                     onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
                                     className="h-auto px-0 py-0 text-accent font-semibold"
                                 >
-                                    Switch env
+                                    Configure env
                                 </Button>
                             </div>
                         )}

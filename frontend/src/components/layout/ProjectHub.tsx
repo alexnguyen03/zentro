@@ -8,9 +8,10 @@ import { useToast } from './Toast';
 import { buildTagsWithProjectIcon, getProjectIconKey, sortProjects, type ProjectIconKey } from './projectHubMeta';
 import { ProjectWizard } from './project/ProjectWizard';
 import { GetDefaultProjectStorageRoot, OpenDirectoryInExplorer, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
-import type { Project } from '../../types/project';
+import type { Project, EnvironmentKey } from '../../types/project';
 import { PanelFrame } from './PanelFrame';
-import { ProjectHubEntryScreen, type EditDraft } from './project/ProjectHubEntryScreen';
+import { ProjectHubEntryScreen } from './project/ProjectHubEntryScreen';
+import { ENVIRONMENT_KEY, type ProjectHubLaunchContext, type ProjectHubLaunchIntent, type ProjectWizardMode } from '../../lib/constants';
 
 type Surface = 'entry' | 'wizard';
 
@@ -18,9 +19,26 @@ interface ProjectHubProps {
     overlay?: boolean;
     startupMode?: boolean;
     onClose?: () => void;
+    launchIntent?: ProjectHubLaunchIntent;
 }
 
-export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startupMode = false, onClose }) => {
+interface WizardState {
+    mode: ProjectWizardMode;
+    projectId: string | null;
+    initialEnvironmentKey: EnvironmentKey;
+    launchContext: ProjectHubLaunchContext;
+}
+
+function resolveDefaultEnvironment(project?: Project | null): EnvironmentKey {
+    return (project?.last_active_environment_key || project?.default_environment_key || ENVIRONMENT_KEY.LOCAL) as EnvironmentKey;
+}
+
+export const ProjectHub: React.FC<ProjectHubProps> = ({
+    overlay = false,
+    startupMode = false,
+    onClose,
+    launchIntent,
+}) => {
     const { projects, isLoading, error, openProject, saveProject, deleteProject, activeProject } = useProjectStore();
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const { toast } = useToast();
@@ -30,18 +48,17 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
     const [openingProjectId, setOpeningProjectId] = React.useState<string | null>(null);
     const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
     const [projectToDelete, setProjectToDelete] = React.useState<Project | null>(null);
-    const [editingProjectId, setEditingProjectId] = React.useState<string | null>(null);
-    const [isSavingEdit, setIsSavingEdit] = React.useState(false);
     const [iconUpdatingProjectId, setIconUpdatingProjectId] = React.useState<string | null>(null);
     const [openingFolder, setOpeningFolder] = React.useState(false);
-    const [editDraft, setEditDraft] = React.useState<EditDraft>({
-        name: '',
-        description: '',
-        iconKey: 'general',
-        gitRepoPath: '',
+    const [wizardState, setWizardState] = React.useState<WizardState>({
+        mode: 'create',
+        projectId: null,
+        initialEnvironmentKey: resolveDefaultEnvironment(activeProject),
+        launchContext: 'default',
     });
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
+    const projectsById = React.useMemo(() => new Map(sortedProjects.map((project) => [project.id, project])), [sortedProjects]);
     const visibleProjects = React.useMemo(() => {
         const keyword = searchQuery.trim().toLowerCase();
         if (!keyword) return sortedProjects;
@@ -52,6 +69,39 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             return haystack.includes(keyword);
         });
     }, [searchQuery, sortedProjects]);
+
+    React.useEffect(() => {
+        if (!launchIntent) {
+            setSurface('entry');
+            setWizardState((prev) => ({
+                ...prev,
+                mode: 'create',
+                projectId: null,
+                launchContext: 'default',
+                initialEnvironmentKey: resolveDefaultEnvironment(activeProject),
+            }));
+            return;
+        }
+
+        const requestedSurface = launchIntent.surface || (launchIntent.wizardMode ? 'wizard' : 'entry');
+        if (requestedSurface === 'entry') {
+            setSurface('entry');
+            return;
+        }
+
+        const mode = launchIntent.wizardMode || 'create';
+        const targetProjectId = mode === 'edit'
+            ? (launchIntent.projectId || activeProject?.id || null)
+            : null;
+
+        setWizardState({
+            mode,
+            projectId: targetProjectId,
+            launchContext: launchIntent.launchContext || 'default',
+            initialEnvironmentKey: (launchIntent.initialEnvironmentKey || resolveDefaultEnvironment(activeProject)) as EnvironmentKey,
+        });
+        setSurface('wizard');
+    }, [activeProject, launchIntent]);
 
     const handleOpenProject = async (projectId: string) => {
         setOpeningProjectId(projectId);
@@ -94,26 +144,25 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         }
     };
 
-    const startEditingProject = (project: Project) => {
-        setEditingProjectId(project.id);
-        setEditDraft({
-            name: project.name || '',
-            description: project.description || '',
-            iconKey: getProjectIconKey(project) as ProjectIconKey,
-            gitRepoPath: project.git_repo_path || '',
+    const startCreateProject = React.useCallback(() => {
+        setWizardState({
+            mode: 'create',
+            projectId: null,
+            launchContext: 'default',
+            initialEnvironmentKey: resolveDefaultEnvironment(activeProject),
         });
-    };
+        setSurface('wizard');
+    }, [activeProject]);
 
-    const handleBrowseRepoPath = async () => {
-        try {
-            const selected = await PickDirectory('');
-            if (selected) {
-                setEditDraft((current) => ({ ...current, gitRepoPath: selected }));
-            }
-        } catch {
-            // ignore picker error
-        }
-    };
+    const startEditingProject = React.useCallback((project: Project, context: ProjectHubLaunchContext = 'default') => {
+        setWizardState({
+            mode: 'edit',
+            projectId: project.id,
+            launchContext: context,
+            initialEnvironmentKey: resolveDefaultEnvironment(project),
+        });
+        setSurface('wizard');
+    }, []);
 
     const handleOpenProjectInExplorer = async (project: Project) => {
         const targetPath = (project.git_repo_path || project.storage_path || '').trim();
@@ -125,32 +174,6 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
             await OpenDirectoryInExplorer(targetPath);
         } catch (openError) {
             toast.error(`Could not open project folder: ${openError}`);
-        }
-    };
-
-    const handleSaveProjectEdit = async (project: Project) => {
-        const nextName = editDraft.name.trim();
-        if (!nextName) return;
-
-        setIsSavingEdit(true);
-        try {
-            const updated = await saveProject({
-                ...project,
-                name: nextName,
-                description: editDraft.description.trim(),
-                tags: buildTagsWithProjectIcon(project.tags, editDraft.iconKey),
-                git_repo_path: editDraft.gitRepoPath.trim() || undefined,
-            });
-            if (!updated) {
-                toast.error('Could not save project changes.');
-                return;
-            }
-            setEditingProjectId(null);
-            toast.success('Project updated.');
-        } catch (saveError) {
-            toast.error(`Could not save project: ${saveError}`);
-        } finally {
-            setIsSavingEdit(false);
         }
     };
 
@@ -187,11 +210,29 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
         } finally {
             setDeletingProjectId(null);
             setProjectToDelete(null);
-            if (editingProjectId === projectToDelete.id) {
-                setEditingProjectId(null);
-            }
         }
     };
+
+    const wizardProject = wizardState.projectId
+        ? (projectsById.get(wizardState.projectId) || (activeProject?.id === wizardState.projectId ? activeProject : null))
+        : null;
+
+    const handleWizardClose = React.useCallback(() => {
+        if (wizardState.launchContext === 'env-config') {
+            onClose?.();
+            if (!onClose) setSurface('entry');
+            return;
+        }
+        setSurface('entry');
+    }, [onClose, wizardState.launchContext]);
+
+    const handleWizardDone = React.useCallback(() => {
+        if (onClose) {
+            onClose();
+            return;
+        }
+        setSurface('entry');
+    }, [onClose]);
 
     const content = (
         <div className={cn(
@@ -215,31 +256,19 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                             allProjectCount={sortedProjects.length}
                             isLoading={isLoading}
                             error={error}
-                            activeProjectId={activeProject?.id}
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}
                             openingProjectId={openingProjectId}
                             deletingProjectId={deletingProjectId}
-                            editingProjectId={editingProjectId}
-                            isSavingEdit={isSavingEdit}
                             openingFolder={openingFolder}
-                            editDraft={editDraft}
-                            setEditDraft={setEditDraft}
                             onOpenProject={(projectId) => {
                                 void handleOpenProject(projectId);
                             }}
-                            onStartCreate={() => setSurface('wizard')}
+                            onStartCreate={startCreateProject}
                             onOpenProjectFolder={() => {
                                 void handleOpenProjectFolder();
                             }}
-                            onStartEdit={startEditingProject}
-                            onCancelEdit={() => setEditingProjectId(null)}
-                            onSaveEdit={(project) => {
-                                void handleSaveProjectEdit(project);
-                            }}
-                            onBrowseRepoPath={() => {
-                                void handleBrowseRepoPath();
-                            }}
+                            onStartEdit={(project) => startEditingProject(project, 'default')}
                             onOpenProjectInExplorer={(project) => {
                                 void handleOpenProjectInExplorer(project);
                             }}
@@ -253,9 +282,13 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({ overlay = false, startup
                 </div>
             ) : (
                 <ProjectWizard
+                    mode={wizardState.mode}
+                    launchContext={wizardState.launchContext}
+                    project={wizardProject || undefined}
+                    initialEnvironmentKey={wizardState.initialEnvironmentKey}
                     overlay={overlay}
-                    onClose={overlay ? () => setSurface('entry') : undefined}
-                    onDone={() => onClose?.()}
+                    onClose={handleWizardClose}
+                    onDone={handleWizardDone}
                 />
             )}
             <ConfirmationModal
