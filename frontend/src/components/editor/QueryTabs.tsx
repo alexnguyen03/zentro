@@ -467,7 +467,7 @@ export const QueryTabs: React.FC = () => {
                                     })}
                                 </div>
                             )}
-                            <div className="flex-1 overflow-hidden relative">
+                            <div className="flex-1 overflow-hidden relative bg-card/40">
                                 <ResultPanel
                                     tabId={currentResultTabId ?? ''}
                                     contextTabId={globalActiveTabId || undefined}

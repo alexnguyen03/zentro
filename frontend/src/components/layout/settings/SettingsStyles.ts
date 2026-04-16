@@ -1,5 +1,5 @@
 export const SettingsClasses = {
-    section: 'ui-panel ui-form mt-4 first:mt-0 bg-card/40',
+    section: 'ui-panel rounded-sm ui-form mt-4 first:mt-0 bg-card/80',
     sectionInfo: 'ui-form-row',
     sectionContent: 'ui-form',
     sectionTitle: 'ui-text-section text-foreground',

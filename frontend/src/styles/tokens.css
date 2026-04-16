@@ -210,9 +210,9 @@
     --elevation-lg: 0 6px 18px rgb(16 28 46 / 14%), 0 28px 56px rgb(16 28 46 / 16%);
 
     /* shadcn/ui semantic contract (light override) */
-    --background: var(--surface-app);
+    --background: var(--primitive-neutral-0);
     --foreground: var(--content-primary);
-    --card: var(--surface-panel);
+    --card: var(--surface-app);
     --card-foreground: var(--content-primary);
     --popover: var(--surface-overlay-card);
     --popover-foreground: var(--content-primary);

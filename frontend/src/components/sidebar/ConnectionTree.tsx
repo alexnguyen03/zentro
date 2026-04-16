@@ -206,7 +206,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group h-6 flex bg-card/10 items-center gap-1 px-1.5 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    'group h-6 flex bg-card items-center gap-1 px-1.5 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
                     expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none px-2',
                 )}
                 onClick={(event) => {
