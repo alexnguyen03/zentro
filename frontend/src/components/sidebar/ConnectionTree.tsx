@@ -90,9 +90,11 @@ interface SchemaBucketNodeViewProps {
     category: CategoryGroupNode;
     driver: string;
     expanded: boolean;
+    selectedObjectKey: string | null;
     readOnlyMode: boolean;
     onToggle: () => void;
     onCreateTable: (schemaName: string) => void;
+    onSelectObject: (schemaName: string, objectName: string, categoryKey: string) => void;
     onOpenDefinition: (schemaName: string, objectName: string) => void;
     onDropObject: (schema: string, objectName: string, objectType: 'TABLE' | 'VIEW', cascade: boolean) => Promise<void>;
     onTruncateTable: (schema: string, tableName: string, cascade: boolean, restartIdentity: boolean) => Promise<void>;
@@ -105,9 +107,11 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
     category,
     driver,
     expanded,
+    selectedObjectKey,
     readOnlyMode,
     onToggle,
     onCreateTable,
+    onSelectObject,
     onOpenDefinition,
     onDropObject,
     onTruncateTable,
@@ -245,10 +249,12 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             key={`${item.id}:${index}`}
                             className={cn(
                                 'flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-sm transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
+                                selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
                                 category.canOpenDefinition && 'cursor-pointer',
                             )}
                             onClick={() => {
                                 if (!category.canOpenDefinition) return;
+                                onSelectObject(item.schemaName, item.name, category.key);
                                 onOpenDefinition(item.schemaName, item.name);
                             }}
                             onContextMenu={(event) => handleContextMenu(event, item.id)}
@@ -403,6 +409,7 @@ export const ConnectionTree: React.FC = () => {
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
     const [explorerUiState, setExplorerUiState] = useSidebarPanelState('primary', 'explorer', EXPLORER_PANEL_STATE_DEFAULT);
+    const [selectedObjectKey, setSelectedObjectKey] = useState<string | null>(null);
     const filter = explorerUiState.filter;
     const fuzzyMatch = explorerUiState.fuzzyMatch;
     const activeCategoryKey = explorerUiState.activeCategoryKey;
@@ -519,6 +526,10 @@ export const ConnectionTree: React.FC = () => {
             query: '',
         });
     };
+
+    const handleSelectObject = useCallback((schemaName: string, objectName: string, categoryKey: string) => {
+        setSelectedObjectKey(`${categoryKey}:${schemaName}.${objectName}`);
+    }, []);
 
     const handleCreateTable = useCallback((schemaName: string) => {
         const defaultTableName = 'new_table';
@@ -708,9 +719,11 @@ export const ConnectionTree: React.FC = () => {
                                     category={activeCategory}
                                     driver={activeProfile.driver || ''}
                                     expanded={isSchemaExpanded(activeCategory.key, bucket.schemaName)}
+                                    selectedObjectKey={selectedObjectKey}
                                     readOnlyMode={viewMode}
                                     onToggle={() => toggleSchema(activeCategory.key, bucket.schemaName)}
                                     onCreateTable={handleCreateTable}
+                                    onSelectObject={handleSelectObject}
                                     onOpenDefinition={handleOpenDefinition}
                                     onDropObject={handleDropObject}
                                     onTruncateTable={handleTruncateTable}

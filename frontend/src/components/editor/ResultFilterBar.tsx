@@ -116,9 +116,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
             editorRef.current = null;
             monacoRef.current = null;
         };
-    // modelPath is stable per component instance (depends only on tableName which
-    // doesn't change during the lifetime of a keyed ResultFilterBar mount)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // modelPath is stable per component instance (depends only on tableName which
+        // doesn't change during the lifetime of a keyed ResultFilterBar mount)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -324,13 +324,13 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     return (
         <div className="flex items-center gap-1 shrink-0 relative py-1">
             {showFilterInput && (
-                <div className="flex items-center w-full min-w-0 gap-2">
+                <div className="flex items-center w-full min-w-0 gap-1">
                     <div className={cn(
-                        'flex items-center min-w-0 bg-card px-2 rounded-sm',
+                        'flex items-center min-w-0 border border-border/30 rounded-sm',
                         children ? 'flex-4' : 'flex-1',
                     )}>
                         <div
-                            className="relative flex items-center"
+                            className="relative p-1 px-2 h-full flex items-center bg-card"
                             onMouseEnter={() => {
                                 tooltipTimeout.current && clearTimeout(tooltipTimeout.current);
                                 setShowTooltip(true);
@@ -449,22 +449,15 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     </div>
 
                     <div className={cn(
-                        'flex items-center min-w-0 bg-card rounded-sm',
+                        'flex items-center min-w-0 rounded-sm border border-border/30',
                         children ? 'flex-[4]' : 'flex-1',
                     )}>
-                        <span className="text-[11px] uppercase ml-2 font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
-                            ORDER BY
-                        </span>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                        <span
                             title={orderInputMode === 'chips' ? 'Switch to text mode' : 'Switch to chip mode'}
                             onClick={toggleOrderInputMode}
-                        >
-                            <ArrowLeftRight size={12} />
-                        </Button>
+                            className="text-[11px] uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors p-1 px-2 h-full flex items-center bg-card">
+                            ORDER BY
+                        </span>
                         {orderInputMode === 'chips' ? (
                             <>
                                 {orderTerms.length > 0 && (
