@@ -94,6 +94,16 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const onActionsChangeRef = useRef<IndexInfoViewProps['onActionsChange']>(onActionsChange);
+    const onDirtyCountChangeRef = useRef<IndexInfoViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        onActionsChangeRef.current = onActionsChange;
+    }, [onActionsChange]);
+
+    useEffect(() => {
+        onDirtyCountChangeRef.current = onDirtyCountChange;
+    }, [onDirtyCountChange]);
 
     // ── Load ───────────────────────────────────────────────────────────────────
 
@@ -117,7 +127,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     // ── Dirty tracking ────────────────────────────────────────────────────────
 
     const dirtyCount = useMemo(() => getDirtyCount(rows), [rows]);
-    useEffect(() => { onDirtyCountChange?.(dirtyCount); }, [dirtyCount, onDirtyCountChange]);
+    useEffect(() => { onDirtyCountChangeRef.current?.(dirtyCount); }, [dirtyCount]);
 
     // ── Row mutations ─────────────────────────────────────────────────────────
 
@@ -375,8 +385,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     }, [hasChanges, readOnlyMode, saving, selectedRows.size, saveAll, addNewRow, discardAll, toggleDeleteRows]);
 
     useEffect(() => {
-        onActionsChange?.(panelActions);
-    }, [onActionsChange, panelActions]);
+        onActionsChangeRef.current?.(panelActions);
+    }, [panelActions]);
 
     // ── Filter ────────────────────────────────────────────────────────────────
 

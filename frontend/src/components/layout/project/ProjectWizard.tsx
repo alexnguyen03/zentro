@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, Download, FolderOpen } from 'lucide-react';
+import { AlertTriangle, ChevronRight, CircleHelp, Download, FolderOpen } from 'lucide-react';
 import {
     DeleteConnection,
     Disconnect,
@@ -53,7 +53,12 @@ interface WizardDraft {
     description: string;
     iconKey: ProjectIconKey;
     starterEnv: EnvironmentKey;
-    gitRepoPath: string;
+}
+
+interface DraftEnvironmentBinding {
+    profile: ConnectionProfile;
+    profileName: string;
+    database: string;
 }
 
 function slugifyProjectName(value: string): string {
@@ -84,6 +89,10 @@ function joinPath(parent: string, child: string): string {
     const separator = base.includes('\\') ? '\\' : '/';
     const normalized = base.replace(/[\\/]+$/, '');
     return `${normalized}${separator}${child}`;
+}
+
+function normalizePathForCompare(value: string): string {
+    return value.trim().replace(/[\\/]+/g, '\\').replace(/\\+$/, '').toLowerCase();
 }
 
 function resolveDefaultEnvironment(project?: Project): EnvironmentKey {
@@ -175,8 +184,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
 }) => {
     const createProject = useProjectStore((s) => s.createProject);
     const saveProject = useProjectStore((s) => s.saveProject);
-    const bindEnvironmentConnection = useProjectStore((s) => s.bindEnvironmentConnection);
-    const setProjectEnvironment = useProjectStore((s) => s.setProjectEnvironment);
+    const projects = useProjectStore((s) => s.projects);
     const setActiveProject = useProjectStore((s) => s.setActiveProject);
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
@@ -189,7 +197,6 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         description: '',
         iconKey: 'general',
         starterEnv: ENVIRONMENT_KEY.LOCAL,
-        gitRepoPath: '',
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
     const [selectedProfile, setSelectedProfile] = React.useState<ConnectionProfile | null>(null);
@@ -212,6 +219,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     const [pendingDeleteProfile, setPendingDeleteProfile] = React.useState<ConnectionProfile | null>(null);
     const [deletingConnectionName, setDeletingConnectionName] = React.useState<string | null>(null);
     const [submitIntent, setSubmitIntent] = React.useState<SubmitIntent | null>(null);
+    const [draftEnvironmentBindings, setDraftEnvironmentBindings] = React.useState<Partial<Record<EnvironmentKey, DraftEnvironmentBinding>>>({});
 
     React.useEffect(() => {
         let cancelled = false;
@@ -251,8 +259,12 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     }, [toast]);
 
     React.useEffect(() => {
+        if (!isEditMode) {
+            setConnections([]);
+            return;
+        }
         void loadConnections();
-    }, [loadConnections]);
+    }, [isEditMode, loadConnections]);
 
     React.useEffect(() => {
         if (isEditMode && project) {
@@ -263,37 +275,44 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                 description: project.description || '',
                 iconKey: getProjectIconKey(project),
                 starterEnv: nextEnv,
-                gitRepoPath: project.git_repo_path || '',
             });
             setStoragePath(project.storage_path || '');
             setSelectedProfileName(boundConnection?.advanced_meta?.profile_name || boundConnection?.name || null);
             setSelectedDatabase(boundConnection?.database || '');
+            setDraftEnvironmentBindings({});
         } else {
             setDraft({
                 name: '',
                 description: '',
                 iconKey: 'general',
                 starterEnv: initialEnvironmentKey || ENVIRONMENT_KEY.LOCAL,
-                gitRepoPath: '',
             });
             setStoragePath('');
             setSelectedProfileName(null);
             setSelectedDatabase('');
             setSelectedProfile(null);
+            setDraftEnvironmentBindings({});
         }
 
-        setConnectionMode('existing');
-        setIsSelectingProvider(false);
+        setConnectionMode(isEditMode ? 'existing' : 'new');
+        setIsSelectingProvider(!isEditMode);
         setProviderFilter('');
         setEditingProfile(null);
     }, [initialEnvironmentKey, isEditMode, project]);
 
     React.useEffect(() => {
-        if (!isEditMode || !project) return;
-        const boundConnection = (project.connections || []).find((connection) => connection.environment_key === draft.starterEnv);
-        setSelectedProfileName(boundConnection?.advanced_meta?.profile_name || boundConnection?.name || null);
-        setSelectedDatabase(boundConnection?.database || '');
-    }, [draft.starterEnv, isEditMode, project]);
+        if (isEditMode) {
+            if (!project) return;
+            const boundConnection = (project.connections || []).find((connection) => connection.environment_key === draft.starterEnv);
+            setSelectedProfileName(boundConnection?.advanced_meta?.profile_name || boundConnection?.name || null);
+            setSelectedDatabase(boundConnection?.database || '');
+            return;
+        }
+        const binding = draftEnvironmentBindings[draft.starterEnv];
+        setSelectedProfile(binding?.profile || null);
+        setSelectedProfileName(binding?.profileName || null);
+        setSelectedDatabase(binding?.database || '');
+    }, [draft.starterEnv, draftEnvironmentBindings, isEditMode, project]);
 
     React.useEffect(() => {
         if (!selectedProfileName) {
@@ -319,10 +338,31 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         existingNames,
         onSaved: async () => {
             const savedName = form.formData.name || '';
-            const refreshed = await loadConnections();
-            const matched = refreshed.find((connection) => connection.name === savedName) || null;
-            setSelectedProfile(matched || (form.formData as ConnectionProfile));
-            setSelectedProfileName(savedName || null);
+            if (isEditMode) {
+                const refreshed = await loadConnections();
+                const matched = refreshed.find((connection) => connection.name === savedName) || null;
+                setSelectedProfile(matched || (form.formData as ConnectionProfile));
+                setSelectedProfileName(savedName || null);
+            } else {
+                const savedProfile = form.formData as ConnectionProfile;
+                setConnections((current) => {
+                    const withoutOld = current.filter((connection) => connection.name !== savedProfile.name);
+                    return [...withoutOld, savedProfile];
+                });
+                setSelectedProfile(savedProfile);
+                setSelectedProfileName(savedName || null);
+                const defaultDb = (savedProfile.db_name || '').trim();
+                if (savedName && defaultDb) {
+                    setDraftEnvironmentBindings((current) => ({
+                        ...current,
+                        [draft.starterEnv]: {
+                            profile: savedProfile,
+                            profileName: savedName,
+                            database: defaultDb,
+                        },
+                    }));
+                }
+            }
             if (form.formData.db_name) {
                 setSelectedDatabase(form.formData.db_name);
             }
@@ -389,8 +429,18 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         setSelectedProfile(profile);
         setSelectedProfileName(profile.name || null);
         setSelectedDatabase(database);
+        if (!isEditMode && profile.name) {
+            setDraftEnvironmentBindings((current) => ({
+                ...current,
+                [draft.starterEnv]: {
+                    profile,
+                    profileName: profile.name || '',
+                    database,
+                },
+            }));
+        }
         void handleAutoBindFromTree(profile, database);
-    }, [handleAutoBindFromTree]);
+    }, [draft.starterEnv, handleAutoBindFromTree, isEditMode]);
 
     const handlePickStorageFolder = React.useCallback(async () => {
         try {
@@ -413,11 +463,29 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
             const imported = await ImportConnectionPackage();
             if (!imported) return;
             const importedProfile = imported as ConnectionProfile;
-            const refreshed = await loadConnections();
-            const matched = refreshed.find((connection) => connection.name === importedProfile.name) || importedProfile;
+            let matched = importedProfile;
+            if (isEditMode) {
+                const refreshed = await loadConnections();
+                matched = refreshed.find((connection) => connection.name === importedProfile.name) || importedProfile;
+            } else {
+                setConnections((current) => {
+                    const withoutOld = current.filter((connection) => connection.name !== importedProfile.name);
+                    return [...withoutOld, importedProfile];
+                });
+            }
             setSelectedProfile(matched);
             setSelectedProfileName(matched.name || null);
             setSelectedDatabase(matched.db_name || '');
+            if (!isEditMode && matched.name && matched.db_name) {
+                setDraftEnvironmentBindings((current) => ({
+                    ...current,
+                    [draft.starterEnv]: {
+                        profile: matched,
+                        profileName: matched.name,
+                        database: matched.db_name,
+                    },
+                }));
+            }
             setTreeRefreshKey((key) => key + 1);
             toast.success(`Imported connection${matched.name ? ` "${matched.name}"` : ''}.`);
         } catch (error) {
@@ -425,7 +493,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         } finally {
             setImportingConnection(false);
         }
-    }, [loadConnections, toast]);
+    }, [draft.starterEnv, isEditMode, loadConnections, toast]);
 
     const handleImportConnectionToForm = React.useCallback(async () => {
         setImportingFormConnection(true);
@@ -451,6 +519,23 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         setIsSelectingProvider(false);
         setProviderFilter('');
     }, []);
+
+    const handleUnbindEnvironment = React.useCallback((envKey: EnvironmentKey) => {
+        if (isEditMode) {
+            return;
+        }
+
+        setDraftEnvironmentBindings((current) => {
+            const next = { ...current };
+            delete next[envKey];
+            return next;
+        });
+        if (draft.starterEnv === envKey) {
+            setSelectedProfile(null);
+            setSelectedProfileName(null);
+            setSelectedDatabase('');
+        }
+    }, [draft.starterEnv, isEditMode]);
 
     const handleRequestDeleteConnection = React.useCallback((profile: ConnectionProfile) => {
         setPendingDeleteProfile(profile);
@@ -510,22 +595,47 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         return storageParentPath.trim() ? joinPath(storageParentPath, slug) : '';
     }, [draft.name, isEditMode, storageParentPath, storagePath]);
 
+    const pathConflictProject = React.useMemo(() => {
+        const preview = storagePathPreview.trim();
+        if (!preview) return null;
+        const normalizedPreview = normalizePathForCompare(preview);
+        return projects.find((item) => (
+            item.id !== project?.id
+            && item.storage_path
+            && normalizePathForCompare(item.storage_path) === normalizedPreview
+        )) || null;
+    }, [project?.id, projects, storagePathPreview]);
+
     const environmentBindings = React.useMemo(() => {
         const bindings = new Map<EnvironmentKey, { profileName: string; database: string }>();
-        (project?.connections || []).forEach((connection) => {
-            const envKey = connection.environment_key as EnvironmentKey;
+        if (isEditMode) {
+            (project?.connections || []).forEach((connection) => {
+                const envKey = connection.environment_key as EnvironmentKey;
+                bindings.set(envKey, {
+                    profileName: (connection.advanced_meta?.profile_name || connection.name || '').trim(),
+                    database: (connection.database || '').trim(),
+                });
+            });
+        }
+        ENVIRONMENT_KEYS.forEach((envKey) => {
+            const binding = draftEnvironmentBindings[envKey];
+            if (!binding) return;
             bindings.set(envKey, {
-                profileName: (connection.advanced_meta?.profile_name || connection.name || '').trim(),
-                database: (connection.database || '').trim(),
+                profileName: binding.profileName.trim(),
+                database: binding.database.trim(),
             });
         });
         return bindings;
-    }, [project]);
+    }, [draftEnvironmentBindings, isEditMode, project]);
 
-    const canSave = React.useMemo(
-        () => Boolean(draft.name.trim() && draft.starterEnv && selectedProfileName && selectedDatabase.trim()),
-        [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase],
-    );
+    const canSave = React.useMemo(() => {
+        if (!draft.name.trim() || !draft.starterEnv) return false;
+        if (isEditMode) {
+            return Boolean(selectedProfileName && selectedDatabase.trim());
+        }
+        const starterBinding = draftEnvironmentBindings[draft.starterEnv];
+        return Boolean(starterBinding?.profileName && starterBinding.database.trim());
+    }, [draft.name, draft.starterEnv, draftEnvironmentBindings, isEditMode, selectedDatabase, selectedProfileName]);
 
     const canApplyBinding = React.useMemo(
         () => Boolean(draft.starterEnv && selectedProfileName && selectedDatabase.trim()),
@@ -551,9 +661,8 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     }, [connections, loadConnections, selectedProfile, selectedProfileName]);
 
     const handleCreateAndEnter = async (closeOnSuccess = true) => {
-        const resolvedProfile = await resolveSelectedProfile();
-        if (!selectedProfileName || !resolvedProfile) {
-            toast.error('Please choose a connection profile.');
+        if (!draft.starterEnv) {
+            toast.error('Please choose a starter environment.');
             return;
         }
 
@@ -561,6 +670,19 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         setSubmitting(true);
         try {
             if (!isEditMode) {
+                const bindingEntries = ENVIRONMENT_KEYS
+                    .map((envKey) => [envKey, draftEnvironmentBindings[envKey]] as const)
+                    .filter(([, binding]) => Boolean(binding?.profileName && binding?.database.trim() && binding.profile));
+                const starterBinding = draftEnvironmentBindings[draft.starterEnv];
+                if (!starterBinding?.profileName || !starterBinding.database.trim() || !starterBinding.profile) {
+                    toast.error('Please bind a database for the starter environment.');
+                    return;
+                }
+                if (bindingEntries.length === 0) {
+                    toast.error('Please bind at least one environment database.');
+                    return;
+                }
+
                 try { await Disconnect(); } catch { /* ignore */ }
                 resetRuntime();
 
@@ -575,32 +697,32 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                     return;
                 }
 
-                let projectToBind = createdProject;
-                const gitPath = draft.gitRepoPath.trim();
-                if (gitPath) {
-                    const projectWithGit = await saveProject({
-                        ...createdProject,
-                        git_repo_path: gitPath,
-                    });
-                    if (projectWithGit) {
-                        projectToBind = projectWithGit;
-                        setActiveProject(projectWithGit);
-                    }
-                }
-
-                const dbName = selectedDatabase.trim();
-                const boundProject = await bindEnvironmentConnection(draft.starterEnv, {
-                    ...resolvedProfile,
-                    name: selectedProfileName,
-                    db_name: dbName,
+                let projectWithBindings = createdProject;
+                bindingEntries.forEach(([envKey, binding]) => {
+                    if (!binding) return;
+                    projectWithBindings = {
+                        ...projectWithBindings,
+                        ...buildBoundProjectDraft(
+                            projectWithBindings,
+                            envKey,
+                            binding.profile,
+                            binding.database.trim(),
+                            binding.profileName.trim(),
+                        ),
+                    };
                 });
-                if (!boundProject) {
+                const createdWithBinding = await saveProject({
+                    ...projectWithBindings,
+                    git_repo_path: storagePathPreview || undefined,
+                    default_environment_key: draft.starterEnv,
+                    last_active_environment_key: draft.starterEnv,
+                });
+                if (!createdWithBinding) {
                     toast.error('Could not bind starter environment.');
                     return;
                 }
 
-                const envProject = await setProjectEnvironment(draft.starterEnv);
-                setActiveProject(envProject || boundProject || projectToBind);
+                setActiveProject(createdWithBinding);
                 setActiveEnvironment(draft.starterEnv);
                 onDone();
                 return;
@@ -608,6 +730,11 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
             if (!project) {
                 toast.error('Project was not found for editing.');
+                return;
+            }
+            const resolvedProfile = await resolveSelectedProfile();
+            if (!selectedProfileName || !resolvedProfile) {
+                toast.error('Please choose a connection profile.');
                 return;
             }
 
@@ -630,7 +757,6 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                     return;
                 }
                 setActiveProject(bindingOnlySaved);
-                toast.success(`Saved ${getEnvironmentMeta(draft.starterEnv).label} binding.`);
                 return;
             }
 
@@ -639,7 +765,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                 name: draft.name.trim(),
                 description: draft.description.trim(),
                 tags: buildTagsWithProjectIcon(project.tags, draft.iconKey),
-                git_repo_path: draft.gitRepoPath.trim() || undefined,
+                git_repo_path: storagePathPreview || undefined,
                 storage_path: storagePathPreview || undefined,
                 default_environment_key: draft.starterEnv,
                 last_active_environment_key: draft.starterEnv,
@@ -792,67 +918,75 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                     className="bg-card w-full"
                                 />
                             </div>
-                            <div>
-                                <label className="mb-1 block text-[11px] font-semibold text-foreground">Git location</label>
-                                <Input
-                                    value={draft.gitRepoPath}
-                                    onChange={(e) => setDraft((current) => ({ ...current, gitRepoPath: e.target.value }))}
-                                    placeholder="Optional git repository path"
-                                    inputSize="md"
-                                    className="bg-card w-full"
-                                />
-                            </div>
                         </div>
                     </div>
 
                     <div>
-                        <div className="mb-2 text-[12px] font-semibold text-foreground">Starter environment</div>
                         <TooltipProvider delayDuration={150}>
+                            <div className="mb-2 flex items-center gap-1 text-[12px] font-semibold text-foreground">
+                                <span>Starter environment <span className="text-destructive">*</span></span>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/80 transition-colors hover:text-foreground"
+                                            aria-label="Starter environment help"
+                                        >
+                                            <CircleHelp size={12} />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="right" className="text-[11px] flex flex-col gap-1">
+                                        <span>Select an environment to bind its profile/database.</span>
+                                        <span> You can bind multiple environments before saving.</span>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
                             <div className="grid grid-cols-2 gap-2">
                                 {ENVIRONMENT_KEYS.map((envKey) => {
                                     const meta = getEnvironmentMeta(envKey);
                                     const active = draft.starterEnv === envKey;
                                     const isProduction = envKey === ENVIRONMENT_KEY.PRODUCTION;
                                     const persistedBinding = environmentBindings.get(envKey);
-                                    const previewProfile = active ? (selectedProfileName || '') : (persistedBinding?.profileName || '');
-                                    const previewDatabase = active ? selectedDatabase : (persistedBinding?.database || '');
+                                    const previewProfile = persistedBinding?.profileName || '';
+                                    const previewDatabase = persistedBinding?.database || '';
                                     const bindingSummary = [previewProfile, previewDatabase].filter(Boolean).join(' / ') || 'No binding';
                                     return (
-                                        <Tooltip key={envKey}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDraft((current) => ({ ...current, starterEnv: envKey }))}
-                                                    className={cn(
-                                                        'flex w-full items-center gap-2 rounded-sm border px-3 py-2 transition-colors',
-                                                        isProduction && 'col-span-2',
-                                                        active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40',
-                                                    )}
-                                                >
+                                        <button
+                                            key={envKey}
+                                            type="button"
+                                            onClick={() => setDraft((current) => ({ ...current, starterEnv: envKey }))}
+                                            onDoubleClick={() => {
+                                                handleUnbindEnvironment(envKey);
+                                            }}
+                                            className={cn(
+                                                'flex w-full items-center gap-2 rounded-sm border px-3 py-2 transition-colors',
+                                                isProduction && 'col-span-2',
+                                                active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40',
+                                            )}
+                                        >
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
                                                     <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>
                                                         {envKey}
                                                     </span>
-                                                    {isEditMode && (
-                                                        <span
-                                                            className={cn(
-                                                                'min-w-0 flex-1 truncate text-left text-[10px]',
-                                                                previewDatabase ? 'text-muted-foreground' : 'text-muted-foreground/70',
-                                                            )}
-                                                            title={bindingSummary}
-                                                        >
-                                                            {bindingSummary}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom" className="max-w-40 text-center">
-                                                <span className="font-semibold">{meta.label}</span>
-                                                <p className="mt-0.5 text-[11px] font-normal opacity-80">{meta.description}</p>
-                                                {isEditMode && (
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom" className="max-w-40 text-center">
+                                                    <span className="font-semibold">{meta.label}</span>
+                                                    <p className="mt-0.5 text-[11px] font-normal opacity-80">{meta.description}</p>
                                                     <p className="mt-1 text-[10px] font-medium opacity-90">{bindingSummary}</p>
+                                                    {!isEditMode && <p className="mt-1 text-[10px] font-normal opacity-70">Double click to unbind</p>}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                            <span
+                                                className={cn(
+                                                    'min-w-0 flex-1 truncate text-left text-[10px]',
+                                                    previewDatabase ? 'text-muted-foreground' : 'text-muted-foreground/70',
                                                 )}
-                                            </TooltipContent>
-                                        </Tooltip>
+                                                title={bindingSummary}
+                                            >
+                                                {bindingSummary}
+                                            </span>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -874,7 +1008,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                             )}
                         </button>
                         {showConnection && (
-                            <div className="mt-2 flex min-h-100 flex-col rounded-sm bg-background/20">
+                            <div className="mt-2 flex min-h-40 flex-col rounded-sm bg-background">
                                 {connectionMode === 'existing' ? (
                                     <div className="flex-1 overflow-hidden">
                                         <DatabaseTreePicker
@@ -882,6 +1016,8 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                             onSelect={handleSelectFromTree}
                                             selectedProfile={selectedProfileName}
                                             selectedDatabase={selectedDatabase}
+                                            connectionsOverride={!isEditMode ? connections : undefined}
+                                            disableAutoLoad={!isEditMode}
                                             onImport={handleImportConnection}
                                             importing={importingConnection}
                                             onAddNew={() => {
@@ -892,8 +1028,8 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                                 setProviderFilter('');
                                             }}
                                             onEditConnection={handleEditConnection}
-                                            onDeleteConnection={handleRequestDeleteConnection}
-                                            deletingConnectionName={deletingConnectionName}
+                                            onDeleteConnection={isEditMode ? handleRequestDeleteConnection : undefined}
+                                            deletingConnectionName={isEditMode ? deletingConnectionName : null}
                                         />
                                     </div>
                                 ) : (
@@ -1005,6 +1141,17 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                 <div className="mt-1 truncate text-[11px] text-muted-foreground" title={storagePathPreview || undefined}>
                                     {storagePathPreview || 'Project folder will use the app default location.'}
                                 </div>
+                                {pathConflictProject && (
+                                    <div
+                                        className="mt-1 flex items-start gap-1.5 text-[11px] text-amber-500"
+                                        title={`Folder is already used by project "${pathConflictProject.name}"`}
+                                    >
+                                        <AlertTriangle size={12} className="mt-[1px] shrink-0" />
+                                        <span>
+                                            Folder already exists in launcher: <span className="font-semibold">{pathConflictProject.name}</span>.
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

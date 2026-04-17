@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, ChevronDown, Database, Pencil, Plus, Search, Trash2, Upload, X, Download } from 'lucide-react';
+import { ChevronRight, ChevronDown, Database, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { LoadConnections, LoadDatabasesForProfile } from '../../services/connectionService';
 import { cn } from '../../lib/cn';
 import { getProvider } from '../../lib/providers';
@@ -10,6 +10,8 @@ interface DatabaseTreePickerProps {
     onSelect: (profile: ConnectionProfile, database: string) => void;
     selectedProfile?: string | null;
     selectedDatabase?: string;
+    connectionsOverride?: ConnectionProfile[];
+    disableAutoLoad?: boolean;
     onAddNew?: () => void;
     onImport?: () => void | Promise<void>;
     importing?: boolean;
@@ -39,6 +41,8 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     onSelect,
     selectedProfile,
     selectedDatabase,
+    connectionsOverride,
+    disableAutoLoad = false,
     onAddNew,
     onImport,
     importing = false,
@@ -51,6 +55,19 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     const [loading, setLoading] = useState(true);
     const [expandedConnections, setExpandedConnections] = useState<Set<string>>(new Set());
     const [filter, setFilter] = useState('');
+
+    const toConnectionNodes = useCallback((profiles: ConnectionProfile[], previous: ConnectionNode[] = []): ConnectionNode[] => {
+        const previousByName = new Map(previous.map((node) => [node.profile.name, node]));
+        return (profiles || []).map((profile: ConnectionProfile) => {
+            const existing = profile.name ? previousByName.get(profile.name) : undefined;
+            return {
+                profile,
+                databases: existing?.databases || [],
+                loadingDatabases: false,
+                databasesLoaded: existing?.databasesLoaded || false,
+            };
+        });
+    }, []);
 
     const loadDatabasesForConnection = useCallback(async (name: string) => {
         if (!name) return;
@@ -99,6 +116,17 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
     }, [connections]);
 
     useEffect(() => {
+        if (connectionsOverride) {
+            setConnections((prev) => toConnectionNodes(connectionsOverride, prev));
+            setLoading(false);
+            return;
+        }
+        if (disableAutoLoad) {
+            setConnections([]);
+            setLoading(false);
+            return;
+        }
+
         let cancelled = false;
         setLoading(true);
 
@@ -106,14 +134,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
             .then((loaded) => {
                 if (cancelled) return;
 
-                const conns = (loaded || []).map((profile: ConnectionProfile) => ({
-                    profile,
-                    databases: [],
-                    loadingDatabases: false,
-                    databasesLoaded: false,
-                }));
-
-                setConnections(conns);
+                setConnections((prev) => toConnectionNodes(loaded || [], prev));
             })
             .catch(() => {
                 if (!cancelled) setConnections([]);
@@ -125,7 +146,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [connectionsOverride, disableAutoLoad, toConnectionNodes]);
 
     useEffect(() => {
         if (!selectedProfile) return;
@@ -258,7 +279,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             )}
                             title={importDisabled ? 'Import disabled in this context' : 'Import connection package'}
                         >
-                            {importing ? <Spinner size={13} /> : <Download size={14} />}
+                            {importing ? <Spinner size={13} /> : <Upload size={14} />}
                         </Button>
                     )}
                     {onAddNew && (
@@ -325,7 +346,6 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                             <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
                                                 {name}
                                             </span>
-                                            {node.loadingDatabases && <Spinner size={12} className="shrink-0 text-muted-foreground" />}
                                         </div>
                                         <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
                                             {hostLabel && (
