@@ -151,11 +151,6 @@ export function buildAppMenuSections({
                     action: () => reloadCommand?.action() || WindowReloadApp(),
                 },
                 {
-                    id: 'file.restart',
-                    label: 'Restart App',
-                    action: () => WindowReload(),
-                },
-                {
                     id: 'file.quit',
                     label: 'Quit',
                     danger: true,
