@@ -28,6 +28,8 @@ import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge
 import { forceQuitWithAutosave } from './features/app-runtime/forceQuitWithAutosave';
 import { useQueryTabAutosave } from './features/editor/useQueryTabAutosave';
 
+const STARTUP_LOADING_FADE_MS = 480;
+
 interface PersistApi {
     hasHydrated?: () => boolean;
     onFinishHydration?: (listener: () => void) => (() => void) | void;
@@ -72,6 +74,8 @@ function App() {
     const [projectHubLaunchIntent, setProjectHubLaunchIntent] = useState<ProjectHubLaunchIntent | undefined>(undefined);
     const [showContextSearch, setShowContextSearch] = useState(false);
     const [startupPhase, setStartupPhase] = useState<'bootstrapping' | 'autoOpening' | 'hydratingAppState' | 'ready'>('bootstrapping');
+    const [startupLoadingMounted, setStartupLoadingMounted] = useState(true);
+    const [startupLoadingVisible, setStartupLoadingVisible] = useState(true);
 
     const { sidebarWidth, startResizing } = useSidebarResize();
 
@@ -227,97 +231,128 @@ function App() {
         };
     }, [activeProject?.id, startupPhase]);
 
-    if (!activeProject) {
-        if (startupPhase !== 'ready') {
-            return (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background" data-testid="startup-loading">
-                    <Spinner size={24} />
-                    <div className="text-[12px] text-muted-foreground">Preparing your workspace...</div>
-                </div>
-            );
+    const shouldBlockStartup = startupPhase !== 'ready';
+
+    useEffect(() => {
+        if (shouldBlockStartup) {
+            setStartupLoadingMounted(true);
+            const rafId = window.requestAnimationFrame(() => {
+                setStartupLoadingVisible(true);
+            });
+            return () => {
+                window.cancelAnimationFrame(rafId);
+            };
         }
 
-        return (
-            <div className="h-full w-full bg-background">
-                <ProjectHub overlay startupMode />
-            </div>
-        );
-    }
+        setStartupLoadingVisible(false);
+        const timeoutId = window.setTimeout(() => {
+            setStartupLoadingMounted(false);
+        }, STARTUP_LOADING_FADE_MS);
 
-    if (startupPhase !== 'ready') {
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [shouldBlockStartup]);
+
+    if (!activeProject) {
         return (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background" data-testid="startup-loading">
-                <Spinner size={24} />
-                <div className="text-[12px] text-muted-foreground">
-                    {startupPhase === 'hydratingAppState'
-                        ? 'Restoring your workspace state...'
-                        : 'Preparing your workspace...'}
+            <>
+                <div className="h-full w-full bg-background">
+                    {startupPhase === 'ready' && <ProjectHub overlay startupMode />}
                 </div>
-            </div>
+                {startupLoadingMounted && (
+                    <div
+                        className={`fixed inset-0 z-[9999] flex h-full w-full flex-col items-center justify-center gap-3 bg-background ${startupLoadingVisible ? 'opacity-100 animate-[startup-loading-fade-in_480ms_linear_forwards]' : 'pointer-events-none opacity-0 animate-[startup-loading-fade-out_480ms_linear_forwards]'}`}
+                        data-testid="startup-loading"
+                    >
+                        <Spinner size={24} />
+                        <div className="text-[12px] text-muted-foreground">Preparing your workspace...</div>
+                    </div>
+                )}
+            </>
         );
     }
 
     return (
-        <div className="flex flex-col h-full w-full">
-            {showCommandPalette && <CommandPalette />}
-            {showContextSearch && <ContextSearchDialog onClose={() => setShowContextSearch(false)} />}
-            {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
-            {showProjectHub && (
-                <ProjectHub
-                    overlay
-                    launchIntent={projectHubLaunchIntent}
-                    onClose={() => {
-                        setShowProjectHub(false);
-                        setProjectHubLaunchIntent(undefined);
-                    }}
-                />
-            )}
-            <ConfirmationModal
-                isOpen={showForceQuitConfirm}
-                onClose={() => setShowForceQuitConfirm(false)}
-                onConfirm={() => {
-                    setShowForceQuitConfirm(false);
-                    forceQuitWithAutosave().catch(() => {});
-                }}
-                title="Force Close Application"
-                message="One or more queries are still running."
-                description="Close now and stop all active queries?"
-                confirmLabel="Force Close"
-                variant="destructive"
-            />
-            <Toolbar />
-            <div className="flex flex-1 overflow-hidden">
-                {showSidebar && (
-                    <>
-                        <div style={{ width: sidebarWidth, flexShrink: 0 }}>
-                            <Sidebar />
-                        </div>
-                        <div className="resizer bg-card/10" onMouseDown={startResizing} />
-                    </>
-                )}
-                <div className="flex flex-1 flex-col overflow-hidden">
-                    <div className="flex-1 flex flex-col bg-background overflow-hidden">
-                        {!isConnected && activeProject && (
-                            <div className="flex items-center justify-between px-4 py-1.5 bg-muted border-b border-border text-[11px] text-muted-foreground shrink-0">
-                                <span>No active connection - switch environment to connect.</span>
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    size="sm"
-                                    onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
-                                    className="h-auto px-0 py-0 text-accent font-semibold"
-                                >
-                                    Configure env
-                                </Button>
-                            </div>
+        <>
+            <div className="h-full w-full bg-background">
+                {startupPhase === 'ready' && (
+                    <div className="flex flex-col h-full w-full">
+                        {showCommandPalette && <CommandPalette />}
+                        {showContextSearch && <ContextSearchDialog onClose={() => setShowContextSearch(false)} />}
+                        {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
+                        {showProjectHub && (
+                            <ProjectHub
+                                overlay
+                                launchIntent={projectHubLaunchIntent}
+                                onClose={() => {
+                                    setShowProjectHub(false);
+                                    setProjectHubLaunchIntent(undefined);
+                                }}
+                            />
                         )}
-                        <QueryTabs />
+                        <ConfirmationModal
+                            isOpen={showForceQuitConfirm}
+                            onClose={() => setShowForceQuitConfirm(false)}
+                            onConfirm={() => {
+                                setShowForceQuitConfirm(false);
+                                forceQuitWithAutosave().catch(() => {});
+                            }}
+                            title="Force Close Application"
+                            message="One or more queries are still running."
+                            description="Close now and stop all active queries?"
+                            confirmLabel="Force Close"
+                            variant="destructive"
+                        />
+                        <Toolbar />
+                        <div className="flex flex-1 overflow-hidden">
+                            {showSidebar && (
+                                <>
+                                    <div style={{ width: sidebarWidth, flexShrink: 0 }}>
+                                        <Sidebar />
+                                    </div>
+                                    <div className="resizer bg-card/10" onMouseDown={startResizing} />
+                                </>
+                            )}
+                            <div className="flex flex-1 flex-col overflow-hidden">
+                                <div className="flex-1 flex flex-col bg-background overflow-hidden">
+                                    {!isConnected && activeProject && (
+                                        <div className="flex items-center justify-between px-4 py-1.5 bg-muted border-b border-border text-[11px] text-muted-foreground shrink-0">
+                                            <span>No active connection - switch environment to connect.</span>
+                                            <Button
+                                                type="button"
+                                                variant="link"
+                                                size="sm"
+                                                onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
+                                                className="h-auto px-0 py-0 text-accent font-semibold"
+                                            >
+                                                Configure env
+                                            </Button>
+                                        </div>
+                                    )}
+                                    <QueryTabs />
+                                </div>
+                            </div>
+                            {showRightSidebar && <SecondarySidebar />}
+                        </div>
+                        <StatusBar />
+                    </div>
+                )}
+            </div>
+            {startupLoadingMounted && (
+                <div
+                    className={`fixed inset-0 z-[9999] flex h-full w-full flex-col items-center justify-center gap-3 bg-background ${startupLoadingVisible ? 'opacity-100 animate-[startup-loading-fade-in_480ms_linear_forwards]' : 'pointer-events-none opacity-0 animate-[startup-loading-fade-out_480ms_linear_forwards]'}`}
+                    data-testid="startup-loading"
+                >
+                    <Spinner size={24} />
+                    <div className="text-[12px] text-muted-foreground">
+                        {startupPhase === 'hydratingAppState'
+                            ? 'Restoring your workspace state...'
+                            : 'Preparing your workspace...'}
                     </div>
                 </div>
-                {showRightSidebar && <SecondarySidebar />}
-            </div>
-            <StatusBar />
-        </div>
+            )}
+        </>
     );
 }
 

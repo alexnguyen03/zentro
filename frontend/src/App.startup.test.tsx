@@ -331,6 +331,8 @@ describe('App startup auto-open behavior', () => {
         await waitFor(() => {
             expect(screen.getByText('toolbar')).toBeInTheDocument();
         });
-        expect(screen.queryByTestId('startup-loading')).not.toBeInTheDocument();
+        const loading = screen.getByTestId('startup-loading');
+        expect(loading.className).toContain('opacity-0');
+        expect(loading.className).toContain('pointer-events-none');
     });
 });

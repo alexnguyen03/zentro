@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { GetCheckConstraints, CreateCheckConstraint, DropCheckConstraint } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
@@ -63,7 +63,22 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((s) => s.activeEnvironmentKey);
     const { toast } = useToast();
-    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const toastRef = useRef(toast);
+    const { guardOperations, modals } = useWriteSafetyGuard(activeEnvironmentKey);
+    const onActionsChangeRef = useRef<CheckConstraintsViewProps['onActionsChange']>(onActionsChange);
+    const onDirtyCountChangeRef = useRef<CheckConstraintsViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        toastRef.current = toast;
+    }, [toast]);
+
+    useEffect(() => {
+        onActionsChangeRef.current = onActionsChange;
+    }, [onActionsChange]);
+
+    useEffect(() => {
+        onDirtyCountChangeRef.current = onDirtyCountChange;
+    }, [onDirtyCountChange]);
 
     const load = useCallback(async () => {
         if (!activeProfile?.name) return;
@@ -86,11 +101,11 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
             setEditCell(null);
             setSelectedRows(new Set());
         } catch (error: unknown) {
-            toast.error(`Failed to load check constraints: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to load check constraints: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, schema, tableName, toast]);
+    }, [activeProfile?.name, schema, tableName]);
 
     useEffect(() => {
         void load();
@@ -102,8 +117,8 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
     );
 
     useEffect(() => {
-        onDirtyCountChange?.(dirtyCount);
-    }, [dirtyCount, onDirtyCountChange]);
+        onDirtyCountChangeRef.current?.(dirtyCount);
+    }, [dirtyCount]);
 
     const updateRow = useCallback((rowId: string, patch: Partial<CheckDraft>) => {
         setRows((prev) => prev.map((row) => (
@@ -156,7 +171,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
         for (const row of [...toCreate, ...toUpdate]) {
             const err = validateDraft(row.current);
             if (err) {
-                toast.error(err);
+                toastRef.current.error(err);
                 return;
             }
         }
@@ -173,9 +188,9 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
             ...toUpdate.map((row) => `- Update: ${row.original.name} -> ${row.current.name}`),
         ];
 
-        const guard = await writeSafetyGuard.guardOperations(ops, 'Apply Check Constraint Changes', summaryLines);
+        const guard = await guardOperations(ops, 'Apply Check Constraint Changes', summaryLines);
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
 
@@ -191,14 +206,14 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
                 await DropCheckConstraint(activeProfile.name, schema, tableName, row.original.name);
                 await CreateCheckConstraint(activeProfile.name, schema, tableName, row.current.name, row.current.expression);
             }
-            toast.success('Check constraint changes applied');
+            toastRef.current.success('Check constraint changes applied');
             await load();
         } catch (error: unknown) {
-            toast.error(`Failed to apply check constraint changes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to apply check constraint changes: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, load, readOnlyMode, rows, schema, tableName, toast, validateDraft, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, load, readOnlyMode, rows, schema, tableName, validateDraft]);
 
     const rowIds = useMemo(() => rows.map((row) => row.id), [rows]);
 
@@ -335,8 +350,8 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
     }, [discard, hasChanges, readOnlyMode, save, saving, selectedRows.size, toggleDeleteSelected]);
 
     useEffect(() => {
-        onActionsChange?.(actions);
-    }, [actions, onActionsChange]);
+        onActionsChangeRef.current?.(actions);
+    }, [actions]);
 
     useEffect(() => {
         if (!isActive) return;
@@ -364,7 +379,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
 
     return (
         <div className="flex-1 flex flex-col min-h-0 bg-background">
-            {writeSafetyGuard.modals}
+            {modals}
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin">

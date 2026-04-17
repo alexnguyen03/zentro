@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw, Save, Trash2 } from 'lucide-react';
 import { GetPrimaryKey, AddPrimaryKey, DropPrimaryKey } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
@@ -57,7 +57,22 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((s) => s.activeEnvironmentKey);
     const { toast } = useToast();
-    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const toastRef = useRef(toast);
+    const { guardOperations, modals } = useWriteSafetyGuard(activeEnvironmentKey);
+    const onActionsChangeRef = useRef<PrimaryKeyViewProps['onActionsChange']>(onActionsChange);
+    const onDirtyCountChangeRef = useRef<PrimaryKeyViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        toastRef.current = toast;
+    }, [toast]);
+
+    useEffect(() => {
+        onActionsChangeRef.current = onActionsChange;
+    }, [onActionsChange]);
+
+    useEffect(() => {
+        onDirtyCountChangeRef.current = onDirtyCountChange;
+    }, [onDirtyCountChange]);
 
     // -- Load ------------------------------------------------------------------
 
@@ -73,18 +88,18 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
             setPkDraft(null);
             setEditingCols(false);
         } catch (error: unknown) {
-            toast.error(`Failed to load primary key: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to load primary key: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, schema, supportsAlterPk, tableName, toast]);
+    }, [activeProfile?.name, schema, supportsAlterPk, tableName]);
 
     useEffect(() => { void load(); }, [load, refreshKey]);
 
     // -- Dirty -----------------------------------------------------------------
 
     const dirtyCount = pkDraft ? 1 : 0;
-    useEffect(() => { onDirtyCountChange?.(dirtyCount); }, [dirtyCount, onDirtyCountChange]);
+    useEffect(() => { onDirtyCountChangeRef.current?.(dirtyCount); }, [dirtyCount]);
 
     // -- Discard ---------------------------------------------------------------
 
@@ -97,52 +112,52 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
 
     const save = useCallback(async () => {
         if (readOnlyMode || !activeProfile?.name || !pkDraft) return;
-        if (!pkDraft.name.trim()) { toast.error('Primary key name is required'); return; }
-        if (!pkDraft.columns.length) { toast.error('Primary key needs at least one column'); return; }
+        if (!pkDraft.name.trim()) { toastRef.current.error('Primary key name is required'); return; }
+        if (!pkDraft.columns.length) { toastRef.current.error('Primary key needs at least one column'); return; }
 
         const summaryLines = [`• Add Primary Key: ${pkDraft.name} (${pkDraft.columns.join(', ')})`];
-        const guard = await writeSafetyGuard.guardOperations(['create'], 'Apply Primary Key', summaryLines);
+        const guard = await guardOperations(['create'], 'Apply Primary Key', summaryLines);
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
 
         setSaving(true);
         try {
             await AddPrimaryKey(activeProfile.name, schema, tableName, pkDraft.name, pkDraft.columns);
-            toast.success('Primary key applied');
+            toastRef.current.success('Primary key applied');
             await load();
         } catch (error: unknown) {
-            toast.error(`Failed to apply primary key: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to apply primary key: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, load, pkDraft, readOnlyMode, schema, tableName, toast, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, load, pkDraft, readOnlyMode, schema, tableName]);
 
     // -- Drop ------------------------------------------------------------------
 
     const handleDropConfirm = useCallback(async () => {
         if (!pk || !activeProfile?.name) return;
-        const guard = await writeSafetyGuard.guardOperations(
+        const guard = await guardOperations(
             ['drop'],
             'Drop Primary Key',
             [`• Drop Primary Key: ${pk.name}`],
         );
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             setShowDropConfirm(false);
             return;
         }
         try {
             await DropPrimaryKey(activeProfile.name, schema, tableName, pk.name);
-            toast.success(`Primary key "${pk.name}" dropped`);
+            toastRef.current.success(`Primary key "${pk.name}" dropped`);
             await load();
         } catch (error: unknown) {
-            toast.error(`Failed to drop primary key: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to drop primary key: ${getErrorMessage(error)}`);
         } finally {
             setShowDropConfirm(false);
         }
-    }, [activeProfile?.name, load, pk, schema, tableName, toast, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, load, pk, schema, tableName]);
 
     // -- Actions ---------------------------------------------------------------
 
@@ -183,7 +198,7 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
         return result;
     }, [readOnlyMode, supportsAlterPk, pk, pkDraft, saving, hasChanges, discard, save]);
 
-    useEffect(() => { onActionsChange?.(actions); }, [onActionsChange, actions]);
+    useEffect(() => { onActionsChangeRef.current?.(actions); }, [actions]);
 
     // -- Keyboard --------------------------------------------------------------
 
@@ -300,7 +315,7 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
                 confirmLabel="Drop"
                 variant="destructive"
             />
-            {writeSafetyGuard.modals}
+            {modals}
         </div>
     );
 };

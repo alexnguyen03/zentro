@@ -93,9 +93,14 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
-    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const toastRef = useRef(toast);
+    const { guardOperations, modals } = useWriteSafetyGuard(activeEnvironmentKey);
     const onActionsChangeRef = useRef<IndexInfoViewProps['onActionsChange']>(onActionsChange);
     const onDirtyCountChangeRef = useRef<IndexInfoViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        toastRef.current = toast;
+    }, [toast]);
 
     useEffect(() => {
         onActionsChangeRef.current = onActionsChange;
@@ -116,11 +121,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             setEditCell(null);
             setSelectedRows(new Set());
         } catch (error: unknown) {
-            toast.error(`Failed to load indexes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to load indexes: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, schema, tableName, toast]);
+    }, [activeProfile?.name, schema, tableName]);
 
     useEffect(() => { loadIndexes(); }, [loadIndexes, refreshKey]);
 
@@ -274,8 +279,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         if (!toDelete.length && !toCreate.length && !toUpdate.length) return;
 
         for (const r of [...toCreate, ...toUpdate]) {
-            if (!r.current.Name.trim()) { toast.error('Index name is required'); return; }
-            if (!r.current.Columns.length) { toast.error(`"${r.current.Name}" needs at least one column`); return; }
+            if (!r.current.Name.trim()) { toastRef.current.error('Index name is required'); return; }
+            if (!r.current.Columns.length) { toastRef.current.error(`"${r.current.Name}" needs at least one column`); return; }
         }
 
         const ops: Array<'create' | 'drop'> = [
@@ -284,9 +289,9 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             ...toUpdate.flatMap(() => ['drop', 'create'] as const),
         ];
 
-        const guard = await writeSafetyGuard.guardOperations(ops, 'Apply Index Changes');
+        const guard = await guardOperations(ops, 'Apply Index Changes');
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
 
@@ -302,33 +307,33 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                 await DropIndex(activeProfile.name, schema, tableName, r.original.Name);
                 await CreateIndex(activeProfile.name, schema, tableName, r.current.Name, r.current.Columns, r.current.Unique);
             }
-            toast.success('Index changes applied');
+            toastRef.current.success('Index changes applied');
             await loadIndexes();
         } catch (error: unknown) {
-            toast.error(`Failed to apply changes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to apply changes: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, loadIndexes, readOnlyMode, rows, schema, tableName, toast, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, loadIndexes, readOnlyMode, rows, schema, tableName]);
 
     // Drop handler (for immediate drop via confirmation modal — not part of batch)
     const handleDropConfirm = useCallback(async () => {
         if (!dropTarget || !activeProfile?.name) return;
-        const guard = await writeSafetyGuard.guardOperations(['drop'], 'Drop Index');
+        const guard = await guardOperations(['drop'], 'Drop Index');
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
         try {
             await DropIndex(activeProfile.name, schema, tableName, dropTarget);
-            toast.success(`Index "${dropTarget}" dropped`);
+            toastRef.current.success(`Index "${dropTarget}" dropped`);
             await loadIndexes();
         } catch (error: unknown) {
-            toast.error(`Failed to drop index: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to drop index: ${getErrorMessage(error)}`);
         } finally {
             setDropTarget(null);
         }
-    }, [activeProfile?.name, dropTarget, loadIndexes, schema, toast, writeSafetyGuard]);
+    }, [activeProfile?.name, dropTarget, guardOperations, loadIndexes, schema]);
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
 
@@ -412,7 +417,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                 confirmLabel="Drop"
                 variant="destructive"
             />
-            {writeSafetyGuard.modals}
+            {modals}
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin">

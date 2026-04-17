@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { GetUniqueConstraints, CreateUniqueConstraint, DropUniqueConstraint } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
@@ -66,7 +66,22 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((s) => s.activeEnvironmentKey);
     const { toast } = useToast();
-    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const toastRef = useRef(toast);
+    const { guardOperations, modals } = useWriteSafetyGuard(activeEnvironmentKey);
+    const onActionsChangeRef = useRef<UniqueConstraintsViewProps['onActionsChange']>(onActionsChange);
+    const onDirtyCountChangeRef = useRef<UniqueConstraintsViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        toastRef.current = toast;
+    }, [toast]);
+
+    useEffect(() => {
+        onActionsChangeRef.current = onActionsChange;
+    }, [onActionsChange]);
+
+    useEffect(() => {
+        onDirtyCountChangeRef.current = onDirtyCountChange;
+    }, [onDirtyCountChange]);
 
     const load = useCallback(async () => {
         if (!activeProfile?.name) return;
@@ -89,11 +104,11 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
             setEditCell(null);
             setSelectedRows(new Set());
         } catch (error: unknown) {
-            toast.error(`Failed to load unique constraints: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to load unique constraints: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, schema, tableName, toast]);
+    }, [activeProfile?.name, schema, tableName]);
 
     useEffect(() => {
         void load();
@@ -105,8 +120,8 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
     );
 
     useEffect(() => {
-        onDirtyCountChange?.(dirtyCount);
-    }, [dirtyCount, onDirtyCountChange]);
+        onDirtyCountChangeRef.current?.(dirtyCount);
+    }, [dirtyCount]);
 
     const updateRow = useCallback((rowId: string, patch: Partial<UniqueDraft>) => {
         setRows((prev) => prev.map((row) => (
@@ -159,7 +174,7 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
         for (const row of [...toCreate, ...toUpdate]) {
             const err = validateDraft(row.current);
             if (err) {
-                toast.error(err);
+                toastRef.current.error(err);
                 return;
             }
         }
@@ -176,9 +191,9 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
             ...toUpdate.map((row) => `- Update: ${row.original.name} -> ${row.current.name}`),
         ];
 
-        const guard = await writeSafetyGuard.guardOperations(ops, 'Apply Unique Constraint Changes', summaryLines);
+        const guard = await guardOperations(ops, 'Apply Unique Constraint Changes', summaryLines);
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
 
@@ -194,14 +209,14 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
                 await DropUniqueConstraint(activeProfile.name, schema, tableName, row.original.name);
                 await CreateUniqueConstraint(activeProfile.name, schema, tableName, row.current.name, row.current.columns);
             }
-            toast.success('Unique constraint changes applied');
+            toastRef.current.success('Unique constraint changes applied');
             await load();
         } catch (error: unknown) {
-            toast.error(`Failed to apply unique constraint changes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to apply unique constraint changes: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, load, readOnlyMode, rows, schema, tableName, toast, validateDraft, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, load, readOnlyMode, rows, schema, tableName, validateDraft]);
 
     const rowIds = useMemo(() => rows.map((row) => row.id), [rows]);
 
@@ -338,8 +353,8 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
     }, [discard, hasChanges, readOnlyMode, save, saving, selectedRows.size, toggleDeleteSelected]);
 
     useEffect(() => {
-        onActionsChange?.(actions);
-    }, [actions, onActionsChange]);
+        onActionsChangeRef.current?.(actions);
+    }, [actions]);
 
     useEffect(() => {
         if (!isActive) return;
@@ -367,7 +382,7 @@ export const UniqueConstraintsView: React.FC<UniqueConstraintsViewProps> = ({
 
     return (
         <div className="flex-1 flex flex-col min-h-0 bg-background">
-            {writeSafetyGuard.modals}
+            {modals}
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin">

@@ -499,7 +499,7 @@ export const Toolbar: React.FC = () => {
                                                     type="button"
                                                     variant="ghost"
                                                     className={cn(
-                                                        'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 pr-14 text-left text-[11px] transition-colors',
+                                                        'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 text-left text-[11px] transition-colors',
                                                         isActive
                                                             ? 'border border-accent/35 bg-accent/10 text-foreground'
                                                             : 'text-muted-foreground hover:bg-background/50 hover:text-foreground',
@@ -508,7 +508,7 @@ export const Toolbar: React.FC = () => {
                                                         void handleQuickSwitchEnv(envKey);
                                                     }}
                                                 >
-                                                    <div className="min-w-0">
+                                                    <div className="w-full">
                                                         <div className="flex min-w-0 items-center gap-2">
                                                             <span className={cn('shrink-0 rounded-sm border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
                                                             <span className="truncate font-semibold">{meta.label}</span>

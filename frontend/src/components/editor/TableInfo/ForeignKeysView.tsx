@@ -189,7 +189,22 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     const treeMap = useSchemaStore((s) => s.trees);
     const checkAndFetchColumns = useSchemaStore((s) => s.checkAndFetchColumns);
     const { toast } = useToast();
-    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const toastRef = useRef(toast);
+    const { guardOperations, modals } = useWriteSafetyGuard(activeEnvironmentKey);
+    const onActionsChangeRef = useRef<ForeignKeysViewProps['onActionsChange']>(onActionsChange);
+    const onDirtyCountChangeRef = useRef<ForeignKeysViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        toastRef.current = toast;
+    }, [toast]);
+
+    useEffect(() => {
+        onActionsChangeRef.current = onActionsChange;
+    }, [onActionsChange]);
+
+    useEffect(() => {
+        onDirtyCountChangeRef.current = onDirtyCountChange;
+    }, [onDirtyCountChange]);
 
     // Schema/table options
     const schemaNodes = useMemo(() => {
@@ -305,11 +320,11 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                 await loadRefColumns(s, t);
             }));
         } catch (error: unknown) {
-            toast.error(`Failed to load foreign keys: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to load foreign keys: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, loadRefColumns, schema, tableName, toast]);
+    }, [activeProfile?.name, loadRefColumns, schema, tableName]);
 
     useEffect(() => { void load(); }, [load, refreshKey]);
 
@@ -327,7 +342,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
         () => rows.filter((row) => row.isNew || row.deleted || isFKDirty(row)).length,
         [rows],
     );
-    useEffect(() => { onDirtyCountChange?.(dirtyCount); }, [dirtyCount, onDirtyCountChange]);
+    useEffect(() => { onDirtyCountChangeRef.current?.(dirtyCount); }, [dirtyCount]);
 
     // -- Row mutations ---------------------------------------------------------
 
@@ -393,7 +408,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
 
         for (const row of [...toCreate, ...toUpdate]) {
             const err = validateDraft(row.current);
-            if (err) { toast.error(err); return; }
+            if (err) { toastRef.current.error(err); return; }
         }
 
         const ops: Array<'create' | 'drop'> = [
@@ -408,9 +423,9 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
             ...toUpdate.map((r) => `• Update: ${r.original.name} → ${r.current.name}`),
         ];
 
-        const guard = await writeSafetyGuard.guardOperations(ops, 'Apply Foreign Key Changes', summaryLines);
+        const guard = await guardOperations(ops, 'Apply Foreign Key Changes', summaryLines);
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
 
@@ -425,14 +440,14 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
             for (const row of toUpdate) {
                 await UpdateForeignKey(activeProfile.name, schema, tableName, row.original.name, toFKPayload(row.current));
             }
-            toast.success('Foreign key changes applied');
+            toastRef.current.success('Foreign key changes applied');
             await load();
         } catch (error: unknown) {
-            toast.error(`Failed to apply foreign key changes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to apply foreign key changes: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, load, readOnlyMode, rows, schema, tableName, toast, validateDraft, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, load, readOnlyMode, rows, schema, tableName, validateDraft]);
 
     // -- Selection -------------------------------------------------------------
 
@@ -565,7 +580,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
         return result;
     }, [readOnlyMode, saving, hasChanges, schema, selectedRows.size, discard, save, toggleDeleteSelected]);
 
-    useEffect(() => { onActionsChange?.(actions); }, [onActionsChange, actions]);
+    useEffect(() => { onActionsChangeRef.current?.(actions); }, [actions]);
 
     // -- Keyboard --------------------------------------------------------------
 
@@ -597,7 +612,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
 
     return (
         <div className="flex-1 flex flex-col min-h-0 bg-background">
-            {writeSafetyGuard.modals}
+            {modals}
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="flex-1 overflow-auto scrollbar-thin">
