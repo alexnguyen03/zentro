@@ -7,6 +7,8 @@ import { useConnectionStore } from './stores/connectionStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useProjectStore } from './stores/projectStore';
 import { useEnvironmentStore } from './stores/environmentStore';
+import { useEditorStore } from './stores/editorStore';
+import { useSidebarUiStore } from './stores/sidebarUiStore';
 import { useToast } from './components/layout/Toast';
 import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
 import { CommandPalette } from './components/layout/CommandPalette';
@@ -17,7 +19,7 @@ import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { DOM_EVENT, type ProjectHubLaunchIntent } from './lib/constants';
 import { emitCommand, onCommand } from './lib/commandBus';
 import { Disconnect } from './services/connectionService';
-import { Button } from './components/ui';
+import { Button, Spinner } from './components/ui';
 import { useGlobalShortcuts } from './features/shortcuts/useGlobalShortcuts';
 import { useAppEventBridge } from './features/app-runtime/useAppEventBridge';
 import { useBeforeCloseGuard } from './features/app-runtime/useBeforeCloseGuard';
@@ -26,14 +28,42 @@ import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge
 import { forceQuitWithAutosave } from './features/app-runtime/forceQuitWithAutosave';
 import { useQueryTabAutosave } from './features/editor/useQueryTabAutosave';
 
+interface PersistApi {
+    hasHydrated?: () => boolean;
+    onFinishHydration?: (listener: () => void) => (() => void) | void;
+}
+
+interface PersistEnabledStore {
+    persist?: PersistApi;
+}
+
+function readPersistApi(store: unknown): PersistApi | null {
+    const candidate = (store as PersistEnabledStore | undefined)?.persist;
+    return candidate || null;
+}
+
+function isPersistStoreReady(store: unknown): boolean {
+    const persistApi = readPersistApi(store);
+    if (!persistApi || typeof persistApi.hasHydrated !== 'function') {
+        return true;
+    }
+    return Boolean(persistApi.hasHydrated());
+}
+
 function App() {
+    const startupAutoOpenAttemptedRef = React.useRef(false);
+    const persistedStateGateDoneRef = React.useRef(false);
     const { isConnected } = useConnectionStore();
     const resetRuntime = useConnectionStore((state) => state.resetRuntime);
     const activeProject = useProjectStore((state) => state.activeProject);
     const projects = useProjectStore((state) => state.projects);
+    const recentProjectIds = useProjectStore((state) => state.recentProjectIds);
+    const hasBootstrapped = useProjectStore((state) => state.hasBootstrapped);
+    const projectStoreError = useProjectStore((state) => state.error);
     const openProject = useProjectStore((state) => state.openProject);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
+    const toastError = toast.error;
     const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
 
     const [showForceQuitConfirm, setShowForceQuitConfirm] = useState(false);
@@ -41,6 +71,7 @@ function App() {
     const [showProjectHub, setShowProjectHub] = useState(false);
     const [projectHubLaunchIntent, setProjectHubLaunchIntent] = useState<ProjectHubLaunchIntent | undefined>(undefined);
     const [showContextSearch, setShowContextSearch] = useState(false);
+    const [startupPhase, setStartupPhase] = useState<'bootstrapping' | 'autoOpening' | 'hydratingAppState' | 'ready'>('bootstrapping');
 
     const { sidebarWidth, startResizing } = useSidebarResize();
 
@@ -88,27 +119,140 @@ function App() {
         return off;
     }, []);
 
-    const handleStartupClose = React.useCallback(async () => {
-        const latestProject = [...projects].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
-        if (!latestProject?.id) return;
-
-        try {
-            try { await Disconnect(); } catch { /* ignore */ }
-            const project = await openProject(latestProject.id);
-            if (!project) {
-                resetRuntime();
-                return;
-            }
-            resetRuntime();
-        } catch {
-            resetRuntime();
+    useEffect(() => {
+        if (!hasBootstrapped) {
+            setStartupPhase('bootstrapping');
+            startupAutoOpenAttemptedRef.current = false;
+            persistedStateGateDoneRef.current = false;
+            return;
         }
-    }, [openProject, projects, resetRuntime]);
+
+        if (activeProject?.id) {
+            setStartupPhase(persistedStateGateDoneRef.current ? 'ready' : 'hydratingAppState');
+            return;
+        }
+
+        if (startupAutoOpenAttemptedRef.current) {
+            setStartupPhase('ready');
+            return;
+        }
+
+        startupAutoOpenAttemptedRef.current = true;
+
+        const recentProjectId = recentProjectIds[0];
+        const latestUpdatedProjectId = [...projects]
+            .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0]?.id;
+        const targetProjectId = recentProjectId || latestUpdatedProjectId;
+
+        if (!targetProjectId) {
+            setStartupPhase('ready');
+            return;
+        }
+
+        setStartupPhase('autoOpening');
+        let cancelled = false;
+
+        const tryAutoOpen = async () => {
+            try {
+                try { await Disconnect(); } catch { /* ignore */ }
+                const project = await openProject(targetProjectId);
+                resetRuntime();
+
+                if (cancelled) return;
+                if (!project) {
+                    toastError(projectStoreError || 'Could not auto-open the last project. Please choose one manually.');
+                }
+            } catch (error) {
+                resetRuntime();
+                if (cancelled) return;
+                const message = projectStoreError || (error instanceof Error ? error.message : String(error));
+                toastError(`Could not auto-open the last project: ${message}`);
+            } finally {
+                if (!cancelled) {
+                    setStartupPhase('ready');
+                }
+            }
+        };
+
+        void tryAutoOpen();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeProject?.id, hasBootstrapped, openProject, projectStoreError, projects, recentProjectIds, resetRuntime, toastError]);
+
+    useEffect(() => {
+        if (!activeProject?.id) return;
+        if (startupPhase === 'bootstrapping' || startupPhase === 'autoOpening') return;
+
+        if (persistedStateGateDoneRef.current) {
+            setStartupPhase('ready');
+            return;
+        }
+
+        const persistStores: unknown[] = [useEditorStore, useLayoutStore, useSidebarUiStore];
+        const allStoresReady = () => persistStores.every((store) => isPersistStoreReady(store));
+
+        if (allStoresReady()) {
+            persistedStateGateDoneRef.current = true;
+            setStartupPhase('ready');
+            return;
+        }
+
+        setStartupPhase('hydratingAppState');
+
+        let cancelled = false;
+        const finishGate = () => {
+            if (cancelled || persistedStateGateDoneRef.current) return;
+            persistedStateGateDoneRef.current = true;
+            setStartupPhase('ready');
+        };
+
+        const unsubscribers = persistStores.map((store) => {
+            const persistApi = readPersistApi(store);
+            if (!persistApi || typeof persistApi.onFinishHydration !== 'function') return () => {};
+            const unsubscribe = persistApi.onFinishHydration(() => {
+                if (allStoresReady()) finishGate();
+            });
+            return typeof unsubscribe === 'function' ? unsubscribe : () => {};
+        });
+
+        const timeoutId = window.setTimeout(() => {
+            finishGate();
+        }, 2000);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timeoutId);
+            unsubscribers.forEach((unsubscribe) => unsubscribe());
+        };
+    }, [activeProject?.id, startupPhase]);
 
     if (!activeProject) {
+        if (startupPhase !== 'ready') {
+            return (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background" data-testid="startup-loading">
+                    <Spinner size={24} />
+                    <div className="text-[12px] text-muted-foreground">Preparing your workspace...</div>
+                </div>
+            );
+        }
+
         return (
             <div className="h-full w-full bg-background">
-                <ProjectHub overlay startupMode onClose={() => { void handleStartupClose(); }} />
+                <ProjectHub overlay startupMode />
+            </div>
+        );
+    }
+
+    if (startupPhase !== 'ready') {
+        return (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background" data-testid="startup-loading">
+                <Spinner size={24} />
+                <div className="text-[12px] text-muted-foreground">
+                    {startupPhase === 'hydratingAppState'
+                        ? 'Restoring your workspace state...'
+                        : 'Preparing your workspace...'}
+                </div>
             </div>
         );
     }

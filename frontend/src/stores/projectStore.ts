@@ -12,6 +12,7 @@ interface ProjectState {
     activeProject: Project | null;
     selectedProjectId: string | null;
     recentProjectIds: string[];
+    hasBootstrapped: boolean;
     isLoading: boolean;
     error: string | null;
 
@@ -97,6 +98,7 @@ export const useProjectStore = create<ProjectState>()(
             activeProject: null,
             selectedProjectId: null,
             recentProjectIds: [],
+            hasBootstrapped: false,
             isLoading: false,
             error: null,
 
@@ -114,7 +116,7 @@ export const useProjectStore = create<ProjectState>()(
             },
 
             bootstrap: async () => {
-                set({ isLoading: true, error: null });
+                set({ isLoading: true, error: null, hasBootstrapped: false });
                 try {
                     const projects = await listProjects();
                     const active = await getActiveProject();
@@ -134,11 +136,12 @@ export const useProjectStore = create<ProjectState>()(
                         activeProject: hydratedActive,
                         selectedProjectId: hydratedActive?.id || selectedProjectId || null,
                         recentProjectIds,
+                        hasBootstrapped: true,
                         isLoading: false,
                     });
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error);
-                    set({ isLoading: false, error: message });
+                    set({ isLoading: false, error: message, hasBootstrapped: true });
                 }
             },
 
