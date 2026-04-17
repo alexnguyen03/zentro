@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Database, Eye, Hash, Layers, Link2, List, Sigma, Table2, Type, Zap } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, Database, Eye, Hash, Layers, Link2, List, Sigma, Table2, Type, Zap } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore, type SchemaNode } from '../../stores/schemaStore';
@@ -439,13 +439,41 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             value={query}
                             onValueChange={setQuery}
                             placeholder="Search tables, views, functions..."
-                            className="pr-28"
+                            hideIcon
+                            className="pr-56"
                             onKeyDown={handleEnterBrowseFirst}
                         />
-                        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-muted-foreground inline-flex items-center gap-1">
-                            <Database size={11} />
-                            {dbName || 'No DB'}
-                        </span>
+                        <div className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center gap-1">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-6 w-6 px-0"
+                                title={showAllKinds ? 'Show fewer object types' : 'Show more object types'}
+                                onClick={() =>
+                                    setShowAllKinds((prev) => {
+                                        const next = !prev;
+                                        if (!next) {
+                                            setEnabledKinds((current) => {
+                                                const filteredSet = new Set(
+                                                    [...current].filter((kind) => PRIMARY_VISIBLE_KINDS.includes(kind)),
+                                                );
+                                                if (filteredSet.size === 0) {
+                                                    PRIMARY_VISIBLE_KINDS.forEach((kind) => filteredSet.add(kind));
+                                                }
+                                                return filteredSet;
+                                            });
+                                        }
+                                        return next;
+                                    })
+                                }
+                            >
+                                {showAllKinds ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
+                            </Button>
+                            <span className="pointer-events-none text-xs text-muted-foreground inline-flex items-center gap-1">
+                                <Database size={11} />
+                                {dbName || 'No DB'}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="px-3 py-2 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
@@ -458,7 +486,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                     variant={active ? 'secondary' : 'ghost'}
                                     className={cn(
                                         'h-7 gap-1.5 px-2 text-[11px] border whitespace-nowrap',
-                                        active ? 'border-success/40 bg-success/15 text-foreground' : 'text-muted-foreground',
+                                        active ? 'border-primary/40 bg-primary/15 text-foreground' : 'text-muted-foreground',
                                     )}
                                     onClick={() => toggleKind(kind)}
                                 >
@@ -467,30 +495,6 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                 </Button>
                             );
                         })}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() =>
-                                setShowAllKinds((prev) => {
-                                    const next = !prev;
-                                    if (!next) {
-                                        setEnabledKinds((current) => {
-                                            const filteredSet = new Set(
-                                                [...current].filter((kind) => PRIMARY_VISIBLE_KINDS.includes(kind)),
-                                            );
-                                            if (filteredSet.size === 0) {
-                                                PRIMARY_VISIBLE_KINDS.forEach((kind) => filteredSet.add(kind));
-                                            }
-                                            return filteredSet;
-                                        });
-                                    }
-                                    return next;
-                                })
-                            }
-                        >
-                            {showAllKinds ? 'Less' : 'More'}
-                        </Button>
                     </div>
 
                     <CommandList className="max-h-[430px] py-1">
@@ -505,10 +509,10 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                     event.stopPropagation();
                                     setContextMenu({ x: event.clientX, y: event.clientY, item });
                                 }}
-                                className="group flex items-center justify-between px-4 py-2 text-[13px] data-[selected=true]:bg-success/10"
+                                className="group flex items-center justify-between px-4 py-2 text-[13px] data-[selected=true]:bg-primary/10"
                             >
                                 <span className="flex min-w-0 items-center gap-2">
-                                    <span className="shrink-0 group-data-[selected=true]:text-success">{KIND_ICON[item.kind]}</span>
+                                    <span className="shrink-0 group-data-[selected=true]:text-primary">{KIND_ICON[item.kind]}</span>
                                     <span className="truncate font-medium">{item.name}</span>
                                 </span>
                                 <span className="ml-4 flex shrink-0 items-center gap-2">
