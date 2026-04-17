@@ -92,6 +92,7 @@ export function useResultKeyboard({
             // F5 — re-run
             if (event.key === 'F5') {
                 event.preventDefault();
+                event.stopPropagation();
                 if (onRun && !hasPendingChanges && !isReadOnlyTab) onRun();
                 return;
             }

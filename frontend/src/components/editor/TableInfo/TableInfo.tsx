@@ -553,6 +553,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return;
             const activeGroup = groups.find((g) => g.id === activeGroupId);
             const isTabActive = activeGroup?.activeTabId === tabId;
             if (!isTabActive) return;

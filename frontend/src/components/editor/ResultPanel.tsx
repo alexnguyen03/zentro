@@ -622,13 +622,13 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                 return (
                     <div className="flex flex-col flex-1 overflow-hidden min-h-0 relative">
+                        {resultFilterBar}
+
                         {isLoading && (
-                            <div className="absolute top-0 left-0 right-0 z-sticky" style={{ height: 2, background: 'var(--status-success)', opacity: 0.7 }}>
+                            <div className="z-sticky shrink-0" style={{ height: 2, background: 'var(--interactive-primary)', opacity: 0.7 }}>
                                 <div style={{ height: '100%', width: '40%', background: 'rgba(255,255,255,0.6)', animation: 'shimmer 1.2s infinite linear', backgroundSize: '400px 100%' }} />
                             </div>
                         )}
-
-                        {resultFilterBar}
 
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1 }}>
                             {explainJsonValue ? (
