@@ -7,6 +7,7 @@ import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dn
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
+import { useToast } from '../layout/Toast';
 import { Button, Input } from '../ui';
 
 interface TabBarProps {
@@ -126,6 +127,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
     const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+    const { toast } = useToast();
     const renameInputRef = useRef<HTMLInputElement>(null);
     const tabsScrollRef = useRef<HTMLDivElement>(null);
 
@@ -194,11 +196,32 @@ export const TabBar: React.FC<TabBarProps> = ({
     }, []);
 
     const commitRename = useCallback(() => {
-        if (renamingId && renameValue.trim()) {
-            onRename(renamingId, renameValue.trim());
+        if (!renamingId) {
+            setRenamingId(null);
+            return;
         }
+
+        const nextName = renameValue.trim();
+        if (!nextName) {
+            setRenamingId(null);
+            return;
+        }
+
+        const normalizedNextName = nextName.toLowerCase();
+        const hasDuplicate = tabs.some((tab) =>
+            tab.id !== renamingId &&
+            canRenameTab(tab) &&
+            tab.name.trim().toLowerCase() === normalizedNextName);
+        if (hasDuplicate) {
+            toast.error('Tên tab đã tồn tại. Vui lòng đặt tên khác.');
+            renameInputRef.current?.focus();
+            renameInputRef.current?.select();
+            return;
+        }
+
+        onRename(renamingId, nextName);
         setRenamingId(null);
-    }, [renamingId, renameValue, onRename]);
+    }, [onRename, renameValue, renamingId, tabs, toast]);
 
     const handleTabKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter') commitRename();

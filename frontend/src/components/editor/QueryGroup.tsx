@@ -21,6 +21,7 @@ import { useToast } from '../layout/Toast';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 import { saveQueryTabById } from '../../features/editor/scriptAutosave';
 import { SCWriteGitIgnore } from '../../services/sourceControlService';
+import { isDuplicateScriptNameError } from '../../stores/scriptStore';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -118,14 +119,22 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {
             if (!detail) return;
             void (async () => {
-                const savedBySourceControl = await saveSourceControlTab(detail);
-                if (!savedBySourceControl) {
-                    await saveQueryTabById(detail);
+                try {
+                    const savedBySourceControl = await saveSourceControlTab(detail);
+                    if (!savedBySourceControl) {
+                        await saveQueryTabById(detail);
+                    }
+                } catch (error) {
+                    if (isDuplicateScriptNameError(error)) {
+                        toast.error('Tên script đã tồn tại. Vui lòng đặt tên khác.');
+                        return;
+                    }
+                    toast.error(`Failed to save script: ${getErrorMessage(error)}`);
                 }
             })();
         });
         return off;
-    }, [saveSourceControlTab]);
+    }, [saveSourceControlTab, toast]);
 
     const executeQueryNow = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
