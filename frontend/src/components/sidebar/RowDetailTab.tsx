@@ -192,7 +192,7 @@ export const RowDetailTab: React.FC = () => {
 
             <div className="flex-1 overflow-auto">
                 {viewMode === 'json' ? (
-                    <JsonViewer value={JSON.stringify(getJsonData(), null, 2)} />
+                    <JsonViewer value={JSON.stringify(getJsonData(), null, 2)} showCopy={false} />
                 ) : (
                     detail.columns.map((col, idx) => {
                         const val = detail.row[idx];
@@ -275,9 +275,9 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
     return (
         <div
             className={cn(
-                'flex flex-col gap-1 rounded-sm p-0.5 transition-colors duration-150',
+                'flex flex-col gap-0.5 p-0.5 transition-colors duration-150',
                 isDirty && 'bg-warning/10',
-                isSelected && 'bg-success/12',
+                isSelected && ' bg-primary/10',
             )}
         >
             <div className="group flex items-center justify-between gap-1 text-[11px] font-semibold text-muted-foreground">
@@ -313,7 +313,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     className="h-5 w-5 shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
                     onClick={onCopy}
                     title="Copy value"
-                    disabled={isNull || isJsonField}
+                    disabled={isNull}
                 >
                     <Copy size={11} />
                 </Button>
@@ -329,7 +329,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     )}
                 >
                     {isNull ? 'null' : isJsonField ? (
-                        <JsonViewer value={val} showCopy={true} height="180px" useMonaco={true} />
+                        <JsonViewer value={val} showCopy={false} height="180px" useMonaco={true} />
                     ) : val}
                 </div>
             ) : (

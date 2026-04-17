@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
 import { Copy, Check } from 'lucide-react';
-import type { editor as MonacoEditor } from 'monaco-editor';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { setClipboardText } from '../../services/clipboardService';
 import { Button } from '../ui';
@@ -70,7 +69,6 @@ const SimpleJsonView: React.FC<{ value: string; showCopy?: boolean }> = ({ value
 
 export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', showCopy = true, height = '100%', useMonaco = true }) => {
     const [copied, setCopied] = useState(false);
-    const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
     const { theme } = useSettingsStore();
 
     const isValidJson = isJson(value);
@@ -87,10 +85,6 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', s
         } catch (err) {
             console.error('Failed to copy:', err);
         }
-    };
-
-    const handleEditorMount = (editor: MonacoEditor.IStandaloneCodeEditor) => {
-        editorRef.current = editor;
     };
 
     if (!isValidJson) {
@@ -126,11 +120,12 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({ value, className = '', s
                     language="json"
                     value={formattedValue}
                     theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                    onMount={handleEditorMount}
                     options={{
                         readOnly: true,
                         minimap: { enabled: false },
                         lineNumbers: 'on',
+                        lineNumbersMinChars: 2,
+                        lineDecorationsWidth: 6,
                         scrollBeyondLastLine: false,
                         folding: true,
                         wordWrap: 'on',
