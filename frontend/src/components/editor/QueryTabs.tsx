@@ -352,6 +352,23 @@ export const QueryTabs: React.FC = () => {
     const isExplainResult = currentResultTabId?.includes('::explain:');
     const isReadOnlySubTab = !isMainResult;
     const generatedKind = isExplainResult ? 'explain' : (isMainResult ? undefined : 'result');
+    const getResultSubTabLabel = React.useCallback((subTabId: string) => {
+        const subResult = results[subTabId];
+        if (subTabId.includes('::explain:analyze')) return 'Explain Analyze';
+        if (subTabId.includes('::explain:plan')) return 'Explain Plan';
+        if (subResult?.statementLabel?.trim()) return subResult.statementLabel.trim();
+
+        if (subTabId === globalActiveTabId) {
+            const mainQuery = splitLastQuery(globalActiveTab?.query || '').base.trim() || globalActiveTab?.query || '';
+            const preview = mainQuery.replace(/\s+/g, ' ').replace(/;+\s*$/, '').trim();
+            if (!preview) return '#1 Statement';
+            return `#1 ${preview.length > 56 ? `${preview.slice(0, 56).trimEnd()}...` : preview}`;
+        }
+
+        const match = subTabId.match(/::result:(\d+)/);
+        const ordinal = match ? parseInt(match[1], 10) + 1 : 1;
+        return `#${ordinal} Statement`;
+    }, [globalActiveTabId, globalActiveTab?.query, results]);
 
     if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
         return (
@@ -432,20 +449,11 @@ export const QueryTabs: React.FC = () => {
                     >
                         <div className="h-full flex flex-col">
                             {globalActiveResultKeys.length > 1 && (
-                                <div className="flex overflow-x-auto">
+                                <div className="flex items-center bg-card h-8 shrink-0 overflow-hidden border-b border-border">
+                                    <div className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border">
                                     {globalActiveResultKeys.map((subTabId) => {
-                                        let label = 'Result 1';
-                                        if (subTabId !== globalActiveTabId) {
-                                            if (subTabId.includes('::explain:analyze')) label = 'Explain Analyze';
-                                            else if (subTabId.includes('::explain:plan')) label = 'Explain Plan';
-                                            else {
-                                                const subResult = results[subTabId];
-                                                const match = subTabId.match(/::result:(\d+)/);
-                                                label = subResult?.statementLabel
-                                                    || (match ? `Result ${parseInt(match[1], 10) + 1}` : 'Result');
-                                            }
-                                        }
-
+                                        const label = getResultSubTabLabel(subTabId);
+                                        const subResult = results[subTabId];
                                         const isActive = subTabId === currentResultTabId;
                                         return (
                                             <Button
@@ -454,17 +462,19 @@ export const QueryTabs: React.FC = () => {
                                                 variant="ghost"
                                                 onClick={() => setActiveSubTabId(subTabId)}
                                                 className={cn(
-                                                    'h-auto max-w-[150px] rounded-none border-r border-border px-3 py-1.5 text-[11px] whitespace-nowrap truncate transition-colors',
-                                                    isActive 
-                                                        ? 'bg-background text-foreground border-t-[3px] border-t-success font-medium'
-                                                        : 'bg-muted text-muted-foreground hover:bg-background hover:text-foreground border-t-[3px] border-t-transparent',
+                                                    'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-xs text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground rounded-none',
+                                                    isActive && 'bg-background -mb-px text-primary',
                                                 )}
-                                                title={label}
+                                                title={subResult?.lastExecutedQuery || label}
                                             >
-                                                {label}
+                                                <span className="overflow-hidden text-ellipsis">{label}</span>
+                                                {subResult?.executionState === 'running' && (
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0 animate-pulse" title="Running" />
+                                                )}
                                             </Button>
                                         );
                                     })}
+                                    </div>
                                 </div>
                             )}
                             <div className="flex-1 overflow-hidden relative bg-card/40">
