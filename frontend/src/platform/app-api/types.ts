@@ -145,6 +145,7 @@ export interface AppApiGateway {
     SaveScript(script: models.SavedScript, content: string): Promise<void>;
     DeleteScript(projectId: string, connectionName: string, scriptId: string): Promise<void>;
     GetBookmarks(profileName: string, dbName: string): Promise<models.Bookmark[]>;
+    GetBookmarksByConnection(connectionID: string): Promise<Record<string, models.Bookmark[]>>;
     SaveBookmark(profileName: string, dbName: string, bookmark: models.Bookmark): Promise<void>;
     DeleteBookmark(profileName: string, dbName: string, lineNumber: number): Promise<void>;
     EnableGitTracking(): Promise<void>;

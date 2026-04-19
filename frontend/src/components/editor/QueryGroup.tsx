@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -190,6 +191,18 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         splitGroup(groupId, tabId);
     }, [groupId, splitGroup]);
 
+    const handleRenameTab = useCallback((tabId: string, newName: string) => {
+        const currentTab = tabs.find((tab) => tab.id === tabId);
+        if (!currentTab || currentTab.type !== TAB_TYPE.QUERY) {
+            renameTab(tabId, newName);
+            return;
+        }
+        const oldName = currentTab.name;
+        renameTab(tabId, newName);
+        if (!activeProfile?.name) return;
+        void useBookmarkStore.getState().remapTabBookmarks(activeProfile.name, tabId, oldName, newName);
+    }, [activeProfile?.name, renameTab, tabs]);
+
     const handleGroupClick = useCallback(() => {
         if (!isActiveGroup) {
             setActiveGroupId(groupId);
@@ -208,7 +221,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                 onActivate={(tabId) => setActiveTabId(tabId, groupId)}
                 onClose={handleClose}
                 onNewTab={() => addTab(undefined, groupId)}
-                onRename={renameTab}
+                onRename={handleRenameTab}
                 onSplit={handleSplit}
             />
 

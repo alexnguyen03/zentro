@@ -113,6 +113,8 @@ export function GetActiveProject():Promise<models.Project>;
 
 export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookmark>>;
 
+export function GetBookmarksByConnection(arg1:string):Promise<Record<string, Array<models.Bookmark>>>;
+
 export function GetCheckConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.CheckConstraintInfo>>;
 
 export function GetCommitFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;

@@ -214,6 +214,10 @@ export function GetBookmarks(arg1, arg2) {
   return window['go']['app']['App']['GetBookmarks'](arg1, arg2);
 }
 
+export function GetBookmarksByConnection(arg1) {
+  return window['go']['app']['App']['GetBookmarksByConnection'](arg1);
+}
+
 export function GetCheckConstraints(arg1, arg2, arg3) {
   return window['go']['app']['App']['GetCheckConstraints'](arg1, arg2, arg3);
 }

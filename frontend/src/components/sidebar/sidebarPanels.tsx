@@ -1,6 +1,5 @@
 import React from 'react';
 import { AlignLeft, BookMarked, Bookmark, Clock, GitBranch, Hash } from 'lucide-react';
-import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { BookmarkTab } from './BookmarkTab';
 import { HistoryPanel } from './HistoryPanel';
 import { SourceControlPanel } from './SourceControlPanel';
@@ -18,10 +17,6 @@ import { PrimaryExplorerPanel } from './panels/PrimaryExplorerPanel';
 import { registerSidebarPanel } from './sidebarPanelRegistry';
 
 let builtInPanelsRegistered = false;
-
-function getBookmarkBadge(): number {
-    return Object.values(useBookmarkStore.getState().byTab).reduce((total, list) => total + list.length, 0);
-}
 
 export function registerBuiltInSidebarPanels(): void {
     if (builtInPanelsRegistered) return;
@@ -79,7 +74,6 @@ export function registerBuiltInSidebarPanels(): void {
         icon: Bookmark,
         order: 20,
         render: () => <BookmarkTab />,
-        getBadge: getBookmarkBadge,
         defaultState: BOOKMARK_PANEL_STATE_DEFAULT,
     });
 

@@ -65,6 +65,10 @@ func (a *App) GetBookmarks(connectionID, tabID string) ([]models.Bookmark, error
 	return a.bookmarks.GetBookmarks(connectionID, tabID)
 }
 
+func (a *App) GetBookmarksByConnection(connectionID string) (map[string][]models.Bookmark, error) {
+	return a.bookmarks.GetBookmarksByConnection(connectionID)
+}
+
 func (a *App) SaveBookmark(connectionID, tabID string, bookmark models.Bookmark) error {
 	if err := a.bookmarks.SaveBookmark(connectionID, tabID, bookmark); err != nil {
 		return err

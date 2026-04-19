@@ -39,6 +39,26 @@ func (s *BookmarkService) GetBookmarks(connectionID, tabID string) ([]models.Boo
 	return bookmarks, nil
 }
 
+func (s *BookmarkService) GetBookmarksByConnection(connectionID string) (map[string][]models.Bookmark, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.ensureLoaded(); err != nil {
+		return nil, err
+	}
+	if connectionID == "" {
+		return map[string][]models.Bookmark{}, nil
+	}
+
+	result := map[string][]models.Bookmark{}
+	for tabID, items := range s.data[connectionID] {
+		sorted := append([]models.Bookmark(nil), items...)
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i].Line < sorted[j].Line })
+		result[tabID] = sorted
+	}
+	return result, nil
+}
+
 func (s *BookmarkService) SaveBookmark(connectionID, tabID string, bookmark models.Bookmark) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
