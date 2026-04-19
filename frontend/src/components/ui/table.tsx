@@ -2,15 +2,48 @@ import * as React from 'react';
 
 import { cn } from '@/lib/cn';
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-    ({ className, ...props }, ref) => (
-        <div className="relative w-full overflow-auto">
-            <table
-                ref={ref}
-                className={cn('w-full caption-bottom text-sm', className)}
-                {...props}
-            />
-        </div>
+type TableContextValue = {
+    stickyHeader: boolean;
+    stickyHeaderClassName?: string;
+    stickyHeaderOffset: number;
+};
+
+const TableContext = React.createContext<TableContextValue>({
+    stickyHeader: false,
+    stickyHeaderClassName: undefined,
+    stickyHeaderOffset: 0,
+});
+
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+    containerClassName?: string;
+    disableContainerScroll?: boolean;
+    stickyHeader?: boolean;
+    stickyHeaderClassName?: string;
+    stickyHeaderOffset?: number;
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+    (
+        {
+            className,
+            containerClassName,
+            disableContainerScroll = false,
+            stickyHeader = false,
+            stickyHeaderClassName,
+            stickyHeaderOffset = 0,
+            ...props
+        },
+        ref,
+    ) => (
+        <TableContext.Provider value={{ stickyHeader, stickyHeaderClassName, stickyHeaderOffset }}>
+            <div className={cn('relative w-full', disableContainerScroll ? 'overflow-visible' : 'overflow-auto', containerClassName)}>
+                <table
+                    ref={ref}
+                    className={cn('w-full caption-bottom text-sm', className)}
+                    {...props}
+                />
+            </div>
+        </TableContext.Provider>
     ),
 );
 Table.displayName = 'Table';
@@ -48,16 +81,22 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
 TableRow.displayName = 'TableRow';
 
 const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
-    ({ className, ...props }, ref) => (
-        <th
-            ref={ref}
-            className={cn(
-                'h-6 px-2 align-middle text-left font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
-                className,
-            )}
-            {...props}
-        />
-    ),
+    ({ className, style, ...props }, ref) => {
+        const { stickyHeader, stickyHeaderClassName, stickyHeaderOffset } = React.useContext(TableContext);
+        return (
+            <th
+                ref={ref}
+                style={stickyHeader ? { ...style, top: stickyHeaderOffset } : style}
+                className={cn(
+                    'h-6 px-2 align-middle text-left font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
+                    stickyHeader && 'sticky z-10 border-b border-border bg-muted/90 backdrop-blur-sm',
+                    stickyHeader && stickyHeaderClassName,
+                    className,
+                )}
+                {...props}
+            />
+        );
+    },
 );
 TableHead.displayName = 'TableHead';
 

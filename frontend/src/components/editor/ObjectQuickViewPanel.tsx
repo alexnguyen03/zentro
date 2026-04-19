@@ -44,13 +44,13 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
                 height: 'min(340px, calc(100vh - 120px))',
             }}
         >
-            <div className="flex items-center justify-between gap-2 border-b border-border bg-background/35 px-3 py-2.5">
+            <div className="flex items-center justify-between bg-background/35 px-2">
                 <div className="min-w-0 flex-1">
                     <Button
                         type="button"
-                        variant="ghost"
+                        variant="link"
                         size="sm"
-                        className="m-0 h-auto max-w-full justify-start p-0 text-left text-[13px] font-semibold text-foreground enabled:hover:text-primary enabled:hover:underline enabled:hover:underline-offset-2 disabled:cursor-default disabled:text-foreground"
+                        className="m-0 h-auto border-none max-w-full justify-start text-left text-[13px] font-semibold text-foreground enabled:hover:text-primary enabled:hover:underline enabled:hover:underline-offset-2 disabled:cursor-default disabled:text-foreground"
                         title={onOpenDefinition ? 'Go to table info' : title}
                         onClick={() => onOpenDefinition?.()}
                         disabled={!onOpenDefinition}
@@ -63,7 +63,7 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
                 </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto px-3 py-2.5 [scrollbar-gutter:stable_both-edges]">
+            <div className="min-h-0 flex-1 overflow-hidden p-1">
                 {showEmptyState && (
                     <div className="rounded-sm border border-dashed border-border bg-background/40 px-3 py-2 text-[12px] text-muted-foreground">
                         {emptyStateMessage}
@@ -71,15 +71,19 @@ export const ObjectQuickViewPanel: React.FC<ObjectQuickViewPanelProps> = ({
                 )}
 
                 {!loading && !message && hasColumns && (
-                    <div className="overflow-hidden rounded-sm border border-border bg-background/30">
-                        <Table className="table-fixed text-[12px]">
+                    <div className="h-full min-h-0 overflow-auto rounded-sm border border-border bg-background/30">
+                        <Table
+                            className="table-fixed text-[12px]"
+                            stickyHeader
+                            disableContainerScroll
+                        >
                             <colgroup>
                                 <col style={{ width: '42px' }} />
                                 <col style={{ width: '44%' }} />
                                 <col style={{ width: '34%' }} />
                                 <col style={{ width: '64px' }} />
                             </colgroup>
-                            <TableHeader className="sticky top-0 z-sticky bg-muted/70">
+                            <TableHeader>
                                 <TableRow>
                                     <TableHead className="h-auto px-2 py-1.5 text-[11px] font-semibold">#</TableHead>
                                     <TableHead className="h-auto px-2 py-1.5 text-[11px] font-semibold">Name</TableHead>
