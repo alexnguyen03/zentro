@@ -55,6 +55,7 @@ import {
     GetBookmarksByConnection,
     GetConnectionStatus,
     GetActiveProject,
+    GetAboutInfo,
     GetDefaultProjectStorageRoot,
     GetGitCommitDiff,
     GetCommitFileDiffs,
@@ -224,6 +225,7 @@ export const wailsGateway: AppApiGateway = {
     GetPreferences,
     SetPreferences,
     CheckForUpdates,
+    GetAboutInfo,
 
     GetHistory,
     ClearHistory,

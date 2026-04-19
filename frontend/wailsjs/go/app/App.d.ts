@@ -109,6 +109,8 @@ export function ForceQuit():Promise<void>;
 
 export function FormatSQL(arg1:string,arg2:string):Promise<string>;
 
+export function GetAboutInfo():Promise<app.AboutInfo>;
+
 export function GetActiveProject():Promise<models.Project>;
 
 export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookmark>>;

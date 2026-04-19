@@ -133,6 +133,7 @@ export interface AppApiGateway {
     GetPreferences(): Promise<utils.Preferences>;
     SetPreferences(preferences: utils.Preferences): Promise<void>;
     CheckForUpdates(): Promise<app.UpdateInfo>;
+    GetAboutInfo(): Promise<app.AboutInfo>;
 
     // History / templates / scripts / bookmarks
     GetHistory(): Promise<models.HistoryEntry[]>;

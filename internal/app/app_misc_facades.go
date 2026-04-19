@@ -1,6 +1,11 @@
 package app
 
 import (
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"time"
+
 	"zentro/internal/models"
 	"zentro/internal/utils"
 )
@@ -149,6 +154,46 @@ func (a *App) ExportAllSQLInsert(tabID, tableName string, selectedColumns []stri
 
 // Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0-beta'"
 var Version = "v0.2.0-beta"
+
+type AboutInfo struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+	Date    string `json:"date"`
+	OS      string `json:"os"`
+}
+
+func (a *App) GetAboutInfo() AboutInfo {
+	info := AboutInfo{
+		Version: Version,
+		Commit:  "unknown",
+		Date:    "unknown",
+		OS:      runtime.GOOS + " " + runtime.GOARCH,
+	}
+
+	buildInfo, ok := debug.ReadBuildInfo()
+	if !ok {
+		return info
+	}
+
+	for _, setting := range buildInfo.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			if value := strings.TrimSpace(setting.Value); value != "" {
+				info.Commit = value
+			}
+		case "vcs.time":
+			if value := strings.TrimSpace(setting.Value); value != "" {
+				if t, err := time.Parse(time.RFC3339, value); err == nil {
+					info.Date = t.UTC().Format(time.RFC3339)
+				} else {
+					info.Date = value
+				}
+			}
+		}
+	}
+
+	return info
+}
 
 func (a *App) GetCurrentVersion() string {
 	return Version

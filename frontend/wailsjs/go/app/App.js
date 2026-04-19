@@ -206,6 +206,10 @@ export function FormatSQL(arg1, arg2) {
   return window['go']['app']['App']['FormatSQL'](arg1, arg2);
 }
 
+export function GetAboutInfo() {
+  return window['go']['app']['App']['GetAboutInfo']();
+}
+
 export function GetActiveProject() {
   return window['go']['app']['App']['GetActiveProject']();
 }
