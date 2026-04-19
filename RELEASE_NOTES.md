@@ -1,5 +1,10 @@
 # Zentro Early Access Release Notes (v0.2.0-beta)
 
+## Installation
+- Windows: download `zentro-v<version>-windows-amd64-setup.exe` and run the installer wizard.
+- macOS: download `zentro-v<version>-macos-universal.dmg` (recommended), or `zentro-v<version>-macos-universal.zip` as fallback.
+- Linux: download `zentro-v<version>-linux-amd64.deb` for package install, or `zentro-v<version>-linux-amd64.AppImage` for portable-like execution.
+
 ## Release Scope
 This Early Access cut includes work from commit `1e7db18e28ec96d4de27342aebb4102c801bfb3d` up to `1c16b10`.
 
