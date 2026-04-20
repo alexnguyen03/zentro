@@ -29,8 +29,6 @@ function matrixToCsv(rows: string[][]): string {
 export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
     const { toast } = useToast();
     const [contextMenu, setContextMenu] = React.useState<ResultContextMenuPayload | null>(null);
-    const [lastUndoLabel, setLastUndoLabel] = React.useState<string | null>(null);
-    const undoActionRef = React.useRef<(() => void) | null>(null);
     const contextMenuRef = React.useRef<HTMLDivElement>(null);
 
     const cloneDraftRows = React.useCallback(
@@ -43,15 +41,16 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
         deletedRows: new Set(deps.deletedRows),
         selectedCells: new Set(deps.selectedCells),
     }), [cloneDraftRows, deps.deletedRows, deps.draftRows, deps.editedCells, deps.selectedCells]);
+
+    const MAX_UNDO_STACK = 20;
+    type UndoEntry = { label: string; snapshot: ReturnType<typeof captureSnapshot> };
+    const undoStackRef = React.useRef<UndoEntry[]>([]);
+    const [undoStackSize, setUndoStackSize] = React.useState(0);
+
     const registerUndoAction = React.useCallback((label: string, snapshot: ReturnType<typeof captureSnapshot>) => {
-        undoActionRef.current = () => {
-            deps.setEditedCells(new Map(snapshot.editedCells));
-            deps.setDraftRows(cloneDraftRows(snapshot.draftRows));
-            deps.setDeletedRows(new Set(snapshot.deletedRows));
-            deps.setSelectedCells(new Set(snapshot.selectedCells));
-        };
-        setLastUndoLabel(label);
-    }, [cloneDraftRows, deps]);
+        undoStackRef.current = [...undoStackRef.current, { label, snapshot }].slice(-MAX_UNDO_STACK);
+        setUndoStackSize(undoStackRef.current.length);
+    }, []);
 
     const nullableByColumnIndex = React.useMemo(
         () => (deps.result?.columns || []).map((columnName) => deps.columnDefsByName.get(columnName)?.IsNullable ?? true),
@@ -244,16 +243,24 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
 
     const handleContextCopyAsInsert = React.useCallback(() => {
         const effectiveSelection = getEffectiveSelection();
-        if (effectiveSelection.size === 0) { toast.info('Select at least one cell to copy.'); closeContextMenu(); return; }
+        const hasRowSelection = deps.selectedRowKeysFromHeader.length > 0;
+        if (!hasRowSelection && effectiveSelection.size === 0) { toast.info('Select at least one cell or row to copy.'); closeContextMenu(); return; }
         const columns = deps.result?.columns ?? [];
         const tableName = deps.result?.tableName ?? 'table_name';
         const sql = buildRowsAsInsertStatements({
-            selectedCells: effectiveSelection, displayRows: deps.displayRows, rowOrder: deps.rowOrder, editedCells: deps.editedCells, columns, tableName, driver: deps.driver || '',
+            selectedCells: effectiveSelection,
+            selectedRowKeys: deps.selectedRowKeysFromHeader,
+            displayRows: deps.displayRows,
+            rowOrder: deps.rowOrder,
+            editedCells: deps.editedCells,
+            columns,
+            tableName,
+            driver: deps.driver || '',
         });
         if (!sql) { toast.info('No copyable cells in current selection.'); closeContextMenu(); return; }
         void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
         closeContextMenu();
-    }, [deps.displayRows, deps.driver, deps.editedCells, deps.result?.columns, deps.result?.tableName, deps.rowOrder, getEffectiveSelection, closeContextMenu, toast]);
+    }, [deps.displayRows, deps.driver, deps.editedCells, deps.result?.columns, deps.result?.tableName, deps.rowOrder, deps.selectedRowKeysFromHeader, getEffectiveSelection, closeContextMenu, toast]);
 
     const handleContextCopyAsUpdate = React.useCallback(() => {
         const effectiveSelection = getEffectiveSelection();
@@ -345,40 +352,53 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
             closeContextMenu();
             return;
         }
-        const rowIndex = persistedRowIndices[0];
-        const query = buildSelectByPrimaryKeyQuery({
-            persistedRowIndex: rowIndex,
-            displayRows: deps.displayRows,
-            editedCells: deps.editedCells,
-            columns: deps.result.columns ?? [],
-            pkColumns,
-            tableName: deps.result.tableName,
-            driver: deps.driver || '',
-        });
-        if (!query) {
+        const columns = deps.result.columns ?? [];
+        const tableName = deps.result.tableName;
+        const MAX_TABS = 5;
+        const targetIndices = persistedRowIndices.slice(0, MAX_TABS);
+        let openedCount = 0;
+        for (const rowIndex of targetIndices) {
+            const query = buildSelectByPrimaryKeyQuery({
+                persistedRowIndex: rowIndex,
+                displayRows: deps.displayRows,
+                editedCells: deps.editedCells,
+                columns,
+                pkColumns,
+                tableName,
+                driver: deps.driver || '',
+            });
+            if (query) {
+                deps.openQueryTab(query, `Row ${tableName}`);
+                openedCount++;
+            }
+        }
+        if (openedCount === 0) {
             toast.info('Unable to build query from selected row.');
             closeContextMenu();
             return;
         }
-        deps.openQueryTab(query, `Row ${deps.result.tableName}`);
-        if (persistedRowIndices.length > 1) {
-            toast.info('Opened query for the first selected row.');
+        if (persistedRowIndices.length > MAX_TABS) {
+            toast.info(`Opened ${MAX_TABS} tabs (capped). ${persistedRowIndices.length - MAX_TABS} rows skipped.`);
         }
         closeContextMenu();
     }, [closeContextMenu, deps, getTargetPersistedRowIndices, pkColumns, toast]);
 
     const handleUndoLastContextAction = React.useCallback(() => {
-        const undo = undoActionRef.current;
-        if (!undo) {
+        const entry = undoStackRef.current[undoStackRef.current.length - 1];
+        if (!entry) {
             toast.info('No context action to undo.');
             closeContextMenu();
             return;
         }
-        undo();
-        undoActionRef.current = null;
-        setLastUndoLabel(null);
+        const { snapshot } = entry;
+        deps.setEditedCells(new Map(snapshot.editedCells));
+        deps.setDraftRows(cloneDraftRows(snapshot.draftRows));
+        deps.setDeletedRows(new Set(snapshot.deletedRows));
+        deps.setSelectedCells(new Set(snapshot.selectedCells));
+        undoStackRef.current = undoStackRef.current.slice(0, -1);
+        setUndoStackSize(undoStackRef.current.length);
         closeContextMenu();
-    }, [closeContextMenu, toast]);
+    }, [closeContextMenu, cloneDraftRows, deps, toast]);
 
     const handleContextPaste = React.useCallback(() => {
         if (!canMutateCells) {
@@ -570,17 +590,25 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
 
     React.useEffect(() => {
         setContextMenu(null);
+        undoStackRef.current = [];
+        setUndoStackSize(0);
     }, [deps.result?.isDone, deps.result?.lastExecutedQuery]);
 
     const contextMenuPosition = React.useMemo(() => {
         if (!contextMenu || typeof window === 'undefined') return null;
-        const estimatedWidth = 190;
+        const menuWidth = 224;
+        const submenuWidth = 224;
         const estimatedHeight = 320;
-        const left = Math.min(contextMenu.x, window.innerWidth - estimatedWidth - 8);
+        // Reserve space for submenu on the right if it would overflow, submenu opens to the left instead
+        const spaceRight = window.innerWidth - contextMenu.x;
+        const needsSubmenuSpace = spaceRight < menuWidth + submenuWidth + 8;
+        const effectiveWidth = needsSubmenuSpace ? menuWidth + submenuWidth + 8 : menuWidth + submenuWidth + 8;
+        const left = Math.min(contextMenu.x, window.innerWidth - effectiveWidth - 8);
         const top = Math.min(contextMenu.y, window.innerHeight - estimatedHeight - 8);
         return {
             left: Math.max(8, left),
             top: Math.max(8, top),
+            submenuOpensLeft: needsSubmenuSpace,
         };
     }, [contextMenu]);
 
@@ -592,7 +620,8 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
     const canGenerateWhereByPk = getTargetPersistedRowIndices().length > 0 && pkColumns.length > 0;
     const canGenerateWhereByIn = getEffectiveSelection().size > 0;
     const canOpenRowInNewQueryTab = Boolean(deps.result?.tableName) && getTargetPersistedRowIndices().length > 0 && pkColumns.length > 0;
-    const undoDisabledTitle = lastUndoLabel ? `Undo ${lastUndoLabel}` : 'No context action to undo.';
+    const topUndoEntry = undoStackRef.current[undoStackRef.current.length - 1];
+    const undoDisabledTitle = topUndoEntry ? `Undo ${topUndoEntry.label} (${undoStackSize} action${undoStackSize !== 1 ? 's' : ''} available)` : 'No context action to undo.';
     const openRowQueryDisabledTitle = canOpenRowInNewQueryTab ? 'Open SELECT query in a new tab for the selected row' : pkColumns.length === 0 ? 'Primary key is required to open row query.' : 'Select a persisted row first.';
 
     const copyAsActions = React.useMemo<ResultContextCopyAsAction[]>(() => {
@@ -682,7 +711,7 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
         copyAsActions,
         whereActions,
         canOpenRowInNewQueryTab,
-        canUndoLastContextAction: Boolean(lastUndoLabel),
+        canUndoLastContextAction: undoStackSize > 0,
         handleCellContextMenu,
         handleContextCopy,
         handleContextSetNull,

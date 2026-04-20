@@ -26,6 +26,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     setEditedCells,
     selectedCells,
     setSelectedCells,
+    selectedRowKeys,
+    setSelectedRowKeys,
     deletedRows,
     setDeletedRows,
     draftRows,
@@ -38,6 +40,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
     quickFilter = '',
     onViewStatsChange,
     onCellContextMenu,
+    onRowHeaderContextMenu,
     columnVisibility: externalColumnVisibility,
     onColumnVisibilityChange: externalSetColumnVisibility,
 }) => {
@@ -86,6 +89,8 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         rows,
         selectedCells,
         setSelectedCells,
+        selectedRowKeys,
+        setSelectedRowKeys,
         editedCells,
         setEditedCells,
         deletedRows,
@@ -99,6 +104,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
         onFocusCellRequestHandled,
         onRemoveDraftRows,
         onCellContextMenu,
+        onRowHeaderContextMenu,
         onReadOnlyEditAttempt: () => {
             toast.error('Result is read-only. Make sure the query includes the primary key(s).');
         },
@@ -176,6 +182,7 @@ export const ResultTable: React.FC<ResultTableProps> = ({
             handleAutoFitColumn={columnState.handleAutoFitColumn}
             handleHeaderDragEnd={columnState.handleHeaderDragEnd}
             selectedCells={selectedCells}
+            selectedRowKeys={selectedRowKeys}
             deletedRows={deletedRows}
         />
     );

@@ -53,6 +53,7 @@ export interface ResultContextMenuDeps {
     editedCells: Map<string, string>;
     selectedCells: Set<string>;
     selectedRowKeys: string[];
+    selectedRowKeysFromHeader: string[];
     selectedPersistedRowIndices: number[];
     selectedDraftIds: string[];
     draftRows: DraftRow[];

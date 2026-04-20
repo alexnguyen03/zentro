@@ -150,8 +150,23 @@ function quoteLiteral(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
 }
 
+function buildRowValueBlock(displayRow: DisplayRowLike, columns: string[], editedCells: Map<string, string>, withComments: boolean): string {
+    const valueLines = columns.map((col, ci) => {
+        const raw = displayRow.kind === 'persisted'
+            ? (editedCells.get(`${displayRow.persistedIndex}:${ci}`) ?? displayRow.values[ci] ?? '')
+            : (displayRow.values[ci] ?? '');
+        return withComments ? `    ${quoteLiteral(raw)}, --[${col}]` : `    ${quoteLiteral(raw)},`;
+    });
+    const lastIdx = valueLines.length - 1;
+    valueLines[lastIdx] = withComments
+        ? valueLines[lastIdx].replace(/,\s*(--\[)/, ' $1')
+        : valueLines[lastIdx].slice(0, -1);
+    return `(\n${valueLines.join('\n')}\n)`;
+}
+
 export function buildRowsAsInsertStatements(params: {
     selectedCells: Set<string>;
+    selectedRowKeys: string[];
     displayRows: DisplayRowLike[];
     rowOrder: Map<string, number>;
     editedCells: Map<string, string>;
@@ -159,18 +174,46 @@ export function buildRowsAsInsertStatements(params: {
     tableName: string;
     driver: string | undefined;
 }): string {
-    const { columns, tableName, driver } = params;
-    const matrix = buildSelectionMatrix(params);
-    if (matrix.length === 0) return '';
+    const { selectedCells, selectedRowKeys, displayRows, rowOrder, editedCells, columns, tableName, driver } = params;
 
     const tbl = quoteIdent(tableName, driver);
-    const cols = columns.map((c) => quoteIdent(c, driver)).join(', ');
-    return matrix
-        .map((row) => {
-            const vals = row.map(quoteLiteral).join(', ');
-            return `INSERT INTO ${tbl} (${cols}) VALUES (${vals});`;
-        })
-        .join('\n');
+    const quotedCols = columns.map((c) => quoteIdent(c, driver));
+    const colList = quotedCols.join(',\n    ');
+
+    // Row-header selection: multi-row INSERT with full columns + comments
+    if (selectedRowKeys.length > 0) {
+        const displayRowsByKey = new Map(displayRows.map((r) => [r.key, r]));
+        const rows = selectedRowKeys
+            .map((key) => displayRowsByKey.get(key))
+            .filter((row): row is DisplayRowLike => Boolean(row));
+        if (rows.length === 0) return '';
+        const valueBlocks = rows.map((row) => buildRowValueBlock(row, columns, editedCells, true));
+        return `INSERT INTO ${tbl} (\n    ${colList}\n)\nVALUES\n${valueBlocks.join(',\n')};`;
+    }
+
+    // Cell selection: multi-row INSERT with only selected columns (no comments)
+    const bounds = getSelectionBounds(selectedCells, rowOrder);
+    if (!bounds) return '';
+
+    const selectedColumns = columns.slice(bounds.minCol, bounds.maxCol + 1);
+    const selectedColList = selectedColumns.map((c) => quoteIdent(c, driver)).join(', ');
+    const valueBlocks: string[] = [];
+    for (let ri = bounds.minRow; ri <= bounds.maxRow; ri++) {
+        const displayRow = displayRows[ri];
+        if (!displayRow) continue;
+        const subRow: DisplayRowLike = {
+            ...displayRow,
+            values: selectedColumns.map((_, offset) => {
+                const ci = bounds.minCol + offset;
+                return displayRow.kind === 'persisted'
+                    ? (editedCells.get(`${displayRow.persistedIndex}:${ci}`) ?? displayRow.values[ci] ?? '')
+                    : (displayRow.values[ci] ?? '');
+            }),
+        };
+        valueBlocks.push(buildRowValueBlock(subRow, selectedColumns, new Map(), false));
+    }
+    if (valueBlocks.length === 0) return '';
+    return `INSERT INTO ${tbl} (${selectedColList}) VALUES\n${valueBlocks.join(',\n')};`;
 }
 
 export function buildRowAsUpdateStatement(params: {

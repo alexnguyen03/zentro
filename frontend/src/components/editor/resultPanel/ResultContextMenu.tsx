@@ -8,7 +8,7 @@ const LAST_USED_COPY_AS_KEY = 'zentro.result.copyAs.lastAction';
 interface ResultContextMenuProps {
     contextMenu: ResultContextMenuPayload | null;
     contextMenuRef: React.RefObject<HTMLDivElement>;
-    contextMenuPosition: { left: number; top: number } | null;
+    contextMenuPosition: { left: number; top: number; submenuOpensLeft?: boolean } | null;
     canCopy: boolean;
     canPaste: boolean;
     canDuplicateRows: boolean;
@@ -80,8 +80,10 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     const [activeCopyAsIndex, setActiveCopyAsIndex] = React.useState(0);
     const [activeWhereIndex, setActiveWhereIndex] = React.useState(0);
     const [lastUsedCopyAs, setLastUsedCopyAs] = React.useState<string>('');
+    const [submenuTopOffset, setSubmenuTopOffset] = React.useState(0);
 
     const menuRef = React.useRef<HTMLDivElement>(null);
+    const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
     const focusTimerRef = React.useRef<number | null>(null);
 
     React.useEffect(() => {
@@ -96,7 +98,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     const topItems = React.useMemo(() => ([
         { id: 'paste' as TopLevelItemId, label: 'Paste', shortcut: 'Ctrl+V', disabled: !canPaste, title: pasteDisabledTitle, onSelect: onPaste },
         { id: 'copy' as TopLevelItemId, label: 'Copy', shortcut: 'Ctrl+C', disabled: !canCopy, title: copyDisabledTitle, onSelect: onCopy },
-        { id: 'copy-as' as TopLevelItemId, label: 'Copy as', shortcut: '', disabled: copyAsActions.length === 0, title: 'Choose copy format', onSelect: undefined, submenu: 'copy-as' as SubmenuKind },
+        { id: 'copy-as' as TopLevelItemId, label: 'Copy as', shortcut: '', disabled: !canCopy, title: 'Choose copy format', onSelect: undefined, submenu: 'copy-as' as SubmenuKind },
         { id: 'generate-where' as TopLevelItemId, label: 'Generate WHERE', shortcut: '', disabled: whereActions.length === 0, title: 'Generate WHERE clause from current selection', onSelect: undefined, submenu: 'generate-where' as SubmenuKind },
         { id: 'open-row-query' as TopLevelItemId, label: 'Open Row in New Query Tab', shortcut: '', disabled: !canOpenRowInNewQueryTab, title: openRowQueryDisabledTitle, onSelect: onOpenRowInNewQueryTab },
         { id: 'duplicate' as TopLevelItemId, label: 'Duplicate Row', shortcut: '', disabled: !canDuplicateRows, title: duplicateDisabledTitle, onSelect: onDuplicateRow },
@@ -111,7 +113,6 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         canPaste,
         canSetNull,
         canUndoLastContextAction,
-        copyAsActions.length,
         copyDisabledTitle,
         deleteDisabledTitle,
         duplicateDisabledTitle,
@@ -267,6 +268,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
 
     const submenuItems = openSubmenu === 'copy-as' ? copyAsActions : openSubmenu === 'generate-where' ? whereActions : [];
     const activeSubmenuIndex = openSubmenu === 'copy-as' ? activeCopyAsIndex : activeWhereIndex;
+    const submenuSide = contextMenuPosition.submenuOpensLeft ? 'right-full mr-1' : 'left-full ml-1';
 
     return (
         <div
@@ -289,6 +291,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                     return (
                         <Button
                             key={item.id}
+                            ref={(el) => { itemRefs.current[index] = el; }}
                             type="button"
                             variant="ghost"
                             title={item.title}
@@ -296,8 +299,18 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                             disabled={item.disabled}
                             onMouseEnter={() => {
                                 setActiveTopIndex(index);
-                                if (item.submenu && !item.disabled) setOpenSubmenu(item.submenu);
-                                else setOpenSubmenu(null);
+                                if (item.submenu && !item.disabled) {
+                                    setOpenSubmenu(item.submenu);
+                                    const btn = itemRefs.current[index];
+                                    const menu = menuRef.current;
+                                    if (btn && menu) {
+                                        const btnRect = btn.getBoundingClientRect();
+                                        const menuRect = menu.getBoundingClientRect();
+                                        setSubmenuTopOffset(btnRect.top - menuRect.top);
+                                    }
+                                } else {
+                                    setOpenSubmenu(null);
+                                }
                             }}
                             onClick={() => {
                                 if (item.submenu) {
@@ -320,7 +333,8 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
 
                 {openSubmenu && submenuItems.length > 0 && (
                     <div
-                        className="absolute left-full top-[18%] ml-1 w-56 rounded-sm border border-border bg-background py-1 shadow-lg"
+                        className={`absolute ${submenuSide} w-56 rounded-sm border border-border bg-background py-1 shadow-lg`}
+                        style={{ top: submenuTopOffset }}
                         onMouseEnter={() => setOpenSubmenu(openSubmenu)}
                     >
                         {submenuItems.map((action, index) => {

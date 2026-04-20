@@ -94,6 +94,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const {
         columnDefs, columnDefsByName, displayRows, displayRowsByKey, rowOrder,
         editedCells, setEditedCells, selectedCells, setSelectedCells,
+        selectedRowKeysFromHeader, setSelectedRowKeysFromHeader,
         deletedRows, setDeletedRows, draftRows, setDraftRows,
         isSavingDraftRows,
         focusCellRequest, setFocusCellRequest,
@@ -427,6 +428,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         editedCells,
         selectedCells,
         selectedRowKeys,
+        selectedRowKeysFromHeader: Array.from(selectedRowKeysFromHeader),
         selectedPersistedRowIndices,
         selectedDraftIds,
         draftRows,
@@ -647,6 +649,8 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     setEditedCells={setEditedCells}
                                     selectedCells={selectedCells}
                                     setSelectedCells={setSelectedCells}
+                                    selectedRowKeys={selectedRowKeysFromHeader}
+                                    setSelectedRowKeys={setSelectedRowKeysFromHeader}
                                     deletedRows={deletedRows}
                                     setDeletedRows={setDeletedRows}
                                     draftRows={draftRows}
@@ -657,6 +661,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                                     onRemoveDraftRows={removeDraftRows}
                                     readOnlyMode={viewMode || isReadOnlyTab}
                                     onCellContextMenu={handleCellContextMenu}
+                                    onRowHeaderContextMenu={handleCellContextMenu}
                                     columnVisibility={columnVisibility}
                                     onColumnVisibilityChange={setColumnVisibility}
                                 />

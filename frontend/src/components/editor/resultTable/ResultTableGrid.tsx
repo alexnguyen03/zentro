@@ -36,6 +36,7 @@ interface ResultTableGridProps {
     handleAutoFitColumn: (columnId: string) => void;
     handleHeaderDragEnd: (event: DragEndEvent) => void;
     selectedCells: Set<string>;
+    selectedRowKeys: Set<string>;
     deletedRows?: Set<number>;
 }
 
@@ -59,6 +60,7 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
     handleAutoFitColumn,
     handleHeaderDragEnd,
     selectedCells,
+    selectedRowKeys,
     deletedRows,
 }) => {
     const dndSensors = useSensors(
@@ -167,17 +169,22 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
                             const isDeleted = displayRow.kind === 'persisted' && deletedRows?.has(displayRow.persistedIndex as number);
                             const altClass = virtualRow.index % 2 === 0 ? '' : 'rt-row-alt';
                             const hasRowSel = Array.from(selectedCells).some((cellId) => parseCellId(cellId).rowKey === displayRow.key);
+                            const hasRowHeaderSel = selectedRowKeys.has(displayRow.key);
                             const draftClass = displayRow.kind === 'draft' ? 'rt-row-draft' : '';
                             const fixedCellStateClass = isDeleted
                                 ? 'rt-index-sticky-deleted'
                                 : (displayRow.kind === 'draft' ? 'rt-index-sticky-draft' : '');
+                            const meta = table.options.meta as import('./types').TableMeta | undefined;
                             return (
-                                <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel ? 'rt-row-selected' : ''}`}>
+                                <tr key={displayRow.key} className={`${altClass} ${draftClass} ${isDeleted ? 'rt-row-deleted' : ''} ${hasRowSel || hasRowHeaderSel ? 'rt-row-selected' : ''}`}>
                                     {fixedCell && (
                                         <td
                                             key={fixedCell.id}
                                             style={{ width: fixedCell.column.getSize(), minWidth: fixedCell.column.getSize(), maxWidth: fixedCell.column.getSize() }}
-                                            className={`rt-index-sticky ${fixedCellStateClass}`}
+                                            className={`rt-index-sticky ${fixedCellStateClass} ${hasRowHeaderSel ? 'rt-index-sticky-row-selected' : ''} cursor-pointer select-none`}
+                                            onMouseDown={(e) => meta?.handleRowHeaderMouseDown?.(e, displayRow.key)}
+                                            onMouseEnter={() => meta?.handleRowHeaderMouseEnter?.(displayRow.key)}
+                                            onContextMenu={(e) => meta?.handleRowHeaderContextMenu?.(e, displayRow.key)}
                                         >
                                             {flexRender(fixedCell.column.columnDef.cell, fixedCell.getContext())}
                                         </td>

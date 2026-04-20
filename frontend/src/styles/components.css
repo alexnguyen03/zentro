@@ -235,6 +235,11 @@
     box-shadow: 1px 0 0 var(--border);
 }
 
+.result-table-tanstack td.rt-index-sticky.rt-index-sticky-row-selected {
+    background: color-mix(in srgb, var(--primary) 18%, var(--card)) !important;
+    border-right: 2px solid var(--primary);
+}
+
 .result-table-tanstack td.rt-index-sticky.rt-index-sticky-deleted {
     background: color-mix(in srgb, var(--destructive) 6%, var(--background)) !important;
 }

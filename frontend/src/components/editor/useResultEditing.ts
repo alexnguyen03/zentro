@@ -76,6 +76,12 @@ export function useResultEditing({ tabId, result }: UseResultEditingOptions) {
         () => toStringMap(result?.pendingEdits),
     );
     const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
+    const [selectedRowKeysFromHeader, setSelectedRowKeysFromHeader] = React.useState<Set<string>>(new Set());
+
+    // Clear row header selection when user starts selecting cells
+    React.useEffect(() => {
+        if (selectedCells.size > 0) setSelectedRowKeysFromHeader(new Set());
+    }, [selectedCells]);
     const [deletedRows, setDeletedRows] = React.useState<Set<number>>(
         () => toNumberSet(result?.pendingDeletions),
     );
@@ -112,11 +118,17 @@ export function useResultEditing({ tabId, result }: UseResultEditingOptions) {
         () => new Map(displayRows.map((row, index) => [row.key, index])),
         [displayRows],
     );
-    const selectedRowKeys = React.useMemo(() => {
+    // Row keys derived from cell selection (used for context/editing operations)
+    const selectedRowKeysFromCells = React.useMemo(() => {
         const keys = new Set<string>();
         selectedCells.forEach((cellId) => keys.add(parseCellId(cellId).rowKey));
         return Array.from(keys);
     }, [selectedCells]);
+    // Merged: header selection takes priority; falls back to cell-derived keys
+    const selectedRowKeys = React.useMemo(
+        () => selectedRowKeysFromHeader.size > 0 ? Array.from(selectedRowKeysFromHeader) : selectedRowKeysFromCells,
+        [selectedRowKeysFromHeader, selectedRowKeysFromCells],
+    );
     const selectedPersistedRowIndices = React.useMemo(
         () =>
             selectedRowKeys
@@ -340,6 +352,7 @@ export function useResultEditing({ tabId, result }: UseResultEditingOptions) {
         columnDefs,
         editedCells, setEditedCells,
         selectedCells, setSelectedCells,
+        selectedRowKeysFromHeader, setSelectedRowKeysFromHeader,
         deletedRows, setDeletedRows,
         draftRows, setDraftRows,
         isSavingDraftRows, setIsSavingDraftRows,
