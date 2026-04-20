@@ -37,6 +37,7 @@ import { utils } from '../../../wailsjs/go/models';
 import { emitCommand } from '../../lib/commandBus';
 import { WindowControls } from './toolbar/WindowControls';
 import { AppMenu } from './toolbar/AppMenu';
+import { usePlatform } from '../../hooks/usePlatform';
 import { Reconnect } from '../../services/connectionService';
 import {
     SCGetStatus,
@@ -50,6 +51,7 @@ import { PROJECT_ICON_MAP, getProjectIconKey } from './projectHubMeta';
 import { BranchSpotlight } from '../sidebar/BranchSpotlight';
 
 export const Toolbar: React.FC = () => {
+    const platform = usePlatform();
     const { activeProfile, connectionStatus } = useConnectionStore();
     const activeProject = useProjectStore((s) => s.activeProject);
     const setProjectEnvironment = useProjectStore((s) => s.setProjectEnvironment);
@@ -326,9 +328,12 @@ export const Toolbar: React.FC = () => {
         WindowToggleMaximise();
     };
 
+    const isMac = platform === 'darwin';
+
     return (
         <div
             className="h-10 grid grid-cols-10 items-center shrink-0 px-3 gap-2"
+            style={isMac ? { paddingLeft: '76px' } : undefined}
             onDoubleClick={handleToolbarDoubleClick}
         >
             {/* Left: 3/10 */}
@@ -560,7 +565,7 @@ export const Toolbar: React.FC = () => {
                     <Button variant="ghost" size="icon" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
                         <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                     </Button>
-                    <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />
+                    {!isMac && <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />}
                 </div>
             </div>
 
