@@ -2,16 +2,15 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { SettingsClasses } from './SettingsStyles';
 import {
-    Button,
     Input,
     Label,
     Select,
     SelectContent,
     SelectItem,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
     Slider,
-    Switch,
 } from '../../ui';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
 import type { EnvironmentKey } from '../../../types/project';
@@ -24,9 +23,6 @@ interface Props {
     onConnectTimeoutChange: (val: number) => void;
     queryTimeout: number;
     onQueryTimeoutChange: (val: number) => void;
-    telemetryOptIn: boolean;
-    onTelemetryOptInChange: (val: boolean) => void;
-    onExportTelemetry: () => void;
     activeSafetyEnvironment: EnvironmentKey;
     safetyLevel: SafetyLevel;
     onSafetyLevelChange: (val: SafetyLevel) => void;
@@ -35,6 +31,20 @@ interface Props {
 }
 
 const STRONG_CONFIRM_SLIDER_KEYS = [...ENVIRONMENT_KEYS].reverse() as EnvironmentKey[];
+const SAFETY_LEVEL_EXPLANATIONS: Record<SafetyLevel, { title: string; description: string }> = {
+    strict: {
+        title: 'Strict',
+        description: 'Blocks UPDATE/DELETE without WHERE. Other writes still require confirmation.',
+    },
+    balanced: {
+        title: 'Balanced',
+        description: 'Prompts for write operations. Destructive writes always require explicit confirmation.',
+    },
+    relaxed: {
+        title: 'Relaxed',
+        description: 'Allows non-destructive writes (e.g. INSERT/CREATE) without prompt. Destructive writes still prompt.',
+    },
+};
 
 const STRONG_CONFIRM_INDEX = STRONG_CONFIRM_SLIDER_KEYS.reduce<Record<EnvironmentKey, number>>((acc, key, index) => {
     acc[key] = index;
@@ -45,16 +55,22 @@ export const SettingsData: React.FC<Props> = ({
     limit, onLimitChange, 
     connectTimeout, onConnectTimeoutChange, 
     queryTimeout, onQueryTimeoutChange,
-    telemetryOptIn, onTelemetryOptInChange, onExportTelemetry,
     activeSafetyEnvironment,
     safetyLevel, onSafetyLevelChange,
     strongConfirmFromEnvironment, onStrongConfirmFromEnvironmentChange,
 }) => {
+    const [hoveredSafetyLevel, setHoveredSafetyLevel] = React.useState<SafetyLevel>(safetyLevel);
     const maxSliderIndex = STRONG_CONFIRM_SLIDER_KEYS.length - 1;
     const strongConfirmIndex = STRONG_CONFIRM_INDEX[strongConfirmFromEnvironment] ?? 0;
     const activeSafetyEnvironmentLabel = getEnvironmentMeta(activeSafetyEnvironment).label;
     const strongConfirmLabel = getEnvironmentMeta(strongConfirmFromEnvironment).label;
+    const hoveredSafetyInfo = SAFETY_LEVEL_EXPLANATIONS[hoveredSafetyLevel];
     const sliderValue = [strongConfirmIndex];
+
+    React.useEffect(() => {
+        setHoveredSafetyLevel(safetyLevel);
+    }, [safetyLevel]);
+
     const setStrongConfirmByIndex = (index: number) => {
         const nextEnvironment = STRONG_CONFIRM_SLIDER_KEYS[index];
         if (nextEnvironment) {
@@ -117,14 +133,44 @@ export const SettingsData: React.FC<Props> = ({
 
                 <div className="space-y-1.5">
                     <Label>Write Safety Level</Label>
-                    <Select value={safetyLevel} onValueChange={(value) => onSafetyLevelChange(value as SafetyLevel)}>
+                    <Select
+                        value={safetyLevel}
+                        onValueChange={(value) => onSafetyLevelChange(value as SafetyLevel)}
+                        onOpenChange={(open) => {
+                            if (open) {
+                                setHoveredSafetyLevel(safetyLevel);
+                            }
+                        }}
+                    >
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="strict">Strict</SelectItem>
-                            <SelectItem value="balanced">Balanced</SelectItem>
-                            <SelectItem value="relaxed">Relaxed</SelectItem>
+                        <SelectContent className="p-0">
+                            <SelectItem
+                                value="strict"
+                                onPointerMove={() => setHoveredSafetyLevel('strict')}
+                                onFocus={() => setHoveredSafetyLevel('strict')}
+                            >
+                                Strict
+                            </SelectItem>
+                            <SelectItem
+                                value="balanced"
+                                onPointerMove={() => setHoveredSafetyLevel('balanced')}
+                                onFocus={() => setHoveredSafetyLevel('balanced')}
+                            >
+                                Balanced
+                            </SelectItem>
+                            <SelectItem
+                                value="relaxed"
+                                onPointerMove={() => setHoveredSafetyLevel('relaxed')}
+                                onFocus={() => setHoveredSafetyLevel('relaxed')}
+                            >
+                                Relaxed
+                            </SelectItem>
+                            <SelectSeparator className="mx-0 my-0" />
+                            <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                                {hoveredSafetyInfo.description}
+                            </div>
                         </SelectContent>
                     </Select>
                     <p className="text-[11px] text-muted-foreground">
@@ -180,32 +226,6 @@ export const SettingsData: React.FC<Props> = ({
                     </p>
                 </div>
 
-                <div className="space-y-1.5">
-                    <Label>Telemetry (Opt-in)</Label>
-                    <div className="flex items-center justify-between rounded-sm bg-muted/35 px-3 py-2">
-                        <span className="text-[12px] text-foreground">Share anonymized product telemetry</span>
-                        <Switch
-                            checked={telemetryOptIn}
-                            onCheckedChange={onTelemetryOptInChange}
-                            aria-label="Share anonymized product telemetry"
-                        />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                        Local metrics always stay on device. Opt-in enables product insights export/share.
-                    </p>
-                </div>
-
-                <div className="space-y-1.5">
-                    <Label>Export Telemetry Bundle</Label>
-                    <div className="mt-1">
-                        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={onExportTelemetry}>
-                            Export Pipeline Bundle
-                        </Button>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                        Exports local metrics + anonymized analytics outbox (if opted-in).
-                    </p>
-                </div>
             </div>
         </div>
     );

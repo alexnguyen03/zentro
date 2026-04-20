@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-    buildTelemetryPipelineExportBundle,
+    loadTelemetryAnalyticsOutbox,
     queueTelemetryAnalytics,
 } from './localMetricsStore';
 import type { TelemetryConsentState } from './contracts';
@@ -35,8 +35,9 @@ describe('localMetricsStore analytics pipeline', () => {
         expect(queued?.payload.tabId).toMatch(/\[redacted:/);
         expect(queued?.payload.durationMs).toBe(120);
 
-        const bundle = buildTelemetryPipelineExportBundle(consent);
-        expect(bundle.analyticsOutbox.length).toBe(1);
+        const outbox = loadTelemetryAnalyticsOutbox();
+        expect(outbox.length).toBe(1);
+        expect(outbox[0].event).toBe('query.done');
     });
 });
 

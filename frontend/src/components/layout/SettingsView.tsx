@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { utils } from '../../../wailsjs/go/models';
-import { ToastPlacement, useToast } from './Toast';
+import { useToast } from './Toast';
 import {
     applyProfilePackage,
     buildCurrentProfilePackage,
@@ -15,12 +15,11 @@ import {
 import { SettingsAppearance } from './settings/SettingsAppearance';
 import { SettingsNotifications } from './settings/SettingsNotifications';
 import { SettingsData } from './settings/SettingsData';
+import { SettingsFeedback } from './settings/SettingsFeedback';
 import { SettingsRegion } from './settings/SettingsRegion';
 import { SettingsProfiles } from './settings/SettingsProfiles';
 import { SettingsUpdates } from './settings/SettingsUpdates';
 import { SettingsSourceControl } from './settings/SettingsSourceControl';
-import { buildTelemetryPipelineExportBundle, exportTelemetryPipelineBundle } from '../../features/telemetry/localMetricsStore';
-import { getTelemetryConsent, setTelemetryConsent } from '../../features/telemetry/consent';
 import { Button, Input } from '../ui';
 import { ENVIRONMENT_KEY } from '../../lib/constants';
 import { getEnvironmentMeta } from '../../lib/projects';
@@ -54,7 +53,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
     const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
-    const [telemetryOptIn, setTelemetryOptIn] = useState(getTelemetryConsent().optedIn);
     const [autoCommitOnExit, setAutoCommitOnExit] = useState<boolean>(Boolean(activeProject?.auto_commit_on_exit));
     const [autoCommitSaving, setAutoCommitSaving] = useState(false);
     const safetyEnvironment: EnvironmentKey = activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL;
@@ -135,9 +133,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         try {
             const profile = buildCurrentProfilePackage(profileName);
             downloadProfilePackage(profile);
-            toast.success(`Exported profile: ${profile.metadata.name}`);
         } catch (error) {
-            toast.error(`Export failed: ${error}`);
+            console.error('Export profile failed:', error);
         }
     };
 
@@ -147,9 +144,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
             const profile = parseProfilePackage(raw);
             await applyProfilePackage(profile);
             setProfileName(profile.metadata.name || 'Zentro Profile');
-            toast.success(`Applied profile: ${profile.metadata.name}`);
         } catch (error) {
-            toast.error(`Import failed: ${error}`);
+            console.error('Import profile failed:', error);
         }
     };
 
@@ -162,7 +158,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
 
         setEnvironmentSafetyLevel(safetyEnvironment, level);
         setSafetyLevel(resolveEnvironmentSafetyLevel(safetyEnvironment));
-        toast.success(`Write safety for ${getEnvironmentMeta(safetyEnvironment).label} set to ${level}.`);
     };
 
     const handleStrongConfirmFromEnvironmentChange = (environment: EnvironmentKey) => {
@@ -174,12 +169,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const sourceControlEnabled = Boolean(activeProject?.id && activeProject?.git_repo_path);
     const appearanceMatch = matchesSearch('Appearance', ['Theme Interface', 'Editor Font Size']);
     const notificationsMatch = matchesSearch('Notifications', ['Toast Position']);
-    const dataMatch = matchesSearch('Data & Query', ['Default Row Limit', 'Telemetry', 'Export Telemetry', 'Write Safety', 'Strong Confirm']);
+    const dataMatch = matchesSearch('Data & Query', ['Default Row Limit', 'Write Safety', 'Strong Confirm']);
+    const feedbackMatch = matchesSearch('Feedback & Issue', ['Feedback', 'Issue', 'Bug', 'Feature request']);
     const regionMatch = matchesSearch('Region', ['Language']);
     const profilesMatch = matchesSearch('Profiles', ['Import Profile', 'Export Profile', 'Theme', 'Layout', 'Shortcuts']);
     const updatesMatch = matchesSearch('Updates', ['Auto-Check For Updates']);
     const sourceControlMatch = matchesSearch('Source Control', ['Auto commit on app exit', 'Git repo path']);
-    const hasSettingsMatch = appearanceMatch || notificationsMatch || dataMatch || regionMatch || profilesMatch || updatesMatch || sourceControlMatch;
+    const hasSettingsMatch = appearanceMatch || notificationsMatch || dataMatch || feedbackMatch || regionMatch || profilesMatch || updatesMatch || sourceControlMatch;
 
     const handleAutoCommitOnExitChange = async (checked: boolean) => {
         if (!activeProject || !activeProject.git_repo_path) return;
@@ -192,7 +188,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
             });
             if (!saved) {
                 setAutoCommitOnExit(Boolean(activeProject.auto_commit_on_exit));
-                toast.error('Failed to save Source Control settings.');
                 return;
             }
         } finally {
@@ -236,7 +231,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                         aria-label="Open keyboard shortcuts"
                     >
                         <Keyboard size={16} />
-                        <span className="hidden xl:inline">Shortcuts</span>
                     </Button>
                 </div>
             </div>
@@ -284,18 +278,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                         onSafetyLevelChange={handleSafetyLevelChange}
                         strongConfirmFromEnvironment={strongConfirmFromEnvironment}
                         onStrongConfirmFromEnvironmentChange={handleStrongConfirmFromEnvironmentChange}
-                        telemetryOptIn={telemetryOptIn}
-                        onTelemetryOptInChange={(checked) => {
-                            setTelemetryConsent(checked);
-                            setTelemetryOptIn(checked);
-                            toast.success(checked ? 'Telemetry opt-in enabled.' : 'Telemetry opt-in disabled.');
-                        }}
-                        onExportTelemetry={() => {
-                            const consent = getTelemetryConsent();
-                            const bundle = buildTelemetryPipelineExportBundle(consent);
-                            exportTelemetryPipelineBundle(bundle);
-                            toast.success('Telemetry pipeline bundle exported.');
-                        }}
+                    />
+                )}
+
+                {feedbackMatch && (
+                    <SettingsFeedback
+                        environmentLabel={getEnvironmentMeta(safetyEnvironment).label}
                     />
                 )}
 

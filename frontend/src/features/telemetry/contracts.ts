@@ -26,14 +26,3 @@ export interface QueryPerformanceSnapshot {
     rowsReceived: number;
     failureCode: string;
 }
-
-export interface TelemetryExportBundle {
-    exportedAt: string;
-    snapshots: QueryPerformanceSnapshot[];
-    events: TelemetryEventEnvelope[];
-    consent: TelemetryConsentState;
-}
-
-export interface TelemetryPipelineExportBundle extends TelemetryExportBundle {
-    analyticsOutbox: TelemetryAnalyticsEnvelope[];
-}
