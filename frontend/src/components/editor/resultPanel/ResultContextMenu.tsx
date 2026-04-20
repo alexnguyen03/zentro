@@ -45,7 +45,7 @@ type TopLevelItemId =
     | 'delete'
     | 'undo';
 
-type SubmenuKind = 'copy-as' | 'generate-where' | null;
+type SubmenuKind = 'copy-as' | null;
 
 export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     contextMenu,
@@ -78,7 +78,6 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     const [openSubmenu, setOpenSubmenu] = React.useState<SubmenuKind>(null);
     const [activeTopIndex, setActiveTopIndex] = React.useState(0);
     const [activeCopyAsIndex, setActiveCopyAsIndex] = React.useState(0);
-    const [activeWhereIndex, setActiveWhereIndex] = React.useState(0);
     const [lastUsedCopyAs, setLastUsedCopyAs] = React.useState<string>('');
     const [submenuTopOffset, setSubmenuTopOffset] = React.useState(0);
 
@@ -95,11 +94,13 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         }
     }, []);
 
+    const whereAction = whereActions[0] ?? null;
+
     const topItems = React.useMemo(() => ([
         { id: 'paste' as TopLevelItemId, label: 'Paste', shortcut: 'Ctrl+V', disabled: !canPaste, title: pasteDisabledTitle, onSelect: onPaste },
         { id: 'copy' as TopLevelItemId, label: 'Copy', shortcut: 'Ctrl+C', disabled: !canCopy, title: copyDisabledTitle, onSelect: onCopy },
         { id: 'copy-as' as TopLevelItemId, label: 'Copy as', shortcut: '', disabled: !canCopy, title: 'Choose copy format', onSelect: undefined, submenu: 'copy-as' as SubmenuKind },
-        { id: 'generate-where' as TopLevelItemId, label: 'Generate WHERE', shortcut: '', disabled: whereActions.length === 0, title: 'Generate WHERE clause from current selection', onSelect: undefined, submenu: 'generate-where' as SubmenuKind },
+        { id: 'generate-where' as TopLevelItemId, label: 'Generate WHERE (IN)', shortcut: '', disabled: !whereAction || whereAction.disabled, title: whereAction?.title ?? 'Generate WHERE IN from selected values', onSelect: whereAction?.onSelect },
         { id: 'open-row-query' as TopLevelItemId, label: 'Open Row in New Query Tab', shortcut: '', disabled: !canOpenRowInNewQueryTab, title: openRowQueryDisabledTitle, onSelect: onOpenRowInNewQueryTab },
         { id: 'duplicate' as TopLevelItemId, label: 'Duplicate Row', shortcut: '', disabled: !canDuplicateRows, title: duplicateDisabledTitle, onSelect: onDuplicateRow },
         { id: 'set-null' as TopLevelItemId, label: 'Set NULL', shortcut: '', disabled: !canSetNull, title: setNullDisabledTitle, onSelect: onSetNull },
@@ -127,14 +128,13 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         pasteDisabledTitle,
         setNullDisabledTitle,
         undoDisabledTitle,
-        whereActions.length,
+        whereAction,
     ]);
 
     React.useEffect(() => {
         if (!contextMenu) return;
         setOpenSubmenu(null);
         setActiveTopIndex(0);
-        setActiveWhereIndex(0);
         const preferredCopyIndex = copyAsActions.findIndex((item) => item.id === lastUsedCopyAs);
         setActiveCopyAsIndex(preferredCopyIndex >= 0 ? preferredCopyIndex : 0);
         if (focusTimerRef.current !== null) {
@@ -164,17 +164,10 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         setActiveCopyAsIndex(index);
     }, []);
 
-    const runWhereAction = React.useCallback((action: ResultContextWhereAction, index: number) => {
-        if (action.disabled) return;
-        action.onSelect();
-        setActiveWhereIndex(index);
-    }, []);
-
     const onMenuKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
         if (!topItems.length) return;
         const currentTop = topItems[activeTopIndex];
-        const currentSubmenuItems =
-            openSubmenu === 'copy-as' ? copyAsActions : openSubmenu === 'generate-where' ? whereActions : [];
+        const currentSubmenuItems = openSubmenu === 'copy-as' ? copyAsActions : [];
 
         if (event.key === 'Escape') {
             if (openSubmenu) {
@@ -188,20 +181,12 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         if (openSubmenu && currentSubmenuItems.length > 0) {
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
-                if (openSubmenu === 'copy-as') {
-                    setActiveCopyAsIndex((prev) => (prev + 1) % copyAsActions.length);
-                } else {
-                    setActiveWhereIndex((prev) => (prev + 1) % whereActions.length);
-                }
+                setActiveCopyAsIndex((prev) => (prev + 1) % copyAsActions.length);
                 return;
             }
             if (event.key === 'ArrowUp') {
                 event.preventDefault();
-                if (openSubmenu === 'copy-as') {
-                    setActiveCopyAsIndex((prev) => (prev - 1 + copyAsActions.length) % copyAsActions.length);
-                } else {
-                    setActiveWhereIndex((prev) => (prev - 1 + whereActions.length) % whereActions.length);
-                }
+                setActiveCopyAsIndex((prev) => (prev - 1 + copyAsActions.length) % copyAsActions.length);
                 return;
             }
             if (event.key === 'ArrowLeft') {
@@ -211,13 +196,8 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
             }
             if (event.key === 'Enter') {
                 event.preventDefault();
-                if (openSubmenu === 'copy-as') {
-                    const action = copyAsActions[activeCopyAsIndex];
-                    if (action) runCopyAs(action, activeCopyAsIndex);
-                } else {
-                    const action = whereActions[activeWhereIndex];
-                    if (action) runWhereAction(action, activeWhereIndex);
-                }
+                const action = copyAsActions[activeCopyAsIndex];
+                if (action) runCopyAs(action, activeCopyAsIndex);
                 return;
             }
             return;
@@ -234,8 +214,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
             return;
         }
         if (event.key === 'ArrowRight' && currentTop?.submenu) {
-            const canOpen = currentTop.submenu === 'copy-as' ? copyAsActions.length > 0 : whereActions.length > 0;
-            if (canOpen) {
+            if (copyAsActions.length > 0) {
                 event.preventDefault();
                 setOpenSubmenu(currentTop.submenu);
             }
@@ -244,8 +223,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         if (event.key === 'Enter') {
             event.preventDefault();
             if (currentTop?.submenu) {
-                const canOpen = currentTop.submenu === 'copy-as' ? copyAsActions.length > 0 : whereActions.length > 0;
-                if (canOpen) setOpenSubmenu(currentTop.submenu);
+                if (copyAsActions.length > 0) setOpenSubmenu(currentTop.submenu);
                 return;
             }
             if (!currentTop?.disabled && currentTop?.onSelect) {
@@ -255,19 +233,15 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     }, [
         activeCopyAsIndex,
         activeTopIndex,
-        activeWhereIndex,
         copyAsActions,
         openSubmenu,
         runCopyAs,
-        runWhereAction,
         topItems,
-        whereActions,
     ]);
 
     if (!contextMenu || !contextMenuPosition) return null;
 
-    const submenuItems = openSubmenu === 'copy-as' ? copyAsActions : openSubmenu === 'generate-where' ? whereActions : [];
-    const activeSubmenuIndex = openSubmenu === 'copy-as' ? activeCopyAsIndex : activeWhereIndex;
+    const submenuItems = openSubmenu === 'copy-as' ? copyAsActions : [];
     const submenuSide = contextMenuPosition.submenuOpensLeft ? 'right-full mr-1' : 'left-full ml-1';
 
     return (
@@ -338,8 +312,8 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                         onMouseEnter={() => setOpenSubmenu(openSubmenu)}
                     >
                         {submenuItems.map((action, index) => {
-                            const isActive = activeSubmenuIndex === index;
-                            const isLastUsedCopyAction = openSubmenu === 'copy-as' && action.id === lastUsedCopyAs;
+                            const isActive = activeCopyAsIndex === index;
+                            const isLastUsedCopyAction = action.id === lastUsedCopyAs;
                             return (
                                 <Button
                                     key={action.id}
@@ -348,14 +322,8 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                                     title={action.title}
                                     className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-[12px] ${action.disabled ? 'text-muted-foreground cursor-not-allowed' : 'text-foreground hover:bg-muted'} ${isActive ? 'bg-muted/60' : ''}`}
                                     disabled={action.disabled}
-                                    onMouseEnter={() => {
-                                        if (openSubmenu === 'copy-as') setActiveCopyAsIndex(index);
-                                        else setActiveWhereIndex(index);
-                                    }}
-                                    onClick={() => {
-                                        if (openSubmenu === 'copy-as') runCopyAs(action, index);
-                                        else runWhereAction(action, index);
-                                    }}
+                                    onMouseEnter={() => setActiveCopyAsIndex(index)}
+                                    onClick={() => runCopyAs(action, index)}
                                 >
                                     <span>{action.label}</span>
                                     <span className="text-[10px] text-muted-foreground">{isLastUsedCopyAction ? 'Last used' : ''}</span>

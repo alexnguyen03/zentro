@@ -9,7 +9,6 @@ import {
     buildRowsAsInsertStatements,
     buildRowAsUpdateStatement,
     buildSelectionMatrix,
-    buildWhereClauseByPrimaryKeys,
     buildWhereClauseBySelectionIn,
     matrixToTsv,
 } from '../resultSelectionActions';
@@ -95,6 +94,16 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
     }, []);
 
     const getTargetPersistedRowIndices = React.useCallback((): number[] => {
+        // Priority 1: explicit row header selection
+        const fromHeader = deps.selectedRowKeysFromHeader
+            .filter((rowKey) => rowKey.startsWith('p:'))
+            .map((rowKey) => Number(rowKey.slice(2)))
+            .filter((rowIndex) => Number.isFinite(rowIndex));
+        if (fromHeader.length > 0) {
+            return Array.from(new Set(fromHeader));
+        }
+
+        // Priority 2: cell-derived row keys
         const fromSelection = deps.selectedRowKeys
             .filter((rowKey) => rowKey.startsWith('p:'))
             .map((rowKey) => Number(rowKey.slice(2)))
@@ -103,6 +112,7 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
             return Array.from(new Set(fromSelection));
         }
 
+        // Priority 3: cells in effective selection
         const fromCells = Array.from(getEffectiveSelection())
             .map((cellId) => parseCellId(cellId).rowKey)
             .filter((rowKey) => rowKey.startsWith('p:'))
@@ -112,12 +122,13 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
             return Array.from(new Set(fromCells));
         }
 
+        // Priority 4: right-clicked row
         if (contextMenu?.rowKey?.startsWith('p:')) {
             const rowIndex = Number(contextMenu.rowKey.slice(2));
             if (Number.isFinite(rowIndex)) return [rowIndex];
         }
         return [];
-    }, [contextMenu?.rowKey, deps.selectedRowKeys, getEffectiveSelection]);
+    }, [contextMenu?.rowKey, deps.selectedRowKeys, deps.selectedRowKeysFromHeader, getEffectiveSelection]);
 
     const handleContextCopy = React.useCallback(() => {
         const effectiveSelection = getEffectiveSelection();
@@ -274,39 +285,6 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
         void setClipboardText(sql).catch(() => toast.error('Failed to write to clipboard'));
         closeContextMenu();
     }, [closeContextMenu, deps.displayRows, deps.driver, deps.editedCells, deps.result?.columns, deps.result?.tableName, deps.rowOrder, getEffectiveSelection, pkColumns, toast]);
-
-    const handleGenerateWhereByPk = React.useCallback(() => {
-        const persistedRowIndices = getTargetPersistedRowIndices();
-        if (persistedRowIndices.length === 0) {
-            toast.info('Select at least one persisted row to generate WHERE clause.');
-            closeContextMenu();
-            return;
-        }
-        if (pkColumns.length === 0) {
-            toast.info('Primary key is required to generate WHERE by row.');
-            closeContextMenu();
-            return;
-        }
-        const columns = deps.result?.columns ?? [];
-        const clause = buildWhereClauseByPrimaryKeys({
-            persistedRowIndices,
-            displayRows: deps.displayRows,
-            editedCells: deps.editedCells,
-            columns,
-            pkColumns,
-            driver: deps.driver || '',
-        });
-        if (!clause) {
-            toast.info('Unable to generate WHERE clause from current selection.');
-            closeContextMenu();
-            return;
-        }
-        const queryText = buildQueryFromGeneratedWhere(clause);
-        void setClipboardText(queryText).then(() => {
-            toast.success('Query copied to clipboard');
-        }).catch(() => toast.error('Failed to write to clipboard'));
-        closeContextMenu();
-    }, [buildQueryFromGeneratedWhere, closeContextMenu, deps.displayRows, deps.driver, deps.editedCells, deps.result?.columns, getTargetPersistedRowIndices, pkColumns, toast]);
 
     const handleGenerateWhereByIn = React.useCallback(() => {
         const effectiveSelection = getEffectiveSelection();
@@ -617,7 +595,6 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
     const setNullDisabledTitle = canSetNull ? 'Set selected editable cells to NULL' : !canMutateCells ? 'Result is read-only. Set NULL is unavailable.' : 'Select at least one editable cell.';
     const duplicateDisabledTitle = canDuplicateRows && canMutateRows ? 'Duplicate selected persisted row(s)' : !canMutateRows ? 'Row actions are unavailable in current mode.' : 'Select at least one persisted row to duplicate.';
     const deleteDisabledTitle = canDeleteRows && canMutateRows ? 'Delete selected row(s)' : !canMutateRows ? 'Row actions are unavailable in current mode.' : 'Select row(s) to delete.';
-    const canGenerateWhereByPk = getTargetPersistedRowIndices().length > 0 && pkColumns.length > 0;
     const canGenerateWhereByIn = getEffectiveSelection().size > 0;
     const canOpenRowInNewQueryTab = Boolean(deps.result?.tableName) && getTargetPersistedRowIndices().length > 0 && pkColumns.length > 0;
     const topUndoEntry = undoStackRef.current[undoStackRef.current.length - 1];
@@ -677,20 +654,13 @@ export function useResultContextMenuActions(deps: ResultContextMenuDeps) {
 
     const whereActions = React.useMemo<ResultContextWhereAction[]>(() => ([
         {
-            id: 'where-by-pk',
-            label: 'By Row PK',
-            onSelect: handleGenerateWhereByPk,
-            disabled: !canGenerateWhereByPk,
-            title: canGenerateWhereByPk ? 'Generate WHERE clause using selected row primary key(s)' : 'Select persisted row(s) with available primary key.',
-        },
-        {
             id: 'where-by-in',
             label: 'By Selected Values (IN)',
             onSelect: handleGenerateWhereByIn,
             disabled: !canGenerateWhereByIn,
             title: canGenerateWhereByIn ? 'Generate WHERE IN from selected values in one column' : 'Select at least one column cell first.',
         },
-    ]), [canGenerateWhereByIn, canGenerateWhereByPk, handleGenerateWhereByIn, handleGenerateWhereByPk]);
+    ]), [canGenerateWhereByIn, handleGenerateWhereByIn]);
 
     return {
         contextMenu,
