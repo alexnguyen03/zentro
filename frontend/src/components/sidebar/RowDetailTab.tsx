@@ -51,6 +51,7 @@ export const RowDetailTab: React.FC = () => {
     const viewMode = rowDetailPanelState.viewMode;
     const isSelectMode = rowDetailPanelState.isSelectMode;
     const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+    const [fieldFilter, setFieldFilter] = useState('');
 
     const updateRowDetailPanelState = useCallback((next: Partial<typeof rowDetailPanelState>) => {
         setRowDetailPanelState((current) => ({
@@ -151,6 +152,27 @@ export const RowDetailTab: React.FC = () => {
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <div className="mb-1 flex items-center justify-end gap-1 border-b border-border/50 pb-1">
+                <div className="relative flex-1 min-w-0">
+                    <input
+                        type="text"
+                        value={fieldFilter}
+                        onChange={(e) => setFieldFilter(e.target.value)}
+                        placeholder="Filter fields..."
+                        className="h-6 w-full rounded-sm border border-border bg-transparent pl-2 pr-6 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none"
+                        onKeyDown={(e) => { if (e.key === 'Escape') setFieldFilter(''); }}
+                    />
+                    {fieldFilter && (
+                        <button
+                            type="button"
+                            onClick={() => setFieldFilter('')}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                                <line x1="2" y1="2" x2="8" y2="8" /><line x1="8" y1="2" x2="2" y2="8" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
                 {viewMode === 'form' && isSelectMode && (
                     <Button type="button" variant="ghost" size="icon" className={actionBtnClass} title="Invert selection" onClick={invertSelection}>
                         <RefreshCcw size={13} />
@@ -195,6 +217,7 @@ export const RowDetailTab: React.FC = () => {
                     <JsonViewer value={JSON.stringify(getJsonData(), null, 2)} showCopy={false} />
                 ) : (
                     detail.columns.map((col, idx) => {
+                        if (fieldFilter && !col.toLowerCase().includes(fieldFilter.toLowerCase())) return null;
                         const val = detail.row[idx];
                         const isNull = val === null || val === undefined;
                         const isPK = detail.primaryKeys?.includes(col) ?? false;
