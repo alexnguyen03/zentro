@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStatusStore } from '../../stores/statusStore';
 import { onConnectionChanged } from '../../lib/events';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { CONNECTION_STATUS, TRANSACTION_STATUS } from '../../lib/constants';
+import { APP_ZOOM_ENABLED, toZoomPercent, useZoomStore } from '../../stores/zoomStore';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
 export const StatusBar: React.FC = () => {
     const {
@@ -21,6 +23,11 @@ export const StatusBar: React.FC = () => {
     } = useStatusStore();
     const { activeProfile, connectionStatus } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
+    const zoomLevel = useZoomStore((state) => state.zoomLevel);
+    const zoomIn = useZoomStore((state) => state.zoomIn);
+    const zoomOut = useZoomStore((state) => state.zoomOut);
+    const resetZoom = useZoomStore((state) => state.resetZoom);
+    const zoomPct = toZoomPercent(zoomLevel);
 
     useEffect(() => {
         if (connectionStatus === CONNECTION_STATUS.CONNECTED && activeProfile) {
@@ -135,6 +142,74 @@ export const StatusBar: React.FC = () => {
                     </span>
                 )}
             </div>
+            {APP_ZOOM_ENABLED && zoomPct !== 100 && (
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <button
+                            type="button"
+                            className="h-5 w-5 flex items-center justify-center rounded-sm text-white/80 hover:text-white hover:bg-white/15 transition-colors"
+                            aria-label={`Zoom ${zoomPct}%`}
+                        >
+                            {zoomPct > 100 ? (
+                                // zoom-in icon: magnifier with +
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="6.5" cy="6.5" r="4.5" />
+                                    <line x1="10.5" y1="10.5" x2="14" y2="14" />
+                                    <line x1="6.5" y1="4.5" x2="6.5" y2="8.5" />
+                                    <line x1="4.5" y1="6.5" x2="8.5" y2="6.5" />
+                                </svg>
+                            ) : (
+                                // zoom-out icon: magnifier with −
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="6.5" cy="6.5" r="4.5" />
+                                    <line x1="10.5" y1="10.5" x2="14" y2="14" />
+                                    <line x1="4.5" y1="6.5" x2="8.5" y2="6.5" />
+                                </svg>
+                            )}
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        side="top"
+                        align="end"
+                        sideOffset={6}
+                        className="w-auto p-2"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                className="h-6 w-6 flex items-center justify-center rounded-sm text-sm text-foreground hover:bg-muted transition-colors"
+                                title="Zoom out (Ctrl+-)"
+                                onClick={zoomOut}
+                                aria-label="Zoom out"
+                            >
+                                −
+                            </button>
+                            <span className="min-w-12 text-center text-[12px] font-medium tabular-nums text-foreground select-none">
+                                {zoomPct}%
+                            </span>
+                            <button
+                                type="button"
+                                className="h-6 w-6 flex items-center justify-center rounded-sm text-sm text-foreground hover:bg-muted transition-colors"
+                                title="Zoom in (Ctrl+=)"
+                                onClick={zoomIn}
+                                aria-label="Zoom in"
+                            >
+                                +
+                            </button>
+                            <div className="w-px h-4 bg-border mx-0.5" />
+                            <button
+                                type="button"
+                                className="h-6 px-2 flex items-center justify-center rounded-sm text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                title="Reset zoom (Ctrl+0)"
+                                onClick={resetZoom}
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )}
         </div>
     );
 };
