@@ -721,7 +721,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-background outline-none">
-            <div className="shrink-0 h-12 px-4 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <div className="shrink-0 px-4 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                 <div className="min-w-0 overflow-x-auto whitespace-nowrap">
                     <TableSchemaBreadcrumb
                         dbName={activeProfile?.db_name || ''}
@@ -736,11 +736,10 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     />
                 </div>
 
-                <div className="justify-self-center flex items-center gap-1 min-w-0 overflow-visible">
+                <div className="justify-self-center flex items-center min-w-0">
                     {tabs.map(({ key, label, icon, dirtyCount, count }) => (
-                        <Button
+                        <button
                             key={key}
-                            variant="ghost"
                             type="button"
                             title={
                                 count !== undefined && count !== null
@@ -754,13 +753,13 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 setFilterCol('');
                             }}
                             className={cx(
-                                'relative   shrink-0 rounded-sm p-0 outline-none',
+                                'relative flex shrink-0 items-center px-2.5 h-8 my-1 rounded-sm outline-none transition-colors',
                                 activeTab === key
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground/70 hover:text-foreground',
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'text-muted-foreground hover:text-foreground',
                             )}
                         >
-                            <span className={cx(activeTab === key ? 'opacity-100' : 'opacity-75')}>{icon}</span>
+                            {icon}
                             {count !== undefined && count !== null && (
                                 <Indicator
                                     mode="count"
@@ -775,7 +774,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                     className={TABLE_TAB_BADGE_CLASSNAME}
                                 />
                             )}
-                        </Button>
+                        </button>
                     ))}
                 </div>
 

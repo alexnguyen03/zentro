@@ -37,10 +37,8 @@ export const SecondarySidebar: React.FC = () => {
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
             <div className="sidebar flex h-full shrink-0 flex-col bg-card/10" style={{ width: sidebarWidth }}>
                 <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
-                    <div className="flex items-center gap-2 px-2 py-1 bg-card/10">
-                        <TabsList
-                            className="h-8 w-full justify-start gap-1 p-0 bg-transparent"
-                        >
+                    <div className="flex items-center px-1">
+                        <TabsList className="h-9 flex-1 justify-start gap-0 p-0 bg-transparent">
                             {panels.map((panel) => {
                                 const Icon = panel.icon;
                                 const badge = panel.getBadge?.();
@@ -48,13 +46,13 @@ export const SecondarySidebar: React.FC = () => {
                                     <TabsTrigger
                                         key={panel.id}
                                         value={panel.id}
-                                        className="relative   cursor-pointer rounded-none bg-transparent p-0 text-muted-foreground opacity-55 transition hover:opacity-80 data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:opacity-100 data-[state=active]:shadow-none"
+                                        className="relative h-8 rounded-sm cursor-pointer bg-transparent px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
                                         title={panel.label}
                                         aria-label={panel.label}
                                     >
-                                        <Icon size={14} className="shrink-0" />
+                                        <Icon size={13} className="shrink-0" />
                                         {badge !== undefined && badge !== null && badge !== 0 && (
-                                            <span className="absolute right-[-2px] top-[-1px] inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-semibold leading-none text-white">
+                                            <span className="absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-600 px-0.5 text-[9px] font-semibold leading-none text-white">
                                                 {badge}
                                             </span>
                                         )}
@@ -62,6 +60,15 @@ export const SecondarySidebar: React.FC = () => {
                                 );
                             })}
                         </TabsList>
+                        <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Close panel"
+                            onClick={() => setShowRightSidebar(false)}
+                        >
+                            <X size={12} />
+                        </Button>
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
