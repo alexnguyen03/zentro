@@ -332,7 +332,7 @@ export const Toolbar: React.FC = () => {
 
     return (
         <div
-            className="h-10 grid grid-cols-10 items-center shrink-0 px-3 gap-2"
+            className="h-8 grid grid-cols-10 items-center shrink-0 px-3 gap-2 mb-1.5"
             style={isMac ? { paddingLeft: '76px' } : undefined}
             onDoubleClick={handleToolbarDoubleClick}
         >
@@ -358,7 +358,7 @@ export const Toolbar: React.FC = () => {
                     />
 
                     <Button
-                        variant="ghost" size="icon-md"
+                        variant="ghost" size="icon-sm"
                         title={viewMode ? 'View Mode ON (Click to disable)' : 'Enable View Mode (Read-only)'}
                         aria-pressed={viewMode}
                         className={cn('relative', viewMode && 'text-warning')}
@@ -369,7 +369,7 @@ export const Toolbar: React.FC = () => {
                     </Button>
                     <Button
                         variant="ghost"
-                        size="icon-md"
+                        size="icon-sm"
                         title="Reload Connection"
                         onClick={() => {
                             void handleReconnect();
@@ -382,21 +382,21 @@ export const Toolbar: React.FC = () => {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="gap-1.5 px-2 font-mono text-label"
+                            className="text-label"
                             title="Switch or create branch"
                             onClick={() => setBranchSpotlightOpen(true)}
                         >
-                            <GitBranch size={13} />
-                            <span className="max-w-[120px] truncate">{gitBranchLoading ? 'loading...' : (gitBranch || '-')}</span>
+                            <GitBranch size={14} />
+                            <span className="max-w-30 truncate">{gitBranchLoading ? 'loading...' : (gitBranch || '-')}</span>
                         </Button>
                     )}
                 </div>
             </div>
 
             {/* Center: 4/10 - project / connection pill + quick env switcher */}
-            <div className="col-span-4 min-w-0 flex items-center justify-center h-full">
+            <div className="col-span-4 min-w-0 flex items-center justify-center h-7">
                 <div
-                    className="flex flex-1 justify-center relative h-10/12 my-1"
+                    className="flex flex-1 justify-center relative h-full"
                     style={{ width: 'min(520px, 44vw)', '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
                     <div
@@ -553,16 +553,16 @@ export const Toolbar: React.FC = () => {
                     className="flex items-center"
                     style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
-                    <Button variant="ghost" size="icon-md" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
+                    <Button variant="ghost" size="icon-sm" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
                         <Settings size={14} />
                     </Button>
-                    <Button variant="ghost" size="icon-md" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
+                    <Button variant="ghost" size="icon-sm" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
                         <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
                     </Button>
-                    <Button variant="ghost" size="icon-md" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
+                    <Button variant="ghost" size="icon-sm" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
                         <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
                     </Button>
-                    <Button variant="ghost" size="icon-md" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
+                    <Button variant="ghost" size="icon-sm" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
                         <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                     </Button>
                     {!isMac && <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />}

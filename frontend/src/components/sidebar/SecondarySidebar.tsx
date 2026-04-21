@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { PanelRightClose, X } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useSidebarPanels } from './sidebarPanelRegistry';
 import { registerBuiltInSidebarPanels } from './sidebarPanels';
@@ -60,15 +60,6 @@ export const SecondarySidebar: React.FC = () => {
                                 );
                             })}
                         </TabsList>
-                        <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            className="shrink-0 text-muted-foreground hover:text-foreground"
-                            title="Close panel"
-                            onClick={() => setShowRightSidebar(false)}
-                        >
-                            <X size={12} />
-                        </Button>
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
