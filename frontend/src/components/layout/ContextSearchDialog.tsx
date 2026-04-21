@@ -447,7 +447,6 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <Button
                                 type="button"
                                 variant="secondary"
-                                className="h-6 w-6 px-0"
                                 title={showAllKinds ? 'Show fewer object types' : 'Show more object types'}
                                 onClick={() =>
                                     setShowAllKinds((prev) => {

@@ -403,7 +403,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                             )}
                         </div>
 
-                        <div className="ml-2 items-end flex-1 min-w-12.5 h-6 relative">
+                        <div className="ml-2 items-end flex-1 min-w-12.5 h-7 relative">
                             <Editor
                                 path={modelPath}
                                 theme={getMonacoTheme()}
@@ -427,7 +427,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                     scrollBeyondLastLine: false,
                                     contextmenu: true,
                                     fontSize: 11,
-                                    lineHeight: 24,
+                                    lineHeight: 28,
                                     fontFamily: 'var(--font-mono, monospace)',
                                     quickSuggestions: { other: true, comments: false, strings: false },
                                     wordBasedSuggestions: 'off',
@@ -475,8 +475,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
-                                                            size="icon"
-                                                            className="h-4 w-4 p-0 hover:bg-muted"
+                                                            size="icon-xs"
                                                             title="Remove order term"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
@@ -500,7 +499,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                     >
                                                         <div className="text-[11px] text-muted-foreground font-medium">Edit sort term</div>
                                                         <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
-                                                            <SelectTrigger className="h-7 text-[12px]">
+                                                            <SelectTrigger className="border-input/60">
                                                                 <SelectValue placeholder="Choose field" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -512,7 +511,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                             </SelectContent>
                                                         </Select>
                                                         <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
-                                                            <SelectTrigger className="h-7 text-[12px]">
+                                                            <SelectTrigger className="border-input/60">
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -523,7 +522,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                         <Button
                                                             type="button"
                                                             size="sm"
-                                                            className="h-7 w-full text-[12px]"
+                                                            className="h-7 w-full text-small"
                                                             disabled={!selectedOrderField.trim()}
                                                             onClick={handleSaveOrderTerm}
                                                         >
@@ -540,8 +539,8 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="icon"
-                                            className="ml-2 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                                            size="icon-sm"
+                                            className="shrink-0 text-muted-foreground hover:text-foreground"
                                             title="Add ORDER BY term"
                                         >
                                             <Plus size={12} />
@@ -560,7 +559,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                         >
                                             <div className="text-[11px] text-muted-foreground font-medium">Add sort term</div>
                                             <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
-                                                <SelectTrigger className="h-7 text-[12px]">
+                                                <SelectTrigger className="border-input/60">
                                                     <SelectValue placeholder="Choose field" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -572,7 +571,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                 </SelectContent>
                                             </Select>
                                             <Select value={selectedOrderDir} onValueChange={(v: string) => setSelectedOrderDir(v as OrderDirection)}>
-                                                <SelectTrigger className="h-7 text-[12px]">
+                                                <SelectTrigger className="border-input/60">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -583,7 +582,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                             <Button
                                                 type="button"
                                                 size="sm"
-                                                className="h-7 w-full text-[12px]"
+                                                className="h-7 w-full text-small"
                                                 disabled={!selectedOrderField.trim()}
                                                 onClick={handleAddOrderTerm}
                                             >
@@ -603,7 +602,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                     event.stopPropagation();
                                     runNow(valueRef.current, event.currentTarget.value);
                                 }}
-                                className="ml-2 h-6 w-full bg-transparent font-mono text-[12px]"
+                                size="sm"
+                                variant="ghost"
+                                className="ml-2 font-mono"
                                 placeholder="created_at DESC, id ASC"
                             />
                         )}

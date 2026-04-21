@@ -612,7 +612,9 @@ export const ConnectionTree: React.FC = () => {
                     <Input
                         ref={filterInputRef}
                         type="text"
-                        className="h-7 w-full px-2 pr-8 py-1.25 text-[11px]"
+                        size="sm"
+                        variant="ghost"
+                        className="w-full pr-8"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(event) => updateExplorerUiState({ filter: event.target.value })}
@@ -647,7 +649,7 @@ export const ConnectionTree: React.FC = () => {
                             <SelectTrigger
                                 aria-label="Select schema"
                                 title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
-                                className="h-7 text-[12px] outline-none flex w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-muted/70 focus:ring-0"
+                                className="outline-none flex w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-muted/70 focus:ring-0"
                             >
                                 <SelectValue />
                             </SelectTrigger>

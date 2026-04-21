@@ -5,7 +5,7 @@ import { useRowDetailStore } from '../../stores/rowDetailStore';
 import { useToast } from '../layout/Toast';
 import { JsonViewer } from '../viewers/JsonViewer';
 import { setClipboardText } from '../../services/clipboardService';
-import { Button, Checkbox, Label, Textarea } from '../ui';
+import { Button, Checkbox, Input, Label, Textarea } from '../ui';
 import { useSidebarPanelState } from '../../stores/sidebarUiStore';
 import { ROW_DETAIL_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
@@ -124,7 +124,7 @@ export const RowDetailTab: React.FC = () => {
         });
     }, [detail]);
 
-    const actionBtnClass = 'h-6 w-6 text-muted-foreground hover:text-foreground';
+    const actionBtnClass = 'text-muted-foreground hover:text-foreground';
     const actionBtnActiveClass = 'bg-muted text-primary hover:text-primary';
 
     if (!detail) {
@@ -153,24 +153,27 @@ export const RowDetailTab: React.FC = () => {
         <div className="flex h-full flex-col overflow-hidden">
             <div className="mb-1 flex items-center justify-end gap-1 border-b border-border/50 pb-1">
                 <div className="relative flex-1 min-w-0">
-                    <input
-                        type="text"
+                    <Input
+                        size="sm"
+                        variant="ghost"
                         value={fieldFilter}
                         onChange={(e) => setFieldFilter(e.target.value)}
                         placeholder="Filter fields..."
-                        className="h-6 w-full rounded-sm border border-border bg-transparent pl-2 pr-6 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none"
+                        className="pr-6"
                         onKeyDown={(e) => { if (e.key === 'Escape') setFieldFilter(''); }}
                     />
                     {fieldFilter && (
-                        <button
+                        <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             onClick={() => setFieldFilter('')}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            className="absolute right-0.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         >
                             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                                 <line x1="2" y1="2" x2="8" y2="8" /><line x1="8" y1="2" x2="2" y2="8" />
                             </svg>
-                        </button>
+                        </Button>
                     )}
                 </div>
                 {viewMode === 'form' && isSelectMode && (
@@ -332,8 +335,8 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                 <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
+                    size="icon-xs"
+                    className="shrink-0 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
                     onClick={onCopy}
                     title="Copy value"
                     disabled={isNull}

@@ -133,7 +133,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                             value={exportFormat}
                             onValueChange={(value) => setExportFormat(value as 'csv' | 'json' | 'sql')}
                         >
-                            <SelectTrigger className="w-full bg-background text-[13px]">
+                            <SelectTrigger className="w-full bg-background text-small">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -149,7 +149,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                             <label className="block text-[12px] font-semibold text-foreground mb-1.5">Table Name</label>
                             <Input
                                 type="text"
-                                inputSize="lg"
+                                size="md"
                                 className="w-full"
                                 placeholder={resultTableName || 'my_table'}
                                 value={exportTableName}

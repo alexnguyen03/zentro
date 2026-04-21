@@ -7,6 +7,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useStatusStore } from '../stores/statusStore';
 import { useEnvironmentStore } from '../stores/environmentStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useZoomStore } from '../stores/zoomStore';
 import { DOM_EVENT, ENVIRONMENT_KEY, TRANSACTION_STATUS, type EnvironmentKey, TAB_TYPE } from './constants';
 import { emitCommand } from './commandBus';
 import { utils } from '../../wailsjs/go/models';
@@ -31,6 +32,9 @@ export type BuiltInCommandId =
   | 'view.openShortcuts'
   | 'view.commandPalette'
   | 'view.toggleViewMode'
+  | 'view.zoomIn'
+  | 'view.zoomOut'
+  | 'view.zoomReset'
   | 'layout.toggleSidebar'
   | 'layout.toggleRightSidebar'
   | 'layout.toggleResultPanel'
@@ -275,6 +279,27 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     action: async () => {
       await toggleViewModeShortcut();
     },
+  },
+  {
+    id: 'view.zoomIn',
+    label: 'Zoom In',
+    category: 'View',
+    defaultBinding: 'Ctrl+=',
+    action: () => { useZoomStore.getState().zoomIn(); },
+  },
+  {
+    id: 'view.zoomOut',
+    label: 'Zoom Out',
+    category: 'View',
+    defaultBinding: 'Ctrl+-',
+    action: () => { useZoomStore.getState().zoomOut(); },
+  },
+  {
+    id: 'view.zoomReset',
+    label: 'Reset Zoom',
+    category: 'View',
+    defaultBinding: 'Ctrl+0',
+    action: () => { useZoomStore.getState().resetZoom(); },
   },
   {
     id: 'layout.toggleSidebar',

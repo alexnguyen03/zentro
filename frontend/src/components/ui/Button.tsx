@@ -17,10 +17,13 @@ export const buttonVariants = cva(
                 link: 'text-primary underline-offset-4 hover:underline',
             },
             size: {
-                default: 'h-8 px-3',
-                sm: 'h-7 px-2 text-xs',
-                lg: 'h-9 px-4 text-sm',
-                icon: 'h-8 w-8 px-0',
+                sm:        'h-7 px-2 text-small',   // = ControlSize sm — default
+                md:        'h-9 px-3 text-small',   // = ControlSize md
+                lg:        'h-9 px-4 text-small',
+                'icon-xs': 'h-5 w-5 px-0',          // status bar, badge
+                'icon-sm': 'h-6 w-6 px-0',          // dense toolbar
+                icon:      'h-7 w-7 px-0',          // sm companion
+                'icon-md': 'h-9 w-9 px-0',          // md companion
             },
             density: {
                 compact: DENSITY_CLASS.compact,
@@ -41,7 +44,7 @@ export const buttonVariants = cva(
         },
         defaultVariants: {
             variant: 'secondary',
-            size: 'default',
+            size: 'sm', // = ControlSize sm
             density: 'compact',
             tone: 'default',
             state: 'default',

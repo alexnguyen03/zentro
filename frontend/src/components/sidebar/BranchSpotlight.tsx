@@ -110,7 +110,8 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                     <Input
                         ref={inputRef}
                         value={query}
-                        className="h-9 border-border/80 bg-background/95 text-[12px] font-mono"
+                        size="md"
+                        className="border-border/80 bg-background/95 font-mono"
                         placeholder="Select a branch or tag to checkout"
                         onChange={(event) => setQuery(event.target.value)}
                         onKeyDown={(event) => {

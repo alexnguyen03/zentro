@@ -754,7 +754,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 setFilterCol('');
                             }}
                             className={cx(
-                                'relative h-8 w-8 shrink-0 rounded-sm p-0 outline-none',
+                                'relative   shrink-0 rounded-sm p-0 outline-none',
                                 activeTab === key
                                     ? 'text-primary'
                                     : 'text-muted-foreground/70 hover:text-foreground',
@@ -802,7 +802,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Escape') setFilterCol('');
                                 }}
-                                inputSize="sm"
+                                size="sm"
                                 variant="ghost"
                                 className="w-full border-border/30 pl-8 pr-3 placeholder:text-muted-foreground/40"
                             />

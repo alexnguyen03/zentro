@@ -27,6 +27,7 @@ import { useSidebarResize, useProjectLifecycle } from './features/project/usePro
 import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge';
 import { forceQuitWithAutosave } from './features/app-runtime/forceQuitWithAutosave';
 import { useQueryTabAutosave } from './features/editor/useQueryTabAutosave';
+import { useAppZoom } from './features/app-runtime/useAppZoom';
 
 const STARTUP_LOADING_FADE_MS = 480;
 
@@ -85,6 +86,7 @@ function App() {
     useGlobalShortcuts(toast);
     usePluginCommandBridge();
     useQueryTabAutosave();
+    useAppZoom();
 
     useEffect(() => {
         const off = onCommand(DOM_EVENT.OPEN_QUERY_COMPARE, () => setShowCompareModal(true));

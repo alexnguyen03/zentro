@@ -1,4 +1,4 @@
-export * from './Button';
+export * from './button';
 export * from './dialog';
 export * from './alert-dialog';
 export * from './modal';
@@ -17,7 +17,7 @@ export * from './slider';
 export * from './radio-group';
 export * from './label';
 export * from './Checkbox';
-export * from './Input';
+export * from './input';
 export * from './Indicator';
 export * from './select';
 export * from './switch';

@@ -903,7 +903,6 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                     value={draft.name}
                                     onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))}
                                     placeholder="Payments Platform"
-                                    inputSize="md"
                                     className="bg-card w-full"
                                     autoFocus
                                 />
@@ -914,7 +913,6 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                     value={draft.description}
                                     onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
                                     placeholder="Optional context"
-                                    inputSize="md"
                                     className="bg-card w-full"
                                 />
                             </div>
@@ -1122,7 +1120,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
                                             setStorageParentPath(event.target.value);
                                         }}
                                         placeholder={loadingStorageRoot ? 'Loading default storage root...' : (isEditMode ? 'Set project folder path' : 'Choose parent folder...')}
-                                        inputSize="xl"
+                                        size="md"
                                         className="bg-card"
                                     />
                                     <Button

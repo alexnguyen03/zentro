@@ -138,7 +138,7 @@ const BindingCaptureModal: React.FC<{
                                 }
                             }}
                             placeholder="Ctrl+K Ctrl+B"
-                            inputSize="xl"
+                            size="md"
                             className="w-full font-mono"
                             data-shortcut-capture="true"
                         />
@@ -298,7 +298,7 @@ export const ShortcutsView: React.FC = () => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search commands, keybindings, when..."
-                            inputSize="lg"
+                            size="sm"
                             variant="ghost"
                             className="pl-8"
                         />
@@ -307,7 +307,7 @@ export const ShortcutsView: React.FC = () => {
 
                 <Button
                     variant="ghost"
-                    size="default"
+                    size="sm"
                     className="gap-2 font-bold text-[11px] tracking-widest"
                     onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                     title="Reset all shortcuts to default"

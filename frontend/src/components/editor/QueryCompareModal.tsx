@@ -169,7 +169,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
                 value={leftTabId}
                 onValueChange={(value) => setLeftTabId(value)}
               >
-                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                <SelectTrigger className="ml-1 min-w-55 text-small" disabled={!canUseCompare}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -187,7 +187,7 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
                 value={rightTabId}
                 onValueChange={(value) => setRightTabId(value)}
               >
-                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                <SelectTrigger className="ml-1 min-w-55 text-small" disabled={!canUseCompare}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

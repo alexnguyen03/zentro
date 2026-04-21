@@ -37,7 +37,7 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className='h-8 w-8 border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground'
+            className='  border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground'
             title="Back"
         >
             <ArrowLeft size={12} />
@@ -69,7 +69,7 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
                     variant="outline"
                     size="icon"
                     onClick={onShowProviderPicker}
-                    className="h-8 w-8 border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground"
+                    className="  border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground"
                     title={`Change provider (${selectedProvider.label})`}
                 >
                     <Settings2 size={12} className="" />

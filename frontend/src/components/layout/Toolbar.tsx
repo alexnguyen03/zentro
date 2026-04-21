@@ -358,7 +358,7 @@ export const Toolbar: React.FC = () => {
                     />
 
                     <Button
-                        variant="ghost" size="icon"
+                        variant="ghost" size="icon-md"
                         title={viewMode ? 'View Mode ON (Click to disable)' : 'Enable View Mode (Read-only)'}
                         aria-pressed={viewMode}
                         className={cn('relative', viewMode && 'text-warning')}
@@ -369,7 +369,7 @@ export const Toolbar: React.FC = () => {
                     </Button>
                     <Button
                         variant="ghost"
-                        size="icon"
+                        size="icon-md"
                         title="Reload Connection"
                         onClick={() => {
                             void handleReconnect();
@@ -382,7 +382,7 @@ export const Toolbar: React.FC = () => {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 gap-1.5 px-2 text-[11px] font-mono"
+                            className="gap-1.5 px-2 font-mono text-label"
                             title="Switch or create branch"
                             onClick={() => setBranchSpotlightOpen(true)}
                         >
@@ -553,16 +553,16 @@ export const Toolbar: React.FC = () => {
                     className="flex items-center"
                     style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
                 >
-                    <Button variant="ghost" size="icon" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
+                    <Button variant="ghost" size="icon-md" title="Settings" onClick={() => addTab({ type: 'settings', name: 'Settings' })}>
                         <Settings size={14} />
                     </Button>
-                    <Button variant="ghost" size="icon" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
+                    <Button variant="ghost" size="icon-md" className={cn(showSidebar && 'text-accent')} title="Toggle Sidebar (Ctrl+B)" onClick={toggleSidebar}>
                         <PanelLeft size={14} strokeWidth={showSidebar ? 2.5 : 2} />
                     </Button>
-                    <Button variant="ghost" size="icon" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
+                    <Button variant="ghost" size="icon-md" className={cn(showResultPanel && 'text-accent')} disabled={!isQueryTab} title="Toggle Result Panel (Ctrl+J)" onClick={toggleResultPanel}>
                         <PanelBottom size={14} strokeWidth={showResultPanel && isQueryTab ? 2.5 : 2} />
                     </Button>
-                    <Button variant="ghost" size="icon" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
+                    <Button variant="ghost" size="icon-md" className={cn(showRightSidebar && 'text-accent')} title="Toggle Right Sidebar (Ctrl+Alt+B)" onClick={toggleRightSidebar}>
                         <PanelRight size={14} strokeWidth={showRightSidebar ? 2.5 : 2} />
                     </Button>
                     {!isMac && <WindowControls onMinimize={WindowMinimise} onToggleMaximize={WindowToggleMaximise} onClose={Quit} />}

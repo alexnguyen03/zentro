@@ -11,7 +11,7 @@ import {
     AlertDialogTitle,
 } from './alert-dialog';
 import { cn } from '../../lib/cn';
-import { buttonVariants } from './Button';
+import { buttonVariants } from './button';
 
 interface ConfirmationModalProps {
     open?: boolean;

@@ -111,8 +111,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                             <Button
                                 variant="outline"
                                 onClick={onOpenProjectFolder}
-                                size="sm"
-                                className="h-8 rounded-sm px-2.5 text-[12px]"
+                                size="icon"
                                 disabled={openingFolder || openingProjectId !== null}
                                 title="Import project from folder"
                             >
@@ -121,8 +120,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                             <Button
                                 variant="default"
                                 onClick={onStartCreate}
-                                size="sm"
-                                className="h-8 rounded-sm px-3 text-[12px]"
+                                size="icon"
                             >
                                 <Plus size={13} />
                             </Button>
@@ -288,7 +286,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-7 px-2 text-[11px]"
+                                                            className=" text-[11px]"
                                                             title="Edit project"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
@@ -301,7 +299,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-7 px-2 text-[11px]"
+                                                            className=" text-[11px]"
                                                             title="Open in file explorer"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
@@ -314,7 +312,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-7 px-2 text-[11px] text-destructive hover:text-destructive"
+                                                            className=" text-[11px] text-destructive hover:text-destructive"
                                                             title="Delete project"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();

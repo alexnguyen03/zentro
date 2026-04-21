@@ -72,7 +72,7 @@ export const Sidebar: React.FC = () => {
                                 <TabsTrigger
                                     key={panel.id}
                                     value={panel.id}
-                                    className="relative h-8 w-8 cursor-pointer rounded-none p-0 text-muted-foreground opacity-55 transition hover:opacity-80 data-[state=active]:text-primary data-[state=active]:opacity-100"
+                                    className="relative   cursor-pointer rounded-none p-0 text-muted-foreground opacity-55 transition hover:opacity-80 data-[state=active]:text-primary data-[state=active]:opacity-100"
                                     title={panel.label}
                                     aria-label={panel.label}
                                 >

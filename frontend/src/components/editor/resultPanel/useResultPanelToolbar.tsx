@@ -135,7 +135,7 @@ export function useResultPanelToolbar({
             render: () => (
                 <Select value={String(defaultLimit)} onValueChange={(value) => { void handleLimitChange(value); }}>
                     <SelectTrigger
-                        className="h-7 w-15 border-border/40 bg-transparent px-2 py-0 text-[11px] text-muted-foreground hover:bg-muted/70"
+                        className="w-15 border-border/40 bg-transparent px-2 text-muted-foreground hover:bg-muted/70"
                         title="Row limit for next query"
                     >
                         <SelectValue />

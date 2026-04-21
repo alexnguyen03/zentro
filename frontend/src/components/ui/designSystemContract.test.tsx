@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Button } from './Button';
-import { Input } from './Input';
+import { Button } from './button';
+import { Input } from './input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Switch } from './switch';
 import { AppShell, DataEmpty, FormSection } from './app-shell-pattern';

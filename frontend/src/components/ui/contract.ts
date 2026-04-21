@@ -2,6 +2,16 @@ export type ComponentTone = 'default' | 'neutral' | 'success' | 'warning' | 'dan
 export type ComponentState = 'default' | 'loading' | 'error' | 'disabled';
 export type ComponentDensity = 'compact';
 
+// Shared size token for all form controls (Input, Select, Button text sizes)
+// sm = h-7/28px — toolbar, sidebar, inline, default
+// md = h-9/36px — prominent form fields
+export type ControlSize = 'sm' | 'md';
+
+export const CONTROL_SIZE_CLASS: Record<ControlSize, string> = {
+    sm: 'h-7 text-small px-2',
+    md: 'h-9 text-small px-3',
+};
+
 export interface DesignSystemControlProps {
     tone?: ComponentTone;
     state?: ComponentState;

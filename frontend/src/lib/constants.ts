@@ -16,6 +16,7 @@ export const STORAGE_KEY = {
     EXECUTION_POLICY_PROFILES:            'zentro:execution-policy-profiles',
     EXECUTION_POLICY_ASSIGNMENTS:         'zentro:execution-policy-assignments',
     EXECUTION_POLICY_STRONG_CONFIRM_FROM: 'zentro:execution-policy-strong-confirm-from',
+    APP_ZOOM:                             'zentro:app-zoom',
 } as const;
 
 export const DOM_EVENT = {

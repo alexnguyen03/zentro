@@ -152,7 +152,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                         onChange={(e) => setTableName(e.target.value)}
                         placeholder="Enter table name"
                         disabled={viewMode}
-                        inputSize="lg"
+                        size="md"
                         className="w-full"
                     />
                 </div>
@@ -183,7 +183,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                 >
                                     <SelectTrigger
                                         disabled={viewMode}
-                                        className="min-w-[120px] flex-1 bg-card px-2 py-1 text-[12px]"
+                                        className="min-w-[120px] flex-1 bg-card text-small"
                                     >
                                         <SelectValue />
                                     </SelectTrigger>

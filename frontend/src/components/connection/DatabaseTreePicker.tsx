@@ -258,7 +258,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             variant="ghost"
                             size="icon"
                             onClick={() => setFilter('')}
-                            className="h-8 w-8 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            className="text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                             title="Clear filter"
                         >
                             <X size={13} />
@@ -272,7 +272,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             onClick={handleImport}
                             disabled={importing || importDisabled}
                             className={cn(
-                                'h-8 w-8 border-border/45 bg-background/50 text-muted-foreground transition-colors',
+                                '  border-border/45 bg-background/50 text-muted-foreground transition-colors',
                                 importing || importDisabled
                                     ? 'cursor-not-allowed opacity-55'
                                     : 'cursor-pointer hover:border-border/80 hover:bg-background hover:text-foreground',
@@ -286,9 +286,9 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                         <Button
                             type="button"
                             variant="outline"
-                            size="sm"
+                            size="icon"
                             onClick={onAddNew}
-                            className="h-8 w-8 border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+                            className="border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
                             title="Add new connection"
                         >
                             <Plus size={14} />

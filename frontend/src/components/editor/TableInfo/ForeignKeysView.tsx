@@ -137,7 +137,7 @@ const FKSelectCell: React.FC<FKSelectCellProps> = ({
             onOpenChange={(open) => { if (!open) onClose(); }}
             disabled={disabled}
         >
-            <SelectTrigger ref={triggerRef} className="h-6 font-mono text-[11px] border-accent w-full">
+            <SelectTrigger ref={triggerRef} className="font-mono border-accent w-full">
                 <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>

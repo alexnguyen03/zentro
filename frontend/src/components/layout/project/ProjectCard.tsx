@@ -58,11 +58,11 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
             <div className="mt-4 grid gap-3">
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Project name</label>
-                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} inputSize="xl" className="bg-card" placeholder="Project name" autoFocus />
+                    <Input value={editDraft.name} onChange={(e) => setEditDraft((c) => ({ ...c, name: e.target.value }))} size="md" className="bg-card" placeholder="Project name" autoFocus />
                 </div>
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Description</label>
-                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} inputSize="xl" className="bg-card" placeholder="Short context about this project" />
+                    <Input value={editDraft.description} onChange={(e) => setEditDraft((c) => ({ ...c, description: e.target.value }))} size="md" className="bg-card" placeholder="Short context about this project" />
                 </div>
                 <div>
                     <label className="mb-1.5 block text-[12px] font-semibold text-foreground">Git repo path <span className="font-normal text-muted-foreground">(Source Control)</span></label>
@@ -70,12 +70,12 @@ export const ProjectCardEdit: React.FC<ProjectCardEditProps> = ({
                         <Input
                             value={editDraft.gitRepoPath}
                             onChange={(e) => setEditDraft((c) => ({ ...c, gitRepoPath: e.target.value }))}
-                            inputSize="xl"
+                            size="md"
                             className="flex-1 bg-card font-mono"
                             placeholder="/path/to/your/repo"
                         />
                         {onBrowseRepoPath && (
-                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-sm" title="Browse folder" onClick={onBrowseRepoPath}>
+                            <Button type="button" variant="outline" size="icon" className="shrink-0 rounded-sm" title="Browse folder" onClick={onBrowseRepoPath}>
                                 <FolderOpen size={14} />
                             </Button>
                         )}

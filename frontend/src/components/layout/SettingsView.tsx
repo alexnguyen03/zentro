@@ -213,7 +213,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                             ref={searchInputRef}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            inputSize="lg"
+                            size="sm"
                             variant="ghost"
                             className="pl-8"
                             aria-label="Search settings"
@@ -225,7 +225,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                     <Button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
                         variant="ghost"
-                        size="default"
+                        size="sm"
                         className="gap-2 text-[11px] font-bold uppercase tracking-widest"
                         title="Keyboard Shortcuts"
                         aria-label="Open keyboard shortcuts"

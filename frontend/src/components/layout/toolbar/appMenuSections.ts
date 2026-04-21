@@ -8,6 +8,7 @@ import {
 } from '../../../../wailsjs/runtime/runtime';
 import { getCommandById, type CommandId } from '../../../lib/shortcutRegistry';
 import { listByCapability } from '../../../features/plugin/registry';
+import { APP_ZOOM_ENABLED } from '../../../stores/zoomStore';
 
 const REPO_URL = 'https://github.com/alexnguyen03/zentro';
 
@@ -135,6 +136,9 @@ export function buildAppMenuSections({
     const formatQueryCommand = getCommand('editor.formatQuery');
     const openSettingsCommand = getCommand('view.openSettings');
     const openShortcutsCommand = getCommand('view.openShortcuts');
+    const zoomInCommand = getCommand('view.zoomIn');
+    const zoomOutCommand = getCommand('view.zoomOut');
+    const zoomResetCommand = getCommand('view.zoomReset');
     const toggleSidebarCommand = getCommand('layout.toggleSidebar');
     const toggleResultPanelCommand = getCommand('layout.toggleResultPanel');
     const toggleRightSidebarCommand = getCommand('layout.toggleRightSidebar');
@@ -204,6 +208,28 @@ export function buildAppMenuSections({
                     shortcut: getShortcut('view.openShortcuts'),
                     action: () => openShortcutsCommand?.action(),
                 },
+                ...(APP_ZOOM_ENABLED
+                    ? [
+                        {
+                            id: 'view.zoomIn',
+                            label: zoomInCommand?.label || 'Zoom In',
+                            shortcut: getShortcut('view.zoomIn'),
+                            action: () => zoomInCommand?.action(),
+                        },
+                        {
+                            id: 'view.zoomOut',
+                            label: zoomOutCommand?.label || 'Zoom Out',
+                            shortcut: getShortcut('view.zoomOut'),
+                            action: () => zoomOutCommand?.action(),
+                        },
+                        {
+                            id: 'view.zoomReset',
+                            label: zoomResetCommand?.label || 'Reset Zoom',
+                            shortcut: getShortcut('view.zoomReset'),
+                            action: () => zoomResetCommand?.action(),
+                        },
+                    ]
+                    : []),
                 {
                     id: 'view.sidebar',
                     label: toggleSidebarCommand?.label || 'Toggle Sidebar',

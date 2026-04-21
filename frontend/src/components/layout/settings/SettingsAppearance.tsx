@@ -25,7 +25,8 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
             <div className={SettingsClasses.sectionContent}>
                 <div className="space-y-1.5">
                     <Label>Interface Theme</Label>
-                    <Select value={theme} onValueChange={(value) => onThemeChange(value)}>
+                    <Select value={theme}
+                        onValueChange={(value) => onThemeChange(value)}>
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
@@ -45,6 +46,7 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
                             className="max-w-[120px]"
                             type="number"
                             min={8}
+                            size="sm"
                             max={48}
                             value={fontSize}
                             onChange={(e) => onFontSizeChange(parseInt(e.target.value) || 14)}
