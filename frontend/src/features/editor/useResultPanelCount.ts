@@ -1,5 +1,4 @@
 import React from 'react';
-import { FetchTotalRowCount } from '../../../wailsjs/go/app/App';
 import { TabResult } from '../../stores/resultStore';
 
 interface UseResultPanelCountParams {
@@ -20,8 +19,7 @@ export function useResultPanelCount({ tabId, result, onQueryStarted }: UseResult
 
         setIsCounting(true);
         try {
-            const count = await FetchTotalRowCount(tabId);
-            setTotalCount(count);
+            setTotalCount(null);
         } catch (err) {
             console.warn(`Count failed in background: ${err}`);
             setTotalCount(-1);

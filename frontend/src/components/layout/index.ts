@@ -1,5 +1,4 @@
 export * from './ConnectionPicker';
-export * from './Modal';
 export * from './SettingsView';
 export * from './ShortcutsView';
 export * from './Sidebar';

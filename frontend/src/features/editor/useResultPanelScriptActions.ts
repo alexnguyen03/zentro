@@ -1,6 +1,6 @@
 import React from 'react';
-import { ExecuteUpdateSync } from '../../../wailsjs/go/app/App';
 import { TabResult, useResultStore } from '../../stores/resultStore';
+import { ExecuteUpdateSync } from '../../services/queryService';
 
 interface UseResultPanelScriptActionsParams {
     tabId: string;

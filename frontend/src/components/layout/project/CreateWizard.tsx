@@ -265,7 +265,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                 const bound = isBound(envKey);
                                 const active = activeEnvKey === envKey;
                                 return (
-                                    <button
+                                    <Button
                                         key={envKey}
                                         type="button"
                                         onClick={() => onSetActiveEnvKey(envKey)}
@@ -281,7 +281,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                         </span>
                                         <span className="truncate">{meta.label}</span>
                                         <span className={cn('ml-auto h-1.5 w-1.5 shrink-0 rounded-full transition-colors', bound ? 'bg-success' : 'bg-transparent')} />
-                                    </button>
+                                    </Button>
                                 );
                             })}
                         </div>
@@ -305,13 +305,15 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                                         {selectedProfileName}{selectedDatabase ? ` / ${selectedDatabase}` : ''}
                                                     </span>
                                                     {!isEdit && onUnbind && (
-                                                        <button
+                                                        <Button
                                                             type="button"
+                                                            variant="ghost"
+                                                            size="sm"
                                                             onClick={() => onUnbind(activeEnvKey)}
                                                             className="ml-1 shrink-0 rounded px-1 py-0.5 text-[10px] text-muted-foreground/60 transition-colors hover:bg-destructive/12 hover:text-destructive"
                                                         >
                                                             Unbind
-                                                        </button>
+                                                        </Button>
                                                     )}
                                                 </>
                                             ) : (

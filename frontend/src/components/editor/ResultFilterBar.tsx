@@ -4,6 +4,7 @@ import { buildFilterQuery } from '../../lib/queryBuilder';
 import { useResultFilterEscapeClear } from '../../features/editor/useResultFilterEscapeClear';
 import { useResultFilterTooltip } from '../../features/editor/useResultFilterTooltip';
 import { useToast } from '../layout/Toast';
+import { Input } from '../ui';
 import { FilterQueryTooltip } from './resultFilterBar/FilterQueryTooltip';
 
 interface ResultFilterBarProps {
@@ -145,7 +146,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                 )}
             </div>
 
-            <input
+            <Input
                 ref={inputRef}
                 type="text"
                 value={value}
@@ -157,7 +158,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     }
                 }}
                 placeholder="Filter rows... e.g. id > 100 AND name LIKE '%foo%'"
-                className="flex-1 border-none outline-none text-[12px] text-text-primary placeholder:text-text-muted font-mono"
+                size="sm"
+                variant="ghost"
+                className="h-auto flex-1 border-none text-[12px] text-text-primary placeholder:text-text-muted font-mono px-0 py-0"
                 spellCheck={false}
             />
         </div>

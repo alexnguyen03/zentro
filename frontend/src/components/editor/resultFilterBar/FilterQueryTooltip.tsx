@@ -2,6 +2,7 @@ import React from 'react';
 import { Copy, ExternalLink, PlusSquare } from 'lucide-react';
 import { cn } from '../../../lib/cn';
 import { buildFilterQuery, getQueryShape } from '../../../lib/queryBuilder';
+import { Button } from '../../ui';
 
 interface FilterQueryTooltipProps {
     baseQuery: string;
@@ -69,12 +70,12 @@ export const FilterQueryTooltip: React.FC<FilterQueryTooltipProps> = ({
             <div className="px-3 py-2 bg-bg-tertiary flex items-center justify-between border-b border-border">
                 <span className="text-xs font-semibold text-text-primary">Current Query (Filtered)</span>
                 <div className="flex items-center gap-0.5">
-                    <button className={iconButtonClassName} title="Copy query" onClick={onCopy}>
+                    <Button variant="ghost" size="icon-sm" className={iconButtonClassName} title="Copy query" onClick={onCopy}>
                         <Copy size={12} />
-                    </button>
+                    </Button>
 
                     {onAppendToQuery && (
-                        <button
+                        <Button
                             className={cn(iconButtonClassName, 'text-success hover:bg-success/10 hover:border-success/30')}
                             title="Append to current tab (last line)"
                             onClick={() => {
@@ -83,11 +84,11 @@ export const FilterQueryTooltip: React.FC<FilterQueryTooltipProps> = ({
                             }}
                         >
                             <PlusSquare size={12} />
-                        </button>
+                        </Button>
                     )}
 
                     {onOpenInNewTab && (
-                        <button
+                        <Button
                             className={cn(iconButtonClassName, 'text-text-secondary hover:text-text-primary')}
                             title="Open in new tab"
                             onClick={() => {
@@ -96,7 +97,7 @@ export const FilterQueryTooltip: React.FC<FilterQueryTooltipProps> = ({
                             }}
                         >
                             <ExternalLink size={12} />
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

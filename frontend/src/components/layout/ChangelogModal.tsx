@@ -26,7 +26,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({ onClose }) => {
                         h3: ({node, ...props}) => <h3 className="text-[15px] font-bold mt-5 mb-2" {...props} />,
                         ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-4 space-y-1 text-muted-foreground" {...props} />,
                         li: ({node, ...props}) => <li className="pl-1" {...props} />,
-                        a: ({node, ...props}) => <a className="text-accent hover:underline" target="_blank" rel="noreferrer" {...props} />,
+                        a: ({node, ...props}) => <a className="text-accent hover:underline focus-visible:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background" target="_blank" rel="noreferrer" {...props} />,
                         p: ({node, ...props}) => <p className="mb-4 text-muted-foreground" {...props} />,
                         strong: ({node, ...props}) => <strong className="font-semibold text-foreground" {...props} />,
                     }}

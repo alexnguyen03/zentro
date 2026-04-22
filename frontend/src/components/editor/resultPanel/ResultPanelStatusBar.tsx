@@ -1,5 +1,6 @@
-import React from 'react';
+﻿import React from 'react';
 import { Download, Loader } from 'lucide-react';
+import { Button } from '../../ui';
 
 const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
 
@@ -45,7 +46,7 @@ export const ResultPanelStatusBar: React.FC<ResultPanelStatusBarProps> = ({
                             </option>
                         ))}
                     </select>
-                    &nbsp;rows&nbsp;�&nbsp;{durationText}
+                    &nbsp;rows&nbsp;·&nbsp;{durationText}
                 </span>
 
                 {displayTotalCount !== undefined ? (
@@ -69,15 +70,12 @@ export const ResultPanelStatusBar: React.FC<ResultPanelStatusBarProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
-                <button
-                    className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border"
-                    onClick={onExport}
-                    title="Export as CSV"
-                >
+                <Button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={onExport} title="Export as CSV">
                     <Download size={13} />
                     <span>Export</span>
-                </button>
+                </Button>
             </div>
         </div>
     );
 };
+

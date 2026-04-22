@@ -1,7 +1,6 @@
 import React from 'react';
 import { Copy, FilePlus, Play } from 'lucide-react';
-import { Modal } from '../../layout/Modal';
-import { Button } from '../../ui';
+import { Button, Modal } from '../../ui';
 
 interface ResultPanelSaveModalProps {
     isOpen: boolean;
@@ -34,7 +33,7 @@ export const ResultPanelSaveModal: React.FC<ResultPanelSaveModalProps> = ({
                     <Button variant="ghost" size="icon" onClick={onOpenInNewTab} title="Open in New Tab">
                         <FilePlus size={14} />
                     </Button>
-                    <Button variant="primary" onClick={onExecute} title="Execute Update" autoFocus>
+                    <Button variant="default" onClick={onExecute} title="Execute Update" autoFocus>
                         <Play size={14} />
                         Execute
                     </Button>

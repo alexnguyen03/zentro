@@ -8,7 +8,7 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { QueryGroup } from './QueryGroup';
 import { ResultPanel } from '../../components/editor/ResultPanel';
-import { ExecuteQuery } from '../../../wailsjs/go/app/App';
+import { ExecuteQuery } from '../../services/queryService';
 import {
     DndContext,
     DragEndEvent,

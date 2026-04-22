@@ -8,7 +8,7 @@ import { MonacoEditorWrapper } from './MonacoEditor';
 import { TableInfo } from '../../components/editor/TableInfo';
 import { SettingsView } from '../../components/layout/SettingsView';
 import { ShortcutsView } from '../../components/layout/ShortcutsView';
-import { ExecuteQuery, CancelQuery } from '../../../wailsjs/go/app/App';
+import { CancelQuery, ExecuteQuery, ExplainQuery } from '../../services/queryService';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 import { getErrorMessage } from '../../lib/errors';

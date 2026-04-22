@@ -738,7 +738,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
                 <div className="justify-self-center flex items-center min-w-0">
                     {tabs.map(({ key, label, icon, dirtyCount, count }) => (
-                        <button
+                        <Button
                             key={key}
                             type="button"
                             title={
@@ -774,7 +774,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                     className={TABLE_TAB_BADGE_CLASSNAME}
                                 />
                             )}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
