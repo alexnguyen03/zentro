@@ -28,6 +28,7 @@ import { LicenseModal } from './LicenseModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { cn } from '../../lib/cn';
 import { getEnvironmentMeta, sortEnvironmentKeys } from '../../lib/projects';
+import type { CommandId } from '../../lib/shortcutRegistry';
 import { Button, Popover, PopoverAnchor, PopoverContent } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
 import { DOM_EVENT, CONNECTION_STATUS, ENVIRONMENT_KEY } from '../../lib/constants';
@@ -65,12 +66,11 @@ export const Toolbar: React.FC = () => {
     const savePrefs = useSettingsStore((s) => s.save);
     const shortcutBindings = useShortcutStore((s) => s.bindings);
     const getShortcutBinding = useShortcutStore((s) => s.getBinding);
-    const resolveShortcutBinding = useCallback((id: string) => {
+    const resolveShortcutBinding = useCallback((id: CommandId) => {
         if (typeof getShortcutBinding === 'function') {
-            const getBinding = getShortcutBinding as unknown as (commandId: string) => string;
-            return getBinding(id);
+            return getShortcutBinding(id);
         }
-        return (shortcutBindings as Record<string, string> | undefined)?.[id] || '';
+        return shortcutBindings?.[id] || '';
     }, [getShortcutBinding, shortcutBindings]);
 
     const { hasUpdate, updateInfo, dismiss, check, isChecking } = useUpdateCheck();
