@@ -7,10 +7,8 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { QueryGroup } from './QueryGroup';
-import { ResultPanel } from './ResultPanel';
-import { ExecuteQuery } from '../../services/queryService';
-import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
-import { onCommand } from '../../lib/commandBus';
+import { ResultPanel } from '../../components/editor/ResultPanel';
+import { ExecuteQuery } from '../../../wailsjs/go/app/App';
 import {
     DndContext,
     DragEndEvent,

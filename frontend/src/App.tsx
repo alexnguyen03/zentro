@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
-import { QueryTabs } from './components/editor/QueryTabs';
+import { QueryTabs } from './features/editor/QueryTabs';
 import { useConnectionStore } from './stores/connectionStore';
 import { useLayoutStore } from './stores/layoutStore';
 import { useProjectStore } from './stores/projectStore';

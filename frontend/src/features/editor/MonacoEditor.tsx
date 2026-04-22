@@ -3,13 +3,8 @@ import Editor, { useMonaco } from '@monaco-editor/react';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { EditorToolbar } from './EditorToolbar';
-import { useEditorAutoFocus } from './hooks/useEditorAutoFocus';
-import { useEditorGlobalRunAction } from './hooks/useEditorGlobalRunAction';
-import { useEditorRunQuery } from './hooks/useEditorRunQuery';
-import { useEditorSqlCompletion } from './hooks/useEditorSqlCompletion';
-import { useEditorTheme } from './hooks/useEditorTheme';
-import { useMonacoEditorMount } from './hooks/useMonacoEditorMount';
+import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
+import { EditorToolbar } from '../../components/editor/EditorToolbar';
 
 interface MonacoEditorProps {
     tabId: string;
