@@ -237,7 +237,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
 
     return (
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
-            <div className="shrink-0 border-b border-border/25 pb-2">
+            <div className="shrink-0">
                 <div className="flex items-center gap-1.5 p-1.5">
                     <div className="relative min-w-0 flex-1">
                         <Search size={12} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-muted-foreground/80" />
@@ -272,10 +272,10 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             onClick={handleImport}
                             disabled={importing || importDisabled}
                             className={cn(
-                                '  border-border/45 bg-background/50 text-muted-foreground transition-colors',
+                                'bg-muted/50 text-muted-foreground transition-colors',
                                 importing || importDisabled
                                     ? 'cursor-not-allowed opacity-55'
-                                    : 'cursor-pointer hover:border-border/80 hover:bg-background hover:text-foreground',
+                                    : 'cursor-pointer hover:bg-muted hover:text-foreground',
                             )}
                             title={importDisabled ? 'Import disabled in this context' : 'Import connection package'}
                         >
@@ -288,7 +288,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             variant="outline"
                             size="icon"
                             onClick={onAddNew}
-                            className="border-border/45 bg-background/50 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+                            className="bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
                             title="Add new connection"
                         >
                             <Plus size={14} />
@@ -297,17 +297,28 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                 </div>
             </div>
 
-            <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-0.5">
+            <div className="min-h-0 flex-1 overflow-y-auto">
                 {loading ? (
                     <div className="flex h-40 items-center justify-center gap-2 rounded-sm bg-muted/35 text-[12px] text-muted-foreground">
                         <Spinner size={14} /> Loading connections...
                     </div>
                 ) : connections.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center rounded-sm border border-dashed border-border/35 bg-background/20 px-6 text-center text-[12px] leading-5 text-muted-foreground">
-                        No saved connections yet.
+                    <div className="flex h-40 flex-col items-center justify-center gap-2.5 rounded-sm bg-muted/30 px-6 text-center text-[12px] leading-5 text-muted-foreground">
+                        <span>No saved connections yet.</span>
+                        {onAddNew && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={onAddNew}
+                                className="gap-1.5 rounded-sm bg-muted/60 text-[11px]"
+                            >
+                                <Plus size={12} /> Add connection
+                            </Button>
+                        )}
                     </div>
                 ) : visibleConnections.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center rounded-sm border border-border/25 bg-background/20 px-6 text-center text-[12px] leading-5 text-muted-foreground">
+                    <div className="flex h-40 items-center justify-center rounded-sm bg-muted/30 px-6 text-center text-[12px] leading-5 text-muted-foreground">
                         No matches found.
                     </div>
                 ) : (
@@ -317,51 +328,48 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                             : '';
                         const provider = getProvider(node.profile.driver || '');
                         return (
-                            <div key={name} className="mb-1">
-                                <div className="group relative">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        onClick={() => toggleConnection(name)}
-                                        className={cn(
-                                            'h-auto w-full justify-start rounded-sm border px-2.5 py-1.5 pr-14 text-left transition-colors',
-                                            profileSelected
-                                                ? 'border-accent/25 bg-accent/8'
-                                                : 'border-transparent hover:bg-muted/65',
+                            <div
+                                key={name}
+                                className={cn(
+                                    'group mb-2 rounded-sm mx-2 transition-colors',
+                                    profileSelected ? 'bg-accent/8' : 'bg-muted/40 hover:bg-muted/60',
+                                )}
+                            >
+                                {/* Card header — click anywhere to toggle */}
+                                <Button
+                                    type="button"
+                                    onClick={() => toggleConnection(name)}
+                                    className={cn(
+                                        'flex h-9 w-full border-none items-center gap-2.5 px-3 py-2.5 text-left bg-transparent hover:bg-transparent hover:opacity-80' ,
+                                        
+                                    )}
+                                    title={name}
+                                >
+                                    <img
+                                        src={provider.icon}
+                                        alt={provider.label}
+                                        className="h-5 w-5 shrink-0 object-contain"
+                                        title={provider.label}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate text-[13px] font-semibold text-foreground">{name}</div>
+                                        {hostLabel && (
+                                            <div className="truncate text-[11px] text-muted-foreground">{hostLabel}</div>
                                         )}
-                                        title={name}
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            {isExpanded ? (
-                                                <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
-                                            ) : (
-                                                <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
-                                            )}
-                                            <img
-                                                src={provider.icon}
-                                                alt={provider.label}
-                                                className="h-5 w-5 shrink-0 object-contain"
-                                                title={provider.label}
-                                            />
-                                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
-                                                {name}
-                                            </span>
-                                        </div>
-                                        <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
-                                            {hostLabel && (
-                                                <span className="truncate">{hostLabel}</span>
-                                            )}
-                                        </div>
-                                    </Button>
+                                    </div>
 
+                                    {/* Edit / Delete — visible on group hover, stop propagation so they don't toggle */}
                                     {(onEditConnection || onDeleteConnection) && (
-                                        <div className="pointer-events-none absolute top-1 right-2 flex items-center gap-1 opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                                        <div
+                                            className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             {onEditConnection && (
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="pointer-events-auto h-6 w-6 text-muted-foreground hover:border-border/80 hover:bg-background hover:text-foreground"
+                                                    className="rounded-sm p-1 text-muted-foreground hover:bg-accent/10 hover:text-accent"
                                                     title={`Edit ${name}`}
                                                     onClick={(event) => handleEditConnection(event, node.profile)}
                                                 >
@@ -373,26 +381,27 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="pointer-events-auto h-6 w-6 text-muted-foreground hover:border-destructive/50 hover:bg-destructive/12 hover:text-destructive"
+                                                    className="rounded-sm p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                                                     title={`Delete ${name}`}
                                                     onClick={(event) => handleDeleteConnection(event, node.profile)}
                                                     disabled={deletingConnectionName === name}
                                                 >
-                                                    {deletingConnectionName === name ? <Spinner size={12} /> : <Trash2 size={12} />}
+                                                    {deletingConnectionName === name ? <Spinner size={11} /> : <Trash2 size={12} />}
                                                 </Button>
                                             )}
                                         </div>
                                     )}
-                                </div>
+                                </Button>
 
+                                {/* Databases — only rendered when expanded */}
                                 {isExpanded && (
-                                    <div className="mt-1 ml-[14px] border-l border-border/35 pl-3">
+                                    <div className="px-2 pb-2 pt-1">
                                         {node.loadingDatabases ? (
-                                            <div className="flex items-center gap-2 px-2 py-1 text-[12px] text-muted-foreground">
+                                            <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-muted-foreground">
                                                 <Spinner size={12} /> Loading databases...
                                             </div>
                                         ) : visibleDatabases.length === 0 && node.databasesLoaded ? (
-                                            <div className="px-2 py-1 text-[12px] text-muted-foreground">
+                                            <div className="px-2 py-1.5 text-label text-muted-foreground">
                                                 {node.databases.length === 0 ? 'No databases found' : 'No matches'}
                                             </div>
                                         ) : (
@@ -405,10 +414,10 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                                         variant="ghost"
                                                         onClick={() => handleSelect(name, dbName)}
                                                         className={cn(
-                                                            'mt-1 h-auto w-full justify-start gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[12px] transition-colors',
+                                                            'mt-0.5 w-full justify-start gap-1.5 rounded-sm px-2 py-1.5 text-left text-[12px] transition-colors',
                                                             isDbSelected
-                                                                ? 'border-accent/35 bg-accent/10 text-foreground'
-                                                                : 'border-transparent text-foreground hover:bg-muted/70',
+                                                                ? 'bg-accent/15 text-foreground'
+                                                                : 'text-foreground hover:bg-muted/70',
                                                         )}
                                                     >
                                                         <Database size={12} className={cn('shrink-0', isDbSelected ? 'text-accent' : 'text-success opacity-85')} />
