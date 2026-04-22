@@ -607,7 +607,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
     // -- Render ----------------------------------------------------------------
 
     if (loading) {
-        return <div className="px-3 py-4 text-[11px] text-muted-foreground">Loading...</div>;
+        return <div className="px-3 py-4 text-label text-muted-foreground">Loading...</div>;
     }
 
     return (
@@ -622,7 +622,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                     >
                         <TableHeader className="[&_tr]:border-b-0">
                             <TableRow className="border-b-2 border-border hover:bg-transparent">
-                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                                <TableHead className="rt-th w-10 font-mono text-label text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
                                 </TableHead>
                                 <TableHead className="rt-th" style={{ width: '160px' }}>
@@ -719,17 +719,17 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                     title={row.current.name || '(unnamed)'}
                                                     onDoubleClick={() => !readOnlyMode && !isDeleted && setEditCell({ rowId: row.id, field: 'name' })}
                                                 >
-                                                    <span className="truncate font-mono text-[11px]">
+                                                    <span className="truncate font-mono text-label">
                                                         {row.current.name || <span className="italic text-muted-foreground/50">untitled</span>}
                                                     </span>
                                                     {isNew && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
+                                                        <span className="ml-1.5 text-label  text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
                                                     )}
                                                     {!isNew && isDirty && !isDeleted && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
+                                                        <span className="ml-1.5 text-label  text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
                                                     )}
                                                     {isDeleted && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-error bg-error/10 px-1 py-0.5 rounded shrink-0">DROP</span>
+                                                        <span className="ml-1.5 text-label  text-error bg-error/10 px-1 py-0.5 rounded shrink-0">DROP</span>
                                                     )}
                                                 </div>
                                             )}
@@ -752,7 +752,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -784,7 +784,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -817,7 +817,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -846,7 +846,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -884,7 +884,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -912,7 +912,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -928,7 +928,7 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
 
                             {rows.length === 0 && !loading && (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={8} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                    <TableCell colSpan={8} className="py-24 text-center text-muted-foreground italic bg-background/50 text-body">
                                         {readOnlyMode
                                             ? 'No foreign keys defined for this table.'
                                             : 'No foreign keys yet. Click "Add FK" to create one.'}
@@ -942,3 +942,4 @@ export const ForeignKeysView: React.FC<ForeignKeysViewProps> = ({
         </div>
     );
 };
+

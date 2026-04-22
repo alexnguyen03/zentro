@@ -69,7 +69,7 @@ export const ProviderGrid: React.FC<ProviderGridProps> = ({
                 />
             ))}
             {visibleProviders.length === 0 && (
-                <div className="col-span-full rounded-sm border border-dashed border-border/35 px-3 py-5 text-center text-[12px] text-muted-foreground">
+                <div className="col-span-full rounded-sm border border-dashed border-border/35 px-3 py-5 text-center text-small text-muted-foreground">
                     No providers found.
                 </div>
             )}

@@ -30,12 +30,12 @@ export const ResultPanelStatusBar: React.FC<ResultPanelStatusBarProps> = ({
     onExport,
 }) => {
     return (
-        <div className="flex items-center justify-between relative px-3 py-1 text-[11px] text-text-secondary border-t border-border shrink-0">
+        <div className="flex items-center justify-between relative px-3 py-1 text-label text-text-secondary border-t border-border shrink-0">
             <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1">
                     Showing <strong>{rowCount.toLocaleString()}</strong> of&nbsp;
                     <select
-                        className="bg-transparent border border-transparent text-text-secondary text-[11px] px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
+                        className="bg-transparent border border-transparent text-text-secondary text-label px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
                         value={defaultLimit}
                         onChange={onLimitChange}
                         title="Row limit for next query"
@@ -66,11 +66,11 @@ export const ResultPanelStatusBar: React.FC<ResultPanelStatusBarProps> = ({
             </div>
 
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
-                {hasChanges && <span className="text-[11px] text-warning flex items-center">{pendingChangeCount} pending change(s)</span>}
+                {hasChanges && <span className="text-label text-warning flex items-center">{pendingChangeCount} pending change(s)</span>}
             </div>
 
             <div className="flex items-center gap-3">
-                <Button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-[11px] transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={onExport} title="Export as CSV">
+                <Button className="bg-transparent border border-transparent text-text-secondary flex items-center gap-1 px-1.5 py-0.5 rounded-sm cursor-pointer text-label transition-all duration-100 hover:bg-bg-tertiary hover:text-text-primary hover:border-border" onClick={onExport} title="Export as CSV">
                     <Download size={13} />
                     <span>Export</span>
                 </Button>

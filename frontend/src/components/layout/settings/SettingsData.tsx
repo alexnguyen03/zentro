@@ -104,7 +104,7 @@ export const SettingsData: React.FC<Props> = ({
                             <SelectItem value="10000">10,000 rows</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">Default row count for the result records.</p>
+                    <p className="text-label text-muted-foreground">Default row count for the result records.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -116,7 +116,7 @@ export const SettingsData: React.FC<Props> = ({
                         value={connectTimeout}
                         onChange={(e) => onConnectTimeoutChange(parseInt(e.target.value) || 10)}
                     />
-                    <p className="text-[11px] text-muted-foreground">Seconds before aborting login.</p>
+                    <p className="text-label text-muted-foreground">Seconds before aborting login.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -128,7 +128,7 @@ export const SettingsData: React.FC<Props> = ({
                         value={queryTimeout}
                         onChange={(e) => onQueryTimeoutChange(parseInt(e.target.value) || 60)}
                     />
-                    <p className="text-[11px] text-muted-foreground">Seconds for long queries.</p>
+                    <p className="text-label text-muted-foreground">Seconds for long queries.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -168,12 +168,12 @@ export const SettingsData: React.FC<Props> = ({
                                 Relaxed
                             </SelectItem>
                             <SelectSeparator className="mx-0 my-0" />
-                            <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                            <div className="px-3 py-2 text-label text-muted-foreground">
                                 {hoveredSafetyInfo.description}
                             </div>
                         </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                         {`Applies to current environment: ${activeSafetyEnvironmentLabel}. Strict blocks UPDATE/DELETE without WHERE.`}
                     </p>
                 </div>
@@ -210,7 +210,7 @@ export const SettingsData: React.FC<Props> = ({
                                     <div
                                         key={key}
                                         onClick={() => setStrongConfirmByIndex(index)}
-                                        className={` cursor-pointer absolute top-2 h-auto px-1 py-0 text-[11px] transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
+                                        className={` cursor-pointer absolute top-2 h-auto px-1 py-0 text-label transition-colors hover:text-accent ${alignmentClass} ${isActive ? 'font-semibold text-accent' : 'text-muted-foreground'}`}
                                         style={{ left: position }}
                                         aria-label={`Set strong confirm threshold to ${getEnvironmentMeta(key).label}`}
                                         title={`Set to ${getEnvironmentMeta(key).label}`}
@@ -221,7 +221,7 @@ export const SettingsData: React.FC<Props> = ({
                             })}
                         </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                         {`Current threshold: ${strongConfirmLabel}. Environments at or above this level require double-confirm for destructive writes.`}
                     </p>
                 </div>

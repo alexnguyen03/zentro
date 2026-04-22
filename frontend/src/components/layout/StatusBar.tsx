@@ -74,10 +74,10 @@ export const StatusBar: React.FC = () => {
 
     const barColor = {
         [CONNECTION_STATUS.CONNECTED]: 'bg-success',
-        [CONNECTION_STATUS.CONNECTING]: 'bg-accent-700',
-        [CONNECTION_STATUS.ERROR]: 'bg-red-500',
-        [CONNECTION_STATUS.FAILED]: 'bg-red-500',
-        [CONNECTION_STATUS.DISCONNECTED]: 'bg-yellow-500',
+        [CONNECTION_STATUS.CONNECTING]: 'bg-accent',
+        [CONNECTION_STATUS.ERROR]: 'bg-error',
+        [CONNECTION_STATUS.FAILED]: 'bg-error',
+        [CONNECTION_STATUS.DISCONNECTED]: 'bg-warning',
     }[status as string] ?? 'bg-muted';
 
     const txLabel = {
@@ -89,8 +89,8 @@ export const StatusBar: React.FC = () => {
     return (
         <div
             className={cn(
-                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-white font-medium transition-colors duration-500 ease-out',
-                viewMode ? 'bg-linear-to-r from-amber-500/70 to-red-500/70' : barColor,
+                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-background font-medium transition-colors duration-500 ease-out',
+                viewMode ? 'bg-linear-to-r from-warning/70 to-error/70' : barColor,
             )}
         >
             {!viewMode && (
@@ -104,7 +104,7 @@ export const StatusBar: React.FC = () => {
                     )}
                 />
             )}
-            <div className="flex items-center gap-3 font-medium text-label text-white min-w-0">
+            <div className="flex items-center gap-3 font-medium text-label text-background min-w-0">
                 <span
                     className="uppercase text-caption opacity-80 shrink-0 cursor-help"
                     title="Transaction status (none/active/error)"
@@ -127,7 +127,7 @@ export const StatusBar: React.FC = () => {
                 )}
                 {queryFailureCode !== 'none' && (
                     <span
-                        className="uppercase text-caption opacity-90 shrink-0 text-red-100 cursor-help"
+                        className="uppercase text-caption opacity-90 shrink-0 text-background cursor-help"
                         title="Latest query failure category"
                     >
                         ERR: {queryFailureCode}
@@ -135,7 +135,7 @@ export const StatusBar: React.FC = () => {
                 )}
                 {message && (
                     <span
-                        className="bg-white/10 px-2 py-0.5 rounded-sm animate-in fade-in slide-in-from-left-2 text-caption text-white/70 border border-white/5 shrink-0 cursor-help"
+                        className="bg-background/10 px-2 py-0.5 rounded-sm animate-in fade-in slide-in-from-left-2 text-caption text-background/80 border border-background/20 shrink-0 cursor-help"
                         title={message}
                     >
                         {message}
@@ -148,7 +148,7 @@ export const StatusBar: React.FC = () => {
                         <Button
                             variant="ghost"
                             size="icon-xs"
-                            className="text-white/80 hover:text-white hover:bg-white/15"
+                            className="text-background/80 hover:text-background hover:bg-background/15"
                             aria-label={`Zoom ${zoomPct}%`}
                         >
                             {zoomPct > 100 ? (

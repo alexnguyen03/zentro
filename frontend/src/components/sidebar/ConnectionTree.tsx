@@ -210,7 +210,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group h-6 flex bg-card items-center gap-1 px-1.5 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    'group h-6 flex bg-card items-center gap-1 px-1.5 text-small rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
                     expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none px-2',
                 )}
                 onClick={(event) => {
@@ -237,7 +237,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         <Plus size={12} />
                     </Button>
                 )}
-                <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                <span className="text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                     {bucket.totalCount}
                 </span>
             </div>
@@ -248,7 +248,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         <div
                             key={`${item.id}:${index}`}
                             className={cn(
-                                'flex items-center gap-1.5 px-1.5 py-0.5 text-[12px] text-foreground rounded-sm transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
+                                'flex items-center gap-1.5 px-1.5 py-0.5 text-small text-foreground rounded-sm transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
                                 selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
                                 category.canOpenDefinition && 'cursor-pointer',
                             )}
@@ -640,7 +640,7 @@ export const ConnectionTree: React.FC = () => {
             </div>
             <div className="px-2 pb-1 shrink-0">
                 <div className="flex items-center gap-1.5 justify-between">
-                    <span className='text-[12px]'>Schema</span>
+                    <span className='text-small'>Schema</span>
                     <div className="min-w-0">
                         <Select
                             value={selectedSchema}
@@ -689,14 +689,14 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'h-6 w-full justify-start gap-1.5 rounded-sm text-[13px] mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'h-6 w-full justify-start gap-1.5 rounded-sm text-small mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
                         >
                             {renderIcon(category.icon, 12)}
-                            <span className="text-xs truncate">{category.label}</span>
-                            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-4.5 text-center shrink-0">
+                            <span className="text-small truncate">{category.label}</span>
+                            <span className="ml-auto text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-4.5 text-center shrink-0">
                                 {category.totalCount}
                             </span>
                         </Button>
@@ -705,11 +705,11 @@ export const ConnectionTree: React.FC = () => {
 
                 <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                     {!activeCategory ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-sm')}>
+                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm')}>
                             {emptyMessage}
                         </div>
                     ) : activeCategory.schemas.length === 0 ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-sm')}>
+                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm')}>
                             {emptyMessage}
                         </div>
                     ) : (

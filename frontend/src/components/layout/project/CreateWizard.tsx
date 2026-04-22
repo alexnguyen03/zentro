@@ -10,6 +10,7 @@ import type { ProjectIconKey } from '../projectHubMeta';
 import { ProjectIconPicker } from './ProjectIconPicker';
 import { WizardStorageField } from './WizardStorageField';
 import { EnvConnectionPanel } from './EnvConnectionPanel';
+import { EnvironmentBadge } from '../../shared/EnvironmentBadge';
 import type { Project } from '../../../types/project';
 
 interface DraftEnvironmentBinding {
@@ -164,7 +165,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                     )}
                 />
             ))}
-            <span className="ml-1 text-[10px] text-muted-foreground">{step} / 2</span>
+            <span className="ml-1 text-label text-muted-foreground">{step} / 2</span>
         </div>
     );
 
@@ -174,10 +175,10 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
             <div className="shrink-0 border-b border-border/20 px-4 py-3">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h2 className="text-[14px] font-semibold text-foreground">
+                        <h2 className="text-body text-foreground">
                             {isEdit ? 'Edit project' : 'Create project'}
                         </h2>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitles[step]}</p>
+                        <p className="mt-0.5 text-label text-muted-foreground">{subtitles[step]}</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <StepIndicator />
@@ -211,7 +212,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                         {/* Row 2 — Name + Description */}
                         <div className="flex flex-col gap-2">
                             <div>
-                                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                                <label className="mb-1 block text-label font-medium text-muted-foreground">
                                     Project name <span className="text-destructive">*</span>
                                 </label>
                                 <Input
@@ -224,7 +225,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                 />
                             </div>
                             <div>
-                                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Description</label>
+                                <label className="mb-1 block text-label font-medium text-muted-foreground">Description</label>
                                 <Input
                                     value={draft.description}
                                     onChange={(e) => onDraftChange({ ...draft, description: e.target.value })}
@@ -237,7 +238,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
 
                         {/* Row 3 — Storage */}
                         <div>
-                            <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                            <label className="mb-1 block text-label font-medium text-muted-foreground">
                                 Storage location
                                 <span className="ml-1 text-muted-foreground/60">(optional)</span>
                             </label>
@@ -259,7 +260,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                 {step === 2 && (
                     <div className="flex h-full min-h-0">
                         {/* Left env list */}
-                        <div className="w-36 shrink-0 bg-background/50 overflow-y-auto py-1">
+                        <div className="w-54 shrink-0 pl-1 flex flex-col overflow-y-auto py-1">
                             {ENVIRONMENT_KEYS.map((envKey) => {
                                 const meta = getEnvironmentMeta(envKey);
                                 const bound = isBound(envKey);
@@ -268,18 +269,17 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                     <Button
                                         key={envKey}
                                         type="button"
+                                        variant="ghost"
                                         onClick={() => onSetActiveEnvKey(envKey)}
                                         className={cn(
-                                            'flex w-full items-center gap-1.5 border-r-2 px-2.5 py-2 text-[11px] transition-colors',
+                                            'flex h-10 w-full items-center gap-2.5 bg-transparent transition-colors hover:bg-primary/5',
                                             active
-                                                ? 'border-primary bg-accent/8 text-foreground'
-                                                : 'border-transparent text-muted-foreground hover:bg-muted/40',
+                                                ? 'text-foreground bg-primary/5'
+                                                : 'text-muted-foreground hover:text-foreground',
                                         )}
                                     >
-                                        <span className={cn('shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]', meta.colorClass)}>
-                                            {envKey}
-                                        </span>
-                                        <span className="truncate">{meta.label}</span>
+                                        <EnvironmentBadge label={envKey} toneClassName={meta.colorClass} />
+                                        <span className="truncate text-body font-medium">{meta.label}</span>
                                         <span className={cn('ml-auto h-1.5 w-1.5 shrink-0 rounded-full transition-colors', bound ? 'bg-success' : 'bg-transparent')} />
                                     </Button>
                                 );
@@ -289,19 +289,17 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                         {/* Right config panel — remount on env switch */}
                         <div key={activeEnvKey} className="flex min-w-0 flex-1 flex-col min-h-0">
                             {/* Right panel header */}
-                            <div className="shrink-0 flex items-center gap-1.5 border-b border-border/15 px-3 py-2">
+                            <div className="shrink-0 flex items-center gap-2 border-b border-border/15 px-3 py-2">
                                 {(() => {
                                     const meta = getEnvironmentMeta(activeEnvKey);
                                     const bound = isBound(activeEnvKey);
                                     return (
                                         <>
-                                            <span className={cn('shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]', meta.colorClass)}>
-                                                {activeEnvKey}
-                                            </span>
-                                            <span className="text-[11px] font-medium text-foreground">{meta.label}</span>
+                                            <EnvironmentBadge label={activeEnvKey} toneClassName={meta.colorClass} />
+                                            <span className="text-label font-medium text-foreground">{meta.label}</span>
                                             {bound ? (
                                                 <>
-                                                    <span className="ml-auto truncate text-[10px] text-muted-foreground/80">
+                                                    <span className="ml-auto truncate text-label text-muted-foreground/80">
                                                         {selectedProfileName}{selectedDatabase ? ` / ${selectedDatabase}` : ''}
                                                     </span>
                                                     {!isEdit && onUnbind && (
@@ -310,14 +308,14 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => onUnbind(activeEnvKey)}
-                                                            className="ml-1 shrink-0 rounded px-1 py-0.5 text-[10px] text-muted-foreground/60 transition-colors hover:bg-destructive/12 hover:text-destructive"
+                                                            className="ml-1 shrink-0 rounded px-1 py-0.5 text-label text-muted-foreground/60 transition-colors hover:bg-destructive/12 hover:text-destructive"
                                                         >
                                                             Unbind
                                                         </Button>
                                                     )}
                                                 </>
                                             ) : (
-                                                <span className="ml-auto text-[10px] italic text-muted-foreground/40">Not bound</span>
+                                                <span className="ml-auto text-label italic text-muted-foreground/40">Not bound</span>
                                             )}
                                         </>
                                     );
@@ -405,10 +403,9 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                                 {isEdit && (
                                     <Button
                                         variant="default"
-                                        size="sm"
                                         onClick={() => void onSubmit()}
                                         disabled={!canProceedStep1 || submitting}
-                                        className="rounded-sm px-4"
+                                        className=""
                                     >
                                         {submitting
                                             ? <><Spinner size={11} className="mr-1.5" />Saving...</>
@@ -419,10 +416,8 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                         ) : (
                             <Button
                                 variant="default"
-                                size="sm"
                                 onClick={() => void onSubmit()}
                                 disabled={!canSubmit}
-                                className="rounded-sm px-4"
                             >
                                 {submitting
                                     ? <><Spinner size={11} className="mr-1.5 text-white" />{isEdit ? 'Saving...' : 'Creating...'}</>

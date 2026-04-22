@@ -76,7 +76,7 @@ export const Sidebar: React.FC = () => {
                                 >
                                     <Icon size={13} className="shrink-0" />
                                     {badge !== undefined && badge !== null && badge !== 0 && (
-                                        <span className="absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-600 px-0.5 text-[9px] font-semibold leading-none text-white">
+                                        <span className="absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-label font-semibold leading-none text-background">
                                             {badge}
                                         </span>
                                     )}
@@ -96,3 +96,4 @@ export const Sidebar: React.FC = () => {
         </div>
     );
 };
+

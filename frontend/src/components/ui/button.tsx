@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 import { DENSITY_CLASS, STATE_CLASS, TONE_CLASS } from './contract';
 
 export const buttonVariants = cva(
-    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-55 cursor-pointer',
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm border font-normal transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-55 cursor-pointer',
     {
         variants: {
             variant: {

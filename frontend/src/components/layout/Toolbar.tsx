@@ -50,6 +50,7 @@ import {
 } from '../../services/sourceControlService';
 import { PROJECT_ICON_MAP, getProjectIconKey } from './projectHubMeta';
 import { BranchSpotlight } from '../sidebar/BranchSpotlight';
+import { EnvironmentBadge } from '../shared/EnvironmentBadge';
 
 export const Toolbar: React.FC = () => {
     const platform = usePlatform();
@@ -101,26 +102,26 @@ export const Toolbar: React.FC = () => {
     const envToolbarTone = useMemo(() => {
         if (activeEnvKey === ENVIRONMENT_KEY.PRODUCTION) {
             return {
-                base: 'bg-red-500/12',
-                active: 'border-red-500/60',
+                base: 'bg-error/12',
+                active: 'border-error/60',
             };
         }
         if (activeEnvKey === ENVIRONMENT_KEY.STAGING) {
             return {
-                base: 'bg-amber-500/12',
-                active: 'border-amber-500/60',
+                base: 'bg-warning/12',
+                active: 'border-warning/60',
             };
         }
         if (activeEnvKey === ENVIRONMENT_KEY.DEVELOPMENT) {
             return {
-                base: 'bg-sky-500/12',
-                active: 'border-sky-500/60',
+                base: 'bg-primary/12',
+                active: 'border-primary/60',
             };
         }
         if (activeEnvKey === ENVIRONMENT_KEY.TESTING) {
             return {
-                base: 'bg-fuchsia-500/12',
-                active: 'border-fuchsia-500/60',
+                base: 'bg-accent/12',
+                active: 'border-accent/60',
             };
         }
         return {
@@ -409,7 +410,7 @@ export const Toolbar: React.FC = () => {
                 >
                     <div
                         className={cn(
-                            'relative flex items-stretch w-full rounded-sm text-xs font-medium text-muted-foreground select-none transition-all duration-200',
+                            'relative flex items-stretch w-full rounded-sm text-small font-medium text-muted-foreground select-none transition-all duration-200',
                             envToolbarTone.base,
                             quickEnvOpen && cn(envToolbarTone.active, 'text-foreground'),
                         )}
@@ -417,7 +418,7 @@ export const Toolbar: React.FC = () => {
                         <Button
                             type="button"
                             variant="ghost"
-                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 hover:bg-card/40 transition-colors text-[11px] leading-none', !activeProject && 'opacity-60')}
+                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 hover:bg-card/40 transition-colors text-label leading-none', !activeProject && 'opacity-60')}
                             title="Open Project Hub"
                             onClick={() => {
                                 setQuickEnvOpen(false);
@@ -431,7 +432,7 @@ export const Toolbar: React.FC = () => {
                                     connectionStatus === CONNECTION_STATUS.CONNECTED
                                         ? 'text-success'
                                         : connectionStatus === CONNECTION_STATUS.ERROR
-                                            ? 'text-red-500 animate-pulse'
+                                            ? 'text-error animate-pulse'
                                             : 'text-muted-foreground',
                                 )}
                             />
@@ -449,7 +450,7 @@ export const Toolbar: React.FC = () => {
                             <span className="sr-only">Connection details</span>
                         </div>
 
-                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-[11px] leading-none text-muted-foreground">
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-label leading-none text-muted-foreground">
                             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-1.5">
                                 <span className="truncate text-end leading-none">{serverLabel}</span>
                                 <Server size={13} className="shrink-0 translate-y-[0.5px]" />
@@ -485,9 +486,10 @@ export const Toolbar: React.FC = () => {
                                     }}
                                 >
                                     {activeProject && (
-                                        <span className={cn('shrink-0 px-1.5 py-0.5 rounded-sm border font-bold uppercase tracking-wider leading-none text-[10px]', envMeta.colorClass)}>
-                                            {activeEnvironmentKey || activeProject.default_environment_key}
-                                        </span>
+                                        <EnvironmentBadge
+                                            label={activeEnvironmentKey || activeProject.default_environment_key}
+                                            toneClassName={envMeta.colorClass}
+                                        />
                                     )}
                                 </Button>
                             </PopoverAnchor>
@@ -512,7 +514,7 @@ export const Toolbar: React.FC = () => {
                                                     type="button"
                                                     variant="ghost"
                                                     className={cn(
-                                                        'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                        'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 text-left text-label transition-colors',
                                                         isActive
                                                             ? 'border border-accent/35 bg-accent/10 text-foreground'
                                                             : 'text-muted-foreground hover:bg-background/50 hover:text-foreground',
@@ -522,14 +524,14 @@ export const Toolbar: React.FC = () => {
                                                     }}
                                                 >
                                                     <div className="w-full">
-                                                        <div className="flex min-w-0 items-center gap-2">
-                                                            <span className={cn('shrink-0 rounded-sm border px-2 py-0.5 font-bold uppercase tracking-wider', meta.colorClass)}>{envKey}</span>
+                                                        <div className="flex min-w-0 items-center gap-2.5">
+                                                            <EnvironmentBadge label={envKey} toneClassName={meta.colorClass} />
                                                             <span className="truncate font-semibold">{meta.label}</span>
-                                                            <span className="ml-auto shrink-0 text-[10px] font-mono text-muted-foreground">
+                                                            <span className="ml-auto shrink-0 text-label font-mono text-muted-foreground">
                                                                 {shortcut}
                                                             </span>
                                                         </div>
-                                                        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-[10px] text-muted-foreground">
+                                                        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-label text-muted-foreground">
                                                             <span className="inline-flex min-w-0 w-full items-center gap-1">
                                                                 <Server size={11} className="shrink-0" />
                                                                 <span className="truncate" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>

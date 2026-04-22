@@ -23,8 +23,8 @@ export const SettingsUpdates: React.FC<Props> = ({ autoCheckUpdates, onAutoCheck
             <div className={SettingsClasses.sectionContent}>
                 <div className="flex items-center justify-between rounded-sm bg-muted/35 px-3 py-2.5">
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-[12px] font-semibold text-foreground">Auto-Check For Updates</span>
-                        <span className="text-[11px] text-muted-foreground">Automatically notify when a new version is available.</span>
+                        <span className="text-small font-semibold text-foreground">Auto-Check For Updates</span>
+                        <span className="text-label text-muted-foreground">Automatically notify when a new version is available.</span>
                     </div>
                     <Switch
                         checked={autoCheckUpdates}
@@ -33,7 +33,7 @@ export const SettingsUpdates: React.FC<Props> = ({ autoCheckUpdates, onAutoCheck
                     />
                 </div>
                 {autoCheckUpdates && (
-                    <span className="text-[11px] text-muted-foreground">We will check securely when the app is launched.</span>
+                    <span className="text-label text-muted-foreground">We will check securely when the app is launched.</span>
                 )}
             </div>
         </div>

@@ -57,12 +57,12 @@ export const Modal: React.FC<ModalProps> = ({
                 style={{ width, maxWidth: '90vw' }}
             >
                 <DialogHeader className="shrink-0 border-b border-border/25 bg-card px-5 py-4">
-                    <DialogTitle className="m-0 text-base font-semibold text-foreground">
+                    <DialogTitle className="m-0 text-body font-semibold text-foreground">
                         {title}
                     </DialogTitle>
                 </DialogHeader>
                 <DialogDescription asChild>
-                    <div className="flex-1 overflow-y-auto px-5 py-5 text-[13px] text-muted-foreground">
+                    <div className="flex-1 overflow-y-auto px-5 py-5 text-small text-muted-foreground">
                         {children}
                     </div>
                 </DialogDescription>

@@ -264,12 +264,12 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
                 : 'h-full w-full',
         )}>
             {waitingForWizardProject ? (
-                <div className="flex h-full items-center justify-center gap-2 text-[12px] text-muted-foreground">
+                <div className="flex h-full items-center justify-center gap-2 text-small text-muted-foreground">
                     <Spinner size={14} />
                     Loading...
                 </div>
             ) : wizardProjectMissing ? (
-                <div className="flex h-full items-center justify-center px-6 text-center text-[12px] text-muted-foreground">
+                <div className="flex h-full items-center justify-center px-6 text-center text-small text-muted-foreground">
                     Project not found. It may have been removed.
                 </div>
             ) : surface === 'entry' ? (
@@ -280,7 +280,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
                         className="h-full"
                         headerClassName="px-6 py-4"
                         bodyClassName="min-h-0 px-6 pb-5 pt-4"
-                        titleClassName="text-[30px]"
+                        titleClassName="text-h1"
                     >
                         <ProjectHubEntryScreen
                             projects={visibleProjects}

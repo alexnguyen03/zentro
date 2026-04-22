@@ -101,8 +101,8 @@ const BindingCaptureModal: React.FC<{
             )}
         >
             <div className="space-y-3" data-shortcut-capture="true">
-                <p className="text-[13px] text-foreground">
-                    Press desired key combination. Press <kbd className="font-mono text-[11px]">Enter</kbd> to confirm.
+                <p className="text-small text-foreground">
+                    Press desired key combination. Press <kbd className="font-mono text-label">Enter</kbd> to confirm.
                 </p>
                 {!useTextInput ? (
                     <div
@@ -112,14 +112,14 @@ const BindingCaptureModal: React.FC<{
                         onKeyDown={handleCaptureKeyDown}
                         data-shortcut-capture="true"
                     >
-                        <span className="font-mono text-[12px] text-foreground">
+                        <span className="font-mono text-small text-foreground">
                             {binding || 'Press keys...'}
                         </span>
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="text-[11px] text-muted-foreground hover:text-foreground"
+                            className="text-label text-muted-foreground hover:text-foreground"
                             onClick={() => setUseTextInput(true)}
                         >
                             Use text input
@@ -146,7 +146,7 @@ const BindingCaptureModal: React.FC<{
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="text-[11px] text-muted-foreground hover:text-foreground"
+                            className="text-label text-muted-foreground hover:text-foreground"
                             onClick={() => setUseTextInput(false)}
                         >
                             Back to key recording
@@ -287,7 +287,7 @@ export const ShortcutsView: React.FC = () => {
                     <div className="p-2 rounded-sm bg-accent/5 text-accent">
                         <Keyboard size={18} />
                     </div>
-                    <h1 className="text-[15px] font-bold tracking-tight">Keyboard Shortcuts</h1>
+                    <h1 className="text-h3  tracking-tight">Keyboard Shortcuts</h1>
                 </div>
 
                 <div className="flex-1 flex justify-center max-w-2xl px-6">
@@ -308,7 +308,7 @@ export const ShortcutsView: React.FC = () => {
                 <Button
                     variant="ghost"
                     size="sm"
-                    className="gap-2 font-bold text-[11px] tracking-widest"
+                    className="gap-2  text-label tracking-widest"
                     onClick={() => resetDefaults().catch((err) => console.error('reset shortcuts failed', err))}
                     title="Reset all shortcuts to default"
                 >
@@ -318,7 +318,7 @@ export const ShortcutsView: React.FC = () => {
 
             <div className="flex-1 overflow-auto p-5">
                 <div className="rounded-sm border border-border/30 overflow-hidden">
-                    <table className="w-full text-[12px] table-fixed">
+                    <table className="w-full text-small table-fixed">
                         <thead className="bg-card/70 border-b border-border/30">
                             <tr>
                                 <th className="text-left px-3 py-2 font-semibold text-muted-foreground w-[34%]">Command</th>
@@ -344,17 +344,17 @@ export const ShortcutsView: React.FC = () => {
                                 >
                                     <td className="px-3 py-2">
                                         <div className="truncate text-foreground font-medium">{row.commandLabel}</div>
-                                        <div className="truncate text-[11px] text-muted-foreground">{row.commandId}</div>
+                                        <div className="truncate text-label text-muted-foreground">{row.commandId}</div>
                                         {row.customized && (
-                                            <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning">Customized</span>
+                                            <span className="inline-block mt-1 text-label px-1.5 py-0.5 rounded bg-warning/20 text-warning">Customized</span>
                                         )}
                                     </td>
                                     <td className="px-3 py-2 text-foreground">
-                                        <span className="font-mono text-[11px] rounded border border-border bg-card px-1.5 py-0.5">
+                                        <span className="font-mono text-label rounded border border-border bg-card px-1.5 py-0.5">
                                             {row.rule.binding || '-'}
                                         </span>
                                     </td>
-                                    <td className="px-3 py-2 text-muted-foreground font-mono text-[11px] truncate">
+                                    <td className="px-3 py-2 text-muted-foreground font-mono text-label truncate">
                                         {row.rule.when || '-'}
                                     </td>
                                     <td className="px-3 py-2 text-muted-foreground">{row.source}</td>
@@ -367,7 +367,7 @@ export const ShortcutsView: React.FC = () => {
                 {rows.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-24 text-muted-foreground/40">
                         <Search size={42} strokeWidth={1} className="mb-4 opacity-20" />
-                        <p className="text-[14px] font-medium">No shortcuts match "{searchQuery}"</p>
+                        <p className="text-body font-medium">No shortcuts match "{searchQuery}"</p>
                     </div>
                 )}
             </div>
@@ -378,15 +378,15 @@ export const ShortcutsView: React.FC = () => {
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => copyText(contextMenu.rule.binding)}>Copy</Button>
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => copyText(contextMenu.rule.commandId)}>Copy Command ID</Button>
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => copyText(contextMenu.commandLabel)}>Copy Command Title</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => copyText(contextMenu.rule.binding)}>Copy</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => copyText(contextMenu.rule.commandId)}>Copy Command ID</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => copyText(contextMenu.commandLabel)}>Copy Command Title</Button>
                     <div className="h-px bg-border/40 my-1" />
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => openChangeBinding(contextMenu.rule, contextMenu.commandLabel)}>Change Keybinding...</Button>
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]" onClick={() => openAddBinding(contextMenu.rule, contextMenu.commandLabel)}>Add Keybinding...</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => openChangeBinding(contextMenu.rule, contextMenu.commandLabel)}>Change Keybinding...</Button>
+                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => openAddBinding(contextMenu.rule, contextMenu.commandLabel)}>Add Keybinding...</Button>
                     <Button
                         variant="ghost"
-                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small disabled:opacity-40 disabled:cursor-not-allowed"
                         onClick={() => {
                             void removeRule(contextMenu.rule.id);
                             setContextMenu(null);
@@ -397,7 +397,7 @@ export const ShortcutsView: React.FC = () => {
                     </Button>
                     <Button
                         variant="ghost"
-                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                         onClick={() => {
                             void restoreBinding(contextMenu.rule.commandId);
                             setContextMenu(null);
@@ -428,7 +428,7 @@ export const ShortcutsView: React.FC = () => {
                     </Button>
                 )}
             >
-                <p className="text-[13px] leading-relaxed text-foreground">{conflictMessage}</p>
+                <p className="text-small leading-relaxed text-foreground">{conflictMessage}</p>
             </Modal>
         </div>
     );

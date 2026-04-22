@@ -105,7 +105,7 @@ export const SettingsFeedback: React.FC<Props> = ({ environmentLabel }) => {
                             <SelectItem value="feature">Feature Request</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">{kindMeta.helper}</p>
+                    <p className="text-label text-muted-foreground">{kindMeta.helper}</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -115,7 +115,7 @@ export const SettingsFeedback: React.FC<Props> = ({ environmentLabel }) => {
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder={kindMeta.defaultTitle}
                     />
-                    <p className="text-[11px] text-muted-foreground">Leave blank to use an auto-generated title.</p>
+                    <p className="text-label text-muted-foreground">Leave blank to use an auto-generated title.</p>
                 </div>
 
                 <div className="space-y-1.5">

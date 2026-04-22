@@ -468,7 +468,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             >
                                 {showAllKinds ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
                             </Button>
-                            <span className="pointer-events-none text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <span className="pointer-events-none text-small text-muted-foreground inline-flex items-center gap-1">
                                 <Database size={11} />
                                 {dbName || 'No DB'}
                             </span>
@@ -484,7 +484,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                     type="button"
                                     variant={active ? 'secondary' : 'ghost'}
                                     className={cn(
-                                        'h-7 gap-1.5 px-2 text-[11px] border whitespace-nowrap',
+                                        'h-7 gap-1.5 px-2 text-label border whitespace-nowrap',
                                         active ? 'border-primary/40 bg-primary/15 text-foreground' : 'text-muted-foreground',
                                     )}
                                     onClick={() => toggleKind(kind)}
@@ -508,17 +508,17 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                     event.stopPropagation();
                                     setContextMenu({ x: event.clientX, y: event.clientY, item });
                                 }}
-                                className="group flex items-center justify-between px-4 py-2 text-[13px] data-[selected=true]:bg-primary/10"
+                                className="group flex items-center justify-between px-4 py-2 text-small data-[selected=true]:bg-primary/10"
                             >
                                 <span className="flex min-w-0 items-center gap-2">
                                     <span className="shrink-0 group-data-[selected=true]:text-primary">{KIND_ICON[item.kind]}</span>
                                     <span className="truncate font-medium">{item.name}</span>
                                 </span>
                                 <span className="ml-4 flex shrink-0 items-center gap-2">
-                                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                    <span className="text-label uppercase tracking-wide text-muted-foreground">
                                         {KIND_LABEL[item.kind]}
                                     </span>
-                                    <span className="text-[11px] text-muted-foreground">{item.schema}</span>
+                                    <span className="text-label text-muted-foreground">{item.schema}</span>
                                 </span>
                             </CommandItem>
                         ))}
@@ -536,7 +536,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                                 onClick={() => {
                                     setContextMenu(null);
                                     void runItemAction(contextMenu.item, 'browse');
@@ -547,7 +547,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                                 onClick={() => {
                                     setContextMenu(null);
                                     void runItemAction(contextMenu.item, 'select');
@@ -558,7 +558,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                                 onClick={() => {
                                     setContextMenu(null);
                                     void runItemAction(contextMenu.item, 'insert');
@@ -569,7 +569,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                                 onClick={() => {
                                     setContextMenu(null);
                                     void runItemAction(contextMenu.item, 'update');
@@ -580,7 +580,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             <Button
                                 type="button"
                                 variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                                 onClick={() => {
                                     setContextMenu(null);
                                     void runItemAction(contextMenu.item, 'alter');
@@ -593,7 +593,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                         <Button
                             type="button"
                             variant="ghost"
-                            className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
+                            className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
                             onClick={() => {
                                 setContextMenu(null);
                                 void runItemAction(contextMenu.item, 'open');

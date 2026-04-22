@@ -374,15 +374,15 @@ export const QueryTabs: React.FC = () => {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center max-w-[320px]">
-                    <h2 className="text-base font-medium mb-2 text-foreground">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-muted border border-border rounded-sm px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <h2 className="text-body font-medium mb-2 text-foreground">No open queries</h2>
+                    <p className="text-small my-1.5">Press <kbd className="bg-muted border border-border rounded-sm px-1.5 py-px text-label font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
-                        <p className="text-xs">Connect to a database using the sidebar first.</p>
+                        <p className="text-small">Connect to a database using the sidebar first.</p>
                     )}
                     <Button
                         type="button"
                         variant="default"
-                        className="mt-4 h-8 px-3 text-[13px]"
+                        className="mt-4 h-8 px-3 text-small"
                         onClick={() => addTab()}
                     >
                         New Query
@@ -411,12 +411,12 @@ export const QueryTabs: React.FC = () => {
                                     <div
                                         key={id}
                                         className={cn(
-                                            'flex items-center gap-2 rounded-sm px-2 py-1.5 text-[12px]',
+                                            'flex items-center gap-2 rounded-sm px-2 py-1.5 text-small',
                                             isSelected ? 'bg-accent/25 text-foreground' : 'text-muted-foreground',
                                         )}
                                     >
                                         <span className="truncate flex-1">{meta.tab.name}</span>
-                                        <span className="text-[10px] text-muted-foreground">{meta.tab.type || 'query'}</span>
+                                        <span className="text-label text-muted-foreground">{meta.tab.type || 'query'}</span>
                                     </div>
                                 );
                             })}
@@ -462,7 +462,7 @@ export const QueryTabs: React.FC = () => {
                                                 variant="ghost"
                                                 onClick={() => setActiveSubTabId(subTabId)}
                                                 className={cn(
-                                                    'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-xs text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground rounded-none',
+                                                    'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-small text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground rounded-none',
                                                     isActive && 'bg-background -mb-px text-primary',
                                                 )}
                                                 title={subResult?.lastExecutedQuery || label}
@@ -501,7 +501,7 @@ export const QueryTabs: React.FC = () => {
             {/* Drag Overlay for smooth visual feedback while dragging outside the flow */}
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
                 {activeDragTab ? (
-                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-background text-foreground border-t-2 border-t-success border-b border-b-bg-primary text-xs cursor-grabbing opacity-90 w-[120px]">
+                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-background text-foreground border-t-2 border-t-success border-b border-b-bg-primary text-small cursor-grabbing opacity-90 w-[120px]">
                         <span className="overflow-hidden text-ellipsis whitespace-nowrap">{activeDragTab.name}</span>
                     </div>
                 ) : null}

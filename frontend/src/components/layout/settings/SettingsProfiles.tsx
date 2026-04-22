@@ -32,7 +32,7 @@ export const SettingsProfiles: React.FC<Props> = ({ profileName, onProfileNameCh
                         onChange={(e) => onProfileNameChange(e.target.value)}
                         placeholder="Zentro Profile"
                     />
-                    <p className="text-[11px] text-muted-foreground">Used as file name and profile metadata.</p>
+                    <p className="text-label text-muted-foreground">Used as file name and profile metadata.</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">

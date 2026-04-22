@@ -342,7 +342,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                 tooltipTimeout.current = setTimeout(() => setShowTooltip(false), 200);
                             }}
                         >
-                            <span className="text-[11px] uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
+                            <span className="text-label uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors">
                                 WHERE
                             </span>
 
@@ -396,7 +396,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                             </Button>
                                         )}
                                     </div>
-                                    <div className="p-3 pr-12 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-muted-foreground">
+                                    <div className="p-3 pr-12 text-label font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-muted-foreground">
                                         {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim())}
                                     </div>
                                 </div>
@@ -455,7 +455,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                         <span
                             title={orderInputMode === 'chips' ? 'Switch to text mode' : 'Switch to chip mode'}
                             onClick={toggleOrderInputMode}
-                            className="text-[11px] uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors p-1 px-2 h-full flex items-center bg-card">
+                            className="text-label uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors p-1 px-2 h-full flex items-center bg-card">
                             ORDER BY
                         </span>
                         {orderInputMode === 'chips' ? (
@@ -467,10 +467,10 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                 <PopoverTrigger asChild>
                                                     <Badge
                                                         variant="default"
-                                                        className="cursor-pointer normal-case gap-1 pl-2 pr-1 py-1 text-[10px] shrink-0"
+                                                        className="cursor-pointer normal-case gap-1 pl-2 pr-1 py-1 text-label shrink-0"
                                                         onClick={() => handleOpenEditOrderTerm(index)}
                                                     >
-                                                        <span className="font-mono text-[11px]">{term.field}</span>
+                                                        <span className="font-mono text-label">{term.field}</span>
                                                         <span className="text-muted-foreground">{term.dir}</span>
                                                         <Button
                                                             type="button"
@@ -497,7 +497,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                             handleSaveOrderTerm();
                                                         }}
                                                     >
-                                                        <div className="text-[11px] text-muted-foreground font-medium">Edit sort term</div>
+                                                        <div className="text-label text-muted-foreground font-medium">Edit sort term</div>
                                                         <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
                                                             <SelectTrigger className="border-input/60">
                                                                 <SelectValue placeholder="Choose field" />
@@ -505,7 +505,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                             <SelectContent>
                                                                 {completionColumns.map((column) => (
                                                                     <SelectItem key={column} value={column}>
-                                                                        <span className="font-mono text-[12px]">{column}</span>
+                                                                        <span className="font-mono text-small">{column}</span>
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>
@@ -557,7 +557,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                 handleAddOrderTerm();
                                             }}
                                         >
-                                            <div className="text-[11px] text-muted-foreground font-medium">Add sort term</div>
+                                            <div className="text-label text-muted-foreground font-medium">Add sort term</div>
                                             <Select value={selectedOrderField} onValueChange={setSelectedOrderField}>
                                                 <SelectTrigger className="border-input/60">
                                                     <SelectValue placeholder="Choose field" />
@@ -565,7 +565,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                                 <SelectContent>
                                                     {completionColumns.map((column) => (
                                                         <SelectItem key={column} value={column}>
-                                                            <span className="font-mono text-[12px]">{column}</span>
+                                                            <span className="font-mono text-small">{column}</span>
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>

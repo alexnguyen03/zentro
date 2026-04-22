@@ -268,7 +268,7 @@ function App() {
                         data-testid="startup-loading"
                     >
                         <Spinner size={24} />
-                        <div className="text-[12px] text-muted-foreground">Preparing your workspace...</div>
+                        <div className="text-small text-muted-foreground">Preparing your workspace...</div>
                     </div>
                 )}
             </>
@@ -319,7 +319,7 @@ function App() {
                             <div className="flex flex-1 flex-col overflow-hidden">
                                 <div className="flex-1 flex flex-col bg-background overflow-hidden">
                                     {!isConnected && activeProject && (
-                                        <div className="flex items-center justify-between px-4 py-1.5 bg-muted border-b border-border text-[11px] text-muted-foreground shrink-0">
+                                        <div className="flex items-center justify-between px-4 py-1.5 bg-muted border-b border-border text-label text-muted-foreground shrink-0">
                                             <span>No active connection - switch environment to connect.</span>
                                             <Button
                                                 type="button"
@@ -347,7 +347,7 @@ function App() {
                     data-testid="startup-loading"
                 >
                     <Spinner size={24} />
-                    <div className="text-[12px] text-muted-foreground">
+                    <div className="text-small text-muted-foreground">
                         {startupPhase === 'hydratingAppState'
                             ? 'Restoring your workspace state...'
                             : 'Preparing your workspace...'}

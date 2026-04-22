@@ -35,7 +35,7 @@ export const ProjectIconPicker: React.FC<ProjectIconPickerProps> = ({ value, onC
                                 size="sm"
                                 onClick={() => onChange(option.key)}
                                 className={cn(
-                                    'flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[11px] transition-colors',
+                                    'flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-label transition-colors',
                                     active ? 'border-primary/60 bg-primary/10 text-foreground' : 'border-transparent hover:bg-muted/60',
                                 )}
                             >

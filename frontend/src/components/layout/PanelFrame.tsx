@@ -41,11 +41,11 @@ export const PanelFrame: React.FC<PanelFrameProps> = ({
             <header className={cn('flex items-center justify-between gap-3 border-b border-border/25 px-4 py-3', headerClassName)}>
                 <div className="min-w-0">
                     {subtitle && (
-                        <div className={cn('text-[11px] font-semibold text-muted-foreground', subtitleClassName)}>
+                        <div className={cn('text-label font-semibold text-muted-foreground', subtitleClassName)}>
                             {subtitle}
                         </div>
                     )}
-                    <h2 className={cn('m-0 mt-0.5 truncate text-[28px] font-bold tracking-tight text-foreground', titleClassName)}>
+                    <h2 className={cn('m-0 mt-0.5 truncate text-h1  tracking-tight text-foreground', titleClassName)}>
                         {title}
                     </h2>
                 </div>

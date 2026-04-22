@@ -141,9 +141,9 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                 </div>
                 <div className="max-h-[360px] overflow-y-auto py-1">
                     {loading ? (
-                        <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading branches...</div>
+                        <div className="px-3 py-2 text-small text-muted-foreground">Loading branches...</div>
                     ) : items.length === 0 ? (
-                        <div className="px-3 py-2 text-[12px] text-muted-foreground">No branch matches your search.</div>
+                        <div className="px-3 py-2 text-small text-muted-foreground">No branch matches your search.</div>
                     ) : (
                         <>
                             {items.map((item, index) => {
@@ -157,8 +157,8 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                                     <React.Fragment key={key}>
                                         {index === 3 && (
                                             <div className="mx-2 my-1.5 flex items-center justify-between border-t border-border/70 pt-1.5">
-                                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Branches</span>
-                                                <span className="text-[10px] text-muted-foreground">{filtered.length}</span>
+                                                <span className="text-label font-semibold uppercase tracking-wider text-muted-foreground">Branches</span>
+                                                <span className="text-label text-muted-foreground">{filtered.length}</span>
                                             </div>
                                         )}
                                         <Button
@@ -178,9 +178,9 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                                             {isBranch ? (
                                                 <div className="flex min-w-0 w-full items-center gap-2">
                                                     <GitBranch size={12} className="shrink-0 text-muted-foreground" />
-                                                    <span className="truncate font-mono text-[12px]">{item.name}</span>
+                                                    <span className="truncate font-mono text-small">{item.name}</span>
                                                     {item.name === currentBranch && (
-                                                        <span className="ml-auto text-[10px] font-semibold text-[#3b82f6]">current</span>
+                                                        <span className="ml-auto text-label font-semibold text-[#3b82f6]">current</span>
                                                     )}
                                                 </div>
                                             ) : (
@@ -188,7 +188,7 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                                                     {item.action === 'detached'
                                                         ? <GitBranch size={12} className="shrink-0 text-muted-foreground" />
                                                         : <Plus size={12} className="shrink-0 text-muted-foreground" />}
-                                                    <span className="truncate text-[12px]">{item.label}</span>
+                                                    <span className="truncate text-small">{item.label}</span>
                                                 </div>
                                             )}
                                         </Button>

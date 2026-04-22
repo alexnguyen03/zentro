@@ -52,7 +52,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                     >
                         <TableHeader className="[&_tr]:border-b-0">
                             <TableRow className="border-b-2 border-border hover:bg-transparent">
-                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                                <TableHead className="rt-th w-10 font-mono text-label text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
                                 </TableHead>
                                 <TableHead
@@ -128,7 +128,7 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                             })}
                             {rows.length === 0 && (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={6} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                    <TableCell colSpan={6} className="py-24 text-center text-muted-foreground italic bg-background/50 text-body">
                                         No columns found for this table.
                                     </TableCell>
                                 </TableRow>

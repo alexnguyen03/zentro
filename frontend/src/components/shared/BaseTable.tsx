@@ -49,7 +49,7 @@ export function BaseTable<T>({
                 background: 'var(--surface-panel)',
             }}
         >
-            <table className={cn('w-full border-collapse table-fixed text-[12px]', className)}>
+            <table className={cn('w-full border-collapse table-fixed text-small', className)}>
                 <colgroup>
                     {columns.map((column) => (
                         <col key={column.key} style={column.width ? { width: column.width } : undefined} />
@@ -61,7 +61,7 @@ export function BaseTable<T>({
                             <th
                                 key={column.key}
                                 className={cn(
-                                    'px-1.5 py-1.5 text-(--content-secondary) font-bold whitespace-nowrap overflow-hidden text-ellipsis',
+                                    'px-1.5 py-1.5 text-(--content-secondary)  whitespace-nowrap overflow-hidden text-ellipsis',
                                     fixedHeader && 'sticky top-0 z-(--layer-table-sticky)',
                                     alignClassName(column.align),
                                     column.headerClassName,

@@ -141,8 +141,8 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
             </TableRow>
             {rowError && (
                 <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={6} className="px-10 py-1 bg-error/10 text-error text-[10px] border-b border-border/20">
-                        <span className="font-bold mr-2 uppercase tracking-wider">Error</span>
+                    <TableCell colSpan={6} className="px-10 py-1 bg-error/10 text-error text-label border-b border-border/20">
+                        <span className=" mr-2 uppercase tracking-wider">Error</span>
                         {rowError}
                     </TableCell>
                 </TableRow>

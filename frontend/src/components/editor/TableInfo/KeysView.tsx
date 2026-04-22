@@ -60,7 +60,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, isOpen, onToggle, 
                 size={13}
                 className={cx('text-muted-foreground shrink-0 transition-transform duration-150', isOpen && 'rotate-90')}
             />
-            <span className="text-xs font-medium text-foreground/80 uppercase tracking-wide">{title}</span>
+            <span className="text-small font-medium text-foreground/80 uppercase tracking-wide">{title}</span>
         </CollapsibleTrigger>
         {actions.length > 0 && (
             <div className="flex items-center gap-0.5">

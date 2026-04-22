@@ -226,7 +226,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
                         variant="ghost"
                         size="sm"
-                        className="gap-2 text-[11px] font-bold uppercase tracking-widest"
+                        className="gap-2 text-label  uppercase tracking-widest"
                         title="Keyboard Shortcuts"
                         aria-label="Open keyboard shortcuts"
                     >

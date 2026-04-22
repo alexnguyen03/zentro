@@ -129,7 +129,7 @@ export const RowDetailTab: React.FC = () => {
 
     if (!detail) {
         return (
-            <div className="flex h-full flex-1 items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-full flex-1 items-center justify-center text-small text-muted-foreground">
                 <p>No row selected</p>
             </div>
         );
@@ -306,7 +306,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                 isSelected && ' bg-primary/10',
             )}
         >
-            <div className="group flex items-center justify-between gap-1 text-[11px] font-semibold text-muted-foreground">
+            <div className="group flex items-center justify-between gap-1 text-label font-semibold text-muted-foreground">
                 <div className="flex items-center gap-1.5 overflow-hidden">
                     {isSelectMode && (
                         <Checkbox
@@ -319,13 +319,13 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     <Label
                         htmlFor={isSelectMode ? checkboxId : undefined}
                         className={cn(
-                            'm-0 flex items-center gap-1 text-[11px] text-muted-foreground',
+                            'm-0 flex items-center gap-1 text-label text-muted-foreground',
                             isSelectMode ? 'cursor-pointer' : 'cursor-default',
                             isPK && 'text-primary',
                         )}
                     >
                         {isPK && (
-                            <span className="rounded-sm border border-primary/35 bg-primary/15 px-1 py-[1px] text-[9px] font-bold tracking-[0.04em] text-primary">
+                            <span className="rounded-sm border border-primary/35 bg-primary/15 px-1 py-[1px] text-label  tracking-[0.04em] text-primary">
                                 PK
                             </span>
                         )}
@@ -347,7 +347,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             {isPK || isJsonField ? (
                 <div
                     className={cn(
-                        'min-h-[28px] overflow-auto rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground opacity-85',
+                        'min-h-[28px] overflow-auto rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-small text-foreground opacity-85',
                         'whitespace-pre-wrap break-all select-text',
                         isNull && 'bg-muted italic text-muted-foreground',
                         isJsonField && 'max-h-[200px]',
@@ -361,7 +361,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             ) : (
                 <Textarea
                     className={cn(
-                        'min-h-[28px] w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground',
+                        'min-h-[28px] w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-small text-foreground',
                         'whitespace-pre-wrap break-all leading-normal shadow-none',
                         'focus-visible:border-primary focus-visible:ring-primary/30 focus-visible:ring-offset-0',
                         isNull && 'bg-muted italic text-muted-foreground',
@@ -386,3 +386,4 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
         </div>
     );
 };
+

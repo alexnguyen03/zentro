@@ -272,14 +272,14 @@ export const BookmarkTab: React.FC = () => {
                                 variant="ghost"
                                 type="button"
                                 className={cn(
-                                    'h-7 gap-1.5 rounded-sm px-2 text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                    '!text-small text-foreground transition-colors duration-100 hover:bg-muted/80',
                                     scope === scopeOption.key && 'bg-muted/90 text-foreground',
                                 )}
                                 onClick={() => updateBookmarkPanelState({ scope: scopeOption.key })}
                             >
                                 <ScopeIcon size={12} className="opacity-80 shrink-0" />
                                 <span className="truncate">{scopeOption.label}</span>
-                                <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                                <span className="text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                                     {scopeOption.count}
                                 </span>
                             </Button>
@@ -331,7 +331,7 @@ export const BookmarkTab: React.FC = () => {
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-0.5">
                 {scope === 'current' ? (
                     bookmarks.length === 0 ? (
-                        <div className="flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-sm">
+                        <div className="flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm">
                             No bookmarks for this tab.
                         </div>
                     ) : (
@@ -341,7 +341,7 @@ export const BookmarkTab: React.FC = () => {
                                     key={item.id || item.line}
                                     type="button"
                                     variant="ghost"
-                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80"
+                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-100 hover:bg-muted/80"
                                     onClick={() => {
                                         emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: activeTabId, line: item.line });
                                     }}
@@ -367,7 +367,7 @@ export const BookmarkTab: React.FC = () => {
                         </div>
                     )
                 ) : groupedGlobalBookmarks.length === 0 ? (
-                    <div className="flex items-center gap-1.5 px-1.5 py-1 text-[12px] text-muted-foreground rounded-sm">
+                    <div className="flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm">
                         No global bookmarks yet.
                     </div>
                 ) : (
@@ -378,7 +378,7 @@ export const BookmarkTab: React.FC = () => {
                             return (
                                 <section key={group.bookmarkKey}>
                                     <div
-                                        className="group h-6 flex items-center gap-1 px-1.5 text-[12px] rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80"
+                                        className="group h-6 flex items-center gap-1 px-1.5 text-small rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80"
                                         onClick={() => {
                                             void restoreAndOpen({
                                                 bookmarkKey: group.bookmarkKey,
@@ -407,7 +407,7 @@ export const BookmarkTab: React.FC = () => {
                                         </Button>
                                         <BookMarked size={12} className="opacity-80 shrink-0" />
                                         <span className="truncate flex-1">{group.tabName}</span>
-                                        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                                        <span className="text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
                                             {group.items.length}
                                         </span>
                                     </div>
@@ -419,7 +419,7 @@ export const BookmarkTab: React.FC = () => {
                                                     key={`${group.bookmarkKey}-${item.id || item.line}`}
                                                     type="button"
                                                     variant="ghost"
-                                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-[12px] text-foreground transition-colors duration-100 hover:bg-muted/80"
+                                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-100 hover:bg-muted/80"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         void restoreAndOpen(item);

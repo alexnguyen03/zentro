@@ -24,7 +24,7 @@ const Toast = React.forwardRef<
     <ToastPrimitives.Root
         ref={ref}
         className={cn(
-            'pointer-events-auto flex min-w-[250px] max-w-[400px] items-start gap-2.5 rounded-sm border border-border border-l-4 bg-background px-4 py-3 text-[13px] shadow-elevation-md',
+            'pointer-events-auto flex min-w-[250px] max-w-[400px] items-start gap-2.5 rounded-sm border border-border border-l-4 bg-background px-4 py-3 text-small shadow-elevation-md',
             className,
         )}
         {...props}

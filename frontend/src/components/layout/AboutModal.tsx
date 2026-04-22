@@ -104,15 +104,15 @@ export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
 
                     <div className="min-w-0 flex-1 rounded-sm bg-background/60">
                         {loading && (
-                            <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading build information...</div>
+                            <div className="px-3 py-2 text-small text-muted-foreground">Loading build information...</div>
                         )}
                         {!loading && loadError && (
-                            <div className="px-3 py-2 text-[12px] text-destructive">{loadError}</div>
+                            <div className="px-3 py-2 text-small text-destructive">{loadError}</div>
                         )}
                         {!loading && infoRows.map((row, index) => (
                             <div
                                 key={row.label}
-                                className="grid grid-cols-[120px_1fr] gap-2 px-3 py-1.5 text-[13px] leading-relaxed even:bg-muted/20"
+                                className="grid grid-cols-[120px_1fr] gap-2 px-3 py-1.5 text-small leading-relaxed even:bg-muted/20"
                             >
                                 <span className="font-medium text-foreground">{row.label}:</span>
                                 <span

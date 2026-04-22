@@ -166,7 +166,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                 <Command className="border-0 bg-transparent">
                     <CommandList className="max-h-[220px]">
                         {filtered.length === 0 && (
-                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                            <div className="px-3 py-2 text-small text-muted-foreground">
                                 No matching data type
                             </div>
                         )}
@@ -182,7 +182,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                                     }}
                                     onSelect={() => handleSuggestionPick(typeName)}
                                     className={cn(
-                                        'font-mono text-xs',
+                                        'font-mono text-small',
                                         isSelected && 'bg-accent text-foreground font-semibold',
                                     )}
                                 >

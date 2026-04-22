@@ -218,17 +218,17 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
     // -- Render ----------------------------------------------------------------
 
     if (loading) {
-        return <div className="px-3 py-4 text-[11px] text-muted-foreground">Loading...</div>;
+        return <div className="px-3 py-4 text-label text-muted-foreground">Loading...</div>;
     }
 
     if (!supportsAlterPk) {
         return (
-            <div className="px-3 py-3 text-[11px] text-muted-foreground italic">
+            <div className="px-3 py-3 text-label text-muted-foreground italic">
                 SQLite: primary key management via ALTER TABLE is not supported.
                 {pk && (
                     <div className="mt-2 flex items-center gap-3">
-                        <span className="font-mono text-[12px] text-foreground font-medium">{pk.name}</span>
-                        <span className="font-mono text-[11px] text-muted-foreground">{pk.columns.join(', ')}</span>
+                        <span className="font-mono text-small text-foreground font-medium">{pk.name}</span>
+                        <span className="font-mono text-label text-muted-foreground">{pk.columns.join(', ')}</span>
                     </div>
                 )}
             </div>
@@ -239,15 +239,15 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
         <div className="flex flex-col min-h-0">
             <div className="px-3 py-2">
                 {!pk && !pkDraft && (
-                    <p className="text-[11px] text-muted-foreground italic py-2">No primary key defined.</p>
+                    <p className="text-label text-muted-foreground italic py-2">No primary key defined.</p>
                 )}
 
                 {pk && !pkDraft && (
                     <div className="flex items-center gap-3 py-1.5 group">
-                        <span className="font-mono text-[12px] text-foreground font-medium min-w-[160px] truncate" title={pk.name}>
+                        <span className="font-mono text-small text-foreground font-medium min-w-[160px] truncate" title={pk.name}>
                             {pk.name}
                         </span>
-                        <span className="font-mono text-[11px] text-muted-foreground flex-1 truncate">
+                        <span className="font-mono text-label text-muted-foreground flex-1 truncate">
                             {pk.columns.join(', ')}
                         </span>
                         {!readOnlyMode && (
@@ -256,7 +256,7 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
                                 variant="ghost"
                                 onClick={() => setShowDropConfirm(true)}
                                 disabled={saving}
-                                className="h-6 px-2 text-[11px] text-error/70 hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-6 px-2 text-label text-error/70 hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                                 <Trash2 size={11} />
                             </Button>
@@ -284,7 +284,7 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
                                 />
                             ) : (
                                 <div
-                                    className="font-mono text-[11px] text-muted-foreground cursor-pointer hover:text-foreground px-2 py-1 rounded border border-border/40 hover:border-border"
+                                    className="font-mono text-label text-muted-foreground cursor-pointer hover:text-foreground px-2 py-1 rounded border border-border/40 hover:border-border"
                                     onClick={() => setEditingCols(true)}
                                 >
                                     {pkDraft.columns.length > 0
@@ -297,7 +297,7 @@ export const PrimaryKeyView: React.FC<PrimaryKeyViewProps> = ({
                             type="button"
                             variant="ghost"
                             onClick={discard}
-                            className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                            className="h-6 px-2 text-label text-muted-foreground hover:text-foreground"
                         >
                             Cancel
                         </Button>

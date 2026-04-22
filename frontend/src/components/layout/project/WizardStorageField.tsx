@@ -53,12 +53,12 @@ export const WizardStorageField: React.FC<WizardStorageFieldProps> = ({
                     <FolderOpen size={13} />
                 </Button>
             </div>
-            <div className="mt-1 truncate text-[11px] text-muted-foreground/70" title={storagePathPreview || undefined}>
+            <div className="mt-1 truncate text-label text-muted-foreground/70" title={storagePathPreview || undefined}>
                 {storagePathPreview || 'Uses the app default location.'}
             </div>
             {pathConflictProject && (
                 <div
-                    className="mt-1 flex items-center gap-1 text-[11px] text-amber-500"
+                    className="mt-1 flex items-center gap-1 text-label text-warning"
                     title={`Folder is already used by project "${pathConflictProject.name}"`}
                 >
                     <AlertTriangle size={11} className="shrink-0" />

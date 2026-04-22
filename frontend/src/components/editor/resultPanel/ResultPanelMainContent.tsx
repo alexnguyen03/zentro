@@ -47,7 +47,7 @@ export const ResultPanelMainContent: React.FC<ResultPanelMainContentProps> = ({
     if (isLoading && !hasData) {
         return (
             <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
-                <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border shrink-0">
+                <div className="flex flex-row items-center gap-2 px-3 py-2 text-small border-b border-border shrink-0">
                     <Loader size={14} className="animate-spin" />
                     <span className="text-text-secondary">
                         {result.rows.length > 0

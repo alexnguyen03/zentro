@@ -269,7 +269,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                             type="button"
                             variant="ghost"
                             title={item.title}
-                            className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-[12px] ${item.disabled ? 'text-muted-foreground cursor-not-allowed' : itemClass} ${isActive ? 'bg-muted/60' : ''}`}
+                            className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-small ${item.disabled ? 'text-muted-foreground cursor-not-allowed' : itemClass} ${isActive ? 'bg-muted/60' : ''}`}
                             disabled={item.disabled}
                             onMouseEnter={() => {
                                 setActiveTopIndex(index);
@@ -297,7 +297,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                             }}
                         >
                             <span>{item.label}</span>
-                            <span className="ml-3 flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <span className="ml-3 flex items-center gap-2 text-label text-muted-foreground">
                                 {item.shortcut ? <span>{item.shortcut}</span> : null}
                                 {item.submenu ? <ChevronRight size={12} /> : null}
                             </span>
@@ -320,13 +320,13 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
                                     type="button"
                                     variant="ghost"
                                     title={action.title}
-                                    className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-[12px] ${action.disabled ? 'text-muted-foreground cursor-not-allowed' : 'text-foreground hover:bg-muted'} ${isActive ? 'bg-muted/60' : ''}`}
+                                    className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-small ${action.disabled ? 'text-muted-foreground cursor-not-allowed' : 'text-foreground hover:bg-muted'} ${isActive ? 'bg-muted/60' : ''}`}
                                     disabled={action.disabled}
                                     onMouseEnter={() => setActiveCopyAsIndex(index)}
                                     onClick={() => runCopyAs(action, index)}
                                 >
                                     <span>{action.label}</span>
-                                    <span className="text-[10px] text-muted-foreground">{isLastUsedCopyAction ? 'Last used' : ''}</span>
+                                    <span className="text-label text-muted-foreground">{isLastUsedCopyAction ? 'Last used' : ''}</span>
                                 </Button>
                             );
                         })}

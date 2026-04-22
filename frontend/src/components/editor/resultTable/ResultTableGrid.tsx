@@ -72,7 +72,7 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
     return (
         <div ref={parentRef} className="result-virtual-scroll">
             {(isDeferredSorting || isDeferredFiltering) && (
-                <div className="px-3 py-1 text-[11px] text-muted-foreground border-b border-border bg-card/50">
+                <div className="px-3 py-1 text-label text-muted-foreground border-b border-border bg-card/50">
                     {isDeferredFiltering
                         ? 'Applying incremental filter for loaded rows...'
                         : 'Applying incremental sort for large result set...'}
@@ -219,7 +219,7 @@ export const ResultTableGrid: React.FC<ResultTableGridProps> = ({
                         {isFetchingMore && (
                             <tr>
                                 <td colSpan={columnsLength + 1} className="bg-background px-2 py-2 text-center">
-                                    <span className="inline-flex items-center text-[11px] font-medium text-muted-foreground">
+                                    <span className="inline-flex items-center text-label font-medium text-muted-foreground">
                                         <Spinner size={12} tone="primary" />
                                         <span className="ml-2">Loading more rows...</span>
                                     </span>

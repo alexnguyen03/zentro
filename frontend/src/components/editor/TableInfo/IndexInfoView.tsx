@@ -427,7 +427,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                     >
                         <TableHeader className="[&_tr]:border-b-0">
                             <TableRow className="border-b-2 border-border hover:bg-transparent">
-                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                                <TableHead className="rt-th w-10 font-mono text-label text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
                                 </TableHead>
                                 <TableHead className="rt-th">
@@ -504,13 +504,13 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                 >
                                                     <span className="truncate">{row.current.Name || <span className="italic text-muted-foreground/50">untitled</span>}</span>
                                                     {isNew && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
+                                                        <span className="ml-1.5 text-label  text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
                                                     )}
                                                     {isDirty && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
+                                                        <span className="ml-1.5 text-label  text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
                                                     )}
                                                     {row.current.Unique && !uniqueOnly && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-accent bg-accent/10 px-1 py-0.5 rounded-sm shrink-0">UNIQUE</span>
+                                                        <span className="ml-1.5 text-label  text-accent bg-accent/10 px-1 py-0.5 rounded-sm shrink-0">UNIQUE</span>
                                                     )}
                                                 </div>
                                             )}
@@ -533,7 +533,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDirty && JSON.stringify(row.current.Columns) !== JSON.stringify(row.original.Columns) ? 'rt-cell-dirty' : ''}
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
@@ -570,7 +570,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
 
                             {rows.length === 0 && !loading && (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-body">
                                         {readOnlyMode
                                             ? (uniqueOnly ? 'No unique keys found for this table.' : 'No indexes found for this table.')
                                             : (uniqueOnly ? 'No unique keys yet. Click "Add Unique Key" to create one.' : 'No indexes yet. Click "Add Index" to create one.')}
@@ -580,7 +580,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
 
                             {rows.length > 0 && filteredRows.length === 0 && filterText && (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-[12px]">
+                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-small">
                                         {uniqueOnly ? `No unique keys match "${filterText}"` : `No indexes match "${filterText}"`}
                                     </TableCell>
                                 </TableRow>
@@ -592,3 +592,4 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         </div>
     );
 };
+

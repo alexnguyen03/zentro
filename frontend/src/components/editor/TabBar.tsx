@@ -73,7 +73,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {...attributes}
             {...listeners}
             className={cn(
-                'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-xs text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground',
+                'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-small text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground',
                 isActive && 'bg-background -mb-px text-primary'
             )}
             onClick={onActivate}
@@ -83,7 +83,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {renamingId === tab.id ? (
                 <Input
                     ref={renameInputRef}
-                    className="rt-cell-input h-[24px]! px-1.5! text-xs! min-w-30 font-sans"
+                    className="rt-cell-input h-[24px]! px-1.5! text-small! min-w-30 font-sans"
                     value={renameValue}
                     onChange={(e) => onRenameChange(e.target.value)}
                     onBlur={onRenameBlur}
@@ -243,7 +243,7 @@ export const TabBar: React.FC<TabBarProps> = ({
         setContextMenu(null);
     };
 
-    const contextMenuItemClass = 'h-auto w-full justify-start rounded-none px-4 py-1.5 text-[13px]';
+    const contextMenuItemClass = 'h-auto w-full justify-start rounded-none px-4 py-1.5 text-small';
 
     return (
         <div className="flex items-center bg-card h-8 shrink-0 overflow-hidden">

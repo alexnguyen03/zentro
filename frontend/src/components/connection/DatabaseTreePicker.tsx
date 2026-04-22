@@ -299,11 +299,11 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
 
             <div className="min-h-0 flex-1 overflow-y-auto">
                 {loading ? (
-                    <div className="flex h-40 items-center justify-center gap-2 rounded-sm bg-muted/35 text-[12px] text-muted-foreground">
+                    <div className="flex h-40 items-center justify-center gap-2 rounded-sm bg-muted/35 text-small text-muted-foreground">
                         <Spinner size={14} /> Loading connections...
                     </div>
                 ) : connections.length === 0 ? (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2.5 rounded-sm bg-muted/30 px-6 text-center text-[12px] leading-5 text-muted-foreground">
+                    <div className="flex h-40 flex-col items-center justify-center gap-2.5 rounded-sm bg-muted/30 px-6 text-center text-small leading-5 text-muted-foreground">
                         <span>No saved connections yet.</span>
                         {onAddNew && (
                             <Button
@@ -311,14 +311,14 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 variant="outline"
                                 size="sm"
                                 onClick={onAddNew}
-                                className="gap-1.5 rounded-sm bg-muted/60 text-[11px]"
+                                className="gap-1.5 rounded-sm bg-muted/60 text-label"
                             >
                                 <Plus size={12} /> Add connection
                             </Button>
                         )}
                     </div>
                 ) : visibleConnections.length === 0 ? (
-                    <div className="flex h-40 items-center justify-center rounded-sm bg-muted/30 px-6 text-center text-[12px] leading-5 text-muted-foreground">
+                    <div className="flex h-40 items-center justify-center rounded-sm bg-muted/30 px-6 text-center text-small leading-5 text-muted-foreground">
                         No matches found.
                     </div>
                 ) : (
@@ -352,9 +352,9 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                         title={provider.label}
                                     />
                                     <div className="min-w-0 flex-1">
-                                        <div className="truncate text-[13px] font-semibold text-foreground">{name}</div>
+                                        <div className="truncate text-small font-semibold text-foreground">{name}</div>
                                         {hostLabel && (
-                                            <div className="truncate text-[11px] text-muted-foreground">{hostLabel}</div>
+                                            <div className="truncate text-label text-muted-foreground">{hostLabel}</div>
                                         )}
                                     </div>
 
@@ -397,7 +397,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                 {isExpanded && (
                                     <div className="px-2 pb-2 pt-1">
                                         {node.loadingDatabases ? (
-                                            <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-muted-foreground">
+                                            <div className="flex items-center gap-2 px-2 py-1.5 text-small text-muted-foreground">
                                                 <Spinner size={12} /> Loading databases...
                                             </div>
                                         ) : visibleDatabases.length === 0 && node.databasesLoaded ? (
@@ -414,7 +414,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                                         variant="ghost"
                                                         onClick={() => handleSelect(name, dbName)}
                                                         className={cn(
-                                                            'mt-0.5 w-full justify-start gap-1.5 rounded-sm px-2 py-1.5 text-left text-[12px] transition-colors',
+                                                            'mt-0.5 w-full justify-start gap-1.5 rounded-sm px-2 py-1.5 text-left text-small transition-colors',
                                                             isDbSelected
                                                                 ? 'bg-accent/15 text-foreground'
                                                                 : 'text-foreground hover:bg-muted/70',
@@ -423,7 +423,7 @@ export const DatabaseTreePicker: React.FC<DatabaseTreePickerProps> = ({
                                                         <Database size={12} className={cn('shrink-0', isDbSelected ? 'text-accent' : 'text-success opacity-85')} />
                                                         <span className="truncate">{dbName}</span>
                                                         {dbName === node.profile.db_name && (
-                                                            <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                                            <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                                                                 default
                                                             </span>
                                                         )}

@@ -519,7 +519,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // ── Early renders ─────────────────────────────────────────────────────────
     if (!result) {
         return (
-            <div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
+            <div className="flex items-center justify-center h-full text-small text-muted-foreground">
                 <span>Run a query (Ctrl+Enter) to see results</span>
             </div>
         );
@@ -527,7 +527,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     if (result.error) {
         if (shouldShowResultFilterBar) {
             return (
-                <div className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden">
+                <div className="flex flex-col items-stretch justify-start h-full text-small text-muted-foreground overflow-hidden">
                     {resultFilterBar}
                     <div className="flex items-center justify-center flex-1 text-error gap-2">
                         <AlertCircle size={16} /><span>{result.error}</span>
@@ -536,14 +536,14 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             );
         }
         return (
-            <div className="flex items-center justify-center h-full text-[13px] text-error gap-2">
+            <div className="flex items-center justify-center h-full text-small text-error gap-2">
                 <AlertCircle size={16} /><span>{result.error}</span>
             </div>
         );
     }
     if (!result.isSelect) {
         return (
-            <div className="flex items-center justify-center h-full text-[13px] text-success gap-2">
+            <div className="flex items-center justify-center h-full text-small text-success gap-2">
                 <CheckCircle size={16} />
                 <span>{result.affected} rows affected · {formatDuration(result.duration)}</span>
             </div>
@@ -597,7 +597,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     // ── Main render ───────────────────────────────────────────────────────────
     return (
         <div
-            className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden"
+            className="flex flex-col items-stretch justify-start h-full text-small text-muted-foreground overflow-hidden"
             ref={containerRef}
             tabIndex={-1}
             onKeyDown={handleKeyDown}
@@ -610,7 +610,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                 if (isLoading && !hasData) {
                     return (
                         <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
-                            <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border shrink-0">
+                            <div className="flex flex-row items-center gap-2 px-3 py-2 text-small border-b border-border shrink-0">
                                 <Loader size={14} className="animate-spin" />
                                 <span className="text-muted-foreground">
                                     {result.rows.length > 0
@@ -701,7 +701,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             />
 
             {/* Status bar (info only) */}
-            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-muted-foreground border-t border-border shrink-0">
+            <div className="flex items-center justify-center relative px-3 py-1 text-label text-muted-foreground border-t border-border shrink-0">
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                         {displayTotalCount !== undefined ? (
@@ -723,7 +723,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
                 <div className="ml-auto flex items-center gap-3">
                     {exportJob?.status === 'running' && (
-                        <div className="flex items-center gap-2 text-[11px] border border-border rounded-sm px-2 py-0.5">
+                        <div className="flex items-center gap-2 text-label border border-border rounded-sm px-2 py-0.5">
                             <Loader size={11} className="animate-spin" />
                             <span>
                                 {exportJob.label || 'Exporting'} {typeof exportJob.progressPct === 'number' ? `${exportJob.progressPct}%` : 'running...'}
@@ -733,7 +733,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
                         </div>
                     )}
                     {hasPendingChanges && (
-                        <span className="text-[11px] text-warning">
+                        <span className="text-label text-warning">
                             Add: {pendingChangeCounts.add} | Update: {pendingChangeCounts.update} | Del: {pendingChangeCounts.del}
                         </span>
                     )}

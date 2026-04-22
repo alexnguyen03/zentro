@@ -20,7 +20,7 @@ function renderQueryPreview(query: string, condition: string) {
     if (shape === 'no-where') {
         return (
             <>
-                {query} <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter
+                {query} <span className="text-accent">AS</span> _zentro_filter
                 <br />
                 <span className="text-success font-semibold">WHERE</span> {condition}
             </>
@@ -33,21 +33,21 @@ function renderQueryPreview(query: string, condition: string) {
         const existingCondition = query.slice(whereIndex + 5).trim();
         return (
             <>
-                {beforeWhere} <span className="text-pink-600 dark:text-pink-400">WHERE</span> ({existingCondition})
+                {beforeWhere} <span className="text-accent">WHERE</span> ({existingCondition})
                 <br />
-                <span className="pl-4 inline-block text-pink-600 dark:text-pink-400">AND</span> ({condition})
+                <span className="pl-4 inline-block text-accent">AND</span> ({condition})
             </>
         );
     }
 
     return (
         <>
-            <span className="text-pink-600 dark:text-pink-400">SELECT</span> *{' '}
-            <span className="text-pink-600 dark:text-pink-400">FROM</span> (
+            <span className="text-accent">SELECT</span> *{' '}
+            <span className="text-accent">FROM</span> (
             <br />
             <span className="pl-4 inline-block">{query}</span>
             <br />
-            ) <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter
+            ) <span className="text-accent">AS</span> _zentro_filter
             <br />
             <span className="text-success font-semibold">WHERE</span> {condition}
         </>
@@ -68,7 +68,7 @@ export const FilterQueryTooltip: React.FC<FilterQueryTooltipProps> = ({
     return (
         <div className="absolute top-full left-0 mt-2 z-50 w-[480px] bg-bg-primary border border-border rounded-md shadow-lg flex flex-col animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
             <div className="px-3 py-2 bg-bg-tertiary flex items-center justify-between border-b border-border">
-                <span className="text-xs font-semibold text-text-primary">Current Query (Filtered)</span>
+                <span className="text-small font-semibold text-text-primary">Current Query (Filtered)</span>
                 <div className="flex items-center gap-0.5">
                     <Button variant="ghost" size="icon-sm" className={iconButtonClassName} title="Copy query" onClick={onCopy}>
                         <Copy size={12} />
@@ -101,7 +101,7 @@ export const FilterQueryTooltip: React.FC<FilterQueryTooltipProps> = ({
                     )}
                 </div>
             </div>
-            <div className="p-3 text-[11px] font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-text-secondary">
+            <div className="p-3 text-label font-mono whitespace-pre-wrap max-h-[250px] overflow-y-auto text-text-secondary">
                 {renderQueryPreview(baseQuery.replace(/;\s*$/, '').trim(), value || '<condition>')}
             </div>
         </div>

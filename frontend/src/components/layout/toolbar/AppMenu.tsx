@@ -224,7 +224,7 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                                         type="button"
                                         variant="ghost"
                                         className={cn(
-                                            'h-auto w-full items-center justify-between rounded-sm px-2 py-1.5 text-[13px] transition-colors',
+                                            'h-auto w-full items-center justify-between rounded-sm px-2 py-1.5 text-small transition-colors',
                                             isActive ? 'bg-accent/12 text-foreground' : 'text-muted-foreground hover:bg-card/80 hover:text-foreground',
                                         )}
                                         onMouseEnter={(e) => { clearHideTimer(); activateSection(sectionIndex, e.currentTarget); }}
@@ -257,7 +257,7 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                                             variant="ghost"
                                             disabled={item.disabled}
                                             className={cn(
-                                                'h-auto w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-[12px] transition-colors',
+                                                'h-auto w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-small transition-colors',
                                                 item.disabled
                                                     ? 'opacity-45 cursor-not-allowed text-muted-foreground'
                                                     : isHighlighted
@@ -271,7 +271,7 @@ export const AppMenu: React.FC<AppMenuProps> = ({
                                                 <span>{item.label}</span>
                                                 {item.hasBadge && <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />}
                                             </span>
-                                            {item.shortcut && <span className="text-[10px] font-mono text-muted-foreground">{item.shortcut}</span>}
+                                            {item.shortcut && <span className="text-label font-mono text-muted-foreground">{item.shortcut}</span>}
                                         </Button>
                                     );
                                 })}

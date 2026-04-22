@@ -374,7 +374,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
     }, [isActive, save, toggleDeleteSelected]);
 
     if (loading) {
-        return <div className="px-3 py-4 text-[11px] text-muted-foreground">Loading...</div>;
+        return <div className="px-3 py-4 text-label text-muted-foreground">Loading...</div>;
     }
 
     return (
@@ -389,7 +389,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
                     >
                         <TableHeader className="[&_tr]:border-b-0">
                             <TableRow className="border-b-2 border-border hover:bg-transparent">
-                                <TableHead className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                                <TableHead className="rt-th w-10 font-mono text-label text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
                                 </TableHead>
                                 <TableHead className="rt-th" style={{ width: '200px' }}>
@@ -459,17 +459,17 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
                                                     title={row.current.name || '(unnamed)'}
                                                     onDoubleClick={() => !readOnlyMode && !rowIsDeleted && setEditCell({ rowId: row.id, field: 'name' })}
                                                 >
-                                                    <span className="truncate font-mono text-[11px]">
+                                                    <span className="truncate font-mono text-label">
                                                         {row.current.name || <span className="italic text-muted-foreground/50">untitled</span>}
                                                     </span>
                                                     {rowIsNew && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
+                                                        <span className="ml-1.5 text-label  text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
                                                     )}
                                                     {!rowIsNew && rowIsDirty && !rowIsDeleted && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
+                                                        <span className="ml-1.5 text-label  text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
                                                     )}
                                                     {rowIsDeleted && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-error bg-error/10 px-1 py-0.5 rounded shrink-0">DROP</span>
+                                                        <span className="ml-1.5 text-label  text-error bg-error/10 px-1 py-0.5 rounded shrink-0">DROP</span>
                                                     )}
                                                 </div>
                                             )}
@@ -493,7 +493,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
                                                 />
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${rowIsDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !rowIsDeleted ? 'cursor-pointer' : ''}
                                                     `}
@@ -510,7 +510,7 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
 
                             {rows.length === 0 && !loading && (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={3} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                    <TableCell colSpan={3} className="py-24 text-center text-muted-foreground italic bg-background/50 text-body">
                                         {readOnlyMode
                                             ? 'No check constraints defined for this table.'
                                             : 'No check constraints yet. Click "Add Check" to create one.'}
@@ -524,3 +524,4 @@ export const CheckConstraintsView: React.FC<CheckConstraintsViewProps> = ({
         </div>
     );
 };
+

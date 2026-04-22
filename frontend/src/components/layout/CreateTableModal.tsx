@@ -145,7 +145,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
             >
                 <div className="space-y-4">
                 <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Table Name</label>
+                    <label className="block text-small font-medium text-muted-foreground mb-1">Table Name</label>
                     <Input
                         type="text"
                         value={tableName}
@@ -159,7 +159,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
 
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-medium text-muted-foreground">Columns</label>
+                        <label className="text-small font-medium text-muted-foreground">Columns</label>
                         <Button variant="ghost" size="sm" onClick={handleAddColumn} disabled={viewMode}>
                             <Plus size={14} className="mr-1" />
                             Add Column
@@ -193,7 +193,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <label className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                                <label className="flex items-center gap-1 text-label text-muted-foreground whitespace-nowrap">
                                     <Checkbox
                                         checked={col.IsNullable}
                                         onCheckedChange={(checked) => handleColumnChange(idx, 'IsNullable', checked === true)}
@@ -201,7 +201,7 @@ export const CreateTableModal: React.FC<CreateTableModalProps> = ({ isOpen, onCl
                                     />
                                     Null
                                 </label>
-                                <label className="flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                                <label className="flex items-center gap-1 text-label text-muted-foreground whitespace-nowrap">
                                     <Checkbox
                                         checked={col.IsPrimaryKey}
                                         onCheckedChange={(checked) => handleColumnChange(idx, 'IsPrimaryKey', checked === true)}

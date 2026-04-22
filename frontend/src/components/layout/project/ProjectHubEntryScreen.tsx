@@ -19,6 +19,7 @@ import {
     PopoverTrigger,
     Spinner,
 } from '../../ui';
+import { EnvironmentBadge } from '../../shared/EnvironmentBadge';
 
 interface ProjectHubEntryScreenProps {
     projects: Project[];
@@ -94,10 +95,10 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
             <div className="flex min-h-0 flex-1 flex-col rounded-sm bg-card">
                 <div className="px-3 py-3 lg:px-4">
                     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
-                        <div className="text-[12px] font-semibold text-foreground">
+                        <div className="text-small font-semibold text-foreground">
                             {formatCount(projects.length, 'project', 'projects')}
                             {searchQuery.trim() && (
-                                <span className="ml-2 text-[11px] font-medium text-muted-foreground">/ {allProjectCount} total</span>
+                                <span className="ml-2 text-label font-medium text-muted-foreground">/ {allProjectCount} total</span>
                             )}
                         </div>
                         <div className="flex-1">
@@ -137,10 +138,10 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                         <div className={newLocal}>
                             <div>
                                 <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary"><Search size={14} /></div>
-                                <div className="mt-2 text-[13px] font-semibold text-foreground">
+                                <div className="mt-2 text-small font-semibold text-foreground">
                                     {searchQuery.trim() ? 'No matching project' : 'No project'}
                                 </div>
-                                <div className="mt-1 text-[11px] text-muted-foreground">
+                                <div className="mt-1 text-label text-muted-foreground">
                                     {searchQuery.trim() ? 'Try another keyword or clear search.' : 'Create or import one to get started.'}
                                 </div>
                             </div>
@@ -226,7 +227,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                                                 setIconPickerOpenByProject((current) => ({ ...current, [project.id]: false }));
                                                                             }}
                                                                             className={cn(
-                                                                                'flex items-center gap-2 rounded-sm border px-2.5 py-2 text-left text-[11px] transition-colors',
+                                                                                'flex items-center gap-2 rounded-sm border px-2.5 py-2 text-left text-label transition-colors',
                                                                                 isSelected
                                                                                     ? 'border-primary/60 bg-primary/10 text-foreground'
                                                                                     : 'border-border hover:bg-muted/60',
@@ -242,39 +243,35 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                     </Popover>
 
                                                     <div className="w-full mb-5">
-                                                        <div className="truncate text-[13px] font-semibold text-foreground">{project.name}</div>
-                                                        <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                                                        <div className="truncate text-small font-semibold text-foreground">{project.name}</div>
+                                                        <div className="mt-0.5 line-clamp-2 text-label text-muted-foreground">
                                                             {project.description?.trim() || 'No description yet.'}
                                                         </div>
                                                     </div>
 
                                                     <div className="flex min-h-18 shrink-0 flex-col items-end justify-between">
-                                                        <div className="pt-0.5 text-[11px] text-muted-foreground">{formatDateLabel(project.updated_at)}</div>
+                                                        <div className="pt-0.5 text-label text-muted-foreground">{formatDateLabel(project.updated_at)}</div>
                                                     </div>
                                                 </div>
 
                                                 <div className="mt-2 flex items-center justify-between gap-2">
                                                     <div className="ml-3 flex flex-wrap items-center gap-1">
                                                         {environmentTags.length > 0 ? environmentTags.map((tag, index) => (
-                                                            <span
+                                                            <EnvironmentBadge
                                                                 key={`${project.id}-env-${index}`}
                                                                 title={tag.label}
-                                                                className={cn(
-                                                                    'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-wide',
-                                                                    tag.toneClass,
-                                                                )}
-                                                            >
-                                                                {tag.code}
-                                                            </span>
+                                                                label={tag.code}
+                                                                toneClassName={tag.toneClass}
+                                                            />
                                                         )) : (
-                                                            <span className="rounded-full bg-muted/35 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                                            <span className="rounded-full bg-muted/35 px-1.5 py-0.5 text-label text-muted-foreground">
                                                                 No env
                                                             </span>
                                                         )}
                                                     </div>
 
                                                     {isOpening && (
-                                                        <div className="mt-1.5 flex items-center text-[11px] text-primary">
+                                                        <div className="mt-1.5 flex items-center text-label text-primary">
                                                             <Spinner size={11} className="mr-1" /> Opening...
                                                         </div>
                                                     )}
@@ -290,7 +287,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className=" text-[11px]"
+                                                            className=" text-label"
                                                             title="Edit project"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
@@ -303,7 +300,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className=" text-[11px]"
+                                                            className=" text-label"
                                                             title="Open in file explorer"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
@@ -316,7 +313,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                             type="button"
                                                             variant="ghost"
                                                             size="icon"
-                                                            className=" text-[11px] text-destructive hover:text-destructive"
+                                                            className=" text-label text-destructive hover:text-destructive"
                                                             title="Delete project"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
@@ -340,7 +337,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                 </div>
 
                 {error && (
-                    <div className="m-3 rounded-sm bg-error/10 px-3 py-2 text-[12px] text-error">
+                    <div className="m-3 rounded-sm bg-error/10 px-3 py-2 text-small text-error">
                         {error}
                     </div>
                 )}

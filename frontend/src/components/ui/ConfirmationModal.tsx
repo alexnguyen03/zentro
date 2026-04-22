@@ -66,9 +66,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                                 <AlertCircle size={24} className={variant === 'destructive' ? 'text-destructive' : 'text-accent-foreground'} />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="mb-1 text-[14px] font-bold text-foreground">{message}</p>
+                                <p className="mb-1 text-body  text-foreground">{message}</p>
                                 {description && (
-                                    <p className="text-[12px] leading-relaxed text-muted-foreground">
+                                    <p className="text-small leading-relaxed text-muted-foreground">
                                         {description}
                                     </p>
                                 )}

@@ -37,7 +37,7 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
             variant="ghost"
             size="sm"
             onClick={onBack}
-            className='  border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground'
+            className='  border-border/30 bg-background/40 text-label font-semibold text-muted-foreground hover:bg-background hover:text-foreground'
             title="Back"
         >
             <ArrowLeft size={12} />
@@ -54,7 +54,7 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
                         }}
                         disabled={importDisabled || importingConnection}
                         className={cn(
-                            'inline-flex items-center gap-1 rounded-sm border border-border/30 bg-background/40 p-2 text-[11px] font-semibold text-muted-foreground transition-colors',
+                            'inline-flex items-center gap-1 rounded-sm border border-border/30 bg-background/40 p-2 text-label font-semibold text-muted-foreground transition-colors',
                             importDisabled || importingConnection
                                 ? 'cursor-not-allowed opacity-50'
                                 : 'cursor-pointer hover:bg-background hover:text-foreground',
@@ -69,7 +69,7 @@ export const ProviderPickerToolbar: React.FC<ProviderPickerToolbarProps> = ({
                     variant="outline"
                     size="icon"
                     onClick={onShowProviderPicker}
-                    className="  border-border/30 bg-background/40 text-[11px] font-semibold text-muted-foreground hover:bg-background hover:text-foreground"
+                    className="  border-border/30 bg-background/40 text-label font-semibold text-muted-foreground hover:bg-background hover:text-foreground"
                     title={`Change provider (${selectedProvider.label})`}
                 >
                     <Settings2 size={12} className="" />

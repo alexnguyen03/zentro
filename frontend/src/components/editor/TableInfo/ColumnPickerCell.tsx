@@ -38,7 +38,7 @@ export const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     className={`
                         flex h-[26px] w-full items-center justify-between rounded border border-border/40
-                        bg-background px-2 text-[12px] text-left font-mono transition-colors
+                        bg-background px-2 text-small text-left font-mono transition-colors
                         hover:border-border focus:outline-none focus:ring-1 focus:ring-primary
                         ${open ? 'border-primary ring-1 ring-primary' : ''}
                     `}
@@ -59,7 +59,7 @@ export const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
             >
                 <div className="max-h-[220px] overflow-y-auto">
                     {columns.length === 0 && (
-                        <div className="px-3 py-2 text-[11px] text-muted-foreground">No columns available</div>
+                        <div className="px-3 py-2 text-label text-muted-foreground">No columns available</div>
                     )}
                     {columns.map((col) => {
                         const checked = selected.includes(col);
@@ -71,7 +71,7 @@ export const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={() => toggle(col)}
                                 className={`
-                                    flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-[12px] text-left h-auto justify-start
+                                    flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-small text-left h-auto justify-start
                                     transition-colors hover:bg-accent/10 font-mono
                                     ${checked ? 'text-foreground font-medium' : 'text-muted-foreground'}
                                 `}

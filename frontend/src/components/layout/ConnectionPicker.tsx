@@ -103,7 +103,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
             >
                 {/* Connections column */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-muted-foreground bg-black/15 border-b border-border shrink-0">Connection</div>
+                    <div className="px-3.5 py-2.5 text-label  tracking-[0.08em] text-muted-foreground bg-black/15 border-b border-border shrink-0">Connection</div>
                     <div className="overflow-y-auto flex-1">
                         {connections.map((conn) => {
                             const isSelected = selectedConn === conn.name;
@@ -121,7 +121,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                         type="button"
                                         variant="ghost"
                                         className={cn(
-                                            'h-auto flex-1 justify-start rounded-none px-3.5 py-2 text-[13px] font-normal',
+                                            'h-auto flex-1 justify-start rounded-none px-3.5 py-2 text-small font-normal',
                                             isActive ? 'text-foreground' : 'text-muted-foreground',
                                         )}
                                         onClick={() => {
@@ -172,19 +172,19 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
 
                 {/* Databases column */}
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-                    <div className="px-3.5 py-2.5 text-[10px] font-bold tracking-[0.08em] text-muted-foreground bg-black/15 border-b border-border shrink-0">Database</div>
+                    <div className="px-3.5 py-2.5 text-label  tracking-[0.08em] text-muted-foreground bg-black/15 border-b border-border shrink-0">Database</div>
                     <div className="overflow-y-auto flex-1">
                         {connecting ? (
-                            <div className="px-3.5 py-4 text-xs text-muted-foreground flex items-center gap-2">
+                            <div className="px-3.5 py-4 text-small text-muted-foreground flex items-center gap-2">
                                 <Spinner size={14} className="opacity-60" />
                                 Connecting…
                             </div>
                         ) : error ? (
-                            <div className="px-3.5 py-3 text-[13px] text-error whitespace-normal leading-[1.4] text-center">
+                            <div className="px-3.5 py-3 text-small text-error whitespace-normal leading-[1.4] text-center">
                                 {error}
                             </div>
                         ) : pickerDbs.length === 0 ? (
-                            <div className="px-3.5 py-4 text-xs text-muted-foreground">No databases</div>
+                            <div className="px-3.5 py-4 text-small text-muted-foreground">No databases</div>
                         ) : (
                             pickerDbs.map((db) => {
                                 const isActive = activeProfile?.db_name === db;
@@ -194,7 +194,7 @@ export const ConnectionPicker: React.FC<ConnectionPickerProps> = ({ onClose, anc
                                         type="button"
                                         variant="ghost"
                                         className={cn(
-                                            'h-auto w-full justify-start rounded-none border-b border-white/5 px-3.5 py-2 text-[13px] font-normal last:border-none',
+                                            'h-auto w-full justify-start rounded-none border-b border-white/5 px-3.5 py-2 text-small font-normal last:border-none',
                                             isActive ? 'border-l-2 border-l-accent bg-accent/10 text-foreground' : 'text-muted-foreground',
                                         )}
                                         onClick={() => {

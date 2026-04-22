@@ -68,7 +68,7 @@ export const CommandPalette: React.FC = () => {
                             onValueChange={setQuery}
                             placeholder="Search commands..."
                         />
-                        <kbd className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 rounded-sm border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        <kbd className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 rounded-sm border border-border bg-background px-1.5 py-0.5 font-mono text-label text-muted-foreground">
                             Esc
                         </kbd>
                     </div>
@@ -94,7 +94,7 @@ export const CommandPalette: React.FC = () => {
                                                 {command.keybinding.split(' ').map((keyPart, index) => (
                                                     <kbd
                                                         key={`${command.id}_key_${index}`}
-                                                        className="rounded-sm border border-border bg-background px-1.5 py-px font-mono text-[10px] text-muted-foreground"
+                                                        className="rounded-sm border border-border bg-background px-1.5 py-px font-mono text-label text-muted-foreground"
                                                     >
                                                         {keyPart}
                                                     </kbd>
@@ -108,7 +108,7 @@ export const CommandPalette: React.FC = () => {
                     </CommandList>
                 </Command>
 
-                <div className="px-4 py-2 border-t border-border bg-background/50 shrink-0 flex items-center gap-4 text-[10px] text-muted-foreground select-none">
+                <div className="px-4 py-2 border-t border-border bg-background/50 shrink-0 flex items-center gap-4 text-label text-muted-foreground select-none">
                     <span>
                         <kbd className="font-mono">Up/Down</kbd> navigate
                     </span>

@@ -170,23 +170,23 @@ export function useResultPanelToolbar({
                         <Button
                             type="button"
                             variant={hiddenCount > 0 ? 'secondary' : 'ghost'}
-                            className={cn('h-7 gap-1 px-2 text-[11px] border', hiddenCount > 0 ? 'border-primary/40 bg-primary/15' : 'border-transparent')}
+                            className={cn('h-7 gap-1 px-2 text-label border', hiddenCount > 0 ? 'border-primary/40 bg-primary/15' : 'border-transparent')}
                             title="Toggle column visibility"
                             onClick={() => setShowColumnsPopover((prev) => !prev)}
                         >
                             <Columns size={RESULT_TOOLBAR_ICON_SIZE} />
-                            {hiddenCount > 0 && <span className="text-[10px]">-{hiddenCount}</span>}
+                            {hiddenCount > 0 && <span className="text-label">-{hiddenCount}</span>}
                         </Button>
                         {showColumnsPopover && (
                             <div className="absolute right-0 top-full mt-1 z-panel-overlay min-w-[220px] h-[320px] rounded-sm border border-border bg-popover shadow-lg flex flex-col">
                                 <div className="px-3 py-1.5 border-b border-border flex items-center justify-between gap-2">
-                                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                                    <span className="text-label font-medium text-muted-foreground uppercase tracking-wide">
                                         Show
                                     </span>
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        className="px-2 text-[11px] text-muted-foreground"
+                                        className="px-2 text-label text-muted-foreground"
                                         onClick={() => setColumnVisibility({})}
                                         disabled={hiddenCount === 0}
                                     >
@@ -202,7 +202,7 @@ export function useResultPanelToolbar({
                                             key={col}
                                             type="button"
                                             variant="ghost"
-                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-left transition-colors h-auto justify-start"
+                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-small text-left transition-colors h-auto justify-start"
                                             onClick={() => setColumnVisibility((prev) => {
                                                 const next = { ...prev };
                                                 if (next[columnId] === false) {
@@ -214,7 +214,7 @@ export function useResultPanelToolbar({
                                             })}
                                         >
                                             <span className={cn('w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center', isVisible ? 'bg-success border-success text-white' : 'border-border')}>
-                                                {isVisible && <span className="text-[8px] leading-none">✓</span>}
+                                                {isVisible && <span className="text-label leading-none">✓</span>}
                                             </span>
                                             <span className="truncate">{col}</span>
                                         </Button>

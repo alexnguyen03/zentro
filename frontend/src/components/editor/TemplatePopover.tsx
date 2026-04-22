@@ -296,7 +296,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
             header: '#',
             width: '40px',
             align: 'center',
-            cellClassName: 'font-mono text-[11px] text-muted-foreground',
+            cellClassName: 'font-mono text-label text-muted-foreground',
             renderCell: (_row, index) => index + 1,
         },
         {
@@ -307,8 +307,8 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 renderEditableCell(
                     row,
                     'name',
-                    'truncate px-1.5 py-1 text-[12px] text-foreground',
-                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] focus:border-border focus:bg-background',
+                    'truncate px-1.5 py-1 text-small text-foreground',
+                    'h-7 border-transparent bg-transparent px-1.5 text-small focus:border-border focus:bg-background',
                     row.name || '',
                 )
             ),
@@ -321,8 +321,8 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 renderEditableCell(
                     row,
                     'trigger',
-                    'truncate px-1.5 py-1 text-[12px] font-mono text-warning',
-                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] font-mono text-warning focus:border-border focus:bg-background',
+                    'truncate px-1.5 py-1 text-small font-mono text-warning',
+                    'h-7 border-transparent bg-transparent px-1.5 text-small font-mono text-warning focus:border-border focus:bg-background',
                     row.trigger || '',
                 )
             ),
@@ -335,8 +335,8 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 renderEditableCell(
                     row,
                     'content',
-                    'truncate px-1.5 py-1 text-[12px] font-mono text-foreground',
-                    'h-7 border-transparent bg-transparent px-1.5 text-[12px] font-mono focus:border-border focus:bg-background',
+                    'truncate px-1.5 py-1 text-small font-mono text-foreground',
+                    'h-7 border-transparent bg-transparent px-1.5 text-small font-mono focus:border-border focus:bg-background',
                     row.content || '',
                 )
             ),
@@ -393,8 +393,8 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
         >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
-                    <h3 className="truncate text-[12px] font-bold text-foreground">TEMPLATES</h3>
-                    <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <h3 className="truncate text-small  text-foreground">TEMPLATES</h3>
+                    <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-label text-muted-foreground">
                         {templates.length}
                     </span>
                 </div>
@@ -438,7 +438,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                         <AlertCircle size={28} strokeWidth={1.4} className="opacity-60" />
-                        <span className="text-[12px]">No templates found.</span>
+                        <span className="text-small">No templates found.</span>
                     </div>
                 )}
             </div>
@@ -453,7 +453,7 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5">
                     {selectedIds.size > 0 && (
-                        <span className="rounded-sm border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] font-bold text-success">
+                        <span className="rounded-sm border border-success/30 bg-success/10 px-1.5 py-0.5 text-label  text-success">
                             {selectedIds.size}
                         </span>
                     )}

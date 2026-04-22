@@ -86,7 +86,7 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
 const TABLE_INFO_AUTO_RETRY_DELAYS_MS = [250, 500, 900, 1300, 1700, 2200];
 const TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS = 10;
 const TABLE_TAB_ICON_SIZE = 13;
-const TABLE_TAB_BADGE_CLASSNAME = 'absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-600 px-0.5 text-[9px] font-semibold leading-none text-white';
+const TABLE_TAB_BADGE_CLASSNAME = 'absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-label font-semibold leading-none text-background';
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
@@ -679,7 +679,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         return [
             { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, dirtyCount: columnsDirtyCount },
             { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, dirtyCount: dataDirtyCount },
-            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
+            { key: 'erd', label: 'ERD', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
             { key: 'keys', label: 'Keys', icon: <KeyRound size={TABLE_TAB_ICON_SIZE} />, dirtyCount: keysDirtyCount },
             { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} /> },
         ];
@@ -701,7 +701,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         return (
             <div className="flex flex-col items-center justify-center gap-4 h-full bg-background">
                 <Table2 size={24} className="text-accent" />
-                <span className="text-sm text-muted-foreground font-medium">Fetching table schema...</span>
+                <span className="text-body text-muted-foreground font-medium">Fetching table schema...</span>
             </div>
         );
     }
@@ -712,7 +712,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6">
                     <Info size={32} className="text-error" />
                 </div>
-                <h2 className="text-xl font-bold text-foreground mb-2">Failed to load table</h2>
+                <h2 className="text-h1  text-foreground mb-2">Failed to load table</h2>
                 <p className="text-muted-foreground max-w-md mb-8">{fetchError}</p>
                 <Button onClick={() => loadInfo()} variant="secondary" className="rounded-sm px-8">Try Again</Button>
             </div>
@@ -898,3 +898,4 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         </div>
     );
 };
+

@@ -77,13 +77,13 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                 <div className="flex items-start gap-4 mb-4">
                     <div className="shrink-0 p-2 rounded-full bg-accent/10"><AlertCircle size={20} className="text-accent" /></div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-foreground mb-1">Review generated script</p>
-                        <p className="text-[12px] leading-relaxed text-muted-foreground">
+                        <p className="text-small font-medium text-foreground mb-1">Review generated script</p>
+                        <p className="text-small leading-relaxed text-muted-foreground">
                             Updates and deletes require confirmation. Pending inserts will be executed together with this script for <strong>{qualifiedTableName || resultTableName}</strong>.
                         </p>
                     </div>
                 </div>
-                <div className="p-3 bg-muted/50 border border-border/40 rounded-sm font-mono text-[11px] max-h-[260px] overflow-y-auto whitespace-pre-wrap text-muted-foreground select-text">
+                <div className="p-3 bg-muted/50 border border-border/40 rounded-sm font-mono text-label max-h-[260px] overflow-y-auto whitespace-pre-wrap text-muted-foreground select-text">
                     {generatePendingScript()}
                 </div>
             </div>
@@ -106,21 +106,21 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
             <div className="grid grid-cols-12 gap-4">
                 <section className="col-span-12 lg:col-span-5 space-y-4">
                     <div>
-                        <p className="text-[12px] font-semibold text-foreground mb-2">Extraction</p>
+                        <p className="text-small font-semibold text-foreground mb-2">Extraction</p>
                         <RadioGroup
                             value={exportScope}
                             onValueChange={(value) => setExportScope(value as 'all' | 'view')}
                             className="gap-2"
                         >
-                            <div className="flex items-center gap-2 text-[12px] text-foreground">
+                            <div className="flex items-center gap-2 text-small text-foreground">
                                 <RadioGroupItem value="all" id="export_scope_all" />
-                                <Label htmlFor="export_scope_all" className="text-[12px] font-normal text-foreground">
+                                <Label htmlFor="export_scope_all" className="text-small font-normal text-foreground">
                                     Query the database (no paging)
                                 </Label>
                             </div>
-                            <div className="flex items-center gap-2 text-[12px] text-foreground">
+                            <div className="flex items-center gap-2 text-small text-foreground">
                                 <RadioGroupItem value="view" id="export_scope_view" />
-                                <Label htmlFor="export_scope_view" className="text-[12px] font-normal text-foreground">
+                                <Label htmlFor="export_scope_view" className="text-small font-normal text-foreground">
                                     Use fetched rows (current table view)
                                 </Label>
                             </div>
@@ -128,7 +128,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                     </div>
 
                     <div>
-                        <label className="block text-[12px] font-semibold text-foreground mb-1.5">Format</label>
+                        <label className="block text-small font-semibold text-foreground mb-1.5">Format</label>
                         <Select
                             value={exportFormat}
                             onValueChange={(value) => setExportFormat(value as 'csv' | 'json' | 'sql')}
@@ -146,7 +146,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
 
                     {exportFormat === 'sql' && (
                         <div>
-                            <label className="block text-[12px] font-semibold text-foreground mb-1.5">Table Name</label>
+                            <label className="block text-small font-semibold text-foreground mb-1.5">Table Name</label>
                             <Input
                                 type="text"
                                 size="md"
@@ -155,7 +155,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                                 value={exportTableName}
                                 onChange={(event) => setExportTableName(event.target.value)}
                             />
-                            <p className="text-[11px] text-muted-foreground mt-1.5">
+                            <p className="text-label text-muted-foreground mt-1.5">
                                 Leave empty to use "{resultTableName || 'my_table'}"
                             </p>
                         </div>
@@ -163,12 +163,12 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
 
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-[12px] font-semibold text-foreground">Columns</label>
+                            <label className="text-small font-semibold text-foreground">Columns</label>
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-auto px-1 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                                className="h-auto px-1 py-0.5 text-label text-muted-foreground hover:text-foreground"
                                 onClick={toggleAllExportColumns}
                             >
                                 {areAllExportColumnsSelected ? 'Clear all' : 'Select all'}
@@ -176,7 +176,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                         </div>
                         <div className="max-h-44 overflow-auto rounded-sm border border-border/50 bg-background p-2 space-y-1">
                             {allExportColumns.map((column) => (
-                                <label key={column} className="flex items-center gap-2 text-[12px] text-foreground">
+                                <label key={column} className="flex items-center gap-2 text-small text-foreground">
                                     <Checkbox
                                         checked={selectedExportColumnSet.has(column)}
                                         onCheckedChange={() => toggleExportColumn(column)}
@@ -185,7 +185,7 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
                                 </label>
                             ))}
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                        <p className="text-label text-muted-foreground mt-1.5">
                             {orderedSelectedExportColumns.length}/{allExportColumns.length} columns selected
                         </p>
                     </div>
@@ -193,22 +193,22 @@ export const ResultPanelModals: React.FC<ResultPanelModalsProps> = ({
 
                 <section className="col-span-12 lg:col-span-7">
                     <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-[12px] font-semibold text-foreground">Preview (10 rows)</p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-small font-semibold text-foreground">Preview (10 rows)</p>
+                        <p className="text-label text-muted-foreground">
                             Showing loaded rows preview only
                         </p>
                     </div>
                     <div className="rounded-sm border border-border/50 bg-background overflow-auto max-h-[360px]">
                         {orderedSelectedExportColumns.length === 0 ? (
-                            <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
+                            <div className="px-3 py-8 text-small text-muted-foreground text-center">
                                 Select at least one column to preview.
                             </div>
                         ) : previewExportRows.length === 0 ? (
-                            <div className="px-3 py-8 text-[12px] text-muted-foreground text-center">
+                            <div className="px-3 py-8 text-small text-muted-foreground text-center">
                                 No loaded rows to preview.
                             </div>
                         ) : (
-                            <table className="w-full text-[11px] border-collapse">
+                            <table className="w-full text-label border-collapse">
                                 <thead className="sticky top-0 bg-card">
                                     <tr>
                                         {orderedSelectedExportColumns.map((column) => (

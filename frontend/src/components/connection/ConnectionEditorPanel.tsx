@@ -65,8 +65,8 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
         >
             <div className="flex items-center justify-between border-b border-border/20 bg-background/20 px-4 py-3">
                 <div>
-                    <div className="text-[11px] font-semibold text-muted-foreground">Provider</div>
-                    <div className="mt-0.5 text-[12px] text-foreground">
+                    <div className="text-label font-semibold text-muted-foreground">Provider</div>
+                    <div className="mt-0.5 text-small text-foreground">
                         {isSelectingProvider ? 'Choose a database driver to continue' : 'Driver selected'}
                     </div>
                 </div>
@@ -115,7 +115,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
                 </div>
 
                 {isSelectingProvider && (
-                    <div className="flex h-9 items-center gap-2 rounded-sm border border-border/30 bg-background/50 px-2.5 text-[11px] text-muted-foreground">
+                    <div className="flex h-9 items-center gap-2 rounded-sm border border-border/30 bg-background/50 px-2.5 text-label text-muted-foreground">
                         {selectedProvider ? (
                             <img
                                 src={selectedProvider.icon}
@@ -133,7 +133,7 @@ export const ConnectionEditorPanel: React.FC<ConnectionEditorPanelProps> = ({ fo
             <div className="min-h-0 overflow-hidden">
                 {isSelectingProvider ? (
                     <div className="mx-auto flex h-full w-full flex-col px-4 py-4">
-                        <div className="pb-3 text-[12px] text-muted-foreground">
+                        <div className="pb-3 text-small text-muted-foreground">
                             Select one driver, then the connection form will appear.
                         </div>
                         <ProviderGrid
