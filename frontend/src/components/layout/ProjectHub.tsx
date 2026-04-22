@@ -11,6 +11,7 @@ import { GetDefaultProjectStorageRoot, OpenDirectoryInExplorer, PickDirectory, o
 import type { Project, EnvironmentKey } from '../../types/project';
 import { PanelFrame } from './PanelFrame';
 import { ProjectHubEntryScreen } from './project/ProjectHubEntryScreen';
+import { Spinner } from '../ui';
 import { ENVIRONMENT_KEY, type ProjectHubLaunchContext, type ProjectHubLaunchIntent, type ProjectWizardMode } from '../../lib/constants';
 
 type Surface = 'entry' | 'wizard';
@@ -33,6 +34,42 @@ function resolveDefaultEnvironment(project?: Project | null): EnvironmentKey {
     return (project?.last_active_environment_key || project?.default_environment_key || ENVIRONMENT_KEY.LOCAL) as EnvironmentKey;
 }
 
+function resolveLaunchState(
+    launchIntent: ProjectHubLaunchIntent | undefined,
+    activeProject: Project | null | undefined,
+): { surface: Surface; wizardState: WizardState } {
+    const defaultWizardState: WizardState = {
+        mode: 'create',
+        projectId: null,
+        initialEnvironmentKey: resolveDefaultEnvironment(activeProject),
+        launchContext: 'default',
+    };
+
+    if (!launchIntent) {
+        return { surface: 'entry', wizardState: defaultWizardState };
+    }
+
+    const requestedSurface = launchIntent.surface || (launchIntent.wizardMode ? 'wizard' : 'entry');
+    if (requestedSurface === 'entry') {
+        return { surface: 'entry', wizardState: defaultWizardState };
+    }
+
+    const mode = launchIntent.wizardMode || 'create';
+    const targetProjectId = mode === 'edit'
+        ? (launchIntent.projectId || activeProject?.id || null)
+        : null;
+
+    return {
+        surface: 'wizard',
+        wizardState: {
+            mode,
+            projectId: targetProjectId,
+            launchContext: launchIntent.launchContext || 'default',
+            initialEnvironmentKey: (launchIntent.initialEnvironmentKey || resolveDefaultEnvironment(activeProject)) as EnvironmentKey,
+        },
+    };
+}
+
 export const ProjectHub: React.FC<ProjectHubProps> = ({
     overlay = false,
     startupMode = false,
@@ -43,19 +80,14 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const { toast } = useToast();
 
-    const [surface, setSurface] = React.useState<Surface>('entry');
+    const [surface, setSurface] = React.useState<Surface>(() => resolveLaunchState(launchIntent, activeProject).surface);
     const [searchQuery, setSearchQuery] = React.useState('');
     const [openingProjectId, setOpeningProjectId] = React.useState<string | null>(null);
     const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
     const [projectToDelete, setProjectToDelete] = React.useState<Project | null>(null);
     const [iconUpdatingProjectId, setIconUpdatingProjectId] = React.useState<string | null>(null);
     const [openingFolder, setOpeningFolder] = React.useState(false);
-    const [wizardState, setWizardState] = React.useState<WizardState>({
-        mode: 'create',
-        projectId: null,
-        initialEnvironmentKey: resolveDefaultEnvironment(activeProject),
-        launchContext: 'default',
-    });
+    const [wizardState, setWizardState] = React.useState<WizardState>(() => resolveLaunchState(launchIntent, activeProject).wizardState);
 
     const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
     const projectsById = React.useMemo(() => new Map(sortedProjects.map((project) => [project.id, project])), [sortedProjects]);
@@ -70,37 +102,10 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
         });
     }, [searchQuery, sortedProjects]);
 
-    React.useEffect(() => {
-        if (!launchIntent) {
-            setSurface('entry');
-            setWizardState((prev) => ({
-                ...prev,
-                mode: 'create',
-                projectId: null,
-                launchContext: 'default',
-                initialEnvironmentKey: resolveDefaultEnvironment(activeProject),
-            }));
-            return;
-        }
-
-        const requestedSurface = launchIntent.surface || (launchIntent.wizardMode ? 'wizard' : 'entry');
-        if (requestedSurface === 'entry') {
-            setSurface('entry');
-            return;
-        }
-
-        const mode = launchIntent.wizardMode || 'create';
-        const targetProjectId = mode === 'edit'
-            ? (launchIntent.projectId || activeProject?.id || null)
-            : null;
-
-        setWizardState({
-            mode,
-            projectId: targetProjectId,
-            launchContext: launchIntent.launchContext || 'default',
-            initialEnvironmentKey: (launchIntent.initialEnvironmentKey || resolveDefaultEnvironment(activeProject)) as EnvironmentKey,
-        });
-        setSurface('wizard');
+    React.useLayoutEffect(() => {
+        const next = resolveLaunchState(launchIntent, activeProject);
+        setWizardState(next.wizardState);
+        setSurface(next.surface);
     }, [activeProject, launchIntent]);
 
     const handleOpenProject = async (projectId: string) => {
@@ -217,6 +222,23 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
         ? (projectsById.get(wizardState.projectId) || (activeProject?.id === wizardState.projectId ? activeProject : null))
         : null;
 
+    // Don't render the wizard surface until the edit project is resolved — avoids
+    // a flash of the entry screen or create-mode wizard while the store hydrates.
+    const waitingForWizardProject = (
+        surface === 'wizard'
+        && wizardState.mode === 'edit'
+        && Boolean(wizardState.projectId)
+        && !wizardProject
+        && isLoading
+    );
+    const wizardProjectMissing = (
+        surface === 'wizard'
+        && wizardState.mode === 'edit'
+        && Boolean(wizardState.projectId)
+        && !wizardProject
+        && !isLoading
+    );
+
     const handleWizardClose = React.useCallback(() => {
         if (wizardState.launchContext === 'env-config') {
             onClose?.();
@@ -238,10 +260,19 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
         <div className={cn(
             'overflow-hidden bg-card text-foreground transition-all duration-200',
             overlay
-                ? 'h-[700px] w-[1080px] max-w-[calc(100vw-24px)] rounded-sm'
+                ? 'h-145 w-215 max-w-[calc(100vw-24px)] rounded-sm'
                 : 'h-full w-full',
         )}>
-            {surface === 'entry' ? (
+            {waitingForWizardProject ? (
+                <div className="flex h-full items-center justify-center gap-2 text-[12px] text-muted-foreground">
+                    <Spinner size={14} />
+                    Loading...
+                </div>
+            ) : wizardProjectMissing ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-[12px] text-muted-foreground">
+                    Project not found. It may have been removed.
+                </div>
+            ) : surface === 'entry' ? (
                 <div className="h-full min-h-0">
                     <PanelFrame
                         title="Projects"
