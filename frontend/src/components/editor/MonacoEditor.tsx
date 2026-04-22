@@ -1,27 +1,15 @@
-import React, { useRef, useEffect, useCallback } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
-import type { editor as MonacoEditor } from 'monaco-editor';
-import { createRoot, type Root } from 'react-dom/client';
+import React, { useRef } from 'react';
+import Editor, { useMonaco } from '@monaco-editor/react';
 import { useSchemaStore } from '../../stores/schemaStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useBookmarkStore } from '../../stores/bookmarkStore';
-import { useEditorStore } from '../../stores/editorStore';
-import { registerContextAwareSQLCompletion } from '../../lib/monaco/sqlCompletion';
-import { registerSqlFolding } from '../../lib/monaco/sqlFolding';
-import { registerSqlCompletionSchemaContextCommand } from '../../lib/monaco/sqlSuggestionSchemaContext';
-import { getSchemasForActiveDatabase } from '../../lib/monaco/sqlCompletionIdentifiers';
-import { resolveSqlObjectNavigationAtPosition, resolveTableNavigationAtPosition, type SchemaObjectKind, type TableNavigationMatch } from '../../lib/monaco/sqlTableNavigation';
-import { runCtrlClickTableNavigation } from './monacoTableNavigation';
-import { ObjectQuickViewPanel } from './ObjectQuickViewPanel';
 import { EditorToolbar } from './EditorToolbar';
-import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
-import { onCommand } from '../../lib/commandBus';
-import { FormatSQL } from '../../services/queryService';
-import { FetchTableColumns } from '../../services/schemaService';
-import type { models } from '../../../wailsjs/go/models';
-
-type EditorPosition = Parameters<MonacoEditor.IStandaloneCodeEditor['setPosition']>[0];
+import { useEditorAutoFocus } from './hooks/useEditorAutoFocus';
+import { useEditorGlobalRunAction } from './hooks/useEditorGlobalRunAction';
+import { useEditorRunQuery } from './hooks/useEditorRunQuery';
+import { useEditorSqlCompletion } from './hooks/useEditorSqlCompletion';
+import { useEditorTheme } from './hooks/useEditorTheme';
+import { useMonacoEditorMount } from './hooks/useMonacoEditorMount';
 
 interface MonacoEditorProps {
     tabId: string;
@@ -382,101 +370,17 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     onFocus,
     readOnly,
 }) => {
-    const ULTRA_COMPACT_GUTTER = {
-        lineNumbersMinChars: 1,
-        lineDecorationsWidth: 16,
-    } as const;
-
-    const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
-    const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
-    const onRunRef = useRef(onRun);
-    onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
-    const onExplainRef = useRef(onExplain);
-    onExplainRef.current = onExplain;
+    const monaco = useMonaco();
+    const editorRef = useRef<any>(null);
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
     const isActiveRef = useRef(isActive);
     isActiveRef.current = isActive;
-    const readOnlyRef = useRef(readOnly);
-    readOnlyRef.current = readOnly;
-    const decorationRef = useRef<string[]>([]);
-    const ctrlHoverDecorationRef = useRef<string[]>([]);
+    const runQueryRef = useRef<() => void>();
 
-    // Focus editor when it becomes active
-    useEffect(() => {
-        if (isActive && editorRef.current) {
-            editorRef.current.focus();
-        }
-    }, [isActive]);
+    useEditorAutoFocus(isActive, editorRef);
 
-    const resolveRunnableQueryTarget = useCallback((): {
-        query: string;
-        range: {
-            startLineNumber: number;
-            startColumn: number;
-            endLineNumber: number;
-            endColumn: number;
-        };
-    } | null => {
-        if (!editorRef.current) return null;
-        const editor = editorRef.current;
-        const selection = editor.getSelection();
-        const model = editor.getModel();
-        if (!model) return null;
-
-        if (selection && !selection.isEmpty()) {
-            const selectedText = model.getValueInRange(selection);
-            if (!selectedText.trim()) return null;
-            return { query: selectedText, range: selection };
-        }
-
-        const position = editor.getPosition();
-        if (!position) return null;
-
-        const currentLine = position.lineNumber;
-        const lineCount = model.getLineCount();
-
-        let searchLine = currentLine;
-        while (searchLine > 0 && model.getLineContent(searchLine).trim() === '') {
-            searchLine--;
-        }
-
-        if (searchLine === 0) {
-            searchLine = currentLine;
-            while (searchLine <= lineCount && model.getLineContent(searchLine).trim() === '') {
-                searchLine++;
-            }
-            if (searchLine > lineCount) return null;
-        }
-
-        let startLine = searchLine;
-        while (startLine > 1) {
-            if (model.getLineContent(startLine - 1).trim() === '') {
-                break;
-            }
-            startLine--;
-        }
-
-        let endLine = searchLine;
-        while (endLine < lineCount) {
-            if (model.getLineContent(endLine + 1).trim() === '') {
-                break;
-            }
-            endLine++;
-        }
-
-        const range = {
-            startLineNumber: startLine,
-            startColumn: 1,
-            endLineNumber: endLine,
-            endColumn: model.getLineMaxColumn(endLine),
-        };
-        const blockText = model.getValueInRange(range);
-
-        if (!blockText.trim()) return null;
-
-        return { query: blockText, range };
-    }, []);
+    const runQuery = useEditorRunQuery({ editorRef, onRun });
 
     const extractRunnableQuery = useCallback(() => resolveRunnableQueryTarget()?.query || '', [resolveRunnableQueryTarget]);
 
@@ -488,15 +392,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     }, [extractRunnableQuery]);
     runQueryRef.current = runQuery;
 
-    // Listen to global run action from Toolbar
-    useEffect(() => {
-        const off = onCommand(DOM_EVENT.RUN_QUERY_ACTION, (detail) => {
-            if (detail?.tabId === tabId && isActiveRef.current) {
-                runQuery();
-            }
-        });
-        return off;
-    }, [tabId, runQuery]);
+    useEditorGlobalRunAction({ tabId, isActiveRef, runQuery });
 
     useEffect(() => {
         const off = onCommand(DOM_EVENT.RUN_EXPLAIN_ACTION, (detail) => {
@@ -512,436 +408,21 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
     const trees = useSchemaStore(s => s.trees);
     const addTab = useEditorStore((s) => s.addTab);
     const { fontSize, theme, updateFontSize } = useSettingsStore();
-    const { byTab, loadBookmarks, toggleLine, nextLine } = useBookmarkStore();
-    const bookmarks = byTab[tabId] || [];
-    const toggleLineRef = useRef(toggleLine);
-    toggleLineRef.current = toggleLine;
-    const activeProfileNameRef = useRef(activeProfile?.name);
-    activeProfileNameRef.current = activeProfile?.name;
-    const activeProfileRef = useRef(activeProfile);
-    activeProfileRef.current = activeProfile;
-    const treesRef = useRef(trees);
-    treesRef.current = trees;
-    const addTabRef = useRef(addTab);
-    addTabRef.current = addTab;
-    const navWidgetRef = useRef<InlineTableNavigationWidget | null>(null);
-    const quickViewWidgetRef = useRef<InlineObjectQuickViewWidget | null>(null);
-    const definitionProviderRef = useRef<{ dispose: () => void } | null>(null);
+    void activeProfile;
+    void trees;
 
-    const applyBookmarkDecorations = useCallback(() => {
-        const editor = editorRef.current;
-        const monaco = monacoRef.current;
-        if (!editor || !monaco) return;
+    const monacoTheme = useEditorTheme(theme);
 
-        const nextDecorations = bookmarks.map((bookmark) => ({
-            range: new monaco.Range(bookmark.line, 1, bookmark.line, 1),
-            options: {
-                isWholeLine: true,
-                glyphMarginClassName: 'zentro-bookmark-glyph',
-                glyphMarginHoverMessage: { value: `Bookmark line ${bookmark.line}\nRight-click line number to toggle.` },
-                lineDecorationsClassName: 'zentro-bookmark-line',
-            }
-        }));
-        decorationRef.current = editor.deltaDecorations(decorationRef.current, nextDecorations);
-    }, [bookmarks]);
+    useEditorSqlCompletion(monaco);
 
-    useEffect(() => {
-        if (!activeProfile?.name) return;
-        loadBookmarks(activeProfile.name, tabId).catch((err) => console.error('load bookmarks failed', err));
-    }, [activeProfile?.name, tabId, loadBookmarks]);
-
-    useEffect(() => {
-        applyBookmarkDecorations();
-    }, [applyBookmarkDecorations]);
-
-    useEffect(() => () => {
-        navWidgetRef.current?.dispose();
-        navWidgetRef.current = null;
-        quickViewWidgetRef.current?.dispose();
-        quickViewWidgetRef.current = null;
-    }, []);
-
-    // Resolve 'system' theme to actual monaco theme
-    const getMonacoTheme = () => {
-        if (theme === 'dark') return 'vs-dark';
-        if (theme === 'light') return 'vs';
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'vs-dark' : 'vs';
-    };
-
-    const handleMount: OnMount = useCallback((editor, monacoInstance) => {
-        editorRef.current = editor;
-        monacoRef.current = monacoInstance;
-        navWidgetRef.current?.dispose();
-        navWidgetRef.current = new InlineTableNavigationWidget(editor, monacoInstance);
-        quickViewWidgetRef.current?.dispose();
-        quickViewWidgetRef.current = new InlineObjectQuickViewWidget(editor, monacoInstance);
-        let lastHoverPosition: EditorPosition | null = null;
-        let modifierPressed = false;
-        let hoverQuickViewTimer: ReturnType<typeof setTimeout> | null = null;
-        let lastHoverQuickViewKey = '';
-
-        const clearCtrlHoverDecoration = () => {
-            ctrlHoverDecorationRef.current = editor.deltaDecorations(ctrlHoverDecorationRef.current, []);
-        };
-
-        const clearHoverQuickViewTimer = () => {
-            if (!hoverQuickViewTimer) return;
-            clearTimeout(hoverQuickViewTimer);
-            hoverQuickViewTimer = null;
-        };
-
-        const applyCtrlHoverDecoration = (position: EditorPosition | null) => {
-            if (!position || !modifierPressed) {
-                clearCtrlHoverDecoration();
-                return;
-            }
-
-            const model = editor.getModel();
-            const profile = activeProfileRef.current;
-            const profileName = profile?.name || '';
-            const dbName = profile?.db_name || '';
-            if (!model || !profileName || !dbName) {
-                clearCtrlHoverDecoration();
-                return;
-            }
-
-            const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
-            const navigation = resolveTableNavigationAtPosition(model, position, schemas);
-            if (navigation.kind === 'not_found') {
-                clearCtrlHoverDecoration();
-                return;
-            }
-
-            const word = model.getWordAtPosition(position);
-            if (!word) {
-                clearCtrlHoverDecoration();
-                return;
-            }
-
-            const range = new monacoInstance.Range(
-                position.lineNumber,
-                word.startColumn,
-                position.lineNumber,
-                word.endColumn,
-            );
-
-            ctrlHoverDecorationRef.current = editor.deltaDecorations(ctrlHoverDecorationRef.current, [{
-                range,
-                options: {
-                    inlineClassName: 'zentro-table-nav-hover',
-                },
-            }]);
-        };
-
-        const openDefinition = (target: TableNavigationMatch) => {
-            addTabRef.current({
-                type: TAB_TYPE.TABLE,
-                name: target.qualifiedName,
-                content: target.qualifiedName,
-                query: '',
-            });
-        };
-
-        const previewObject = async (target: TableNavigationMatch, position: EditorPosition) => {
-            const profile = activeProfileRef.current;
-            const profileName = profile?.name || '';
-            const dbName = profile?.db_name || '';
-            if (!profileName || !dbName) {
-                navWidgetRef.current?.showHint('Khong tim thay table trong context', position);
-                return;
-            }
-
-            quickViewWidgetRef.current?.showLoading(target, position, () => openDefinition(target));
-
-            if (target.objectKind === 'function') {
-                quickViewWidgetRef.current?.showMessage(
-                    target,
-                    position,
-                    'Stored procedure/function quick preview se bo sung tiep. Hien tai ban co the mo definition.',
-                    () => openDefinition(target),
-                );
-                return;
-            }
-
-            const columns = await FetchTableColumns(target.schemaName, target.tableName);
-            quickViewWidgetRef.current?.showColumns(
-                target,
-                position,
-                columns,
-                () => openDefinition(target),
-            );
-        };
-
-        // Register SQL completion provider
-        registerSqlCompletionSchemaContextCommand(monacoInstance);
-        registerContextAwareSQLCompletion(monacoInstance);
-        registerSqlFolding(monacoInstance);
-
-        // Register F12 / Go To Definition provider (stored in ref for cleanup)
-        definitionProviderRef.current?.dispose();
-        definitionProviderRef.current = monacoInstance.languages.registerDefinitionProvider('sql', {
-            provideDefinition(model, position) {
-                const profile = activeProfileRef.current;
-                const profileName = profile?.name || '';
-                const dbName = profile?.db_name || '';
-                if (!profileName || !dbName) return null;
-                const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
-                const navigation = resolveTableNavigationAtPosition(model, position, schemas);
-                if (navigation.kind === 'not_found') return null;
-                // Unwrap the match and trigger openDefinition as a side-effect
-                const target = navigation.kind === 'single_match' ? navigation.match : navigation.matches[0];
-                if (target) setTimeout(() => openDefinition(target), 0);
-                // Return null — Monaco won't show "no definition found" for null
-                return null;
-            },
-        });
-
-        // Add wheel handler for Zoom (Ctrl + Wheel) using native DOM event
-        // because Monaco's abstraction sometimes fails to capture in specific environments
-        const domNode = editor.getDomNode();
-        let wheelZoomHandler: ((e: WheelEvent) => void) | null = null;
-        if (domNode) {
-            wheelZoomHandler = (e: WheelEvent) => {
-                if (!e) return;
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-
-                    const currentOptions = editor.getOptions();
-                    const currentFontSize = currentOptions.get(monacoInstance.editor.EditorOption.fontSize);
-
-                    if (e.deltaY < 0) {
-                        const newSize = Math.min(48, currentFontSize + 1);
-                        editor.updateOptions({ fontSize: newSize, lineHeight: newSize * 1.5 });
-                        updateFontSize(1);
-                    } else {
-                        const newSize = Math.max(8, currentFontSize - 1);
-                        editor.updateOptions({ fontSize: newSize, lineHeight: newSize * 1.5 });
-                        updateFontSize(-1);
-                    }
-                }
-            };
-            domNode.addEventListener('wheel', wheelZoomHandler, { passive: false });
-        }
-
-        const safeId = tabId.replace(/[^a-zA-Z0-9]/g, '');
-        const editorFocusKey = editor.createContextKey<boolean>(`isEditorFocused_${safeId}`, false);
-
-        editor.onDidFocusEditorWidget(() => {
-            editorFocusKey.set(true);
-            if (onFocusRef.current) {
-                onFocusRef.current();
-            }
-        });
-
-        editor.onDidBlurEditorWidget(() => {
-            editorFocusKey.set(false);
-            navWidgetRef.current?.hide();
-            clearCtrlHoverDecoration();
-            clearHoverQuickViewTimer();
-        });
-
-        editor.onMouseDown((e) => {
-            const browserEvent = e?.event?.browserEvent as MouseEvent | undefined;
-            const targetType = e?.target?.type;
-            const mt = monacoInstance.editor.MouseTargetType;
-            const inContentText = targetType === mt.CONTENT_TEXT;
-            const clickPosition = e?.target?.position;
-
-            const isModifierClick = Boolean(browserEvent && (browserEvent.ctrlKey || browserEvent.metaKey) && browserEvent.button === 0);
-            if (isModifierClick && isActiveRef.current) {
-                if (inContentText) {
-                    const model = editor.getModel();
-
-                    if (model && clickPosition) {
-                        runCtrlClickTableNavigation({
-                            model,
-                            position: clickPosition,
-                            profile: activeProfileRef.current,
-                            trees: treesRef.current,
-                            onOpenTable: openDefinition,
-                            onShowHint: (message, position) => navWidgetRef.current?.showHint(message, position),
-                            onShowPicker: (matches, position, onPick) => navWidgetRef.current?.showPicker(matches, position, onPick),
-                        });
-                    }
-
-                    browserEvent?.preventDefault();
-                    browserEvent?.stopPropagation();
-                    return;
-                }
-            }
-
-            const isRightClick = Boolean(e?.event?.rightButton) || e?.event?.browserEvent?.button === 2;
-            if (!isRightClick) return;
-            if (readOnlyRef.current) return;
-            if (!isActiveRef.current) return;
-
-            const inBookmarkGutter =
-                targetType === mt.GUTTER_LINE_NUMBERS ||
-                targetType === mt.GUTTER_GLYPH_MARGIN;
-            if (!inBookmarkGutter) return;
-
-            const line = Number(e?.target?.position?.lineNumber || 0);
-            const connectionName = activeProfileNameRef.current;
-            if (!connectionName || line <= 0) return;
-
-            toggleLineRef.current(connectionName, tabId, line).catch((err: unknown) => {
-                console.error('toggle bookmark by gutter failed', err);
-            });
-        });
-
-        editor.onMouseMove((e) => {
-            const targetType = e?.target?.type;
-            const mt = monacoInstance.editor.MouseTargetType;
-            if (targetType !== mt.CONTENT_TEXT) {
-                lastHoverPosition = null;
-                clearCtrlHoverDecoration();
-                clearHoverQuickViewTimer();
-                return;
-            }
-            const browserEvent = e?.event?.browserEvent as MouseEvent | undefined;
-            modifierPressed = Boolean(browserEvent?.ctrlKey || browserEvent?.metaKey);
-            lastHoverPosition = e?.target?.position || null;
-            applyCtrlHoverDecoration(lastHoverPosition);
-
-            const noModifier = !browserEvent?.ctrlKey && !browserEvent?.metaKey && !browserEvent?.shiftKey && !browserEvent?.altKey;
-            const model = editor.getModel();
-            const profile = activeProfileRef.current;
-            const profileName = profile?.name || '';
-            const dbName = profile?.db_name || '';
-            if (!noModifier || !model || !lastHoverPosition || !profileName || !dbName) {
-                clearHoverQuickViewTimer();
-                return;
-            }
-
-            const schemas = getSchemasForActiveDatabase(treesRef.current, profileName, dbName);
-            const resolved = resolveSqlObjectNavigationAtPosition(model, lastHoverPosition, schemas);
-            if (resolved.kind !== 'single_match') {
-                clearHoverQuickViewTimer();
-                lastHoverQuickViewKey = '';
-                return;
-            }
-
-            const hoverKey = `${resolved.match.objectKind}:${resolved.match.qualifiedName}`;
-            if (hoverKey === lastHoverQuickViewKey) return;
-            clearHoverQuickViewTimer();
-            hoverQuickViewTimer = setTimeout(() => {
-                lastHoverQuickViewKey = hoverKey;
-                void previewObject(resolved.match, lastHoverPosition!);
-            }, 320);
-        });
-
-        editor.onMouseLeave(() => {
-            lastHoverPosition = null;
-            clearCtrlHoverDecoration();
-            clearHoverQuickViewTimer();
-        });
-
-        const handleModifierKey = (event: KeyboardEvent) => {
-            const nextPressed = Boolean(event.ctrlKey || event.metaKey);
-            if (nextPressed === modifierPressed) return;
-            modifierPressed = nextPressed;
-            if (!modifierPressed) {
-                clearCtrlHoverDecoration();
-                return;
-            }
-            applyCtrlHoverDecoration(lastHoverPosition);
-        };
-
-        window.addEventListener('keydown', handleModifierKey, true);
-        window.addEventListener('keyup', handleModifierKey, true);
-
-        editor.onDidDispose(() => {
-            window.removeEventListener('keydown', handleModifierKey, true);
-            window.removeEventListener('keyup', handleModifierKey, true);
-            if (domNode && wheelZoomHandler) {
-                domNode.removeEventListener('wheel', wheelZoomHandler);
-            }
-            clearCtrlHoverDecoration();
-            clearHoverQuickViewTimer();
-        });
-
-        if (isActiveRef.current) {
-            // Need a tiny timeout because monaco layout might need to settle
-            setTimeout(() => {
-                editor.focus();
-            }, 10);
-        }
-
-        // If bookmarks were already hydrated before Monaco mounted, render them now.
-        applyBookmarkDecorations();
-    }, [applyBookmarkDecorations, tabId, updateFontSize]);
-
-    useEffect(() => {
-        const handleFormat = async (detail?: { tabId?: string }) => {
-            if (detail?.tabId && detail?.tabId !== tabId) return;
-            if (!isActiveRef.current || !editorRef.current) return;
-            const model = editorRef.current.getModel();
-            if (!model) return;
-            const target = resolveRunnableQueryTarget() || {
-                query: model.getValue(),
-                range: model.getFullModelRange(),
-            };
-            if (!target.query.trim()) return;
-            try {
-                const dialect = activeProfile?.driver || '';
-                const formatted = await FormatSQL(target.query, dialect);
-                model.pushEditOperations([], [{
-                    range: target.range,
-                    text: formatted
-                }], () => null);
-                onChange(model.getValue());
-            } catch (err) {
-                console.error('format failed', err);
-            }
-        };
-
-        const handleToggleBookmark = async (detail?: { tabId?: string }) => {
-            if (detail?.tabId && detail?.tabId !== tabId) return;
-            if (!isActiveRef.current || !editorRef.current || !activeProfile?.name) return;
-            const line = editorRef.current.getPosition()?.lineNumber;
-            if (!line) return;
-            await toggleLine(activeProfile.name, tabId, line);
-        };
-
-        const handleNextBookmark = (detail?: { tabId?: string }) => {
-            if (detail?.tabId && detail?.tabId !== tabId) return;
-            if (!isActiveRef.current || !editorRef.current) return;
-            const currentLine = editorRef.current.getPosition()?.lineNumber || 0;
-            const target = nextLine(tabId, currentLine);
-            if (!target) return;
-            editorRef.current.revealLineInCenter(target);
-            editorRef.current.setPosition({ lineNumber: target, column: 1 });
-            editorRef.current.focus();
-        };
-
-        const handleJumpLine = (detail: { tabId: string; line: number }) => {
-            if (detail?.tabId !== tabId) return;
-            const line = Number(detail?.line || 0);
-            if (!line || !editorRef.current) return;
-            editorRef.current.revealLineInCenter(line);
-            editorRef.current.setPosition({ lineNumber: line, column: 1 });
-            editorRef.current.focus();
-        };
-
-        const offFormat = onCommand(DOM_EVENT.FORMAT_QUERY_ACTION, (detail) => {
-            void handleFormat(detail);
-        });
-        const offToggle = onCommand(DOM_EVENT.TOGGLE_BOOKMARK_ACTION, (detail) => {
-            void handleToggleBookmark(detail);
-        });
-        const offNext = onCommand(DOM_EVENT.NEXT_BOOKMARK_ACTION, handleNextBookmark);
-        const offJump = onCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, handleJumpLine);
-
-        return () => {
-            offFormat();
-            offToggle();
-            offNext();
-            offJump();
-            definitionProviderRef.current?.dispose();
-            definitionProviderRef.current = null;
-        };
-    }, [activeProfile?.driver, activeProfile?.name, nextLine, onChange, resolveRunnableQueryTarget, tabId, toggleLine]);
+    const handleMount = useMonacoEditorMount({
+        tabId,
+        editorRef,
+        isActiveRef,
+        onFocusRef,
+        runQueryRef,
+        updateFontSize,
+    });
 
     return (
         <div
@@ -958,7 +439,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
                 <Editor
                     height="100%"
                     defaultLanguage="sql"
-                    theme={getMonacoTheme()}
+                    theme={monacoTheme}
                     value={value}
                     onChange={(v) => {
                         if (!readOnly) {
