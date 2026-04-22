@@ -161,6 +161,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     const createProject = useProjectStore((s) => s.createProject);
     const saveProject = useProjectStore((s) => s.saveProject);
     const projects = useProjectStore((s) => s.projects);
+    const activeProject = useProjectStore((s) => s.activeProject);
     const setActiveProject = useProjectStore((s) => s.setActiveProject);
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
@@ -328,15 +329,25 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         setProviderFilter('');
     }, [form.handleDriverChange]);
 
+    const resolveLatestEditProject = React.useCallback((): Project | null => {
+        if (!project?.id) return null;
+        return projects.find((item) => item.id === project.id)
+            || (activeProject?.id === project.id ? activeProject : null)
+            || project;
+    }, [activeProject, project, projects]);
+
     const handleAutoBindFromTree = React.useCallback(async (envKey: EnvironmentKey, profile: ConnectionProfile, database: string) => {
         const profileName = (profile.name || '').trim();
         const dbName = database.trim();
-        if (!project || !profileName || !dbName || submitting) return;
+        if (!profileName || !dbName || submitting) return;
+
+        const baseProject = resolveLatestEditProject();
+        if (!baseProject) return;
 
         setSubmitting(true);
         try {
-            const bindingDraft = buildBoundProjectDraft(project, envKey, profile, dbName, profileName);
-            const saved = await saveProject({ ...project, ...bindingDraft });
+            const bindingDraft = buildBoundProjectDraft(baseProject, envKey, profile, dbName, profileName);
+            const saved = await saveProject({ ...baseProject, ...bindingDraft });
             if (!saved) {
                 toast.error('Could not save environment binding.');
                 return;
@@ -351,7 +362,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         } finally {
             setSubmitting(false);
         }
-    }, [project, saveProject, setActiveProject, submitting, toast]);
+    }, [resolveLatestEditProject, saveProject, setActiveProject, submitting, toast]);
 
     const handleSelectFromTreeEdit = React.useCallback((envKey: EnvironmentKey, profile: ConnectionProfile, database: string) => {
         void handleAutoBindFromTree(envKey, profile, database);
@@ -563,7 +574,8 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     };
 
     const handleSaveEdit = async () => {
-        if (!project) {
+        const baseProject = resolveLatestEditProject();
+        if (!baseProject) {
             toast.error('Project was not found for editing.');
             return;
         }
@@ -571,10 +583,10 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         setSubmitting(true);
         try {
             const metadataSaved = await saveProject({
-                ...project,
+                ...baseProject,
                 name: draft.name.trim(),
                 description: draft.description.trim(),
-                tags: buildTagsWithProjectIcon(project.tags, draft.iconKey),
+                tags: buildTagsWithProjectIcon(baseProject.tags, draft.iconKey),
                 git_repo_path: storagePathPreview || undefined,
                 storage_path: storagePathPreview || undefined,
                 default_environment_key: editActiveEnvKey,
