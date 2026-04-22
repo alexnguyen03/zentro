@@ -161,6 +161,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     const createProject = useProjectStore((s) => s.createProject);
     const saveProject = useProjectStore((s) => s.saveProject);
     const projects = useProjectStore((s) => s.projects);
+    const projectList = Array.isArray(projects) ? projects : [];
     const activeProject = useProjectStore((s) => s.activeProject);
     const setActiveProject = useProjectStore((s) => s.setActiveProject);
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
@@ -343,10 +344,10 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
     const resolveLatestEditProject = React.useCallback((): Project | null => {
         if (!project?.id) return null;
-        return projects.find((item) => item.id === project.id)
+        return projectList.find((item) => item.id === project.id)
             || (activeProject?.id === project.id ? activeProject : null)
             || project;
-    }, [activeProject, project, projects]);
+    }, [activeProject, project, projectList]);
 
     const handleAutoBindFromTree = React.useCallback(async (envKey: EnvironmentKey, profile: ConnectionProfile, database: string) => {
         const profileName = (profile.name || '').trim();
@@ -515,12 +516,12 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
         const preview = storagePathPreview.trim();
         if (!preview) return null;
         const normalizedPreview = normalizePathForCompare(preview);
-        return projects.find((item) => (
+        return projectList.find((item) => (
             item.id !== project?.id
             && item.storage_path
             && normalizePathForCompare(item.storage_path) === normalizedPreview
         )) || null;
-    }, [project?.id, projects, storagePathPreview]);
+    }, [project?.id, projectList, storagePathPreview]);
 
     const handleCreateAndEnter = async () => {
         const bindingEntries = ENVIRONMENT_KEYS

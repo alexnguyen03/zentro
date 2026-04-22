@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Environment } from '../../wailsjs/runtime/runtime';
+import * as runtime from '../../wailsjs/runtime/runtime';
 
 type Platform = 'darwin' | 'windows' | 'linux' | null;
 
@@ -10,7 +10,9 @@ export function usePlatform(): Platform {
 
     useEffect(() => {
         if (cached) return;
-        void Environment().then((env) => {
+        const environmentFn = (runtime as { Environment?: () => Promise<{ platform?: string }> }).Environment;
+        if (typeof environmentFn !== 'function') return;
+        void environmentFn().then((env) => {
             cached = env.platform as Platform;
             setPlatform(cached);
         }).catch(() => {

@@ -5,7 +5,7 @@ const SOURCE_EXT = new Set(['.ts', '.tsx', '.css']);
 const SOURCE_EXT_GUARDRAIL = new Set(['.ts', '.tsx']);
 
 export const NATIVE_CONTROL_ALLOWLIST = [
-  'components/ui/Input.tsx',
+  'components/ui/input.tsx',
   'components/ui/textarea.tsx',
   'components/layout/OverlayDialog.test.tsx',
 ];

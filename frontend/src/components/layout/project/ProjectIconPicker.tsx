@@ -1,5 +1,5 @@
 import React from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '../../ui';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '../../ui';
 import { PROJECT_ICON_MAP, PROJECT_ICON_OPTIONS, type ProjectIconKey } from '../projectHubMeta';
 import { cn } from '../../../lib/cn';
 
@@ -12,13 +12,15 @@ export const ProjectIconPicker: React.FC<ProjectIconPickerProps> = ({ value, onC
     return (
         <Popover>
             <PopoverTrigger asChild>
-                <button
+                <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-md"
                     className="flex h-16 w-16 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground outline-none transition hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring"
                     title="Change project icon"
                 >
                     {React.createElement(PROJECT_ICON_MAP[value].icon, { size: 32 })}
-                </button>
+                </Button>
             </PopoverTrigger>
             <PopoverContent className="z-topmost w-96 max-w-[calc(100vw-28px)] p-1.5" align="start" sideOffset={6}>
                 <div className="grid grid-cols-3 gap-0.5">
@@ -26,9 +28,11 @@ export const ProjectIconPicker: React.FC<ProjectIconPickerProps> = ({ value, onC
                         const OptionIcon = option.icon;
                         const active = value === option.key;
                         return (
-                            <button
+                            <Button
                                 key={option.key}
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => onChange(option.key)}
                                 className={cn(
                                     'flex items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-[11px] transition-colors',
@@ -37,7 +41,7 @@ export const ProjectIconPicker: React.FC<ProjectIconPickerProps> = ({ value, onC
                             >
                                 <OptionIcon size={13} />
                                 <span className="truncate">{option.label}</span>
-                            </button>
+                            </Button>
                         );
                     })}
                 </div>

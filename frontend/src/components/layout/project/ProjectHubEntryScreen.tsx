@@ -190,8 +190,10 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                         onOpenChange={(isOpen) => setIconPickerOpenByProject((current) => ({ ...current, [project.id]: isOpen }))}
                                                     >
                                                         <PopoverTrigger asChild>
-                                                            <button
+                                                            <Button
                                                                 type="button"
+                                                                variant="ghost"
+                                                                size="icon-md"
                                                                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm bg-muted text-primary outline-none transition hover:bg-muted/80 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                                                                 title="Change project icon"
                                                                 onClick={(event) => event.stopPropagation()}
@@ -199,7 +201,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                                 disabled={isDisabled || isUpdatingIcon}
                                                             >
                                                                 {isUpdatingIcon ? <Spinner size={16} /> : <DisplayIcon size={24} />}
-                                                            </button>
+                                                            </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent
                                                             className="z-topmost w-[560px] max-w-[calc(100vw-28px)] p-2"
@@ -213,9 +215,11 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                                     const isSelected = iconKey === option.key;
 
                                                                     return (
-                                                                        <button
+                                                                        <Button
                                                                             key={option.key}
                                                                             type="button"
+                                                                            variant="ghost"
+                                                                            size="sm"
                                                                             onClick={(event) => {
                                                                                 event.stopPropagation();
                                                                                 onSelectProjectIcon(project, option.key);
@@ -230,7 +234,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                                         >
                                                                             <OptionIcon size={14} />
                                                                             <span className="truncate">{option.label}</span>
-                                                                        </button>
+                                                                        </Button>
                                                                     );
                                                                 })}
                                                             </div>

@@ -86,6 +86,7 @@ vi.mock('../../../wailsjs/go/app/App', async (importOriginal) => {
 });
 
 vi.mock('../../../wailsjs/runtime/runtime', () => ({
+    Environment: vi.fn(async () => ({ platform: 'windows' })),
     WindowMinimise: vi.fn(),
     WindowToggleMaximise: vi.fn(),
     WindowIsMaximised: vi.fn(async () => false),
@@ -188,15 +189,15 @@ describe('Toolbar app menu', () => {
         expect(screen.queryByText('Restart App')).not.toBeInTheDocument();
     });
 
-    it('triggers full app reload when clicking Restart App', () => {
+    it('triggers full app reload when clicking Reload Application', () => {
         render(<Toolbar />);
 
         fireEvent.click(screen.getByTitle('Open app menu'));
         fireEvent.mouseEnter(screen.getByRole('button', { name: /^File$/ }));
         fireEvent.click(screen.getByRole('button', { name: /^File$/ }));
-        fireEvent.click(screen.getByText('Restart App'));
+        fireEvent.click(screen.getByText('Reload Application'));
 
-        expect(mocks.windowReload).toHaveBeenCalledTimes(1);
+        expect(mocks.windowReloadApp).toHaveBeenCalled();
     });
 
     it('opens License modal from Help menu', async () => {
