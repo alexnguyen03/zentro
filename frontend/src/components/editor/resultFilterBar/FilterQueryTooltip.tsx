@@ -17,7 +17,7 @@ interface FilterQueryTooltipProps {
 function renderQueryPreview(query: string, condition: string) {
     const shape = getQueryShape(query);
 
-    if (shape === 'bare') {
+    if (shape === 'no-where') {
         return (
             <>
                 {query} <span className="text-pink-600 dark:text-pink-400">AS</span> _zentro_filter

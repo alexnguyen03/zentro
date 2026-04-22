@@ -1,5 +1,7 @@
 import React from 'react';
 import { Loader } from 'lucide-react';
+import type { DraftRow } from '../../../lib/dataEditing';
+import { models } from '../../../../wailsjs/go/models';
 import { TabResult } from '../../../stores/resultStore';
 import { ResultFilterBar } from '../ResultFilterBar';
 import { ResultTable } from '../ResultTable';
@@ -37,6 +39,8 @@ export const ResultPanelMainContent: React.FC<ResultPanelMainContentProps> = ({
     deletedRows,
     setDeletedRows,
 }) => {
+    const [selectedRowKeys, setSelectedRowKeys] = React.useState<Set<string>>(new Set());
+    const [draftRows, setDraftRows] = React.useState<DraftRow[]>([]);
     const hasData = result.columns.length > 0;
     const isLoading = !result.isDone;
 
@@ -108,8 +112,16 @@ export const ResultPanelMainContent: React.FC<ResultPanelMainContentProps> = ({
                     setEditedCells={setEditedCells}
                     selectedCells={selectedCells}
                     setSelectedCells={setSelectedCells}
+                    selectedRowKeys={selectedRowKeys}
+                    setSelectedRowKeys={setSelectedRowKeys}
                     deletedRows={deletedRows}
                     setDeletedRows={setDeletedRows}
+                    draftRows={draftRows}
+                    setDraftRows={setDraftRows}
+                    columnDefs={[] as models.ColumnDef[]}
+                    focusCellRequest={null}
+                    onFocusCellRequestHandled={() => {}}
+                    onRemoveDraftRows={() => {}}
                 />
             </div>
         </div>

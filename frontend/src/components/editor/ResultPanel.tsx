@@ -1,36 +1,44 @@
-﻿import React from 'react';
-import { AlertCircle, CheckCircle, RefreshCw, RotateCcw, Save } from 'lucide-react';
-import { ExportCSV } from '../../services/queryService';
-import { utils } from '../../../wailsjs/go/models';
+import React from 'react';
+import {
+    AlertCircle,
+    CheckCircle,
+    Loader,
+} from 'lucide-react';
+import { ExecuteUpdateSync } from '../../services/queryService';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { TabResult, useResultStore } from '../../stores/resultStore';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { useStatusStore } from '../../stores/statusStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
-import { useResultPanelCount } from '../../features/editor/useResultPanelCount';
-import { useResultPanelKeyboardShortcuts } from '../../features/editor/useResultPanelKeyboardShortcuts';
-import { useResultPanelScriptActions } from '../../features/editor/useResultPanelScriptActions';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { models } from '../../../wailsjs/go/models';
 import { useToast } from '../layout/Toast';
-import { ResultPanelMainContent } from './resultPanel/ResultPanelMainContent';
-import { ResultPanelSaveModal } from './resultPanel/ResultPanelSaveModal';
-import { ResultPanelStatusBar } from './resultPanel/ResultPanelStatusBar';
+import { ResultTable } from './ResultTable';
+import { ResultFilterBar } from './ResultFilterBar';
+import { JsonViewer, isJsonValue } from '../viewers/JsonViewer';
+import { useConnectionStore } from '../../stores/connectionStore';
+import { formatDuration } from './resultPanelUtils';
+import { utils } from '../../../wailsjs/go/models';
+import { useResultEditing } from './useResultEditing';
+import { useResultKeyboard } from './useResultKeyboard';
+import { useResultExport } from './useResultExport';
+import { setClipboardText } from '../../services/clipboardService';
+import { resolveResultFetchStrategy } from '../../features/query/resultStrategy';
+import { useFeatureGate } from '../../features/license/useFeatureGate';
+import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
+import { ResultContextMenu } from './resultPanel/ResultContextMenu';
+import { ResultPanelModals } from './resultPanel/ResultPanelModals';
+import type { ResultPanelProps } from './resultPanel/types';
+import { useResultContextMenuActions } from './resultPanel/useResultContextMenuActions';
+import { useResultPanelCommands } from './resultPanel/useResultPanelCommands';
+import { useResultPanelFilterSync } from './resultPanel/useResultPanelFilterSync';
+import { useResultPanelToolbar } from './resultPanel/useResultPanelToolbar';
 
 export type { ResultPanelAction } from './resultPanel/types';
 
-interface ResultPanelProps {
-    tabId: string;
-    result?: TabResult;
-    onRun?: () => void;
-    onFilterRun?: (filter: string) => void;
-    onActionsChange?: (actions: ResultPanelAction[]) => void;
-    baseQuery?: string;
-    onAppendToQuery?: (fullQuery: string) => void;
-    onOpenInNewTab?: (fullQuery: string) => void;
-}
-
 export const ResultPanel: React.FC<ResultPanelProps> = ({
     tabId,
+    contextTabId,
     result,
     onRun,
     onFilterRun,
@@ -38,201 +46,211 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     baseQuery,
     onAppendToQuery,
     onOpenInNewTab,
+    isReadOnlyTab = false,
+    generatedKind,
+    isMaximized = false,
+    onToggleMaximize,
+    showMaximizeControl = true,
+    showResultFilterBar = true,
+    preferBaseQueryForFilter = false,
 }) => {
-    const { defaultLimit, theme, fontSize, save } = useSettingsStore();
-    const addTab = useEditorStore((state) => state.addTab);
-    const updatePendingEdits = useResultStore((state) => state.updatePendingEdits);
-    const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
-    const { openDetail } = useRowDetailStore();
+    const { defaultLimit, theme, fontSize, save, viewMode } = useSettingsStore();
+    const driver = useConnectionStore((state) => state.activeProfile?.driver);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const addTab = useEditorStore((s) => s.addTab);
+    const updateTabContext = useEditorStore((s) => s.updateTabContext);
+    const persistedContext = useEditorStore((state) => {
+        const targetId = contextTabId || tabId;
+        for (const group of state.groups) {
+            const match = group.tabs.find((tab) => tab.id === targetId);
+            if (match) return match.context;
+        }
+        return undefined;
+    });
     const { toast } = useToast();
-    const containerRef = React.useRef<HTMLDivElement>(null);
+    const featureGate = useFeatureGate();
+    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const { openDetail } = useRowDetailStore();
+    const { showRightSidebar, setShowRightSidebar } = useLayoutStore();
 
-    const filterExpr = result?.filterExpr || '';
-    const setFilterExpr = React.useCallback((value: string) => {
-        useResultStore.getState().setFilterExpr(tabId, value);
-    }, [tabId]);
-
-    const [editedCells, setEditedCells] = React.useState<Map<string, string>>(() =>
-        result?.pendingEdits ? new Map(result.pendingEdits) : new Map(),
-    );
-    const [selectedCells, setSelectedCells] = React.useState<Set<string>>(new Set());
-    const [deletedRows, setDeletedRows] = React.useState<Set<number>>(() =>
-        result?.pendingDeletions ? new Set(result.pendingDeletions) : new Set(),
-    );
     const [showSaveModal, setShowSaveModal] = React.useState(false);
+    const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({});
+    const [showColumnsPopover, setShowColumnsPopover] = React.useState(false);
+    const columnsPopoverRef = React.useRef<HTMLDivElement>(null);
+    const [showExportModal, setShowExportModal] = React.useState(false);
+    const [exportScope, setExportScope] = React.useState<'all' | 'view'>('all');
+    const [exportFormat, setExportFormat] = React.useState<'csv' | 'json' | 'sql'>('csv');
+    const [selectedExportColumns, setSelectedExportColumns] = React.useState<string[]>([]);
+    const [exportTableName, setExportTableName] = React.useState('');
+    const [visibleRows, setVisibleRows] = React.useState(0);
+    const [activeSearchHit, setActiveSearchHit] = React.useState(0);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const keepFilterFocusRef = React.useRef(false);
+    const quickFilterRef = React.useRef<HTMLInputElement>(null);
+    const jumpRowRef = React.useRef<HTMLInputElement>(null);
 
-    const resetChangeState = React.useCallback(() => {
-        setEditedCells(new Map());
-        setSelectedCells(new Set());
-        setDeletedRows(new Set());
-        setShowSaveModal(false);
+    // ── Domain hooks ──────────────────────────────────────────────────────────
+    const editing = useResultEditing({ tabId, result });
+    const {
+        columnDefs, columnDefsByName, displayRows, displayRowsByKey, rowOrder,
+        editedCells, setEditedCells, selectedCells, setSelectedCells,
+        selectedRowKeysFromHeader, setSelectedRowKeysFromHeader,
+        deletedRows, setDeletedRows, draftRows, setDraftRows,
+        isSavingDraftRows,
+        focusCellRequest, setFocusCellRequest,
+        selectedRowKeys, selectedPersistedRowIndices, selectedDraftIds,
+        qualifiedTableName, isEditable, canManageDraftRows,
+        hasLegacyChanges, hasPendingChanges,
+        removeDraftRows, getPersistedRowValues, resetEditState,
+        generatePendingScript,
+        handleAddRow, handleDuplicateRows, requestDeleteSelectedRows,
+    } = editing;
+    const setFilterExprStore = React.useCallback((id: string, value: string) => {
+        useResultStore.getState().setFilterExpr(id, value);
+    }, []);
+    const setOrderByExprStore = React.useCallback((id: string, value: string) => {
+        useResultStore.getState().setOrderByExpr(id, value);
     }, []);
 
-    const openRowDetail = React.useCallback((rowIndex: number) => {
-        if (!result?.columns || !result.rows?.[rowIndex]) {
-            return;
+    const {
+        quickFilter,
+        setQuickFilter,
+        filterExpr,
+        orderByExpr,
+        setFilterExpr,
+        setOrderByExpr,
+        sourceQuery,
+    } = useResultPanelFilterSync({
+        tabId,
+        contextTabId,
+        result,
+        baseQuery,
+        preferBaseQueryForFilter,
+        persistedContext,
+        updateTabContext,
+        setFilterExprStore,
+        setOrderByExprStore,
+    });
+
+    // ── Row Detail sidebar sync ───────────────────────────────────────────────
+    // Stable save callback — uses setter functions so it doesn't need to capture
+    // snapshot values of displayRowsByKey or draftRows, avoiding effect re-fires.
+    const handleRowDetailSave = React.useCallback((rowKey: string, colIdx: number, newVal: string) => {
+        if (rowKey.startsWith('p:')) {
+            const persistedIndex = Number(rowKey.slice(2));
+            setEditedCells((prev) => {
+                const next = new Map(prev);
+                next.set(`${persistedIndex}:${colIdx}`, newVal);
+                return next;
+            });
+        } else {
+            const draftId = rowKey.slice(2);
+            setDraftRows((prev) => prev.map((dr) => {
+                if (dr.id !== draftId) return dr;
+                const vals = [...dr.values];
+                vals[colIdx] = newVal;
+                return { ...dr, values: vals };
+            }));
         }
+    }, [setEditedCells, setDraftRows]);
+
+    React.useEffect(() => {
+        if (!showRightSidebar || selectedRowKeys.length === 0 || !result?.isDone) return;
+        const activeRowKey = selectedRowKeys[0];
+        const displayRow = displayRowsByKey.get(activeRowKey);
+        if (!displayRow) return;
+
+        const rowValues =
+            displayRow.kind === 'persisted'
+                ? getPersistedRowValues(displayRow.persistedIndex as number)
+                : [...displayRow.values];
 
         openDetail({
             columns: result.columns,
-            row: result.rows[rowIndex],
-            tableName: result.tableName,
+            columnTypes: result.columns.map((col) => columnDefsByName.get(col)?.DataType || ''),
+            columnDefs: result.columns.map((col) =>
+                columnDefsByName.get(col) ||
+                models.ColumnDef.createFrom({ Name: col, DataType: '', IsNullable: true, IsPrimaryKey: false, DefaultValue: '' }),
+            ),
+            row: rowValues,
+            tableName: qualifiedTableName || result.tableName,
             primaryKeys: result.primaryKeys,
-            onSave: (columnIndex, newValue) => {
-                setEditedCells((prev) => {
-                    const next = new Map(prev);
-                    next.set(`${rowIndex}:${columnIndex}`, newValue);
-                    return next;
-                });
-            },
+            onSave: (colIdx, newVal) => handleRowDetailSave(activeRowKey, colIdx, newVal),
         });
-    }, [result, openDetail]);
+    }, [columnDefsByName, displayRowsByKey, getPersistedRowValues, handleRowDetailSave, openDetail, qualifiedTableName, result?.columns, result?.isDone, result?.primaryKeys, result?.tableName, selectedRowKeys, showRightSidebar]);
 
-    React.useEffect(() => {
-        if (!showRightSidebar || selectedCells.size === 0 || !result?.isDone) {
+    // ── Save flow ─────────────────────────────────────────────────────────────
+    const handleDirectExecute = React.useCallback(async () => {
+        const script = generatePendingScript();
+        if (!script.trim()) {
             return;
         }
 
-        const firstCell = Array.from(selectedCells)[0];
-        openRowDetail(Number(firstCell.split(':')[0]));
-    }, [showRightSidebar, selectedCells, result?.isDone, openRowDetail]);
-
-    React.useEffect(() => {
-        updatePendingEdits(tabId, editedCells, deletedRows);
-    }, [tabId, editedCells, deletedRows, updatePendingEdits]);
-
-    const hasChanges = editedCells.size > 0 || deletedRows.size > 0;
-    const isEditable = Boolean(
-        result?.tableName
-            && result?.primaryKeys
-            && result.primaryKeys.every((primaryKey) => result.columns.includes(primaryKey)),
-    );
-
-    React.useEffect(() => {
-        if (!onActionsChange) {
-            return;
-        }
-
-        const actions: ResultPanelAction[] = [];
-        if (hasChanges) {
-            actions.push({
-                id: 'discard',
-                icon: <RotateCcw size={11} />,
-                label: 'Discard',
-                title: 'Discard',
-                onClick: () => {
-                    setEditedCells(new Map());
-                    setDeletedRows(new Set());
-                },
-                danger: true,
-            });
-            actions.push({
-                id: 'save',
-                icon: <Save size={11} />,
-                label: 'Save',
-                title: 'Save',
-                onClick: () => setShowSaveModal(true),
-            });
-        }
-
-        if (!hasChanges && onRun) {
-            actions.push({
-                id: 'reload',
-                icon: <RefreshCw size={11} />,
-                label: 'Reload',
-                title: 'Reload',
-                onClick: onRun,
-            });
-        }
-
-        onActionsChange(actions);
-    }, [hasChanges, onActionsChange, onRun]);
-
-    const { totalCount, isCounting, displayTotalCount } = useResultPanelCount({
-        tabId,
-        result,
-        onQueryStarted: () => {
-            resetChangeState();
-            window.setTimeout(() => {
-                containerRef.current?.focus({ preventScroll: true });
-            }, 50);
-        },
-    });
-
-    const {
-        generateUpdateScript,
-        handleCopyScript,
-        handleOpenInNewTab,
-        handleDirectExecute,
-    } = useResultPanelScriptActions({
-        tabId,
-        result,
-        editedCells,
-        deletedRows,
-        addTab,
-        onCloseSaveModal: () => setShowSaveModal(false),
-        onResetChanges: () => {
-            setEditedCells(new Map());
-            setDeletedRows(new Set());
-        },
-        onSuccessToast: toast.success,
-        onErrorToast: toast.error,
-    });
-
-    const handleLimitChange = React.useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newLimit = parseInt(event.target.value, 10) || 1000;
-        save(
-            new utils.Preferences({
-                theme,
-                font_size: fontSize,
-                default_limit: newLimit,
-            }),
-        );
-    }, [save, theme, fontSize]);
-
-    const handleExport = React.useCallback(async () => {
-        if (!result?.columns || !result.rows) {
-            return;
-        }
-
-        try {
-            const path = await ExportCSV(result.columns, result.rows);
-            if (path) {
-                toast.success(`Exported to: ${path}`);
-                useStatusStore.getState().setMessage(`Exported to: ${path}`);
+        const guard = await writeSafetyGuard.guardSql(script, 'Execute Changes');
+        if (!guard.allowed) {
+            if (guard.blockedReason) {
+                toast.error(guard.blockedReason);
             }
-        } catch (err) {
-            toast.error(`Export failed: ${err}`);
-            useStatusStore.getState().setMessage(`Export failed: ${err}`);
-            console.error('Export failed:', err);
+            return;
         }
-    }, [result, toast]);
 
-    const handleKeyDown = useResultPanelKeyboardShortcuts({
-        result: result || {
-            columns: [],
-            rows: [],
-            isDone: true,
-            affected: 0,
-            duration: 0,
-            isSelect: true,
-            hasMore: false,
-            offset: 0,
-            isFetchingMore: false,
-            filterExpr: '',
-        },
-        selectedCells,
-        editedCells,
-        deletedRows,
-        isEditable,
-        openRowDetail,
-        setShowRightSidebar,
-        setDeletedRows,
-        setSelectedCells,
-        setEditedCells,
-        openSaveModal: () => setShowSaveModal(true),
-        onPasteError: () => toast.error('Failed to read from clipboard'),
-    });
+        await editing.handleDirectExecute(ExecuteUpdateSync);
+        setShowSaveModal(false);
+    }, [editing, generatePendingScript, toast, writeSafetyGuard]);
+
+    const handleSaveRequest = React.useCallback(async () => {
+        if (viewMode) { toast.error('View Mode is enabled. Write actions are blocked.'); return; }
+        if (!hasPendingChanges) return;
+        if (hasLegacyChanges) { setShowSaveModal(true); return; }
+        await handleDirectExecute();
+    }, [handleDirectExecute, hasLegacyChanges, hasPendingChanges, toast, viewMode]);
+
+    const handleCopyScript = React.useCallback(() => {
+        void setClipboardText(generatePendingScript())
+            .then(() => toast.success('Script copied to clipboard'))
+            .catch(() => toast.error('Failed to copy script'));
+    }, [generatePendingScript, toast]);
+
+    const handleOpenInNewTab = React.useCallback(() => {
+        addTab({ name: `Apply ${result?.tableName}`, query: generatePendingScript() });
+        setShowSaveModal(false);
+        toast.success('Script opened in a new tab.');
+    }, [addTab, generatePendingScript, result?.tableName, toast]);
+    const openContextQueryTab = React.useCallback((query: string, title?: string) => {
+        addTab({
+            name: title || `Row ${result?.tableName || 'query'}`,
+            query,
+        });
+    }, [addTab, result?.tableName]);
+
+    // ── Panel actions (bubbled to toolbar) ────────────────────────────────────
+    const { runExport, exportJob, cancelExport } = useResultExport({ tabId, result });
+    const canUseResultExport = featureGate.canUse('query.result.export');
+    const allExportColumns = result?.columns || [];
+    const handleLimitChange = React.useCallback(async (value: string) => {
+        const newLimit = parseInt(value, 10) || 1000;
+        await save(new utils.Preferences({ theme, font_size: fontSize, default_limit: newLimit }));
+
+        // Re-run immediately so the new limit applies without requiring manual reload.
+        const activeFilter = filterExpr.trim();
+        const activeOrderBy = orderByExpr.trim();
+        if ((activeFilter || activeOrderBy) && onFilterRun) {
+            onFilterRun(activeFilter, activeOrderBy, sourceQuery);
+            return;
+        }
+        onRun?.();
+    }, [filterExpr, fontSize, onFilterRun, onRun, orderByExpr, save, sourceQuery, theme]);
+    const handleOpenExportModal = React.useCallback(() => {
+        if (!result?.columns?.length) {
+            toast.error('No columns available to export.');
+            return;
+        }
+        setExportScope('all');
+        setExportFormat('csv');
+        setSelectedExportColumns([...result.columns]);
+        setExportTableName(result.tableName || '');
+        setShowExportModal(true);
+    }, [result?.columns, result?.tableName, toast]);
 
     useResultPanelCommands({
         tabId,
@@ -331,7 +349,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         columnsPopoverRef,
     });
 
-    // â”€â”€ Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Export ────────────────────────────────────────────────────────────────
     const searchHits = React.useMemo(() => {
         if (!result || !quickFilter.trim()) return [];
         const query = quickFilter.trim().toLowerCase();
@@ -461,7 +479,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         setEditedCells, setDraftRows,
     });
 
-    // â”€â”€ Limit selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Limit selector ────────────────────────────────────────────────────────
     const shouldShowResultFilterBar = Boolean(result?.isSelect) && showResultFilterBar;
     const shouldShowFilterInput = generatedKind !== 'explain';
     const resultFilterBar = result && shouldShowResultFilterBar ? (
@@ -498,7 +516,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         </ResultFilterBar>
     ) : null;
 
-    // â”€â”€ Early renders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Early renders ─────────────────────────────────────────────────────────
     if (!result) {
         return (
             <div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
@@ -532,6 +550,51 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
         );
     }
 
+    const explainJsonValue =
+        generatedKind === 'explain' && result.rows.length === 1 && result.rows[0]?.length === 1 && isJsonValue(result.rows[0][0])
+            ? result.rows[0][0]
+            : null;
+
+    let displayTotalCount: number | undefined;
+    if (result.isDone && !result.hasMore) {
+        displayTotalCount = result.rows.length;
+    }
+    const viewportState = resolveResultFetchStrategy(result.rows.length, result.hasMore, result.isDone);
+    const strategyTooltip = (() => {
+        switch (viewportState.strategy) {
+            case 'server_aware':
+                return 'Server-aware: result may still stream or has more rows on server.';
+            case 'incremental_client':
+                return 'Incremental client: large completed dataset, client handles viewport incrementally.';
+            case 'client_full':
+            default:
+                return 'Client full: result fits comfortably, client can handle all rows directly.';
+        }
+    })();
+    const executionStartedAt = result.progress?.startedAt;
+    const executionTimeText = (() => {
+        if (!executionStartedAt) return null;
+        return new Date(executionStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    })();
+    const executionTimeTooltip = (() => {
+        if (!executionStartedAt) return '';
+        return `Execution started at ${new Date(executionStartedAt).toLocaleString()}`;
+    })();
+    const pendingChangeCounts = (() => {
+        const updatedRowIndices = new Set<number>();
+        editedCells.forEach((_, cellId) => {
+            const [rowIndexRaw] = cellId.split(':');
+            const rowIndex = Number(rowIndexRaw);
+            if (!Number.isFinite(rowIndex) || deletedRows.has(rowIndex)) return;
+            updatedRowIndices.add(rowIndex);
+        });
+        return {
+            add: draftRows.length,
+            update: updatedRowIndices.size,
+            del: deletedRows.size,
+        };
+    })();
+    // ── Main render ───────────────────────────────────────────────────────────
     return (
         <div
             className="flex flex-col items-stretch justify-start h-full text-[13px] text-muted-foreground overflow-hidden"
@@ -540,51 +603,172 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
             onKeyDown={handleKeyDown}
             style={{ outline: 'none' }}
         >
-            <ResultPanelMainContent
-                tabId={tabId}
-                result={result}
-                filterExpr={filterExpr}
-                onFilterExprChange={setFilterExpr}
-                onFilterRun={onFilterRun}
-                baseQuery={baseQuery}
-                onAppendToQuery={onAppendToQuery}
-                onOpenInNewTab={onOpenInNewTab}
-                editedCells={editedCells}
-                setEditedCells={setEditedCells}
-                selectedCells={selectedCells}
-                setSelectedCells={setSelectedCells}
-                deletedRows={deletedRows}
-                setDeletedRows={setDeletedRows}
+            {(() => {
+                const hasData = result.columns.length > 0;
+                const isLoading = !result.isDone;
+
+                if (isLoading && !hasData) {
+                    return (
+                        <div className="flex flex-col items-stretch flex-1 overflow-hidden min-h-0 text-success gap-0">
+                            <div className="flex flex-row items-center gap-2 px-3 py-2 text-xs border-b border-border shrink-0">
+                                <Loader size={14} className="animate-spin" />
+                                <span className="text-muted-foreground">
+                                    {result.rows.length > 0
+                                        ? `Streaming… ${result.rows.length.toLocaleString()} rows`
+                                        : 'Executing query…'}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex flex-col flex-1 overflow-hidden min-h-0 relative">
+                        {resultFilterBar}
+
+                        {isLoading && (
+                            <div className="z-sticky shrink-0" style={{ height: 2, background: 'var(--interactive-primary)', opacity: 0.7 }}>
+                                <div style={{ height: '100%', width: '40%', background: 'rgba(255,255,255,0.6)', animation: 'shimmer 1.2s infinite linear', backgroundSize: '400px 100%' }} />
+                            </div>
+                        )}
+
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: isLoading ? 0.5 : 1 }}>
+                            {explainJsonValue ? (
+                                <div className="flex-1 overflow-hidden p-3">
+                                    <JsonViewer value={explainJsonValue} height="100%" useMonaco={true} />
+                                </div>
+                            ) : (
+                                <ResultTable
+                                    tabId={tabId}
+                                    columns={result.columns}
+                                    rows={result.rows}
+                                    isDone={result.isDone}
+                                    quickFilter={quickFilter}
+                                    onViewStatsChange={({ visibleRows: nextVisible }) => setVisibleRows(nextVisible)}
+                                    editedCells={editedCells}
+                                    setEditedCells={setEditedCells}
+                                    selectedCells={selectedCells}
+                                    setSelectedCells={setSelectedCells}
+                                    selectedRowKeys={selectedRowKeysFromHeader}
+                                    setSelectedRowKeys={setSelectedRowKeysFromHeader}
+                                    deletedRows={deletedRows}
+                                    setDeletedRows={setDeletedRows}
+                                    draftRows={draftRows}
+                                    setDraftRows={setDraftRows}
+                                    columnDefs={columnDefs}
+                                    focusCellRequest={focusCellRequest}
+                                    onFocusCellRequestHandled={() => setFocusCellRequest(null)}
+                                    onRemoveDraftRows={removeDraftRows}
+                                    readOnlyMode={viewMode || isReadOnlyTab}
+                                    onCellContextMenu={handleCellContextMenu}
+                                    onRowHeaderContextMenu={handleCellContextMenu}
+                                    columnVisibility={columnVisibility}
+                                    onColumnVisibilityChange={setColumnVisibility}
+                                />
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            <ResultContextMenu
+                contextMenu={contextMenu}
+                contextMenuRef={contextMenuRef}
+                contextMenuPosition={contextMenuPosition}
+                canCopy={canCopy}
+                canPaste={canPaste}
+                canSetNull={canSetNull}
+                canDeleteRows={canDeleteRows}
+                canDuplicateRows={canDuplicateRows}
+                copyDisabledTitle={copyDisabledTitle}
+                pasteDisabledTitle={pasteDisabledTitle}
+                setNullDisabledTitle={setNullDisabledTitle}
+                duplicateDisabledTitle={duplicateDisabledTitle}
+                deleteDisabledTitle={deleteDisabledTitle}
+                copyAsActions={copyAsActions}
+                whereActions={whereActions}
+                canOpenRowInNewQueryTab={canOpenRowInNewQueryTab}
+                canUndoLastContextAction={canUndoLastContextAction}
+                undoDisabledTitle={undoDisabledTitle}
+                openRowQueryDisabledTitle={openRowQueryDisabledTitle}
+                onCopy={handleContextCopy}
+                onSetNull={handleContextSetNull}
+                onPaste={handleContextPaste}
+                onDeleteRow={handleContextDelete}
+                onDuplicateRow={handleContextDuplicate}
+                onOpenRowInNewQueryTab={handleOpenRowInNewQueryTab}
+                onUndoLastContextAction={handleUndoLastContextAction}
             />
 
-            <ResultPanelStatusBar
-                rowCount={result.rows.length}
-                defaultLimit={defaultLimit}
-                durationText={formatDuration(result.duration)}
-                displayTotalCount={displayTotalCount}
-                totalCount={totalCount}
-                isCounting={isCounting}
-                hasChanges={hasChanges}
-                pendingChangeCount={editedCells.size + deletedRows.size}
-                onLimitChange={handleLimitChange}
-                onExport={handleExport}
-            />
+            {/* Status bar (info only) */}
+            <div className="flex items-center justify-center relative px-3 py-1 text-[11px] text-muted-foreground border-t border-border shrink-0">
+                <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                        {displayTotalCount !== undefined ? (
+                            <span className="flex items-center gap-1">(Total: <strong>{displayTotalCount.toLocaleString()}</strong>)</span>
+                        ) : null}
+                        <strong>{(quickFilter.trim() ? visibleRows : (result.rows.length + draftRows.length)).toLocaleString()}</strong>
+                        of&nbsp;
+                        <strong>{defaultLimit.toLocaleString()}</strong>&nbsp;rows&nbsp;&nbsp;{formatDuration(result.duration)}
+                    </span>
+                    <span className="" title={strategyTooltip}>
+                        strategy: {viewportState.strategy}
+                    </span>
+                    {executionTimeText && (
+                        <span title={executionTimeTooltip}>
+                            executed: {executionTimeText}
+                        </span>
+                    )}
+                </div>
 
-            <ResultPanelSaveModal
-                isOpen={showSaveModal}
-                script={generateUpdateScript()}
-                onClose={() => setShowSaveModal(false)}
-                onCopyScript={handleCopyScript}
-                onOpenInNewTab={handleOpenInNewTab}
-                onExecute={handleDirectExecute}
+                <div className="ml-auto flex items-center gap-3">
+                    {exportJob?.status === 'running' && (
+                        <div className="flex items-center gap-2 text-[11px] border border-border rounded-sm px-2 py-0.5">
+                            <Loader size={11} className="animate-spin" />
+                            <span>
+                                {exportJob.label || 'Exporting'} {typeof exportJob.progressPct === 'number' ? `${exportJob.progressPct}%` : 'running...'}
+                                {typeof exportJob.totalRows === 'number' ? ` (${(exportJob.processedRows || 0).toLocaleString()}/${exportJob.totalRows.toLocaleString()})` : ''}
+                                {exportJob.queuedCount ? ` +${exportJob.queuedCount} queued` : ''}
+                            </span>
+                        </div>
+                    )}
+                    {hasPendingChanges && (
+                        <span className="text-[11px] text-warning">
+                            Add: {pendingChangeCounts.add} | Update: {pendingChangeCounts.update} | Del: {pendingChangeCounts.del}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <ResultPanelModals
+                showSaveModal={showSaveModal}
+                setShowSaveModal={setShowSaveModal}
+                showExportModal={showExportModal}
+                setShowExportModal={setShowExportModal}
+                qualifiedTableName={qualifiedTableName}
+                resultTableName={result?.tableName}
+                generatePendingScript={generatePendingScript}
+                handleCopyScript={handleCopyScript}
+                handleOpenInNewTab={handleOpenInNewTab}
+                handleDirectExecute={handleDirectExecute}
+                exportScope={exportScope}
+                setExportScope={setExportScope}
+                exportFormat={exportFormat}
+                setExportFormat={setExportFormat}
+                exportTableName={exportTableName}
+                setExportTableName={setExportTableName}
+                allExportColumns={allExportColumns}
+                orderedSelectedExportColumns={orderedSelectedExportColumns}
+                selectedExportColumnSet={selectedExportColumnSet}
+                toggleExportColumn={toggleExportColumn}
+                toggleAllExportColumns={toggleAllExportColumns}
+                areAllExportColumnsSelected={areAllExportColumnsSelected}
+                previewExportRows={previewExportRows}
+                handleConfirmExport={handleConfirmExport}
+                writeSafetyModals={writeSafetyGuard.modals}
             />
         </div>
     );
 };
-
-function formatDuration(milliseconds: number): string {
-    return milliseconds >= 1000 ? `${(milliseconds / 1000).toFixed(2)}s` : `${milliseconds}ms`;
-}
-
 
 

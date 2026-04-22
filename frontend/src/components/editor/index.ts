@@ -8,5 +8,4 @@ export * from './ResultPanel';
 export * from './ResultTable';
 export * from './TabBar';
 export * from './TableInfo';
-export * from './TemplateDialog';
 export * from './TemplatePopover';

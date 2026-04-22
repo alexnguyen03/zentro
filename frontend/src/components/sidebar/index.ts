@@ -1,4 +1,3 @@
-export * from './ConnectionDialog';
 export * from './ConnectionTree';
 export * from './HistoryPanel';
 export * from './RowDetailSidebar';
