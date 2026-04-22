@@ -386,19 +386,34 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                         )}
                         {step === 2 && (
                             <Button variant="ghost" size="sm" onClick={() => setStep(1)} disabled={submitting} className="rounded-sm">
-                                ← Back
+                                Back
                             </Button>
                         )}
                         {step === 1 ? (
-                            <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => setStep(2)}
-                                disabled={!canProceedStep1}
-                                className="rounded-sm px-4"
-                            >
-                                Next →
-                            </Button>
+                            <>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setStep(2)}
+                                    disabled={!canProceedStep1}
+                                    className="rounded-sm px-4"
+                                >
+                                    Next
+                                </Button>
+                                {isEdit && (
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => void onSubmit()}
+                                        disabled={!canProceedStep1 || submitting}
+                                        className="rounded-sm px-4"
+                                    >
+                                        {submitting
+                                            ? <><Spinner size={11} className="mr-1.5" />Saving...</>
+                                            : 'Save & Apply'}
+                                    </Button>
+                                )}
+                            </>
                         ) : (
                             <Button
                                 variant="default"

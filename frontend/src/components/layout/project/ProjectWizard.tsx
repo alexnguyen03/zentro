@@ -194,6 +194,7 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
     const [draftEnvironmentBindings, setDraftEnvironmentBindings] = React.useState<Partial<Record<EnvironmentKey, DraftEnvironmentBinding>>>({});
     // Per-env selection state in edit mode (profile/db shown per env in side panel)
     const [editEnvSelections, setEditEnvSelections] = React.useState<Partial<Record<EnvironmentKey, { profileName: string | null; database: string }>>>({});
+    const editInitKeyRef = React.useRef<string | null>(null);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -236,6 +237,10 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
 
     React.useEffect(() => {
         if (isEditMode && project) {
+            const initKey = `${project.id}:${initialEnvironmentKey || ''}`;
+            if (editInitKeyRef.current === initKey) return;
+            editInitKeyRef.current = initKey;
+
             const nextEnv = (initialEnvironmentKey || resolveDefaultEnvironment(project)) as EnvironmentKey;
             setDraft({
                 name: project.name || '',
@@ -255,18 +260,25 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({
             });
             setEditEnvSelections(selections);
             setDraftEnvironmentBindings({});
+
+            setConnectionMode('existing');
+            setIsSelectingProvider(false);
+            setProviderFilter('');
+            setEditingProfile(null);
+            return;
         } else {
+            editInitKeyRef.current = null;
             setDraft({ name: '', description: '', iconKey: 'general' });
             setStoragePath('');
             setDraftEnvironmentBindings({});
             setEditEnvSelections({});
             setActiveEnvKey(ENVIRONMENT_KEY.LOCAL);
-        }
 
-        setConnectionMode(isEditMode ? 'existing' : 'new');
-        setIsSelectingProvider(!isEditMode);
-        setProviderFilter('');
-        setEditingProfile(null);
+            setConnectionMode('new');
+            setIsSelectingProvider(true);
+            setProviderFilter('');
+            setEditingProfile(null);
+        }
     }, [initialEnvironmentKey, isEditMode, project]);
 
     const existingNames = React.useMemo(
