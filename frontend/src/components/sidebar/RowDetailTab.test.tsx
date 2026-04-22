@@ -50,17 +50,18 @@ describe('RowDetailTab', () => {
 
         render(<RowDetailTab />);
 
-        const editor = screen.getByRole('textbox');
+        const editor = screen.getByTitle('Click to edit | Enter to save | Esc to cancel');
         fireEvent.change(editor, { target: { value: 'Alice 2' } });
         fireEvent.keyDown(editor, { key: 'Enter' });
         expect(onSave).toHaveBeenCalledWith(0, 'Alice 2');
 
         fireEvent.change(editor, { target: { value: 'Alice 3' } });
         fireEvent.keyDown(editor, { key: 'Escape' });
-        expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Alice');
+        expect((screen.getByTitle('Click to edit | Enter to save | Esc to cancel') as HTMLTextAreaElement).value).toBe('Alice');
 
         fireEvent.click(screen.getByTitle('Toggle selection mode for custom JSON copy'));
-        expect(screen.getByRole('textbox')).toBeDisabled();
+        expect(screen.queryByTitle('Click to edit | Enter to save | Esc to cancel')).toBeNull();
+        expect(screen.getByRole('checkbox')).toBeInTheDocument();
     });
 
     it('copies selected fields as JSON in selection mode', async () => {

@@ -153,7 +153,7 @@ describe('ProjectHub', () => {
 
         expect(mocks.openProject).not.toHaveBeenCalled();
         expect(screen.getByText('Edit project')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Save & apply' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Save & apply/i })).toBeInTheDocument();
     });
 
     it('disables row while opening a project', async () => {

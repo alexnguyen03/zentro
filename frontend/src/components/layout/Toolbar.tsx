@@ -63,7 +63,15 @@ export const Toolbar: React.FC = () => {
     const transactionStatus = useStatusStore((s) => s.transactionStatus);
     const viewMode = useSettingsStore((s) => s.viewMode);
     const savePrefs = useSettingsStore((s) => s.save);
+    const shortcutBindings = useShortcutStore((s) => s.bindings);
     const getShortcutBinding = useShortcutStore((s) => s.getBinding);
+    const resolveShortcutBinding = useCallback((id: string) => {
+        if (typeof getShortcutBinding === 'function') {
+            const getBinding = getShortcutBinding as unknown as (commandId: string) => string;
+            return getBinding(id);
+        }
+        return (shortcutBindings as Record<string, string> | undefined)?.[id] || '';
+    }, [getShortcutBinding, shortcutBindings]);
 
     const { hasUpdate, updateInfo, dismiss, check, isChecking } = useUpdateCheck();
 
@@ -161,13 +169,13 @@ export const Toolbar: React.FC = () => {
 
     const quickEnvShortcutDetails = useMemo(() => {
         const byKey = new Map<EnvironmentKey, string>();
-        byKey.set(ENVIRONMENT_KEY.LOCAL, getShortcutBinding('connection.switchEnvLocal'));
-        byKey.set(ENVIRONMENT_KEY.DEVELOPMENT, getShortcutBinding('connection.switchEnvDevelopment'));
-        byKey.set(ENVIRONMENT_KEY.TESTING, getShortcutBinding('connection.switchEnvTesting'));
-        byKey.set(ENVIRONMENT_KEY.STAGING, getShortcutBinding('connection.switchEnvStaging'));
-        byKey.set(ENVIRONMENT_KEY.PRODUCTION, getShortcutBinding('connection.switchEnvProduction'));
+        byKey.set(ENVIRONMENT_KEY.LOCAL, resolveShortcutBinding('connection.switchEnvLocal'));
+        byKey.set(ENVIRONMENT_KEY.DEVELOPMENT, resolveShortcutBinding('connection.switchEnvDevelopment'));
+        byKey.set(ENVIRONMENT_KEY.TESTING, resolveShortcutBinding('connection.switchEnvTesting'));
+        byKey.set(ENVIRONMENT_KEY.STAGING, resolveShortcutBinding('connection.switchEnvStaging'));
+        byKey.set(ENVIRONMENT_KEY.PRODUCTION, resolveShortcutBinding('connection.switchEnvProduction'));
         return byKey;
-    }, [getShortcutBinding]);
+    }, [resolveShortcutBinding]);
 
     const clearQuickEnvCloseTimer = useCallback(() => {
         if (quickEnvCloseTimerRef.current === null) return;
