@@ -31,7 +31,7 @@ import { useSettingsStore } from '../../../stores/settingsStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
 import { buildFilterOrderQuery } from '../../../lib/queryBuilder';
-import { Button, Indicator, Input } from '../../ui';
+import { Button, Input, Tabs, TabsList, TabsTrigger } from '../../ui';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { getErrorMessage } from '../../../lib/errors';
 import { useToast } from '../../layout/Toast';
@@ -85,8 +85,8 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
 
 const TABLE_INFO_AUTO_RETRY_DELAYS_MS = [250, 500, 900, 1300, 1700, 2200];
 const TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS = 10;
-const TABLE_TAB_ICON_SIZE = 15;
-const TABLE_TAB_BADGE_CLASSNAME = 'absolute -right-1 -top-1 z-[70] h-4 min-w-[16px] border border-warning/35 bg-warning/15 px-1 text-[9px] text-warning';
+const TABLE_TAB_ICON_SIZE = 13;
+const TABLE_TAB_BADGE_CLASSNAME = 'absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-600 px-0.5 text-[9px] font-semibold leading-none text-white';
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
@@ -737,45 +737,42 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 </div>
 
                 <div className="justify-self-center flex items-center min-w-0">
-                    {tabs.map(({ key, label, icon, dirtyCount, count }) => (
-                        <Button
-                            key={key}
-                            type="button"
-                            title={
-                                count !== undefined && count !== null
+                    <Tabs
+                        value={activeTab}
+                        onValueChange={(value) => {
+                            setActiveTab(value as TableInfoTab);
+                            setFilterCol('');
+                        }}
+                        className="min-w-0"
+                    >
+                        <TabsList className="h-9 w-full justify-start gap-0 p-0 bg-transparent">
+                            {tabs.map(({ key, label, icon, dirtyCount, count }) => {
+                                const dirtyBadgeCount = typeof dirtyCount === 'number' && dirtyCount > 0 ? dirtyCount : null;
+                                const badgeValue = count ?? dirtyBadgeCount;
+                                const title = count !== undefined && count !== null
                                     ? `${label} (${count})`
                                     : (dirtyCount ?? 0) > 0
                                         ? `${label} (${dirtyCount} unsaved)`
-                                        : label
-                            }
-                            onClick={() => {
-                                setActiveTab(key);
-                                setFilterCol('');
-                            }}
-                            className={cx(
-                                'relative flex shrink-0 items-center px-2.5 h-8 my-1 rounded-sm outline-none transition-colors',
-                                activeTab === key
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:text-foreground',
-                            )}
-                        >
-                            {icon}
-                            {count !== undefined && count !== null && (
-                                <Indicator
-                                    mode="count"
-                                    value={count}
-                                    className={TABLE_TAB_BADGE_CLASSNAME}
-                                />
-                            )}
-                            {(dirtyCount ?? 0) > 0 && (
-                                <Indicator
-                                    mode="count"
-                                    value={dirtyCount}
-                                    className={TABLE_TAB_BADGE_CLASSNAME}
-                                />
-                            )}
-                        </Button>
-                    ))}
+                                        : label;
+                                return (
+                                    <TabsTrigger
+                                        key={key}
+                                        value={key}
+                                        title={title}
+                                        aria-label={label}
+                                        className="relative h-8 my-1 rounded-sm cursor-pointer bg-transparent px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                    >
+                                        {icon}
+                                        {typeof badgeValue === 'number' && badgeValue > 0 && (
+                                            <span className={TABLE_TAB_BADGE_CLASSNAME}>
+                                                {badgeValue}
+                                            </span>
+                                        )}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    </Tabs>
                 </div>
 
                 <div className="min-w-0 justify-self-end flex items-center gap-1">
