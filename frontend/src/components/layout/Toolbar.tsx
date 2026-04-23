@@ -418,7 +418,7 @@ export const Toolbar: React.FC = () => {
                         <Button
                             type="button"
                             variant="ghost"
-                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 hover:bg-card/40 transition-colors text-label leading-none', !activeProject && 'opacity-60')}
+                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 hover:bg-card/40 transition-colors text-label', !activeProject && 'opacity-60')}
                             title="Open Project Hub"
                             onClick={() => {
                                 setQuickEnvOpen(false);
@@ -428,7 +428,7 @@ export const Toolbar: React.FC = () => {
                             <ActiveProjectIcon
                                 size={14}
                                 className={cn(
-                                    'shrink-0 translate-y-[0.5px]',
+                                    'shrink-0',
                                     connectionStatus === CONNECTION_STATUS.CONNECTED
                                         ? 'text-success'
                                         : connectionStatus === CONNECTION_STATUS.ERROR
@@ -436,7 +436,7 @@ export const Toolbar: React.FC = () => {
                                             : 'text-muted-foreground',
                                 )}
                             />
-                            <span className="truncate max-w-42.5 text-foreground font-semibold leading-none h-4">{activeProject?.name || 'No Project'}</span>
+                            <span className="inline-flex min-w-0 items-center truncate max-w-42.5 text-foreground font-semibold">{activeProject?.name || 'No Project'}</span>
                         </Button>
 
                         <div
@@ -450,12 +450,12 @@ export const Toolbar: React.FC = () => {
                             <span className="sr-only">Connection details</span>
                         </div>
 
-                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 text-label leading-none text-muted-foreground">
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] flex h-full w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 items-center text-label text-muted-foreground">
                             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-1.5">
-                                <span className="truncate text-end leading-none">{serverLabel}</span>
-                                <Server size={13} className="shrink-0 translate-y-[0.5px]" />
-                                <Database size={13} className="shrink-0 translate-y-[0.5px]" />
-                                <span className="truncate leading-none">{databaseLabel}</span>
+                                <span className="truncate text-end">{serverLabel}</span>
+                                <Server size={13} className="shrink-0" />
+                                <Database size={13} className="shrink-0" />
+                                <span className="truncate">{databaseLabel}</span>
                             </div>
                         </div>
 
@@ -498,7 +498,7 @@ export const Toolbar: React.FC = () => {
                                     align="end"
                                     side="bottom"
                                     sideOffset={8}
-                                    className="z-dropdown w-[420px] max-w-[calc(100vw-28px)] rounded-sm border border-border/40 bg-card p-2 shadow-xl"
+                                    className="z-dropdown w-120 max-w-[calc(100vw-28px)] rounded-sm border border-border/40 bg-card p-2 shadow-xl"
                                     onMouseEnter={clearQuickEnvCloseTimer}
                                     onMouseLeave={scheduleQuickEnvClose}
                                 >
@@ -523,24 +523,23 @@ export const Toolbar: React.FC = () => {
                                                         void handleQuickSwitchEnv(envKey);
                                                     }}
                                                 >
-                                                    <div className="w-full">
-                                                        <div className="flex min-w-0 items-center gap-2.5">
+                                                    <div className="grid min-w-0 w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5">
+                                                        <div className="justify-self-start">
                                                             <EnvironmentBadge label={envKey} toneClassName={meta.colorClass} />
-                                                            <span className="truncate font-semibold">{meta.label}</span>
-                                                            <span className="ml-auto shrink-0 text-label font-mono text-muted-foreground">
-                                                                {shortcut}
-                                                            </span>
                                                         </div>
-                                                        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 text-label text-muted-foreground">
-                                                            <span className="inline-flex min-w-0 w-full items-center gap-1">
+                                                        <div className="inline-flex min-w-0 max-w-75 items-center justify-center gap-3 justify-self-center text-muted-foreground">
+                                                            <span className="inline-flex w-6/12 items-center gap-1">
+                                                                <span className="truncate text-label" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
                                                                 <Server size={11} className="shrink-0" />
-                                                                <span className="truncate" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
                                                             </span>
-                                                            <span className="inline-flex min-w-0 w-full items-center gap-1">
+                                                            <span className="inline-flex w-6/12 items-center gap-1">
                                                                 <Database size={11} className="shrink-0" />
-                                                                <span className="truncate" title={details?.database || 'No DB'}>{details?.database || 'No DB'}</span>
+                                                                <span className="truncate text-label" title={details?.database || 'No DB'}>{details?.database || 'No DB'}</span>
                                                             </span>
                                                         </div>
+                                                        <span className="justify-self-end shrink-0 text-label text-muted-foreground">
+                                                            {shortcut}
+                                                        </span>
                                                     </div>
                                                 </Button>
                                             );
