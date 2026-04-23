@@ -4,56 +4,6 @@
    live here. All other styles must use Tailwind classes in TSX.
    ───────────────────────────────────────────────────────── */
 
-/* ── Resizer (drag handles) ────────────────────────────── */
-.resizer {
-    width: 4px;
-    /* background-color: transparent; */
-    cursor: col-resize;
-    /* transition: background-color 0.2s; */
-    flex-shrink: 0;
-}
-
-.resizer:hover,
-.resizer.active {
-    background-color: var(--primary);
-}
-
-/* ── Virtual scroll container ──────────────────────────── */
-.result-virtual-scroll {
-    flex: 1;
-    overflow: auto;
-    contain: strict;
-}
-
-/* ── Table cell input (inline editing) ─────────────────── */
-.rt-cell-input {
-    width: 100%;
-    height: 100%;
-    background: var(--background);
-    color: var(--foreground);
-    border: 1px solid var(--ring) !important;
-    outline: none !important;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ring) 28%, transparent) !important;
-    /* ring: none !important; */
-    font-family: inherit;
-    font-size: 11px;
-    line-height: 1;
-    padding: 0 6px;
-    box-sizing: border-box;
-    border-radius: 0;
-}
-
-.rt-cell-input:focus {
-    border-color: var(--primary) !important;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 40%, transparent) !important;
-}
-
-/* datetime-local: reset browser default border */
-.rt-cell-input[type="datetime-local"] {
-    -webkit-appearance: none;
-    appearance: none;
-    padding: 0 5px;
-}
 
 /* ── Gentle row fade-in when new data loads ─────────────── */
 @keyframes rtRowsFadeIn {
@@ -174,7 +124,7 @@
 
 .rt-cell-content--compact {
     padding: 0 6px;
-    font-size: 11px;
+    font-size: var(--font-size-label);
     line-height: 1;
 }
 
@@ -754,3 +704,4 @@
     max-height: 80vh;
     object-fit: contain;
 }
+

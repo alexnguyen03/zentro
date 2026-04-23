@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Copy, FileJson, CheckSquare, Braces, RefreshCcw } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useRowDetailStore } from '../../stores/rowDetailStore';
@@ -270,17 +270,32 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
 }) => {
     const [editVal, setEditVal] = useState(val);
     const [isDirty, setIsDirty] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const checkboxId = `row-cb-${colIdx}`;
 
-    React.useEffect(() => {
+    useEffect(() => {
         setEditVal(val);
         setIsDirty(false);
+        setIsEditing(false);
     }, [val, col]);
 
+    useEffect(() => {
+        if (!isEditing) return;
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.select();
+    }, [isEditing]);
+
     const commit = useCallback(() => {
-        if (!isDirty || !onSave || isPK) return;
+        if (!isDirty || !onSave || isPK) {
+            setIsEditing(false);
+            return;
+        }
         onSave(colIdx, editVal);
         setIsDirty(false);
+        setIsEditing(false);
     }, [colIdx, editVal, isDirty, isPK, onSave]);
 
     const handleChange = (newVal: string) => {
@@ -295,7 +310,13 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
         } else if (e.key === 'Escape') {
             setEditVal(val);
             setIsDirty(false);
+            setIsEditing(false);
         }
+    };
+
+    const openEditor = () => {
+        if (!onSave || isPK || isJsonField || isSelectMode) return;
+        setIsEditing(true);
     };
 
     return (
@@ -344,10 +365,10 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     <Copy size={11} />
                 </Button>
             </div>
-            {isPK || isJsonField ? (
+            {isJsonField ? (
                 <div
                     className={cn(
-                        'min-h-[28px] overflow-auto rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-small text-foreground opacity-85',
+                        'min-h-[28px] overflow-auto rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-label text-foreground opacity-85',
                         'whitespace-pre-wrap break-all select-text',
                         isNull && 'bg-muted italic text-muted-foreground',
                         isJsonField && 'max-h-[200px]',
@@ -358,12 +379,34 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                         <JsonViewer value={val} showCopy={false} height="180px" useMonaco={true} />
                     ) : val}
                 </div>
+            ) : !isEditing ? (
+                <div className="h-7 rounded-sm border border-border">
+                    <div
+                        className={cn(
+                            'rt-cell-content rt-cell-content--compact h-full rounded-sm bg-background font-mono text-label text-foreground',
+                            'whitespace-pre-wrap break-all',
+                            isNull && 'bg-muted italic text-muted-foreground',
+                            isDirty && 'rt-cell-dirty',
+                            (!onSave || isPK) && 'cursor-default opacity-70',
+                            onSave && !isPK && !isSelectMode && 'cursor-text',
+                            isSelectMode && 'cursor-pointer',
+                        )}
+                        title={
+                            isSelectMode ? 'Click to select field'
+                                : isPK ? 'Primary key (read-only)'
+                                    : onSave ? 'Click to edit | Enter to save | Esc to cancel'
+                                    : 'Read-only (no primary key)'
+                        }
+                        onClick={isSelectMode ? onToggleSelect : openEditor}
+                    >
+                        {isNull ? 'null' : val}
+                    </div>
+                </div>
             ) : (
                 <Textarea
+                    ref={textareaRef}
                     className={cn(
-                        'min-h-[28px] w-full resize-y rounded-sm border border-border bg-background px-2 py-1.5 font-mono text-small text-foreground',
-                        'whitespace-pre-wrap break-all leading-normal shadow-none',
-                        'focus-visible:border-primary focus-visible:ring-primary/30 focus-visible:ring-offset-0',
+                        'rt-cell-input rt-cell-content--compact h-7! min-h-7! pt-2! ring-0! w-full resize-y whitespace-pre-wrap break-all font-mono shadow-none leading-[1.3] focus-visible:ring-0! focus-visible:ring-offset-0! focus-visible:outline-none!',
                         isNull && 'bg-muted italic text-muted-foreground',
                         isDirty && 'border-warning',
                         !onSave && 'cursor-default resize-none opacity-70',
@@ -375,15 +418,9 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
                     onKeyDown={handleKeyDown}
                     rows={Math.max(1, Math.min(6, (editVal || '').split('\n').length))}
                     disabled={!onSave || isSelectMode}
-                    title={
-                        isSelectMode ? 'Click to select field'
-                            : onSave ? 'Click to edit | Enter to save | Esc to cancel'
-                                : 'Read-only (no primary key)'
-                    }
-                    onClick={isSelectMode ? (e) => { e.preventDefault(); onToggleSelect(); } : undefined}
+                    title="Enter to save | Esc to cancel"
                 />
             )}
         </div>
     );
 };
-
