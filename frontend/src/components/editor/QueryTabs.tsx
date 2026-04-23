@@ -501,7 +501,7 @@ export const QueryTabs: React.FC = () => {
             {/* Drag Overlay for smooth visual feedback while dragging outside the flow */}
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
                 {activeDragTab ? (
-                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-background text-foreground border-t-2 border-t-success border-b border-b-bg-primary text-small cursor-grabbing opacity-90 w-[120px]">
+                    <div className="flex h-8 w-30 cursor-grabbing items-center gap-1.5 bg-background px-[10px] pl-[14px] text-small text-foreground opacity-90">
                         <span className="overflow-hidden text-ellipsis whitespace-nowrap">{activeDragTab.name}</span>
                     </div>
                 ) : null}

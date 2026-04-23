@@ -62,7 +62,7 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.4 : 1,
+        opacity: 1,
         zIndex: isDragging ? 'var(--layer-drag)' : undefined,
     };
 
@@ -73,8 +73,8 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             {...attributes}
             {...listeners}
             className={cn(
-                'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-small text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground',
-                isActive && 'bg-background -mb-px text-primary'
+                'group flex items-center h-full gap-1.5 px-2 cursor-pointer text-small! text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent transition-colors mb-0 shrink-0 hover:text-foreground',
+                (isActive || isDragging) && 'bg-background -mb-px text-foreground',
             )}
             onClick={onActivate}
             onDoubleClick={onDoubleClick}
@@ -92,8 +92,8 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
                     onPointerDown={(e) => e.stopPropagation()}
                 />
             ) : (
-                <span className="overflow-hidden text-ellipsis" title={tab.name}>
-                    {tab.type === 'table' && <Table2 size={12} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} />}
+                <span className="flex items-center gap-1 overflow-hidden text-ellipsis" title={tab.name}>
+                    {tab.type === 'table' && <Table2 size={12} />}
                     {tab.name}
                 </span>
             )}

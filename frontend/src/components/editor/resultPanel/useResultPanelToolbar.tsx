@@ -1,11 +1,11 @@
 import React from 'react';
 import { Columns, Copy, Loader, Maximize2, Minimize2, Plus, RotateCcw, Save, Sparkles, Trash2, Upload } from 'lucide-react';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui';
+import { Button } from '../../ui';
 import { cn } from '../../../lib/cn';
-import { LIMIT_OPTIONS } from '../resultPanelUtils';
 import { listResultActionContributions } from '../../../features/query/contributionRegistry';
 import { makeDataColumnId } from '../resultTable/cellUtils';
 import type { ResultPanelToolbarDeps, ResultPanelAction } from './types';
+import { ResultLimitSelect } from './ResultLimitSelect';
 
 const RESULT_TOOLBAR_ICON_SIZE = 12;
 
@@ -133,21 +133,11 @@ export function useResultPanelToolbar({
             id: 'row-limit',
             signature: `limit:${defaultLimit}`,
             render: () => (
-                <Select value={String(defaultLimit)} onValueChange={(value) => { void handleLimitChange(value); }}>
-                    <SelectTrigger
-                        className="w-15 border-border/40 bg-transparent px-2 text-muted-foreground hover:bg-muted/70"
-                        title="Row limit for next query"
-                    >
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {LIMIT_OPTIONS.map((value) => (
-                            <SelectItem key={value} value={String(value)}>
-                                {value.toLocaleString()}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <ResultLimitSelect
+                    value={defaultLimit}
+                    onChange={(value) => { void handleLimitChange(value); }}
+                    variant="toolbar"
+                />
             ),
         });
 

@@ -1,8 +1,7 @@
 ﻿import React from 'react';
 import { Download, Loader } from 'lucide-react';
 import { Button } from '../../ui';
-
-const LIMIT_OPTIONS = [100, 500, 1000, 5000, 10000, 50000];
+import { ResultLimitSelect } from './ResultLimitSelect';
 
 interface ResultPanelStatusBarProps {
     rowCount: number;
@@ -13,7 +12,7 @@ interface ResultPanelStatusBarProps {
     isCounting: boolean;
     hasChanges: boolean;
     pendingChangeCount: number;
-    onLimitChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+    onLimitChange: (value: string) => void;
     onExport: () => void;
 }
 
@@ -32,22 +31,15 @@ export const ResultPanelStatusBar: React.FC<ResultPanelStatusBarProps> = ({
     return (
         <div className="flex items-center justify-between relative px-3 py-1 text-label text-text-secondary border-t border-border shrink-0">
             <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1">
+                {/* <span className="flex items-center gap-1">
                     Showing <strong>{rowCount.toLocaleString()}</strong> of&nbsp;
-                    <select
-                        className="bg-transparent border border-transparent text-text-secondary text-label px-0.5 py-px rounded-sm cursor-pointer outline-none transition-colors duration-100 hover:border-border hover:bg-bg-tertiary focus:border-success appearance-auto"
+                    <ResultLimitSelect
                         value={defaultLimit}
                         onChange={onLimitChange}
-                        title="Row limit for next query"
-                    >
-                        {LIMIT_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                                {option.toLocaleString()}
-                            </option>
-                        ))}
-                    </select>
+                        variant="statusbar"
+                    />
                     &nbsp;rows&nbsp;·&nbsp;{durationText}
-                </span>
+                </span> */}
 
                 {displayTotalCount !== undefined ? (
                     <span className="flex items-center gap-1">
