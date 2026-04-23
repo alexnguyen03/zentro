@@ -210,8 +210,8 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group h-6 flex bg-card items-center gap-1 rounded-sm px-1.5 text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                    expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none px-2',
+                    'group h-7 bg-transparent flex items-center gap-1 rounded-sm px-1.5 text-body! text-foreground transition-colors duration-100',
+                    expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none border-b border-border/40 bg-card px-2',
                 )}
                 onClick={(event) => {
                     event.stopPropagation();
@@ -230,7 +230,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             event.stopPropagation();
                             if (!readOnlyMode) onCreateTable(bucket.schemaName);
                         }}
-                        className="h-6 w-6 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-muted text-label! shrink-0 transition-opacity"
+                        className="h-7 w-7 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-muted text-label! shrink-0 transition-opacity"
                         title="New Table"
                         disabled={readOnlyMode}
                     >
@@ -248,7 +248,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         <div
                             key={`${item.id}:${index}`}
                             className={cn(
-                                'flex items-center gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'flex items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 py-0.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
                                 category.canOpenDefinition && 'cursor-pointer',
                             )}
@@ -640,7 +640,7 @@ export const ConnectionTree: React.FC = () => {
             </div>
             <div className="px-2 pb-1 shrink-0">
                 <div className="flex items-center gap-1.5 justify-between">
-                    <span className="text-label text-muted-foreground">Schema</span>
+                    <span className="text-body text-muted-foreground">Schema</span>
                     <div className="min-w-0">
                         <Select
                             value={selectedSchema}
@@ -689,7 +689,7 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'mb-0.5 h-6 w-full justify-start gap-1.5 rounded-sm text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}

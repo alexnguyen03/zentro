@@ -440,13 +440,14 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             onValueChange={setQuery}
                             placeholder="Search tables, views, functions..."
                             hideIcon
-                            className="pr-56"
+                            className="pr-56 h-10"
                             onKeyDown={handleEnterBrowseFirst}
                         />
                         <div className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center gap-1">
                             <Button
                                 type="button"
                                 variant="secondary"
+                                size='sm'
                                 title={showAllKinds ? 'Show fewer object types' : 'Show more object types'}
                                 onClick={() =>
                                     setShowAllKinds((prev) => {
@@ -475,16 +476,16 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                         </div>
                     </div>
 
-                    <div className="px-3 py-2 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
+                    <div className="px-3 py-1 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
                         {(showAllKinds ? (Object.keys(KIND_LABEL) as ObjectKind[]) : PRIMARY_VISIBLE_KINDS).map((kind) => {
                             const active = enabledKinds.has(kind);
                             return (
                                 <Button
                                     key={kind}
                                     type="button"
+                                    size='sm'
                                     variant={active ? 'secondary' : 'ghost'}
                                     className={cn(
-                                        'h-7 gap-1.5 px-2 text-label border whitespace-nowrap',
                                         active ? 'border-primary/40 bg-primary/15 text-foreground' : 'text-muted-foreground',
                                     )}
                                     onClick={() => toggleKind(kind)}
@@ -496,7 +497,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                         })}
                     </div>
 
-                    <CommandList className="max-h-[430px] py-1">
+                    <CommandList className="max-h-107.5 py-1">
                         <CommandEmpty>{emptyMessage}</CommandEmpty>
                         {filtered.map((item) => (
                             <CommandItem
@@ -508,11 +509,11 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                     event.stopPropagation();
                                     setContextMenu({ x: event.clientX, y: event.clientY, item });
                                 }}
-                                className="group flex items-center justify-between px-4 py-2 text-small data-[selected=true]:bg-primary/10"
+                                className="group cursor-pointer flex items-center justify-between px-4 py-1 text-small data-[selected=true]:bg-primary/10"
                             >
                                 <span className="flex min-w-0 items-center gap-2">
                                     <span className="shrink-0 group-data-[selected=true]:text-primary">{KIND_ICON[item.kind]}</span>
-                                    <span className="truncate font-medium">{item.name}</span>
+                                    <span className="truncate">{item.name}</span>
                                 </span>
                                 <span className="ml-4 flex shrink-0 items-center gap-2">
                                     <span className="text-label uppercase tracking-wide text-muted-foreground">

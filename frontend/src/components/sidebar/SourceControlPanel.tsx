@@ -54,7 +54,7 @@ const STATUS_ICON: Record<string, { label: string; className: string }> = {
 
 function FileStatusBadge({ status }: { status: string }) {
     const meta = STATUS_ICON[status] ?? { label: '?', className: 'text-muted-foreground' };
-    return <span className={cn('shrink-0 font-mono text-label font-bold', meta.className)}>{meta.label}</span>;
+    return <span className={cn('shrink-0 text-label font-bold', meta.className)}>{meta.label}</span>;
 }
 
 type Tab = 'changes' | 'history';
@@ -448,7 +448,7 @@ export const SourceControlPanel: React.FC = () => {
                             <div
                                 key={f.path}
                                 className={cn(
-                                    'group flex w-full items-center gap-1.5 px-3 py-1 transition-colors hover:bg-muted',
+                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                     selectedFileKey === `wip:staged:${f.path}` && 'bg-accent/15',
                                 )}
                                 role="button"
@@ -468,7 +468,7 @@ export const SourceControlPanel: React.FC = () => {
                                 }}
                             >
                                 <FileStatusBadge status={f.status} />
-                                <span className="flex-1 truncate text-label font-mono text-foreground" title={f.path}>
+                                <span className="flex-1 truncate text-label text-foreground" title={f.path}>
                                     {getDisplayFileName(f.path)}
                                 </span>
                                 <Button
@@ -476,7 +476,7 @@ export const SourceControlPanel: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     title={`Unstage ${f.path}`}
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    className="h-7 w-7 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:bg-muted hover:text-foreground"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         void handleUnstage(f.path);
@@ -500,7 +500,7 @@ export const SourceControlPanel: React.FC = () => {
                             <div
                                 key={f.path}
                                 className={cn(
-                                    'group flex w-full items-center gap-1.5 px-3 py-1 transition-colors hover:bg-muted',
+                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                     selectedFileKey === `wip:unstaged:${f.path}` && 'bg-accent/15',
                                 )}
                                 role="button"
@@ -520,7 +520,7 @@ export const SourceControlPanel: React.FC = () => {
                                 }}
                             >
                                 <FileStatusBadge status={f.status} />
-                                <span className="flex-1 truncate text-label font-mono text-muted-foreground" title={f.path}>
+                                <span className="flex-1 truncate text-label text-foreground" title={f.path}>
                                     {getDisplayFileName(f.path)}
                                 </span>
                                 <Button
@@ -528,7 +528,7 @@ export const SourceControlPanel: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     title={`Stage ${f.path}`}
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    className="h-7 w-7 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:bg-muted hover:text-foreground"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         void handleStage(f.path);
@@ -556,24 +556,27 @@ export const SourceControlPanel: React.FC = () => {
                             const cachedFiles = fileDiffsCache[commit.hash];
                             const isLoadingFiles = fileDiffsLoading === commit.hash;
                             return (
-                                <div key={commit.hash} className="border-b border-white/5">
+                                <div key={commit.hash}>
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        className={cn('w-full text-left px-2.5 py-1.5 flex items-center gap-1 hover:bg-muted transition-colors', isExpanded && 'bg-muted')}
+                                        className={cn(
+                                            'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent px-1.5 text-left text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                            isExpanded && 'bg-muted/90',
+                                        )}
                                         onClick={() => void handleToggleCommit(commit.hash)}
                                         title={`${commit.author} - ${formatDateTime(commit.when)}`}
                                     >
                                         {isExpanded
                                             ? <ChevronDown size={10} className="text-accent shrink-0" />
                                             : <ChevronRight size={10} className="text-muted-foreground shrink-0" />}
-                                        <span className="flex-1 text-label text-foreground truncate">{commit.message}</span>
-                                        <span className="text-label text-muted-foreground font-mono shrink-0">{commit.hash.slice(0, 7)}</span>
+                                        <span className="min-w-0 flex-1 truncate text-left leading-5">{commit.message}</span>
+                                        <span className="text-label text-muted-foreground shrink-0">{commit.hash.slice(0, 7)}</span>
                                     </Button>
                                     {isExpanded && (
-                                        <div className="bg-background border-t border-border/30">
+                                        <div className="relative pl-3">
                                             {isLoadingFiles ? (
-                                                <div className="px-5 py-1.5 text-label text-muted-foreground">Loading...</div>
+                                                <div className="px-1.5 py-1 text-label text-muted-foreground">Loading...</div>
                                             ) : cachedFiles && cachedFiles.length > 0 ? (
                                                 cachedFiles.map((f) => {
                                                     const fileKey = `sc:${commit.hash}:${f.path}`;
@@ -584,10 +587,10 @@ export const SourceControlPanel: React.FC = () => {
                                                             type="button"
                                                             variant="ghost"
                                                             className={cn(
-                                                                'w-full text-left px-5 py-1 text-label font-mono transition-colors flex items-center gap-1.5 truncate',
+                                                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent pl-3 pr-1.5 text-left text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                                                 isSelected
                                                                     ? 'bg-accent/15 text-foreground'
-                                                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                                                                    : 'text-foreground',
                                                             )}
                                                             title={f.path}
                                                             onClick={() => handleOpenDiff(commit.hash, f)}
@@ -596,12 +599,12 @@ export const SourceControlPanel: React.FC = () => {
                                                             {!f.before && <span className="text-success shrink-0">A</span>}
                                                             {!f.after && <span className="text-error shrink-0">D</span>}
                                                             {f.before && f.after && <span className="text-warning shrink-0">M</span>}
-                                                            <span className="truncate">{getDisplayFileName(f.path)}</span>
+                                                            <span className="min-w-0 flex-1 truncate text-left leading-5">{getDisplayFileName(f.path)}</span>
                                                         </Button>
                                                     );
                                                 })
                                             ) : (
-                                                <div className="px-5 py-1.5 text-label text-muted-foreground">No file changes.</div>
+                                                <div className="px-1.5 py-1 text-label text-muted-foreground">No file changes.</div>
                                             )}
                                         </div>
                                     )}
