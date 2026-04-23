@@ -69,7 +69,7 @@ func getMSSQLCheckConstraints(ctx context.Context, db *sql.DB, schema, tableName
 		FROM sys.check_constraints cc
 		JOIN sys.tables t ON t.object_id = cc.parent_object_id
 		JOIN sys.schemas s ON s.schema_id = t.schema_id
-		WHERE s.name = ? AND t.name = ?
+		WHERE s.name = @p1 AND t.name = @p2
 		ORDER BY cc.name
 	`, schema, tableName)
 	if err != nil {

@@ -93,7 +93,7 @@ func getMSSQLForeignKeys(ctx context.Context, db *sql.DB, schema, tableName stri
 		JOIN sys.tables rt ON rt.object_id = fk.referenced_object_id
 		JOIN sys.schemas rs ON rs.schema_id = rt.schema_id
 		JOIN sys.columns rc ON rc.object_id = rt.object_id AND rc.column_id = fkc.referenced_column_id
-		WHERE ps.name = ? AND pt.name = ?
+		WHERE ps.name = @p1 AND pt.name = @p2
 		ORDER BY fk.name, fkc.constraint_column_id
 	`, schema, tableName)
 	if err != nil {

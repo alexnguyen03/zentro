@@ -856,19 +856,20 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={handleErdCountChange} />
                 )}
 
-                {/* Always rendered to preserve batch-edit state across tab switches */}
-                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'keys' ? 'flex' : 'hidden'}`}>
-                    <KeysView
-                        schema={schema}
-                        tableName={table}
-                        refreshKey={infoRefreshKey}
-                        readOnlyMode={viewMode}
-                        isActive={activeTab === 'keys'}
-                        tableColumns={rows.map((r) => r.current.Name)}
-                        onDirtyCountChange={setKeysDirtyCount}
-                        driver={activeProfile?.driver}
-                    />
-                </div>
+                {activeTab === 'keys' && (
+                    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+                        <KeysView
+                            schema={schema}
+                            tableName={table}
+                            refreshKey={infoRefreshKey}
+                            readOnlyMode={viewMode}
+                            isActive
+                            tableColumns={rows.map((r) => r.current.Name)}
+                            onDirtyCountChange={setKeysDirtyCount}
+                            driver={activeProfile?.driver}
+                        />
+                    </div>
+                )}
 
                 {activeTab === 'ddl' && (
                     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
