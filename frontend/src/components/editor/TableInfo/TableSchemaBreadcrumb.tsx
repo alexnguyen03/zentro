@@ -63,14 +63,14 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
         <Breadcrumb>
             <BreadcrumbList className="flex-nowrap h-8">
                 <BreadcrumbItem>
-                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-label font-medium text-foreground">
+                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-label text-foreground">
                         <Database size={12} className="shrink-0 text-muted-foreground" />
                         {dbName || 'N/A'}
                     </BreadcrumbPage>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-label font-medium text-foreground">
+                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-label text-foreground">
                         <Layers size={12} className="shrink-0 text-muted-foreground" />
                         {schema || 'N/A'}
                     </BreadcrumbPage>
@@ -91,7 +91,7 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
                                     }
                                 }}
                                 placeholder="new_table"
-                                className="h-6 w-[220px] border-border/60 bg-background px-2 py-0 text-small font-semibold"
+                                className="h-6 w-[220px] border-border/60 bg-background px-2 py-0 text-small"
                             />
                         </div>
                     ) : (
@@ -103,7 +103,7 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
                                         variant="ghost"
                                         size="sm"
                                         className={cn(
-                                            'h-8 max-w-65 items-center gap-1 rounded-sm px-1.5 text-label font-semibold text-foreground',
+                                            'h-8 max-w-65 items-center gap-1 rounded-sm px-1.5 text-label text-foreground',
                                             !hasTableOptions && 'opacity-80',
                                         )}
                                         disabled={!hasTableOptions}
@@ -126,7 +126,7 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
                                         }}
                                         className={cn(
                                             'truncate gap-2',
-                                            isCurrentTable(tableName) ? 'text-primary font-semibold' : '',
+                                            isCurrentTable(tableName) ? 'text-primary' : '',
                                         )}
                                     >
                                         <Table2 size={12} className="shrink-0 opacity-80" />

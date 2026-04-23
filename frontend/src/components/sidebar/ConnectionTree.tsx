@@ -210,7 +210,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group h-6 flex bg-card items-center gap-1 px-1.5 text-small rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80',
+                    'group h-6 flex bg-card items-center gap-1 rounded-sm px-1.5 text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
                     expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none px-2',
                 )}
                 onClick={(event) => {
@@ -220,7 +220,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
             >
                 {expanded ? <ChevronDown size={13} className="shrink-0" /> : <ChevronRight size={13} className="shrink-0" />}
                 {renderIcon('schema')}
-                <span className="truncate bg-card/10 flex-1 cursor-pointer">{bucket.schemaName}</span>
+                <span className="flex-1 cursor-pointer truncate leading-5">{bucket.schemaName}</span>
                 {category.allowCreateTable && (
                     <Button
                         type="button"
@@ -230,14 +230,14 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             event.stopPropagation();
                             if (!readOnlyMode) onCreateTable(bucket.schemaName);
                         }}
-                        className="h-6 w-6 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-muted shrink-0 transition-opacity"
+                        className="h-6 w-6 p-0.5 cursor-pointer opacity-0 group-hover:opacity-100 hover:bg-muted text-label! shrink-0 transition-opacity"
                         title="New Table"
                         disabled={readOnlyMode}
                     >
                         <Plus size={12} />
                     </Button>
                 )}
-                <span className="text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                <span className="min-w-[18px] shrink-0 rounded-full bg-muted px-1.5 text-center tabular-nums text-muted-foreground">
                     {bucket.totalCount}
                 </span>
             </div>
@@ -248,7 +248,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         <div
                             key={`${item.id}:${index}`}
                             className={cn(
-                                'flex items-center gap-1.5 px-1.5 py-0.5 text-small text-foreground rounded-sm transition-colors duration-100 hover:bg-muted/80 overflow-hidden',
+                                'flex items-center gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
                                 category.canOpenDefinition && 'cursor-pointer',
                             )}
@@ -262,7 +262,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         >
                             <span className="w-[13px] shrink-0 inline-block" />
                             {renderIcon(category.itemIcon, 12)}
-                            <span className="truncate flex-1">{item.name}</span>
+                            <span className="flex-1 truncate leading-5">{item.name}</span>
                             {canOpenContextMenu && (
                                 <DropdownMenu
                                     open={contextMenuItemId === item.id}
@@ -614,7 +614,7 @@ export const ConnectionTree: React.FC = () => {
                         type="text"
                         size="sm"
                         variant="ghost"
-                        className="w-full pr-8"
+                        className="w-full pr-8 text-small"
                         placeholder="Filter objects..."
                         value={filter}
                         onChange={(event) => updateExplorerUiState({ filter: event.target.value })}
@@ -640,7 +640,7 @@ export const ConnectionTree: React.FC = () => {
             </div>
             <div className="px-2 pb-1 shrink-0">
                 <div className="flex items-center gap-1.5 justify-between">
-                    <span className='text-small'>Schema</span>
+                    <span className="text-label text-muted-foreground">Schema</span>
                     <div className="min-w-0">
                         <Select
                             value={selectedSchema}
@@ -649,7 +649,7 @@ export const ConnectionTree: React.FC = () => {
                             <SelectTrigger
                                 aria-label="Select schema"
                                 title={selectedSchema === ALL_SCHEMAS_VALUE ? 'All schemas' : selectedSchema}
-                                className="outline-none flex w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-accent shadow-none hover:bg-muted/70 focus:ring-0"
+                                className="outline-none flex h-7 w-full min-w-0 rounded-sm border-0 bg-transparent px-2 text-center text-body! text-foreground shadow-none hover:bg-muted/70 focus:ring-0"
                             >
                                 <SelectValue />
                             </SelectTrigger>
@@ -668,7 +668,7 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             size="icon"
                             className={cn(
-                                'h-7 w-7 p-0 text-muted-foreground hover:text-foreground',
+                                'p-0 text-muted-foreground hover:text-foreground',
                                 showMoreCategories && 'text-accent bg-muted/50',
                             )}
                             onClick={() => updateExplorerUiState({ showMoreCategories: !showMoreCategories })}
@@ -689,14 +689,14 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'h-6 w-full justify-start gap-1.5 rounded-sm text-small mb-0.5 text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                'mb-0.5 h-6 w-full justify-start gap-1.5 rounded-sm text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
                                 activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
                         >
                             {renderIcon(category.icon, 12)}
-                            <span className="text-small truncate">{category.label}</span>
-                            <span className="ml-auto text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-4.5 text-center shrink-0">
+                            <span className="truncate leading-5">{category.label}</span>
+                            <span className="ml-auto min-w-4.5 shrink-0 rounded-full bg-muted px-1.5 text-center text-body! tabular-nums text-muted-foreground">
                                 {category.totalCount}
                             </span>
                         </Button>
@@ -705,11 +705,11 @@ export const ConnectionTree: React.FC = () => {
 
                 <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                     {!activeCategory ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm')}>
+                        <div className={cn('flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-body! text-muted-foreground')}>
                             {emptyMessage}
                         </div>
                     ) : activeCategory.schemas.length === 0 ? (
-                        <div className={cn('flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm')}>
+                        <div className={cn('flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-body! text-muted-foreground')}>
                             {emptyMessage}
                         </div>
                     ) : (
