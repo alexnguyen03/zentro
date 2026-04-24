@@ -1,6 +1,21 @@
-/* Design Tokens v1: primitives -> semantic -> legacy aliases */
+/* Design Tokens v2: user-overridable → primitives → semantic → shadcn aliases */
+
+/* ─────────────────────────────────────────────
+   USER-OVERRIDABLE ENTRY POINTS
+   These are the only tokens users/settings should write to.
+   All semantic tokens derive from these.
+   ───────────────────────────────────────────── */
 :root {
-    /* Primitive palette */
+    --user-accent: #4b89f5;
+    --user-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --user-font-mono: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    --user-font-size-base: 14px;
+}
+
+/* ─────────────────────────────────────────────
+   PRIMITIVE PALETTE (raw values — do not use directly in components)
+   ───────────────────────────────────────────── */
+:root {
     --primitive-neutral-1000: #17191d;
     --primitive-neutral-950: #20242a;
     --primitive-neutral-900: #2a2f37;
@@ -11,47 +26,62 @@
     --primitive-neutral-100: #f2f5fa;
     --primitive-neutral-0: #ffffff;
 
-    --primitive-brand-600: #3b74d8;
-    --primitive-brand-500: #4b89f5;
     --primitive-success-500: #4bb889;
     --primitive-error-500: #df6b6b;
     --primitive-warning-500: #f3ae48;
+}
 
-    /* Semantic colors */
+/* ─────────────────────────────────────────────
+   SEMANTIC TOKENS — DARK (default / :root)
+   ───────────────────────────────────────────── */
+:root {
+    /* Surfaces */
     --surface-app: #1e2229;
     --surface-panel: #272c35;
     --surface-elevated: #313843;
     --surface-overlay-card: #2b313b;
 
+    /* Content */
     --content-primary: #d6dde8;
     --content-secondary: #98a4b7;
     --content-muted: #8591a5;
     --content-inverse: var(--primitive-neutral-0);
 
+    /* Borders */
     --border-default: #424b59;
     --border-subtle: color-mix(in srgb, #424b59 58%, transparent);
 
-    --interactive-primary: var(--primitive-brand-500);
-    --interactive-primary-hover: var(--primitive-brand-600);
-    --focus-ring: color-mix(in srgb, var(--primitive-brand-500) 48%, transparent);
+    /* Interactive — derives from user accent */
+    --interactive-primary: var(--user-accent);
+    --interactive-primary-hover: color-mix(in srgb, var(--user-accent) 85%, #000);
+    --focus-ring: color-mix(in srgb, var(--user-accent) 48%, transparent);
+    --focus-border-opacity: 0.65;
 
+    /* Status */
     --status-success: var(--primitive-success-500);
     --status-error: var(--primitive-error-500);
     --status-warning: var(--primitive-warning-500);
 
+    /* Overlays */
     --overlay-backdrop: rgb(8 10 14 / 56%);
     --overlay-backdrop-strong: rgb(8 10 14 / 68%);
 
-    /* Typography */
-    --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-family-mono: "Cascadia Code", "Fira Code", monospace;
-    --font-size-h1: 24px;
-    --font-size-h2: 18px;
-    --font-size-h3: 15px;
-    --font-size-body: 14px;
-    --font-size-small: 12px;
-    --font-size-label: 11px;
-    --font-size-code: 12px;
+    /* Special */
+    --color-fk: var(--interactive-primary);
+
+    /* ── Typography ── */
+    --font-family-sans: var(--user-font-sans);
+    --font-family-mono: var(--user-font-mono);
+
+    /* Scale relative to user base — at 14px: h1≈24px, h2≈18px, h3≈15px, small≈12px, label≈11px */
+    --font-size-h1: calc(var(--user-font-size-base) * 1.714);
+    --font-size-h2: calc(var(--user-font-size-base) * 1.286);
+    --font-size-h3: calc(var(--user-font-size-base) * 1.071);
+    --font-size-body: var(--user-font-size-base);
+    --font-size-small: calc(var(--user-font-size-base) * 0.857);
+    --font-size-label: calc(var(--user-font-size-base) * 0.786);
+    --font-size-code: calc(var(--user-font-size-base) * 0.857);
+
     --line-height-h1: 1.3;
     --line-height-h2: 1.35;
     --line-height-h3: 1.35;
@@ -59,6 +89,7 @@
     --line-height-small: 1.4;
     --line-height-label: 1.3;
     --line-height-code: 1.4;
+
     --font-weight-h1: 500;
     --font-weight-h2: 500;
     --font-weight-h3: 500;
@@ -78,7 +109,7 @@
     --font-weight-section: var(--font-weight-h3);
     --font-weight-caption: var(--font-weight-small);
 
-    /* Compact spacing scale (4px baseline) */
+    /* ── Spacing — compact baseline (4px) ── */
     --space-0: 0;
     --space-1: 4px;
     --space-2: 8px;
@@ -89,7 +120,7 @@
     --space-8: 32px;
     --space-10: 40px;
 
-    /* Layout primitives */
+    /* ── Layout ── */
     --layout-shell-gap: var(--space-2);
     --layout-panel-padding: var(--space-3);
     --layout-panel-gap: var(--space-2);
@@ -98,24 +129,37 @@
     --layout-form-row-gap: var(--space-2);
     --layout-content-max-width: 1280px;
 
-    /* Radius scale */
+    /* ── Control sizes — density-aware (compact default) ── */
+    --control-height-sm: 28px;
+    --control-height-md: 36px;
+    --control-height-lg: 40px;
+    --control-px-sm: 8px;
+    --control-px-md: 12px;
+
+    /* ── Icon sizes ── */
+    --icon-size-xs: 14px;
+    --icon-size-sm: 16px;
+    --icon-size-md: 20px;
+    --icon-size-lg: 24px;
+
+    /* ── Radius ── */
     --radius-scale-sm: 3px;
     --radius-scale-md: 6px;
     --radius-scale-lg: 10px;
     --radius-scale-xl: 16px;
 
-    /* Elevation */
+    /* ── Elevation ── */
     --elevation-sm: 0 1px 3px rgb(0 0 0 / 28%), 0 8px 18px rgb(0 0 0 / 16%);
     --elevation-md: 0 2px 8px rgb(0 0 0 / 28%), 0 16px 30px rgb(0 0 0 / 24%);
     --elevation-lg: 0 4px 16px rgb(0 0 0 / 34%), 0 24px 52px rgb(0 0 0 / 26%);
 
-    /* Motion */
+    /* ── Motion ── */
     --motion-fast: 120ms;
     --motion-base: 180ms;
     --motion-slow: 260ms;
     --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
-    /* Layering */
+    /* ── Z-index layers ── */
     --layer-table-sticky: 1;
     --layer-sticky: 10;
     --layer-panel-overlay: 50;
@@ -131,7 +175,72 @@
     --layer-tooltip: 5000;
     --layer-topmost: 9999;
 
-    /* Legacy aliases for gradual migration */
+    /* ── Interactive State Tokens ── */
+
+    /* Hover — subtle bg on mouse over */
+    --state-hover-bg: color-mix(in srgb, var(--content-primary) 6%, transparent);
+
+    /* Focus */
+    --state-focus-ring: var(--focus-ring);
+
+    /* Selected — item active in list/nav/tree */
+    --state-selected-bg: color-mix(in srgb, var(--interactive-primary) 12%, transparent);
+    --state-selected-text: var(--interactive-primary);
+    --state-selected-border: color-mix(in srgb, var(--interactive-primary) 35%, transparent);
+
+    /* Active/Pressed */
+    --state-active-bg: color-mix(in srgb, var(--interactive-primary) 18%, transparent);
+    --state-active-text: var(--interactive-primary);
+
+    /* Table row selected — lighter than selected (row is wide) */
+    --state-row-selected-bg: color-mix(in srgb, var(--interactive-primary) 8%, transparent);
+    --state-row-selected-accent: var(--interactive-primary);
+
+    /* Table cell selected — stronger than row (cell is small) */
+    --state-cell-selected-bg: color-mix(in srgb, var(--interactive-primary) 14%, transparent);
+    --state-cell-selected-border: color-mix(in srgb, var(--interactive-primary) 40%, transparent);
+
+    /* Data row states */
+    --state-dirty-bg: color-mix(in srgb, var(--status-warning) 22%, transparent);
+    --state-draft-bg: color-mix(in srgb, var(--status-success) 12%, transparent);
+    --state-deleted-bg: color-mix(in srgb, var(--status-error) 12%, transparent);
+    --state-drag-over-bg: color-mix(in srgb, var(--interactive-primary) 8%, transparent);
+    --state-drag-over-border: var(--interactive-primary);
+
+    /* Form control states */
+    --state-disabled-opacity: 0.5;
+    --state-error-bg: color-mix(in srgb, var(--status-error) 10%, transparent);
+    --state-error-border: var(--status-error);
+    --state-success-bg: color-mix(in srgb, var(--status-success) 10%, transparent);
+    --state-warning-bg: color-mix(in srgb, var(--status-warning) 14%, transparent);
+
+    /* Placeholder / loading */
+    --state-empty-text: var(--content-secondary);
+    --state-loading-text: var(--content-secondary);
+    --state-connecting-color: var(--status-success);
+
+    /* ── Skeleton / shimmer ── */
+    --skeleton-bg: var(--surface-elevated);
+    --skeleton-highlight: color-mix(in srgb, var(--content-primary) 6%, transparent);
+
+    /* ── Syntax highlighting (dark — VSCode Dark+) ── */
+    --syntax-key: #9cdcfe;
+    --syntax-string: #ce9178;
+    --syntax-number: #b5cea8;
+    --syntax-boolean: #569cd6;
+    --syntax-bracket: #d4d4d4;
+
+    /* ── Form semantic tokens ── */
+    --form-label-color: var(--content-primary);
+    --form-description-color: var(--content-secondary);
+    --form-error-color: var(--status-error);
+
+    /* ── Inline alert tokens ── */
+    --alert-info-bg: color-mix(in srgb, var(--interactive-primary) 10%, transparent);
+    --alert-info-border: color-mix(in srgb, var(--interactive-primary) 30%, transparent);
+    /* success/warning/error: reuse --state-success-bg, --state-warning-bg, --state-error-bg */
+
+    /* ── Legacy aliases (backward compat — do not use in new code) ── */
     --bg-primary: var(--surface-app);
     --bg-secondary: var(--surface-panel);
     --bg-tertiary: var(--surface-elevated);
@@ -146,7 +255,7 @@
     --warning-color: var(--status-warning);
     --bg-main: var(--surface-app);
 
-    /* shadcn/ui semantic contract (dark default) */
+    /* ── shadcn/ui semantic contract (dark default) ── */
     --background: var(--surface-app);
     --foreground: var(--content-primary);
     --card: var(--surface-panel);
@@ -169,45 +278,100 @@
     --radius: var(--radius-scale-md);
 }
 
+/* ─────────────────────────────────────────────
+   DENSITY OVERRIDES
+   ───────────────────────────────────────────── */
+[data-density='comfortable'] {
+    --control-height-sm: 32px;
+    --control-height-md: 40px;
+    --control-height-lg: 46px;
+    --control-px-sm: 10px;
+    --control-px-md: 14px;
+    --layout-toolbar-height: 40px;
+    --layout-panel-padding: 14px;
+    --space-1: 5px;
+    --space-2: 10px;
+    --space-3: 14px;
+    --space-4: 18px;
+}
+
+[data-density='spacious'] {
+    --control-height-sm: 36px;
+    --control-height-md: 44px;
+    --control-height-lg: 52px;
+    --control-px-sm: 12px;
+    --control-px-md: 16px;
+    --layout-toolbar-height: 44px;
+    --layout-panel-padding: 16px;
+    --space-1: 6px;
+    --space-2: 12px;
+    --space-3: 16px;
+    --space-4: 20px;
+}
+
+/* ─────────────────────────────────────────────
+   LIGHT THEME OVERRIDES
+   ───────────────────────────────────────────── */
 [data-theme='light'] {
+    --user-accent: #2f6feb;
+
+    /* Surfaces */
     --surface-app: #f5f7fb;
     --surface-panel: #ffffff;
     --surface-elevated: #edf1f7;
     --surface-overlay-card: #ffffff;
 
+    /* Content */
     --content-primary: #1f2735;
     --content-secondary: #5c667a;
     --content-muted: #6f7a8f;
     --content-inverse: #ffffff;
 
+    /* Borders */
     --border-default: #cfd7e6;
     --border-subtle: color-mix(in srgb, #cfd7e6 72%, transparent);
 
-    --interactive-primary: #2f6feb;
-    --interactive-primary-hover: #255fce;
-    --focus-ring: color-mix(in srgb, #2f6feb 34%, transparent);
+    /* Interactive */
+    --interactive-primary: var(--user-accent);
+    --interactive-primary-hover: color-mix(in srgb, var(--user-accent) 85%, #000);
+    --focus-ring: color-mix(in srgb, var(--user-accent) 34%, transparent);
 
+    /* Status */
     --status-success: #1f9d6f;
     --status-error: #cf4e4e;
     --status-warning: #c48822;
 
+    /* Overlays */
     --overlay-backdrop: rgb(9 17 29 / 38%);
     --overlay-backdrop-strong: rgb(9 17 29 / 52%);
 
-    /* UX states */
-    --state-hover-bg: color-mix(in srgb, var(--interactive-primary) 12%, transparent);
-    --state-focus-ring: var(--focus-ring);
-    --state-disabled-opacity: 0.5;
-    --state-error-bg: color-mix(in srgb, var(--status-error) 14%, transparent);
-    --state-error-border: var(--status-error);
-    --state-success-bg: color-mix(in srgb, var(--status-success) 14%, transparent);
-    --state-warning-bg: color-mix(in srgb, var(--status-warning) 16%, transparent);
-    --state-empty-text: var(--content-secondary);
-    --state-loading-text: var(--content-secondary);
-
+    /* Elevation */
     --elevation-sm: 0 1px 3px rgb(16 28 46 / 10%), 0 6px 18px rgb(16 28 46 / 8%);
     --elevation-md: 0 2px 8px rgb(16 28 46 / 12%), 0 16px 28px rgb(16 28 46 / 12%);
     --elevation-lg: 0 6px 18px rgb(16 28 46 / 14%), 0 28px 56px rgb(16 28 46 / 16%);
+
+    /* State tokens — heavier opacity needed on light backgrounds */
+    --state-hover-bg: color-mix(in srgb, var(--content-primary) 7%, transparent);
+    --state-selected-bg: color-mix(in srgb, var(--interactive-primary) 14%, transparent);
+    --state-active-bg: color-mix(in srgb, var(--interactive-primary) 20%, transparent);
+    --state-row-selected-bg: color-mix(in srgb, var(--interactive-primary) 10%, transparent);
+    --state-cell-selected-bg: color-mix(in srgb, var(--interactive-primary) 16%, transparent);
+    --state-dirty-bg: color-mix(in srgb, var(--status-warning) 28%, transparent);
+    --state-draft-bg: color-mix(in srgb, var(--status-success) 14%, transparent);
+    --state-deleted-bg: color-mix(in srgb, var(--status-error) 14%, transparent);
+    --state-error-bg: color-mix(in srgb, var(--status-error) 14%, transparent);
+    --state-success-bg: color-mix(in srgb, var(--status-success) 14%, transparent);
+    --state-warning-bg: color-mix(in srgb, var(--status-warning) 16%, transparent);
+
+    /* Skeleton */
+    --skeleton-highlight: color-mix(in srgb, var(--content-primary) 10%, transparent);
+
+    /* Syntax highlighting (light — VSCode Light+) */
+    --syntax-key: #0451a5;
+    --syntax-string: #a31515;
+    --syntax-number: #098658;
+    --syntax-boolean: #0000ff;
+    --syntax-bracket: #333333;
 
     /* shadcn/ui semantic contract (light override) */
     --background: var(--primitive-neutral-0);

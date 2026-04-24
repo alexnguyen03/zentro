@@ -19,7 +19,7 @@ const SelectTrigger = React.forwardRef<
         aria-busy={state === 'loading' ? true : undefined}
         className={cn(
             'flex w-full items-center justify-between rounded-sm border border-input bg-background text-foreground',
-            'outline-none transition-colors duration-150 focus-visible:border-primary/65 focus-visible:ring-0 focus-visible:outline-none',
+            'outline-none transition-colors duration-fast focus-visible:border-primary/65 focus-visible:ring-0 focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:bg-muted/35 data-placeholder:text-muted-foreground',
             CONTROL_SIZE_CLASS[size],
             DENSITY_CLASS[density],
@@ -118,7 +118,7 @@ const SelectItem = React.forwardRef<
         ref={ref}
         className={cn(
             'relative flex h-7 w-full cursor-pointer select-none items-center rounded-sm pr-8 pl-2 text-small outline-none',
-            'focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+            'focus:bg-[--state-hover-bg] focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
             className,
         )}
         {...props}

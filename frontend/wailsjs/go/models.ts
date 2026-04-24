@@ -898,6 +898,10 @@ export namespace utils {
 	export class Preferences {
 	    theme: string;
 	    font_size: number;
+	    font_family: string;
+	    mono_family: string;
+	    accent_color: string;
+	    density: string;
 	    default_limit: number;
 	    chunk_size: number;
 	    toast_placement: string;
@@ -917,6 +921,10 @@ export namespace utils {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.theme = source["theme"];
 	        this.font_size = source["font_size"];
+	        this.font_family = source["font_family"];
+	        this.mono_family = source["mono_family"];
+	        this.accent_color = source["accent_color"];
+	        this.density = source["density"];
 	        this.default_limit = source["default_limit"];
 	        this.chunk_size = source["chunk_size"];
 	        this.toast_placement = source["toast_placement"];

@@ -36,7 +36,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 disabled={disabled}
                 aria-busy={state === 'loading' ? true : undefined}
                 className={cn(
-                    'flex w-full rounded-sm border text-foreground transition-colors duration-150 outline-none',
+                    'flex w-full rounded-sm border text-foreground transition-colors duration-fast outline-none',
                     'placeholder:text-muted-foreground focus-visible:border-primary/65 focus-visible:ring-0 focus-visible:outline-none',
                     'file:border-0 file:bg-transparent file:font-medium file:text-foreground',
                     'disabled:cursor-not-allowed disabled:bg-muted/35',

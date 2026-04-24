@@ -46,7 +46,7 @@ export const SecondarySidebar: React.FC = () => {
                                     <TabsTrigger
                                         key={panel.id}
                                         value={panel.id}
-                                        className="relative h-8 rounded-sm cursor-pointer bg-transparent px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                        className="relative h-8 rounded-sm cursor-pointer bg-transparent px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-[--state-selected-bg] data-[state=active]:text-[--state-selected-text] data-[state=active]:shadow-none"
                                         title={panel.label}
                                         aria-label={panel.label}
                                     >

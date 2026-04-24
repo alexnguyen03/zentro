@@ -15,6 +15,22 @@ const VALID_TOAST_PLACEMENTS: ToastPlacement[] = [
     'bottom-right',
 ];
 
+export type DensityLevel = 'compact' | 'comfortable' | 'spacious';
+
+export const FONT_PRESETS: Record<string, string> = {
+    system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    inter: '"Inter", "Segoe UI", Roboto, sans-serif',
+};
+
+export const MONO_PRESETS: Record<string, string> = {
+    cascadia: '"Cascadia Code", "Fira Code", monospace',
+    firaCode: '"Fira Code", "JetBrains Mono", monospace',
+    jetbrains: '"JetBrains Mono", "Cascadia Code", monospace',
+    consolas: '"Consolas", "Courier New", monospace',
+};
+
+const VALID_DENSITIES: DensityLevel[] = ['compact', 'comfortable', 'spacious'];
+
 function clampNumber(value: number | undefined, fallback: number, min: number, max: number): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
     return Math.min(max, Math.max(min, Math.round(value)));
@@ -27,9 +43,60 @@ function normalizeToastPlacement(value: unknown): ToastPlacement {
     return DEFAULT_TOAST_PLACEMENT;
 }
 
+function normalizeDensity(value: unknown): DensityLevel {
+    if (typeof value === 'string' && VALID_DENSITIES.includes(value as DensityLevel)) {
+        return value as DensityLevel;
+    }
+    return 'compact';
+}
+
+export function applyThemeToDOM(prefs: {
+    theme?: string;
+    density?: DensityLevel;
+    accentColor?: string;
+    fontFamily?: string;
+    monoFamily?: string;
+}) {
+    const root = document.documentElement;
+
+    // Theme
+    root.setAttribute('data-theme', prefs.theme ?? 'system');
+
+    // Density — compact = no attribute (uses :root defaults)
+    const density = prefs.density ?? 'compact';
+    if (density === 'compact') {
+        root.removeAttribute('data-density');
+    } else {
+        root.setAttribute('data-density', density);
+    }
+
+    // Accent color
+    if (prefs.accentColor) {
+        root.style.setProperty('--user-accent', prefs.accentColor);
+    } else {
+        root.style.removeProperty('--user-accent');
+    }
+
+    // Font families
+    if (prefs.fontFamily && FONT_PRESETS[prefs.fontFamily]) {
+        root.style.setProperty('--user-font-sans', FONT_PRESETS[prefs.fontFamily]);
+    } else {
+        root.style.removeProperty('--user-font-sans');
+    }
+    if (prefs.monoFamily && MONO_PRESETS[prefs.monoFamily]) {
+        root.style.setProperty('--user-font-mono', MONO_PRESETS[prefs.monoFamily]);
+    } else {
+        root.style.removeProperty('--user-font-mono');
+    }
+}
+
 interface SettingsState {
     theme: string;
     fontSize: number;
+    fontFamily: string;
+    monoFamily: string;
+    accentColor: string;
+    density: DensityLevel;
     defaultLimit: number;
     toastPlacement: ToastPlacement;
     connectTimeout: number;
@@ -46,6 +113,10 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set) => ({
     theme: 'system',
     fontSize: 14,
+    fontFamily: 'system',
+    monoFamily: 'cascadia',
+    accentColor: '',
+    density: 'compact',
     defaultLimit: 1000,
     toastPlacement: 'bottom-left',
     connectTimeout: 10,
@@ -56,9 +127,21 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     load: async () => {
         try {
             const prefs = await GetPreferences();
+            const fontSize = clampNumber(prefs.font_size, 14, 8, 48);
+            const theme = prefs.theme || 'system';
+            // New fields — backend may not have them yet, use defaults
+            const fontFamily = (prefs as any).font_family || 'system';
+            const monoFamily = (prefs as any).mono_family || 'cascadia';
+            const accentColor = (prefs as any).accent_color || '';
+            const density = normalizeDensity((prefs as any).density);
+
             set({
-                theme: prefs.theme || 'system',
-                fontSize: clampNumber(prefs.font_size, 14, 8, 48),
+                theme,
+                fontSize,
+                fontFamily,
+                monoFamily,
+                accentColor,
+                density,
                 defaultLimit: clampNumber(prefs.default_limit, 1000, 100, 100000),
                 toastPlacement: normalizeToastPlacement(prefs.toast_placement),
                 connectTimeout: clampNumber(prefs.connect_timeout, 10, 5, 300),
@@ -67,8 +150,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 viewMode: prefs.view_mode === true,
             });
             useShortcutStore.getState().loadFromPreferences(prefs.shortcuts, prefs.shortcut_rules);
-            // Apply theme
-            document.documentElement.setAttribute('data-theme', prefs.theme || 'system');
+            applyThemeToDOM({ theme, fontFamily, monoFamily, accentColor, density });
         } catch (err) {
             console.error('Failed to load preferences:', err);
         }
@@ -120,12 +202,27 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                     source: 'user',
                     order: rule.order,
                 })),
+                // New theme fields — passed through via any until model regenerated
+                ...(prefs as any).font_family !== undefined ? { font_family: (prefs as any).font_family } : {},
+                ...(prefs as any).mono_family !== undefined ? { mono_family: (prefs as any).mono_family } : {},
+                ...(prefs as any).accent_color !== undefined ? { accent_color: (prefs as any).accent_color } : {},
+                ...(prefs as any).density !== undefined ? { density: (prefs as any).density } : {},
             });
+
+            // Resolve new fields with fallback chain
+            const fontFamily = (prefs as any).font_family ?? (current as any).font_family ?? state.fontFamily;
+            const monoFamily = (prefs as any).mono_family ?? (current as any).mono_family ?? state.monoFamily;
+            const accentColor = (prefs as any).accent_color ?? (current as any).accent_color ?? state.accentColor;
+            const density = normalizeDensity((prefs as any).density ?? (current as any).density ?? state.density);
 
             await SetPreferences(merged);
             set({
                 theme: merged.theme,
                 fontSize: merged.font_size,
+                fontFamily,
+                monoFamily,
+                accentColor,
+                density,
                 defaultLimit: merged.default_limit,
                 toastPlacement: merged.toast_placement as ToastPlacement,
                 connectTimeout: merged.connect_timeout,
@@ -133,8 +230,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
                 autoCheckUpdates: merged.auto_check_updates,
                 viewMode: merged.view_mode === true,
             });
-            // Apply theme
-            document.documentElement.setAttribute('data-theme', merged.theme);
+            applyThemeToDOM({ theme: merged.theme, fontFamily, monoFamily, accentColor, density });
         } catch (err) {
             console.error('Failed to save preferences:', err);
         }
@@ -143,8 +239,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     setFontSize: (size: number) => {
         const newSize = Math.max(8, Math.min(48, size));
         set({ fontSize: newSize });
-        
-        // Persist after a short delay (debounce)
+
         if (saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(() => {
             const state = useSettingsStore.getState();
@@ -159,4 +254,3 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         setFontSize(fontSize + delta);
     },
 }));
-

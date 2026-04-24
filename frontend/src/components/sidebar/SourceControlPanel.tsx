@@ -448,8 +448,8 @@ export const SourceControlPanel: React.FC = () => {
                             <div
                                 key={f.path}
                                 className={cn(
-                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                    selectedFileKey === `wip:staged:${f.path}` && 'bg-accent/15',
+                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
+                                    selectedFileKey === `wip:staged:${f.path}` && 'bg-[--state-selected-bg]',
                                 )}
                                 role="button"
                                 tabIndex={0}
@@ -500,8 +500,8 @@ export const SourceControlPanel: React.FC = () => {
                             <div
                                 key={f.path}
                                 className={cn(
-                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                    selectedFileKey === `wip:unstaged:${f.path}` && 'bg-accent/15',
+                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
+                                    selectedFileKey === `wip:unstaged:${f.path}` && 'bg-[--state-selected-bg]',
                                 )}
                                 role="button"
                                 tabIndex={0}
@@ -561,8 +561,8 @@ export const SourceControlPanel: React.FC = () => {
                                         type="button"
                                         variant="ghost"
                                         className={cn(
-                                            'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent px-1.5 text-left text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                            isExpanded && 'bg-muted/90',
+                                            'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent px-1.5 text-left text-caption! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
+                                            isExpanded && 'bg-[--state-active-bg]',
                                         )}
                                         onClick={() => void handleToggleCommit(commit.hash)}
                                         title={`${commit.author} - ${formatDateTime(commit.when)}`}
@@ -587,9 +587,9 @@ export const SourceControlPanel: React.FC = () => {
                                                             type="button"
                                                             variant="ghost"
                                                             className={cn(
-                                                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent pl-3 pr-1.5 text-left text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent pl-3 pr-1.5 text-left text-caption! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
                                                                 isSelected
-                                                                    ? 'bg-accent/15 text-foreground'
+                                                                    ? 'bg-[--state-selected-bg] text-foreground'
                                                                     : 'text-foreground',
                                                             )}
                                                             title={f.path}

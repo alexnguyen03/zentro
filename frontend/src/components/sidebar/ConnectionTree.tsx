@@ -201,7 +201,7 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
 
             <div
                 className={cn(
-                    'group h-7 bg-transparent flex items-center gap-1 rounded-sm px-1.5 text-body! text-foreground transition-colors duration-100',
+                    'group h-7 bg-transparent flex items-center gap-1 rounded-sm px-1.5 text-body! text-foreground transition-colors duration-fast',
                     expanded && 'sticky top-0 z-sticky -mx-0.5 rounded-none border-b border-border/40 bg-card px-2',
                 )}
                 onClick={(event) => {
@@ -240,8 +240,8 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             <ContextMenuTrigger asChild disabled={!canOpenContextMenu}>
                                 <div
                                     className={cn(
-                                        'flex items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 py-0.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
+                                        'flex items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 py-0.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
+                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-[--state-selected-bg] text-foreground',
                                         category.canOpenDefinition && 'cursor-pointer',
                                     )}
                                     onClick={() => {
@@ -671,8 +671,8 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent text-body! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                activeCategory?.key === category.key && 'bg-muted/90 text-foreground',
+                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent text-body! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
+                                activeCategory?.key === category.key && 'bg-[--state-active-bg] text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
                         >

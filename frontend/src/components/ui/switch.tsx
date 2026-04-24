@@ -14,7 +14,7 @@ const Switch = React.forwardRef<
         disabled={props.disabled || state === 'disabled'}
         aria-busy={state === 'loading' ? true : undefined}
         className={cn(
-            'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border bg-secondary transition-colors duration-150',
+            'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-border bg-secondary transition-colors duration-fast',
             'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
             'disabled:cursor-not-allowed data-[state=checked]:border-primary data-[state=checked]:bg-primary',
             TONE_CLASS[tone],

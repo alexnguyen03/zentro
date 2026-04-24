@@ -272,8 +272,8 @@ export const BookmarkTab: React.FC = () => {
                                 variant="ghost"
                                 type="button"
                                 className={cn(
-                                    '!text-small text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                    scope === scopeOption.key && 'bg-muted/90 text-foreground',
+                                    '!text-small text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
+                                    scope === scopeOption.key && 'bg-[--state-active-bg] text-foreground',
                                 )}
                                 onClick={() => updateBookmarkPanelState({ scope: scopeOption.key })}
                             >
@@ -293,7 +293,7 @@ export const BookmarkTab: React.FC = () => {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 p-0 text-muted-foreground transition-colors duration-100 hover:bg-muted/80 hover:text-foreground"
+                            className="h-7 w-7 p-0 text-muted-foreground transition-colors duration-fast hover:bg-[--state-hover-bg] hover:text-foreground"
                             title={collapseAllState === 'all' ? 'Expand all bookmark groups' : 'Collapse all bookmark groups'}
                             onClick={() => {
                                 updateBookmarkPanelState({
@@ -316,7 +316,7 @@ export const BookmarkTab: React.FC = () => {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 p-0 text-muted-foreground transition-colors duration-100 hover:bg-muted/80 hover:text-foreground"
+                        className="h-7 w-7 p-0 text-muted-foreground transition-colors duration-fast hover:bg-[--state-hover-bg] hover:text-foreground"
                         title={scope === 'global' ? 'Refresh global bookmarks' : 'Refresh current tab bookmarks'}
                         onClick={() => {
                             if (scope === 'global') refreshAll();
@@ -341,7 +341,7 @@ export const BookmarkTab: React.FC = () => {
                                     key={item.id || item.line}
                                     type="button"
                                     variant="ghost"
-                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-100 hover:bg-muted/80"
+                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]"
                                     onClick={() => {
                                         emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: activeTabId, line: item.line });
                                     }}
@@ -378,7 +378,7 @@ export const BookmarkTab: React.FC = () => {
                             return (
                                 <section key={group.bookmarkKey}>
                                     <div
-                                        className="group h-6 flex items-center gap-1 px-1.5 text-small rounded-sm text-foreground transition-colors duration-100 hover:bg-muted/80"
+                                        className="group h-6 flex items-center gap-1 px-1.5 text-small rounded-sm text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]"
                                         onClick={() => {
                                             void restoreAndOpen({
                                                 bookmarkKey: group.bookmarkKey,
@@ -419,7 +419,7 @@ export const BookmarkTab: React.FC = () => {
                                                     key={`${group.bookmarkKey}-${item.id || item.line}`}
                                                     type="button"
                                                     variant="ghost"
-                                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-100 hover:bg-muted/80"
+                                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         void restoreAndOpen(item);

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Color tokens */
+  /* ── Color tokens ── */
   --color-bg-primary: var(--surface-app);
   --color-bg-secondary: var(--surface-panel);
   --color-bg-tertiary: var(--surface-elevated);
@@ -45,7 +45,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Typography */
+  /* ── Typography ── */
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --text-h1: var(--font-size-h1);
@@ -59,7 +59,7 @@
   --text-caption: var(--font-size-caption);
   --text-code: var(--font-size-code);
 
-  /* Compact spacing scale */
+  /* ── Spacing ── */
   --spacing-0: var(--space-0);
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
@@ -70,22 +70,34 @@
   --spacing-8: var(--space-8);
   --spacing-10: var(--space-10);
 
-  /* Radius */
+  /* ── Control sizes (density-aware) ── */
+  --control-height-sm: var(--control-height-sm);
+  --control-height-md: var(--control-height-md);
+  --control-height-lg: var(--control-height-lg);
+
+  /* ── Icon sizes ── */
+  --icon-xs: var(--icon-size-xs);
+  --icon-sm: var(--icon-size-sm);
+  --icon-md: var(--icon-size-md);
+  --icon-lg: var(--icon-size-lg);
+
+  /* ── Radius ── */
   --radius-sm: var(--radius-scale-sm);
   --radius-md: var(--radius-scale-md);
   --radius-lg: var(--radius-scale-lg);
   --radius-xl: var(--radius-scale-xl);
 
-  /* Elevation */
+  /* ── Elevation ── */
   --shadow-elevation-sm: var(--elevation-sm);
   --shadow-elevation-md: var(--elevation-md);
   --shadow-elevation-lg: var(--elevation-lg);
 
-  /* Motion */
+  /* ── Motion ── */
   --transition-fast: var(--motion-fast) var(--ease-standard);
   --transition-base: var(--motion-base) var(--ease-standard);
+  --transition-slow: var(--motion-slow) var(--ease-standard);
 
-  /* Layer scale */
+  /* ── Z-index layers ── */
   --z-table-sticky: var(--layer-table-sticky);
   --z-sticky: var(--layer-sticky);
   --z-panel-overlay: var(--layer-panel-overlay);
@@ -109,53 +121,25 @@
     white-space: nowrap;
   }
 
-  .z-sticky {
-    z-index: var(--layer-sticky);
-  }
+  /* Z-index utilities */
+  .z-sticky        { z-index: var(--layer-sticky); }
+  .z-panel-overlay { z-index: var(--layer-panel-overlay); }
+  .z-drag          { z-index: var(--layer-drag); }
+  .z-popover       { z-index: var(--layer-popover); }
+  .z-dropdown      { z-index: var(--layer-dropdown); }
+  .z-toolbar       { z-index: var(--layer-toolbar); }
+  .z-overlay       { z-index: var(--layer-overlay); }
+  .z-modal         { z-index: var(--layer-modal); }
+  .z-modal-confirm { z-index: var(--layer-modal-confirm); }
+  .z-toast         { z-index: var(--layer-toast); }
+  .z-tooltip       { z-index: var(--layer-tooltip); }
+  .z-topmost       { z-index: var(--layer-topmost); }
 
-  .z-panel-overlay {
-    z-index: var(--layer-panel-overlay);
-  }
-
-  .z-drag {
-    z-index: var(--layer-drag);
-  }
-
-  .z-popover {
-    z-index: var(--layer-popover);
-  }
-
-  .z-dropdown {
-    z-index: var(--layer-dropdown);
-  }
-
-  .z-toolbar {
-    z-index: var(--layer-toolbar);
-  }
-
-  .z-overlay {
-    z-index: var(--layer-overlay);
-  }
-
-  .z-modal {
-    z-index: var(--layer-modal);
-  }
-
-  .z-modal-confirm {
-    z-index: var(--layer-modal-confirm);
-  }
-
-  .z-toast {
-    z-index: var(--layer-toast);
-  }
-
-  .z-tooltip {
-    z-index: var(--layer-tooltip);
-  }
-
-  .z-topmost {
-    z-index: var(--layer-topmost);
-  }
+  /* Motion duration utilities (replaces hardcoded duration-150) */
+  .duration-fast { transition-duration: var(--motion-fast); }
+  .duration-base { transition-duration: var(--motion-base); }
+  .duration-slow { transition-duration: var(--motion-slow); }
+  .ease-standard { transition-timing-function: var(--ease-standard); }
 }
 
 @import "./styles/tokens.css";
@@ -208,7 +192,7 @@
   font-family: var(--font-family-mono);
 }
 
-/* Monaco suggest documentation table styling (enterprise compact) */
+/* Monaco suggest documentation table styling */
 .zentro-sql-editor .monaco-editor .suggest-widget .details .markdown-doc .zentro-suggest-doc {
   font-family: var(--font-family-mono);
   font-size: 12px;
@@ -323,7 +307,7 @@
   cursor: pointer;
   font-family: var(--font-family-sans);
   font-size: 12px;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
 
 .zentro-table-nav-widget__item:focus-visible {
@@ -333,7 +317,7 @@
 
 .zentro-table-nav-widget__item:hover,
 .zentro-table-nav-widget__item.is-active {
-  background: var(--muted);
+  background: var(--state-hover-bg);
   color: var(--foreground);
 }
 
@@ -346,9 +330,9 @@
   text-underline-offset: 2px;
   text-decoration-color: color-mix(in srgb, var(--interactive-primary) 66%, transparent);
   transition:
-    color 140ms ease,
-    opacity 140ms ease,
-    text-decoration-color 140ms ease,
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    text-decoration-color var(--motion-fast) var(--ease-standard);
 }
 
 /* Hide Allotment resize border/highlight line while keeping drag behavior */

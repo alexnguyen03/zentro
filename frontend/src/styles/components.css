@@ -166,7 +166,7 @@
     text-overflow: ellipsis;
     border: 1px solid transparent;
     user-select: none;
-    transition: background-color 0.1s ease;
+    transition: background-color var(--motion-fast) var(--ease-standard);
 }
 
 .rt-cell-content--compact {
@@ -180,17 +180,17 @@
 }
 
 .result-table-tanstack tr:hover td {
-    background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    background: var(--state-hover-bg);
 }
 
 
 .rt-cell-selected {
-    background: color-mix(in srgb, var(--primary) 15%, transparent) !important;
-    border: 1px solid var(--primary) !important;
+    background: var(--state-cell-selected-bg) !important;
+    border: 1px solid var(--state-cell-selected-border) !important;
 }
 
 .rt-cell-dirty {
-    background: color-mix(in srgb, var(--status-warning) 30%, transparent) !important;
+    background: var(--state-dirty-bg) !important;
 }
 
 .row-num-col {
@@ -204,19 +204,19 @@
 }
 
 .rt-row-deleted td {
-    background: color-mix(in srgb, var(--destructive) 6%, var(--background)) !important;
+    background: var(--state-deleted-bg) !important;
 }
 
 .result-table-tanstack tr.rt-row-alt.rt-row-deleted td {
-    background: color-mix(in srgb, var(--destructive) 6%, var(--card)) !important;
+    background: color-mix(in srgb, var(--state-deleted-bg) 80%, var(--card)) !important;
 }
 
 .result-table-tanstack tr.rt-row-selected td {
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    background: var(--state-row-selected-bg);
 }
 
 .result-table-tanstack tr.rt-row-selected td.rt-index-sticky {
-    background: color-mix(in srgb, var(--primary) 8%, var(--card)) !important;
+    background: color-mix(in srgb, var(--state-row-selected-bg) 100%, var(--card)) !important;
 }
 
 .rt-index-sticky {
@@ -233,24 +233,24 @@
 }
 
 .result-table-tanstack td.rt-index-sticky.rt-index-sticky-row-selected {
-    background: color-mix(in srgb, var(--primary) 18%, var(--card)) !important;
-    border-right: 2px solid var(--primary);
+    background: color-mix(in srgb, var(--state-row-selected-bg) 100%, var(--card)) !important;
+    border-right: 2px solid var(--state-row-selected-accent);
 }
 
 .result-table-tanstack td.rt-index-sticky.rt-index-sticky-deleted {
-    background: color-mix(in srgb, var(--destructive) 6%, var(--background)) !important;
+    background: var(--state-deleted-bg) !important;
 }
 
 .result-table-tanstack tr.rt-row-alt td.rt-index-sticky.rt-index-sticky-deleted {
-    background: color-mix(in srgb, var(--destructive) 6%, var(--card)) !important;
+    background: color-mix(in srgb, var(--state-deleted-bg) 80%, var(--card)) !important;
 }
 
 .result-table-tanstack td.rt-index-sticky.rt-index-sticky-draft {
-    background: color-mix(in srgb, var(--status-success) 12%, var(--background)) !important;
+    background: color-mix(in srgb, var(--state-draft-bg) 100%, var(--background)) !important;
 }
 
 .result-table-tanstack tr.rt-row-alt td.rt-index-sticky.rt-index-sticky-draft {
-    background: color-mix(in srgb, var(--status-success) 14%, var(--card)) !important;
+    background: color-mix(in srgb, var(--state-draft-bg) 80%, var(--card)) !important;
 }
 
 .result-table-tanstack th.rt-index-sticky {
@@ -298,7 +298,7 @@
 .rt-th-filter-btn.is-active {
     border-color: var(--border);
     color: var(--foreground);
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    background: var(--state-selected-bg);
 }
 
 .rt-th-filter-popover {
@@ -425,19 +425,19 @@
 }
 
 .result-table-tanstack tr.rt-row-draft td {
-    background: color-mix(in srgb, var(--status-success) 12%, var(--background)) !important;
+    background: var(--state-draft-bg) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft:hover td {
-    background: color-mix(in srgb, var(--status-success) 16%, var(--background)) !important;
+    background: color-mix(in srgb, var(--state-draft-bg) 140%, transparent) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft.rt-row-alt td {
-    background: color-mix(in srgb, var(--status-success) 14%, var(--card)) !important;
+    background: color-mix(in srgb, var(--state-draft-bg) 80%, var(--card)) !important;
 }
 
 .result-table-tanstack tr.rt-row-draft.rt-row-selected td {
-    background: color-mix(in srgb, var(--status-success) 18%, var(--background)) !important;
+    background: color-mix(in srgb, var(--state-draft-bg) 160%, transparent) !important;
 }
 
 /* ── Skeleton shimmer animation ────────────────────────── */
@@ -446,9 +446,9 @@
     border-radius: 3px;
     margin: 6px 12px;
     background: linear-gradient(90deg,
-            var(--surface-elevated) 25%,
-            rgba(255, 255, 255, 0.06) 50%,
-            var(--surface-elevated) 75%);
+            var(--skeleton-bg) 25%,
+            var(--skeleton-highlight) 50%,
+            var(--skeleton-bg) 75%);
     background-size: 600px 100%;
     animation: shimmer 1.4s infinite linear;
 }
@@ -537,28 +537,28 @@
 }
 
 .json-key {
-    color: #9cdcfe;
+    color: var(--syntax-key);
 }
 
 .json-string {
-    color: #ce9178;
+    color: var(--syntax-string);
 }
 
 .json-number {
-    color: #b5cea8;
+    color: var(--syntax-number);
 }
 
 .json-boolean {
-    color: #569cd6;
+    color: var(--syntax-boolean);
 }
 
 .json-null {
-    color: #569cd6;
+    color: var(--syntax-boolean);
     font-style: italic;
 }
 
 .json-bracket {
-    color: #ffd700;
+    color: var(--syntax-bracket);
 }
 
 .json-colon {
@@ -708,7 +708,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--overlay-backdrop-strong);
     display: flex;
     align-items: center;
     justify-content: center;

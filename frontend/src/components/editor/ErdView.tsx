@@ -237,13 +237,13 @@ const TableNode: React.FC<{ data: TableNodeData }> = ({ data }) => {
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <span style={{
-                                color: column.isPk ? 'var(--interactive-primary)' : (column.isFk ? '#3b82f6' : 'inherit'),
+                                color: (column.isPk || column.isFk) ? 'var(--color-fk)' : 'inherit',
                                 fontWeight: (column.isPk || column.isFk) ? 600 : 'normal'
                             }}>
                                 {column.name}
                             </span>
                             {column.isPk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: 'var(--interactive-primary)', color: 'white' }}>PK</span>}
-                            {column.isFk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: '#3b82f6', color: 'white' }}>FK</span>}
+                            {column.isFk && <span style={{ fontSize: 9, padding: '1px 3px', borderRadius: 3, background: 'var(--color-fk)', color: 'white' }}>FK</span>}
                         </div>
                         <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 16 }}>{column.type}</span>
                     </div>

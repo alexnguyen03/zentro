@@ -1,15 +1,15 @@
 export type ComponentTone = 'default' | 'neutral' | 'success' | 'warning' | 'danger';
 export type ComponentState = 'default' | 'loading' | 'error' | 'disabled';
-export type ComponentDensity = 'compact';
+export type ComponentDensity = 'compact' | 'comfortable' | 'spacious';
 
-// Shared size token for all form controls (Input, Select, Button text sizes)
-// sm = h-7/28px — toolbar, sidebar, inline, default
-// md = h-9/36px — prominent form fields
+// Shared size token for all form controls (Input, Select, Button)
+// sm = --control-height-sm (28px compact) — toolbar, sidebar, inline, default
+// md = --control-height-md (36px compact) — prominent form fields
 export type ControlSize = 'sm' | 'md';
 
 export const CONTROL_SIZE_CLASS: Record<ControlSize, string> = {
-    sm: 'h-7 text-small px-2',
-    md: 'h-9 text-small px-3',
+    sm: '[height:var(--control-height-sm)] [padding-left:var(--control-px-sm)] [padding-right:var(--control-px-sm)] text-small',
+    md: '[height:var(--control-height-md)] [padding-left:var(--control-px-md)] [padding-right:var(--control-px-md)] text-small',
 };
 
 export interface DesignSystemControlProps {
@@ -18,8 +18,12 @@ export interface DesignSystemControlProps {
     density?: ComponentDensity;
 }
 
+// Density is applied via data-density attribute on :root — no per-component class needed.
+// This type is exposed so settings UI can reference valid density values.
 export const DENSITY_CLASS: Record<ComponentDensity, string> = {
-    compact: 'text-body',
+    compact: '',
+    comfortable: '',
+    spacious: '',
 };
 
 export const TONE_CLASS: Record<ComponentTone, string> = {
