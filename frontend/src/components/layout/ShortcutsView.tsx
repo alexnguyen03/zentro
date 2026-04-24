@@ -3,14 +3,16 @@ import { Keyboard, RotateCcw, Search } from 'lucide-react';
 import { eventToKeyToken, getCommandRegistry, type CommandId } from '../../lib/shortcutRegistry';
 import { normalizeRuleBinding, type ShortcutRule } from '../../lib/shortcutRules';
 import { useShortcutStore } from '../../stores/shortcutStore';
-import { Button, Input, Modal } from '../ui';
-
-type ContextMenuState = {
-    x: number;
-    y: number;
-    rule: ShortcutRule;
-    commandLabel: string;
-};
+import {
+    Button,
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuTrigger,
+    Input,
+    Modal,
+} from '../ui';
 
 type RebindState = {
     mode: 'change' | 'add';
@@ -160,7 +162,6 @@ const BindingCaptureModal: React.FC<{
 
 export const ShortcutsView: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
-    const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
     const [rebindState, setRebindState] = useState<RebindState | null>(null);
     const [conflictMessage, setConflictMessage] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -171,21 +172,10 @@ export const ShortcutsView: React.FC = () => {
     const customizedCommandIds = useMemo(() => new Set(userRules.map((rule) => rule.commandId)), [userRules]);
 
     useEffect(() => {
-        const close = () => setContextMenu(null);
-        window.addEventListener('click', close);
-        return () => {
-            window.removeEventListener('click', close);
-        };
-    }, []);
-
-    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
                 searchInputRef.current?.focus();
-            }
-            if (e.key === 'Escape') {
-                setContextMenu(null);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -228,7 +218,6 @@ export const ShortcutsView: React.FC = () => {
             initialBinding: rule.binding,
             title: `Change Keybinding — ${commandLabel}`,
         });
-        setContextMenu(null);
     };
 
     const openAddBinding = (rule: ShortcutRule, commandLabel: string) => {
@@ -238,7 +227,6 @@ export const ShortcutsView: React.FC = () => {
             initialBinding: '',
             title: `Add Keybinding — ${commandLabel}`,
         });
-        setContextMenu(null);
     };
 
     const resolveConflictMessage = (conflictWith?: CommandId): string => {
@@ -329,36 +317,61 @@ export const ShortcutsView: React.FC = () => {
                         </thead>
                         <tbody>
                             {rows.map((row) => (
-                                <tr
-                                    key={row.rule.id}
-                                    className="border-b border-border/20 hover:bg-card/30"
-                                    onContextMenu={(event) => {
-                                        event.preventDefault();
-                                        setContextMenu({
-                                            x: event.clientX,
-                                            y: event.clientY,
-                                            rule: row.rule,
-                                            commandLabel: row.commandLabel,
-                                        });
-                                    }}
-                                >
-                                    <td className="px-3 py-2">
-                                        <div className="truncate text-foreground font-medium">{row.commandLabel}</div>
-                                        <div className="truncate text-label text-muted-foreground">{row.commandId}</div>
-                                        {row.customized && (
-                                            <span className="inline-block mt-1 text-label px-1.5 py-0.5 rounded bg-warning/20 text-warning">Customized</span>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-2 text-foreground">
-                                        <span className="font-mono text-label rounded border border-border bg-card px-1.5 py-0.5">
-                                            {row.rule.binding || '-'}
-                                        </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-muted-foreground font-mono text-label truncate">
-                                        {row.rule.when || '-'}
-                                    </td>
-                                    <td className="px-3 py-2 text-muted-foreground">{row.source}</td>
-                                </tr>
+                                <ContextMenu key={row.rule.id}>
+                                    <ContextMenuTrigger asChild>
+                                        <tr className="border-b border-border/20 hover:bg-card/30">
+                                            <td className="px-3 py-2">
+                                                <div className="truncate text-foreground font-medium">{row.commandLabel}</div>
+                                                <div className="truncate text-label text-muted-foreground">{row.commandId}</div>
+                                                {row.customized && (
+                                                    <span className="inline-block mt-1 text-label px-1.5 py-0.5 rounded bg-warning/20 text-warning">Customized</span>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-foreground">
+                                                <span className="font-mono text-label rounded border border-border bg-card px-1.5 py-0.5">
+                                                    {row.rule.binding || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-muted-foreground font-mono text-label truncate">
+                                                {row.rule.when || '-'}
+                                            </td>
+                                            <td className="px-3 py-2 text-muted-foreground">{row.source}</td>
+                                        </tr>
+                                    </ContextMenuTrigger>
+                                    <ContextMenuContent className="min-w-[220px]">
+                                        <ContextMenuItem onSelect={() => { void copyText(row.rule.binding); }}>
+                                            Copy
+                                        </ContextMenuItem>
+                                        <ContextMenuItem onSelect={() => { void copyText(row.rule.commandId); }}>
+                                            Copy Command ID
+                                        </ContextMenuItem>
+                                        <ContextMenuItem onSelect={() => { void copyText(row.commandLabel); }}>
+                                            Copy Command Title
+                                        </ContextMenuItem>
+                                        <ContextMenuSeparator />
+                                        <ContextMenuItem onSelect={() => openChangeBinding(row.rule, row.commandLabel)}>
+                                            Change Keybinding...
+                                        </ContextMenuItem>
+                                        <ContextMenuItem onSelect={() => openAddBinding(row.rule, row.commandLabel)}>
+                                            Add Keybinding...
+                                        </ContextMenuItem>
+                                        <ContextMenuItem
+                                            onSelect={() => {
+                                                void removeRule(row.rule.id);
+                                            }}
+                                            disabled={row.rule.source !== 'user'}
+                                        >
+                                            Remove Keybinding
+                                        </ContextMenuItem>
+                                        <ContextMenuItem
+                                            onSelect={() => {
+                                                void restoreBinding(row.rule.commandId);
+                                            }}
+                                        >
+                                            Reset Keybinding
+                                        </ContextMenuItem>
+                                    </ContextMenuContent>
+                                </ContextMenu>
                             ))}
                         </tbody>
                     </table>
@@ -371,43 +384,6 @@ export const ShortcutsView: React.FC = () => {
                     </div>
                 )}
             </div>
-
-            {contextMenu && (
-                <div
-                    className="fixed z-modal bg-card border border-border rounded-sm shadow-elevation-lg min-w-[220px] py-1"
-                    style={{ left: contextMenu.x, top: contextMenu.y }}
-                    onClick={(event) => event.stopPropagation()}
-                >
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => copyText(contextMenu.rule.binding)}>Copy</Button>
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => copyText(contextMenu.rule.commandId)}>Copy Command ID</Button>
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => copyText(contextMenu.commandLabel)}>Copy Command Title</Button>
-                    <div className="h-px bg-border/40 my-1" />
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => openChangeBinding(contextMenu.rule, contextMenu.commandLabel)}>Change Keybinding...</Button>
-                    <Button variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small" onClick={() => openAddBinding(contextMenu.rule, contextMenu.commandLabel)}>Add Keybinding...</Button>
-                    <Button
-                        variant="ghost"
-                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small disabled:opacity-40 disabled:cursor-not-allowed"
-                        onClick={() => {
-                            void removeRule(contextMenu.rule.id);
-                            setContextMenu(null);
-                        }}
-                        disabled={contextMenu.rule.source !== 'user'}
-                    >
-                        Remove Keybinding
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                        onClick={() => {
-                            void restoreBinding(contextMenu.rule.commandId);
-                            setContextMenu(null);
-                        }}
-                    >
-                        Reset Keybinding
-                    </Button>
-                </div>
-            )}
-
             <BindingCaptureModal
                 isOpen={Boolean(rebindState)}
                 title={rebindState?.title || 'Change Keybinding'}

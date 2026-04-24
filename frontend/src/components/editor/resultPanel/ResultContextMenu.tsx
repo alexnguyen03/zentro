@@ -1,6 +1,14 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
-import { Button } from '../../ui';
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuShortcut,
+    ContextMenuSub,
+    ContextMenuSubContent,
+    ContextMenuSubTrigger,
+    ContextMenuTrigger,
+} from '../../ui';
 import type { ResultContextCopyAsAction, ResultContextMenuPayload, ResultContextWhereAction } from './types';
 
 const LAST_USED_COPY_AS_KEY = 'zentro.result.copyAs.lastAction';
@@ -34,19 +42,6 @@ interface ResultContextMenuProps {
     onUndoLastContextAction: () => void;
 }
 
-type TopLevelItemId =
-    | 'paste'
-    | 'copy'
-    | 'copy-as'
-    | 'generate-where'
-    | 'open-row-query'
-    | 'duplicate'
-    | 'set-null'
-    | 'delete'
-    | 'undo';
-
-type SubmenuKind = 'copy-as' | null;
-
 export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     contextMenu,
     contextMenuRef,
@@ -75,15 +70,9 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
     onOpenRowInNewQueryTab,
     onUndoLastContextAction,
 }) => {
-    const [openSubmenu, setOpenSubmenu] = React.useState<SubmenuKind>(null);
-    const [activeTopIndex, setActiveTopIndex] = React.useState(0);
-    const [activeCopyAsIndex, setActiveCopyAsIndex] = React.useState(0);
     const [lastUsedCopyAs, setLastUsedCopyAs] = React.useState<string>('');
-    const [submenuTopOffset, setSubmenuTopOffset] = React.useState(0);
-
-    const menuRef = React.useRef<HTMLDivElement>(null);
-    const itemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
-    const focusTimerRef = React.useRef<number | null>(null);
+    const triggerRef = React.useRef<HTMLDivElement>(null);
+    const menuItemClass = 'h-7 px-2 py-0 leading-none';
 
     React.useEffect(() => {
         try {
@@ -94,65 +83,7 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
         }
     }, []);
 
-    const whereAction = whereActions[0] ?? null;
-
-    const topItems = React.useMemo(() => ([
-        { id: 'paste' as TopLevelItemId, label: 'Paste', shortcut: 'Ctrl+V', disabled: !canPaste, title: pasteDisabledTitle, onSelect: onPaste },
-        { id: 'copy' as TopLevelItemId, label: 'Copy', shortcut: 'Ctrl+C', disabled: !canCopy, title: copyDisabledTitle, onSelect: onCopy },
-        { id: 'copy-as' as TopLevelItemId, label: 'Copy as', shortcut: '', disabled: !canCopy, title: 'Choose copy format', onSelect: undefined, submenu: 'copy-as' as SubmenuKind },
-        { id: 'generate-where' as TopLevelItemId, label: 'Generate WHERE (IN)', shortcut: '', disabled: !whereAction || whereAction.disabled, title: whereAction?.title ?? 'Generate WHERE IN from selected values', onSelect: whereAction?.onSelect },
-        { id: 'open-row-query' as TopLevelItemId, label: 'Open Row in New Query Tab', shortcut: '', disabled: !canOpenRowInNewQueryTab, title: openRowQueryDisabledTitle, onSelect: onOpenRowInNewQueryTab },
-        { id: 'duplicate' as TopLevelItemId, label: 'Duplicate Row', shortcut: '', disabled: !canDuplicateRows, title: duplicateDisabledTitle, onSelect: onDuplicateRow },
-        { id: 'set-null' as TopLevelItemId, label: 'Set NULL', shortcut: '', disabled: !canSetNull, title: setNullDisabledTitle, onSelect: onSetNull },
-        { id: 'delete' as TopLevelItemId, label: 'Delete Row', shortcut: 'Del', disabled: !canDeleteRows, title: deleteDisabledTitle, onSelect: onDeleteRow, danger: true },
-        { id: 'undo' as TopLevelItemId, label: 'Undo Last Context Action', shortcut: 'Ctrl+Z', disabled: !canUndoLastContextAction, title: undoDisabledTitle, onSelect: onUndoLastContextAction },
-    ]), [
-        canCopy,
-        canDeleteRows,
-        canDuplicateRows,
-        canOpenRowInNewQueryTab,
-        canPaste,
-        canSetNull,
-        canUndoLastContextAction,
-        copyDisabledTitle,
-        deleteDisabledTitle,
-        duplicateDisabledTitle,
-        onCopy,
-        onDeleteRow,
-        onDuplicateRow,
-        onOpenRowInNewQueryTab,
-        onPaste,
-        onSetNull,
-        onUndoLastContextAction,
-        openRowQueryDisabledTitle,
-        pasteDisabledTitle,
-        setNullDisabledTitle,
-        undoDisabledTitle,
-        whereAction,
-    ]);
-
-    React.useEffect(() => {
-        if (!contextMenu) return;
-        setOpenSubmenu(null);
-        setActiveTopIndex(0);
-        const preferredCopyIndex = copyAsActions.findIndex((item) => item.id === lastUsedCopyAs);
-        setActiveCopyAsIndex(preferredCopyIndex >= 0 ? preferredCopyIndex : 0);
-        if (focusTimerRef.current !== null) {
-            window.clearTimeout(focusTimerRef.current);
-        }
-        focusTimerRef.current = window.setTimeout(() => {
-            menuRef.current?.focus();
-            focusTimerRef.current = null;
-        }, 0);
-        return () => {
-            if (focusTimerRef.current !== null) {
-                window.clearTimeout(focusTimerRef.current);
-                focusTimerRef.current = null;
-            }
-        };
-    }, [contextMenu, copyAsActions, lastUsedCopyAs]);
-
-    const runCopyAs = React.useCallback((action: ResultContextCopyAsAction, index: number) => {
+    const runCopyAs = React.useCallback((action: ResultContextCopyAsAction) => {
         if (action.disabled) return;
         action.onSelect();
         try {
@@ -161,178 +92,137 @@ export const ResultContextMenu: React.FC<ResultContextMenuProps> = ({
             // ignore localStorage failures
         }
         setLastUsedCopyAs(action.id);
-        setActiveCopyAsIndex(index);
     }, []);
 
-    const onMenuKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (!topItems.length) return;
-        const currentTop = topItems[activeTopIndex];
-        const currentSubmenuItems = openSubmenu === 'copy-as' ? copyAsActions : [];
+    const whereAction = whereActions[0] ?? null;
 
-        if (event.key === 'Escape') {
-            if (openSubmenu) {
-                event.preventDefault();
-                event.stopPropagation();
-                setOpenSubmenu(null);
-            }
-            return;
-        }
-
-        if (openSubmenu && currentSubmenuItems.length > 0) {
-            if (event.key === 'ArrowDown') {
-                event.preventDefault();
-                setActiveCopyAsIndex((prev) => (prev + 1) % copyAsActions.length);
-                return;
-            }
-            if (event.key === 'ArrowUp') {
-                event.preventDefault();
-                setActiveCopyAsIndex((prev) => (prev - 1 + copyAsActions.length) % copyAsActions.length);
-                return;
-            }
-            if (event.key === 'ArrowLeft') {
-                event.preventDefault();
-                setOpenSubmenu(null);
-                return;
-            }
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                const action = copyAsActions[activeCopyAsIndex];
-                if (action) runCopyAs(action, activeCopyAsIndex);
-                return;
-            }
-            return;
-        }
-
-        if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            setActiveTopIndex((prev) => (prev + 1) % topItems.length);
-            return;
-        }
-        if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            setActiveTopIndex((prev) => (prev - 1 + topItems.length) % topItems.length);
-            return;
-        }
-        if (event.key === 'ArrowRight' && currentTop?.submenu) {
-            if (copyAsActions.length > 0) {
-                event.preventDefault();
-                setOpenSubmenu(currentTop.submenu);
-            }
-            return;
-        }
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            if (currentTop?.submenu) {
-                if (copyAsActions.length > 0) setOpenSubmenu(currentTop.submenu);
-                return;
-            }
-            if (!currentTop?.disabled && currentTop?.onSelect) {
-                currentTop.onSelect();
-            }
-        }
-    }, [
-        activeCopyAsIndex,
-        activeTopIndex,
-        copyAsActions,
-        openSubmenu,
-        runCopyAs,
-        topItems,
-    ]);
+    React.useEffect(() => {
+        if (!contextMenu || !contextMenuPosition) return;
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+        const event = new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            button: 2,
+            clientX: contextMenuPosition.left,
+            clientY: contextMenuPosition.top,
+        });
+        trigger.dispatchEvent(event);
+    }, [contextMenu, contextMenuPosition]);
 
     if (!contextMenu || !contextMenuPosition) return null;
 
-    const submenuItems = openSubmenu === 'copy-as' ? copyAsActions : [];
-    const submenuSide = contextMenuPosition.submenuOpensLeft ? 'right-full mr-1' : 'left-full ml-1';
-
     return (
         <div
-            ref={contextMenuRef}
-            className="fixed z-panel-overlay"
+            className="fixed z-panel-overlay pointer-events-none"
             style={{ left: contextMenuPosition.left, top: contextMenuPosition.top }}
-            onClick={(event) => event.stopPropagation()}
         >
-            <div
-                ref={menuRef}
-                tabIndex={-1}
-                onKeyDown={onMenuKeyDown}
-                className="relative w-56 rounded-sm border border-border bg-background py-1 shadow-lg outline-none"
-            >
-                {topItems.map((item, index) => {
-                    const isActive = activeTopIndex === index;
-                    const itemClass = item.danger
-                        ? 'text-destructive hover:bg-muted'
-                        : 'text-foreground hover:bg-muted';
-                    return (
-                        <Button
-                            key={item.id}
-                            ref={(el) => { itemRefs.current[index] = el; }}
-                            type="button"
-                            variant="ghost"
-                            title={item.title}
-                            className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-small ${item.disabled ? 'text-muted-foreground cursor-not-allowed' : itemClass} ${isActive ? 'bg-muted/60' : ''}`}
-                            disabled={item.disabled}
-                            onMouseEnter={() => {
-                                setActiveTopIndex(index);
-                                if (item.submenu && !item.disabled) {
-                                    setOpenSubmenu(item.submenu);
-                                    const btn = itemRefs.current[index];
-                                    const menu = menuRef.current;
-                                    if (btn && menu) {
-                                        const btnRect = btn.getBoundingClientRect();
-                                        const menuRect = menu.getBoundingClientRect();
-                                        setSubmenuTopOffset(btnRect.top - menuRect.top);
-                                    }
-                                } else {
-                                    setOpenSubmenu(null);
-                                }
-                            }}
-                            onClick={() => {
-                                if (item.submenu) {
-                                    if (!item.disabled) {
-                                        setOpenSubmenu((prev) => (prev === item.submenu ? null : item.submenu));
-                                    }
-                                    return;
-                                }
-                                item.onSelect?.();
-                            }}
-                        >
-                            <span>{item.label}</span>
-                            <span className="ml-3 flex items-center gap-2 text-label text-muted-foreground">
-                                {item.shortcut ? <span>{item.shortcut}</span> : null}
-                                {item.submenu ? <ChevronRight size={12} /> : null}
-                            </span>
-                        </Button>
-                    );
-                })}
-
-                {openSubmenu && submenuItems.length > 0 && (
-                    <div
-                        className={`absolute ${submenuSide} w-56 rounded-sm border border-border bg-background py-1 shadow-lg`}
-                        style={{ top: submenuTopOffset }}
-                        onMouseEnter={() => setOpenSubmenu(openSubmenu)}
+            <ContextMenu modal={false}>
+                <ContextMenuTrigger asChild>
+                    <div ref={triggerRef} className="h-px w-px" />
+                </ContextMenuTrigger>
+                <ContextMenuContent
+                    ref={contextMenuRef}
+                    className="w-56 pointer-events-auto"
+                    onCloseAutoFocus={(event: Event) => event.preventDefault()}
+                >
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={pasteDisabledTitle}
+                        disabled={!canPaste}
+                        onSelect={onPaste}
                     >
-                        {submenuItems.map((action, index) => {
-                            const isActive = activeCopyAsIndex === index;
-                            const isLastUsedCopyAction = action.id === lastUsedCopyAs;
-                            return (
-                                <Button
+                        Paste
+                        <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={copyDisabledTitle}
+                        disabled={!canCopy}
+                        onSelect={onCopy}
+                    >
+                        Copy
+                        <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+                    </ContextMenuItem>
+
+                    <ContextMenuSub>
+                        <ContextMenuSubTrigger
+                            className={menuItemClass}
+                            title="Choose copy format"
+                            disabled={!canCopy}
+                        >
+                            Copy as
+                        </ContextMenuSubTrigger>
+                        <ContextMenuSubContent className="w-56">
+                            {copyAsActions.map((action) => (
+                                <ContextMenuItem
                                     key={action.id}
-                                    type="button"
-                                    variant="ghost"
+                                    className={menuItemClass}
                                     title={action.title}
-                                    className={`h-auto w-full justify-between rounded-none px-3 py-1.5 text-left text-small ${action.disabled ? 'text-muted-foreground cursor-not-allowed' : 'text-foreground hover:bg-muted'} ${isActive ? 'bg-muted/60' : ''}`}
                                     disabled={action.disabled}
-                                    onMouseEnter={() => setActiveCopyAsIndex(index)}
-                                    onClick={() => runCopyAs(action, index)}
+                                    onSelect={() => runCopyAs(action)}
                                 >
                                     <span>{action.label}</span>
-                                    <span className="text-label text-muted-foreground">{isLastUsedCopyAction ? 'Last used' : ''}</span>
-                                </Button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
+                                    <span className="ml-auto text-label text-muted-foreground">
+                                        {action.id === lastUsedCopyAs ? 'Last used' : ''}
+                                    </span>
+                                </ContextMenuItem>
+                            ))}
+                        </ContextMenuSubContent>
+                    </ContextMenuSub>
+
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={whereAction?.title ?? 'Generate WHERE IN from selected values'}
+                        disabled={!whereAction || whereAction.disabled}
+                        onSelect={() => whereAction?.onSelect?.()}
+                    >
+                        Generate WHERE (IN)
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={openRowQueryDisabledTitle}
+                        disabled={!canOpenRowInNewQueryTab}
+                        onSelect={onOpenRowInNewQueryTab}
+                    >
+                        Open Row in New Query Tab
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={duplicateDisabledTitle}
+                        disabled={!canDuplicateRows}
+                        onSelect={onDuplicateRow}
+                    >
+                        Duplicate Row
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={setNullDisabledTitle}
+                        disabled={!canSetNull}
+                        onSelect={onSetNull}
+                    >
+                        Set NULL
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        title={deleteDisabledTitle}
+                        disabled={!canDeleteRows}
+                        className={`${menuItemClass} text-destructive focus:text-destructive`}
+                        onSelect={onDeleteRow}
+                    >
+                        Delete Row
+                        <ContextMenuShortcut>Del</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        className={menuItemClass}
+                        title={undoDisabledTitle}
+                        disabled={!canUndoLastContextAction}
+                        onSelect={onUndoLastContextAction}
+                    >
+                        Undo Last Context Action
+                        <ContextMenuShortcut>Ctrl+Z</ContextMenuShortcut>
+                    </ContextMenuItem>
+                </ContextMenuContent>
+            </ContextMenu>
         </div>
     );
 };

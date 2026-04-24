@@ -8,6 +8,7 @@ export * from './sheet';
 export * from './popover';
 export * from './collapsible';
 export * from './dropdown-menu';
+export * from './context-menu';
 export * from './command';
 export * from './breadcrumb';
 export * from './tabs';

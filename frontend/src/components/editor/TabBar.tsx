@@ -8,7 +8,15 @@ import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '../../lib/cn';
 import { useToast } from '../layout/Toast';
-import { Button, Input } from '../ui';
+import {
+    Button,
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuTrigger,
+    Input,
+} from '../ui';
 
 interface TabBarProps {
     groupId: string;
@@ -19,12 +27,6 @@ interface TabBarProps {
     onNewTab: () => void;
     onRename: (id: string, newName: string) => void;
     onSplit?: (tabId: string) => void;
-}
-
-interface ContextMenu {
-    x: number;
-    y: number;
-    tabId: string;
 }
 
 const canRenameTab = (tab: Tab): boolean => tab.type === 'query';
@@ -39,7 +41,6 @@ interface SortableTabItemProps {
     renameInputRef: React.RefObject<HTMLInputElement>;
     onActivate: () => void;
     onDoubleClick: () => void;
-    onContextMenu: (e: React.MouseEvent) => void;
     onRenameChange: (val: string) => void;
     onRenameBlur: () => void;
     onRenameKeyDown: (e: React.KeyboardEvent) => void;
@@ -48,7 +49,7 @@ interface SortableTabItemProps {
 
 const SortableTabItem: React.FC<SortableTabItemProps> = ({
     tab, groupId, isActive, renamingId, renameValue, renameInputRef,
-    onActivate, onDoubleClick, onContextMenu, onRenameChange, onRenameBlur, onRenameKeyDown, onClose
+    onActivate, onDoubleClick, onRenameChange, onRenameBlur, onRenameKeyDown, onClose
 }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: tab.id,
@@ -78,7 +79,6 @@ const SortableTabItem: React.FC<SortableTabItemProps> = ({
             )}
             onClick={onActivate}
             onDoubleClick={onDoubleClick}
-            onContextMenu={onContextMenu}
         >
             {renamingId === tab.id ? (
                 <Input
@@ -126,7 +126,6 @@ export const TabBar: React.FC<TabBarProps> = ({
 }) => {
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
-    const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
     const { toast } = useToast();
     const renameInputRef = useRef<HTMLInputElement>(null);
     const tabsScrollRef = useRef<HTMLDivElement>(null);
@@ -182,13 +181,6 @@ export const TabBar: React.FC<TabBarProps> = ({
         return off;
     }, [tabs]);
 
-    // Close context menu on outside click
-    useEffect(() => {
-        const handler = () => setContextMenu(null);
-        window.addEventListener('click', handler);
-        return () => window.removeEventListener('click', handler);
-    }, []);
-
     const startRename = useCallback((tab: Tab) => {
         if (!canRenameTab(tab)) return;
         setRenamingId(tab.id);
@@ -228,22 +220,13 @@ export const TabBar: React.FC<TabBarProps> = ({
         if (e.key === 'Escape') setRenamingId(null);
     }, [commitRename]);
 
-    const handleTabContextMenu = (e: React.MouseEvent, tabId: string) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, tabId });
-    };
-
     const closeOthers = (tabId: string) => {
         tabs.filter(t => t.id !== tabId).forEach(t => onClose(t.id));
-        setContextMenu(null);
     };
 
     const closeAll = () => {
         tabs.forEach(t => onClose(t.id));
-        setContextMenu(null);
     };
-
-    const contextMenuItemClass = 'h-auto w-full justify-start rounded-none px-4 py-1.5 text-small';
 
     return (
         <div className="flex items-center bg-card h-8 shrink-0 overflow-hidden">
@@ -253,22 +236,49 @@ export const TabBar: React.FC<TabBarProps> = ({
             >
                 <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
                     {tabs.map(tab => (
-                        <SortableTabItem
-                            key={tab.id}
-                            tab={tab}
-                            groupId={groupId}
-                            isActive={tab.id === activeTabId}
-                            renamingId={renamingId}
-                            renameValue={renameValue}
-                            renameInputRef={renameInputRef}
-                            onActivate={() => onActivate(tab.id)}
-                            onDoubleClick={() => startRename(tab)}
-                            onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
-                            onRenameChange={setRenameValue}
-                            onRenameBlur={commitRename}
-                            onRenameKeyDown={handleTabKeyDown}
-                            onClose={() => onClose(tab.id)}
-                        />
+                        <ContextMenu key={tab.id}>
+                            <ContextMenuTrigger asChild>
+                                <div>
+                                    <SortableTabItem
+                                        tab={tab}
+                                        groupId={groupId}
+                                        isActive={tab.id === activeTabId}
+                                        renamingId={renamingId}
+                                        renameValue={renameValue}
+                                        renameInputRef={renameInputRef}
+                                        onActivate={() => onActivate(tab.id)}
+                                        onDoubleClick={() => startRename(tab)}
+                                        onRenameChange={setRenameValue}
+                                        onRenameBlur={commitRename}
+                                        onRenameKeyDown={handleTabKeyDown}
+                                        onClose={() => onClose(tab.id)}
+                                    />
+                                </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="min-w-[150px]">
+                                {canRenameTab(tab) && (
+                                    <ContextMenuItem onSelect={() => startRename(tab)}>
+                                        Rename
+                                    </ContextMenuItem>
+                                )}
+                                {onSplit && (
+                                    <ContextMenuItem className="gap-1.5" onSelect={() => onSplit(tab.id)}>
+                                        <SplitSquareHorizontal size={11} />
+                                        Split Right
+                                    </ContextMenuItem>
+                                )}
+                                <ContextMenuSeparator />
+                                <ContextMenuItem onSelect={() => onClose(tab.id)}>
+                                    Close
+                                </ContextMenuItem>
+                                <ContextMenuItem onSelect={() => closeOthers(tab.id)}>
+                                    Close Others
+                                </ContextMenuItem>
+                                <ContextMenuItem onSelect={closeAll}>
+                                    Close All
+                                </ContextMenuItem>
+                            </ContextMenuContent>
+                        </ContextMenu>
                     ))}
                 </SortableContext>
             </div>
@@ -283,71 +293,6 @@ export const TabBar: React.FC<TabBarProps> = ({
             >
                 <Plus size={14} />
             </Button>
-
-
-            {contextMenu && (
-                <div
-                    className="fixed z-popover min-w-[150px] rounded-sm border border-border bg-card py-1 shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
-                    style={{ left: contextMenu.x, top: contextMenu.y }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {(() => {
-                        const contextTab = tabs.find((tab) => tab.id === contextMenu.tabId);
-                        if (!contextTab || !canRenameTab(contextTab)) return null;
-                        return (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className={contextMenuItemClass}
-                                onClick={() => { startRename(contextTab); setContextMenu(null); }}
-                            >
-                                Rename
-                            </Button>
-                        );
-                    })()}
-
-                    {onSplit && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className={cn(contextMenuItemClass, 'gap-1.5')}
-                            onClick={() => { onSplit(contextMenu!.tabId); setContextMenu(null); }}
-                        >
-                            <SplitSquareHorizontal size={11} />
-                            Split Right
-                        </Button>
-                    )}
-
-
-
-                    <div className="h-px bg-border my-1" />
-
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className={contextMenuItemClass}
-                        onClick={() => { onClose(contextMenu!.tabId); setContextMenu(null); }}
-                    >
-                        Close
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className={contextMenuItemClass}
-                        onClick={() => closeOthers(contextMenu!.tabId)}
-                    >
-                        Close Others
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className={contextMenuItemClass}
-                        onClick={closeAll}
-                    >
-                        Close All
-                    </Button>
-                </div>
-            )}
         </div>
     );
 };

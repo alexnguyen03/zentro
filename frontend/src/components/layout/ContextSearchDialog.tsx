@@ -17,6 +17,11 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuTrigger,
     OverlayDialog,
 } from '../ui';
 
@@ -278,6 +283,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     const [enabledKinds, setEnabledKinds] = React.useState<Set<ObjectKind>>(new Set(DEFAULT_ENABLED_KINDS));
     const [showAllKinds, setShowAllKinds] = React.useState(false);
     const [contextMenu, setContextMenu] = React.useState<ItemContextMenu | null>(null);
+    const contextMenuTriggerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (!isConnected || !profileName || !dbName || schemas || isLoading) return;
@@ -314,16 +320,6 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             .map((entry) => entry.item)
             .slice(0, 400);
     }, [allItems, enabledKinds, query]);
-
-    React.useEffect(() => {
-        const closeContextMenu = () => setContextMenu(null);
-        window.addEventListener('click', closeContextMenu);
-        window.addEventListener('scroll', closeContextMenu, true);
-        return () => {
-            window.removeEventListener('click', closeContextMenu);
-            window.removeEventListener('scroll', closeContextMenu, true);
-        };
-    }, []);
 
     const runItemAction = React.useCallback(
         async (item: SearchItem, action: ItemAction) => {
@@ -427,6 +423,20 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
         return `No matches for "${query}"`;
     }, [activeProfile, isConnected, isLoading, query, schemas]);
 
+    React.useEffect(() => {
+        if (!contextMenu) return;
+        const trigger = contextMenuTriggerRef.current;
+        if (!trigger) return;
+        const event = new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            button: 2,
+            clientX: contextMenu.x,
+            clientY: contextMenu.y,
+        });
+        trigger.dispatchEvent(event);
+    }, [contextMenu]);
+
     return (
         <OverlayDialog onClose={onClose} className="items-start pt-[15vh]">
             <div
@@ -507,7 +517,11 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                 onContextMenu={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    setContextMenu({ x: event.clientX, y: event.clientY, item });
+                                    setContextMenu({
+                                        x: event.clientX,
+                                        y: event.clientY,
+                                        item,
+                                    });
                                 }}
                                 className="group cursor-pointer flex items-center justify-between px-4 py-1 text-small data-[selected=true]:bg-primary/10"
                             >
@@ -528,81 +542,40 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             </div>
             {contextMenu && (
                 <div
-                    className="fixed z-popover w-40 rounded-sm border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
+                    className="fixed z-panel-overlay pointer-events-none"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
-                    onClick={(event) => event.stopPropagation()}
                 >
-                    {isTableLike(contextMenu.item.kind) ? (
-                        <>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'browse');
-                                }}
-                            >
-                                Browse
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'select');
-                                }}
-                            >
-                                Select
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'insert');
-                                }}
-                            >
-                                Insert
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'update');
-                                }}
-                            >
-                                Update
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'alter');
-                                }}
-                            >
-                                Alter
-                            </Button>
-                        </>
-                    ) : (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-small"
-                            onClick={() => {
-                                setContextMenu(null);
-                                void runItemAction(contextMenu.item, 'open');
-                            }}
-                        >
-                            Open
-                        </Button>
-                    )}
+                    <ContextMenu modal={false} onOpenChange={(open) => { if (!open) setContextMenu(null); }}>
+                        <ContextMenuTrigger asChild>
+                            <div ref={contextMenuTriggerRef} className="h-px w-px" />
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-40 pointer-events-auto z-topmost">
+                            {isTableLike(contextMenu.item.kind) ? (
+                                <>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'browse'); }}>
+                                        Browse
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'select'); }}>
+                                        Select
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'insert'); }}>
+                                        Insert
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'update'); }}>
+                                        Update
+                                    </ContextMenuItem>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'alter'); }}>
+                                        Alter
+                                    </ContextMenuItem>
+                                </>
+                            ) : (
+                                <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'open'); }}>
+                                    Open
+                                </ContextMenuItem>
+                            )}
+                        </ContextMenuContent>
+                    </ContextMenu>
                 </div>
             )}
         </OverlayDialog>

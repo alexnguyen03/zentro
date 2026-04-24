@@ -30,15 +30,15 @@ import { useConnectionTreeModel } from './useConnectionTreeModel';
 import type { CategoryGroupNode, ConnectionTreeIcon, SchemaBucketNode } from './connectionTreeTypes';
 import {
     Button,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuShortcut,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
-    DropdownMenuTrigger,
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuShortcut,
+    ContextMenuSub,
+    ContextMenuSubContent,
+    ContextMenuSubTrigger,
+    ContextMenuTrigger,
     Input,
     Select,
     SelectContent,
@@ -118,7 +118,6 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
     onRefreshSchema,
     onExportData,
 }) => {
-    const [contextMenuItemId, setContextMenuItemId] = useState<string | null>(null);
     const [dropModal, setDropModal] = useState<{ schema: string; item: string; type: 'TABLE' | 'VIEW'; cascade: boolean } | null>(null);
     const [truncateModal, setTruncateModal] = useState<{ schema: string; tableName: string; cascade: boolean; restartIdentity: boolean } | null>(null);
 
@@ -131,12 +130,6 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
     const supportsTruncateCascade = isTableCategory && driver === 'postgres';
     const supportsTruncateRestartIdentity = isTableCategory && driver === 'postgres';
 
-    const handleContextMenu = (event: React.MouseEvent, itemId: string) => {
-        if (!canOpenContextMenu) return;
-        event.preventDefault();
-        setContextMenuItemId(itemId);
-    };
-
     const requestDrop = (itemName: string, cascade: boolean) => {
         if (!objectType) return;
         setDropModal({
@@ -145,7 +138,6 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
             type: objectType,
             cascade,
         });
-        setContextMenuItemId(null);
     };
 
     const requestTruncate = (tableName: string, cascade: boolean, restartIdentity: boolean) => {
@@ -155,7 +147,6 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
             cascade,
             restartIdentity,
         });
-        setContextMenuItemId(null);
     };
 
     const confirmDrop = async () => {
@@ -245,155 +236,146 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
             {expanded && (
                 <div className="pl-3 relative">
                     {bucket.items.map((item, index) => (
-                        <div
-                            key={`${item.id}:${index}`}
-                            className={cn(
-                                'flex items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 py-0.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
-                                selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
-                                category.canOpenDefinition && 'cursor-pointer',
-                            )}
-                            onClick={() => {
-                                if (!category.canOpenDefinition) return;
-                                onSelectObject(item.schemaName, item.name, category.key);
-                                onOpenDefinition(item.schemaName, item.name);
-                            }}
-                            onContextMenu={(event) => handleContextMenu(event, item.id)}
-                            title={item.name}
-                        >
-                            <span className="w-[13px] shrink-0 inline-block" />
-                            {renderIcon(category.itemIcon, 12)}
-                            <span className="flex-1 truncate leading-5">{item.name}</span>
-                            {canOpenContextMenu && (
-                                <DropdownMenu
-                                    open={contextMenuItemId === item.id}
-                                    onOpenChange={(open) => {
-                                        if (!open) setContextMenuItemId(null);
+                        <ContextMenu key={`${item.id}:${index}`}>
+                            <ContextMenuTrigger asChild disabled={!canOpenContextMenu}>
+                                <div
+                                    className={cn(
+                                        'flex items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 py-0.5 text-caption! text-foreground transition-colors duration-100 hover:bg-muted/80',
+                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-accent/15 text-foreground',
+                                        category.canOpenDefinition && 'cursor-pointer',
+                                    )}
+                                    onClick={() => {
+                                        if (!category.canOpenDefinition) return;
+                                        onSelectObject(item.schemaName, item.name, category.key);
+                                        onOpenDefinition(item.schemaName, item.name);
                                     }}
+                                    title={item.name}
                                 >
-                                    <DropdownMenuTrigger
-                                        aria-label={`Actions for ${item.name}`}
-                                        className="h-0 w-0 overflow-hidden border-0 p-0 opacity-0 pointer-events-none"
-                                    />
-                                    <DropdownMenuContent align="end" sideOffset={4} className="min-w-[220px]">
-                                        <DropdownMenuItem
-                                            onSelect={(event) => {
+                                    <span className="w-[13px] shrink-0 inline-block" />
+                                    {renderIcon(category.itemIcon, 12)}
+                                    <span className="flex-1 truncate leading-5">{item.name}</span>
+                                </div>
+                            </ContextMenuTrigger>
+                            {canOpenContextMenu && (
+                                <ContextMenuContent className="min-w-[220px]">
+                                    <ContextMenuItem
+                                        onSelect={(event: Event) => {
+                                            event.preventDefault();
+                                            if (readOnlyMode) return;
+                                            requestDrop(item.name, false);
+                                        }}
+                                        className="text-destructive focus:text-destructive"
+                                        disabled={readOnlyMode}
+                                    >
+                                        <Trash2 size={14} />
+                                        Drop
+                                        <ContextMenuShortcut>Alt+Shift+D</ContextMenuShortcut>
+                                    </ContextMenuItem>
+                                    {supportsDropCascade && (
+                                        <ContextMenuItem
+                                            onSelect={(event: Event) => {
                                                 event.preventDefault();
                                                 if (readOnlyMode) return;
-                                                requestDrop(item.name, false);
+                                                requestDrop(item.name, true);
                                             }}
                                             className="text-destructive focus:text-destructive"
                                             disabled={readOnlyMode}
                                         >
                                             <Trash2 size={14} />
-                                            Drop
-                                            <DropdownMenuShortcut>Alt+Shift+D</DropdownMenuShortcut>
-                                        </DropdownMenuItem>
-                                        {supportsDropCascade && (
-                                            <DropdownMenuItem
-                                                onSelect={(event) => {
-                                                    event.preventDefault();
-                                                    if (readOnlyMode) return;
-                                                    requestDrop(item.name, true);
-                                                }}
-                                                className="text-destructive focus:text-destructive"
-                                                disabled={readOnlyMode}
+                                            Drop (Cascade)
+                                        </ContextMenuItem>
+                                    )}
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem
+                                        onSelect={(event: Event) => {
+                                            event.preventDefault();
+                                            void onRefreshSchema();
+                                        }}
+                                    >
+                                        <RefreshCw size={14} />
+                                        Refresh...
+                                        <ContextMenuShortcut>F5</ContextMenuShortcut>
+                                    </ContextMenuItem>
+
+                                    <ContextMenuItem
+                                        onSelect={(event: Event) => event.preventDefault()}
+                                        title="Coming soon"
+                                        className="cursor-not-allowed opacity-50"
+                                    >
+                                        Restore...
+                                    </ContextMenuItem>
+                                    <ContextMenuItem
+                                        onSelect={(event: Event) => event.preventDefault()}
+                                        title="Coming soon"
+                                        className="cursor-not-allowed opacity-50"
+                                    >
+                                        Backup...
+                                    </ContextMenuItem>
+
+                                    <ContextMenuSub>
+                                        <ContextMenuSubTrigger>Import/Export Data...</ContextMenuSubTrigger>
+                                        <ContextMenuSubContent className="min-w-[200px]">
+                                            <ContextMenuItem
+                                                onSelect={(event: Event) => event.preventDefault()}
+                                                title="Coming soon"
+                                                className="cursor-not-allowed opacity-50"
                                             >
-                                                <Trash2 size={14} />
-                                                Drop (Cascade)
-                                            </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            onSelect={(event) => {
-                                                event.preventDefault();
-                                                void onRefreshSchema();
-                                            }}
-                                        >
-                                            <RefreshCw size={14} />
-                                            Refresh...
-                                            <DropdownMenuShortcut>F5</DropdownMenuShortcut>
-                                        </DropdownMenuItem>
+                                                Import...
+                                            </ContextMenuItem>
+                                            <ContextMenuItem
+                                                onSelect={(event: Event) => {
+                                                    event.preventDefault();
+                                                    if (!isTableCategory) return;
+                                                    onExportData(bucket.schemaName, item.name);
+                                                }}
+                                                disabled={!isTableCategory}
+                                            >
+                                                Export...
+                                            </ContextMenuItem>
+                                        </ContextMenuSubContent>
+                                    </ContextMenuSub>
 
-                                        <DropdownMenuItem
-                                            onSelect={(event) => event.preventDefault()}
-                                            title="Coming soon"
-                                            className="cursor-not-allowed opacity-50"
-                                        >
-                                            Restore...
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onSelect={(event) => event.preventDefault()}
-                                            title="Coming soon"
-                                            className="cursor-not-allowed opacity-50"
-                                        >
-                                            Backup...
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuSub>
-                                            <DropdownMenuSubTrigger>Import/Export Data...</DropdownMenuSubTrigger>
-                                            <DropdownMenuSubContent className="min-w-[200px]">
-                                                <DropdownMenuItem
-                                                    onSelect={(event) => event.preventDefault()}
-                                                    title="Coming soon"
-                                                    className="cursor-not-allowed opacity-50"
-                                                >
-                                                    Import...
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onSelect={(event) => {
+                                    {supportsTruncate && (
+                                        <ContextMenuSub>
+                                            <ContextMenuSubTrigger disabled={readOnlyMode}>Truncate</ContextMenuSubTrigger>
+                                            <ContextMenuSubContent className="min-w-[200px]">
+                                                <ContextMenuItem
+                                                    onSelect={(event: Event) => {
                                                         event.preventDefault();
-                                                        if (!isTableCategory) return;
-                                                        onExportData(bucket.schemaName, item.name);
+                                                        requestTruncate(item.name, false, false);
                                                     }}
-                                                    disabled={!isTableCategory}
+                                                    disabled={readOnlyMode}
                                                 >
-                                                    Export...
-                                                </DropdownMenuItem>
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuSub>
-
-                                        {supportsTruncate && (
-                                            <DropdownMenuSub>
-                                                <DropdownMenuSubTrigger disabled={readOnlyMode}>Truncate</DropdownMenuSubTrigger>
-                                                <DropdownMenuSubContent className="min-w-[200px]">
-                                                    <DropdownMenuItem
-                                                        onSelect={(event) => {
+                                                    Truncate
+                                                </ContextMenuItem>
+                                                {supportsTruncateCascade && (
+                                                    <ContextMenuItem
+                                                        onSelect={(event: Event) => {
                                                             event.preventDefault();
-                                                            requestTruncate(item.name, false, false);
+                                                            requestTruncate(item.name, true, false);
                                                         }}
                                                         disabled={readOnlyMode}
                                                     >
-                                                        Truncate
-                                                    </DropdownMenuItem>
-                                                    {supportsTruncateCascade && (
-                                                        <DropdownMenuItem
-                                                            onSelect={(event) => {
-                                                                event.preventDefault();
-                                                                requestTruncate(item.name, true, false);
-                                                            }}
-                                                            disabled={readOnlyMode}
-                                                        >
-                                                            Truncate Cascade
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {supportsTruncateRestartIdentity && (
-                                                        <DropdownMenuItem
-                                                            onSelect={(event) => {
-                                                                event.preventDefault();
-                                                                requestTruncate(item.name, false, true);
-                                                            }}
-                                                            disabled={readOnlyMode}
-                                                        >
-                                                            Truncate Restart Identity
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                </DropdownMenuSubContent>
-                                            </DropdownMenuSub>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                                        Truncate Cascade
+                                                    </ContextMenuItem>
+                                                )}
+                                                {supportsTruncateRestartIdentity && (
+                                                    <ContextMenuItem
+                                                        onSelect={(event: Event) => {
+                                                            event.preventDefault();
+                                                            requestTruncate(item.name, false, true);
+                                                        }}
+                                                        disabled={readOnlyMode}
+                                                    >
+                                                        Truncate Restart Identity
+                                                    </ContextMenuItem>
+                                                )}
+                                            </ContextMenuSubContent>
+                                        </ContextMenuSub>
+                                    )}
+                                </ContextMenuContent>
                             )}
-                        </div>
+                        </ContextMenu>
                     ))}
                 </div>
             )}
