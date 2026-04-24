@@ -5,9 +5,16 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { ConfirmationModal, OverlayDialog } from '../ui';
 import { cn } from '../../lib/cn';
 import { useToast } from './Toast';
-import { buildTagsWithProjectIcon, getProjectIconKey, sortProjects, type ProjectIconKey } from './projectHubMeta';
+import {
+    buildTagsWithProjectIcon,
+    buildTagsWithProjectPinned,
+    getProjectIconKey,
+    isProjectPinned,
+    sortProjects,
+    type ProjectIconKey,
+} from './projectHubMeta';
 import { ProjectWizard } from './project/ProjectWizard';
-import { GetDefaultProjectStorageRoot, OpenDirectoryInExplorer, PickDirectory, openProjectFromDirectory } from '../../services/projectService';
+import { GetDefaultProjectStorageRoot, OpenDirectoryInExplorer, PickDirectory, openProjectFromDirectory, saveProject as persistProject } from '../../services/projectService';
 import type { Project, EnvironmentKey } from '../../types/project';
 import { PanelFrame } from './PanelFrame';
 import { ProjectHubEntryScreen } from './project/ProjectHubEntryScreen';
@@ -76,7 +83,7 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
     onClose,
     launchIntent,
 }) => {
-    const { projects, isLoading, error, openProject, saveProject, deleteProject, activeProject } = useProjectStore();
+    const { projects, isLoading, error, openProject, deleteProject, activeProject } = useProjectStore();
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const { toast } = useToast();
 
@@ -86,10 +93,16 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
     const [deletingProjectId, setDeletingProjectId] = React.useState<string | null>(null);
     const [projectToDelete, setProjectToDelete] = React.useState<Project | null>(null);
     const [iconUpdatingProjectId, setIconUpdatingProjectId] = React.useState<string | null>(null);
+    const [pinUpdatingProjectId, setPinUpdatingProjectId] = React.useState<string | null>(null);
     const [openingFolder, setOpeningFolder] = React.useState(false);
     const [wizardState, setWizardState] = React.useState<WizardState>(() => resolveLaunchState(launchIntent, activeProject).wizardState);
+    const [optimisticProjectsById, setOptimisticProjectsById] = React.useState<Record<string, Project>>({});
 
-    const sortedProjects = React.useMemo(() => sortProjects(projects), [projects]);
+    const mergedProjects = React.useMemo(
+        () => projects.map((project) => optimisticProjectsById[project.id] || project),
+        [optimisticProjectsById, projects],
+    );
+    const sortedProjects = React.useMemo(() => sortProjects(mergedProjects), [mergedProjects]);
     const projectsById = React.useMemo(() => new Map(sortedProjects.map((project) => [project.id, project])), [sortedProjects]);
     const visibleProjects = React.useMemo(() => {
         const keyword = searchQuery.trim().toLowerCase();
@@ -107,6 +120,26 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
         setWizardState(next.wizardState);
         setSurface(next.surface);
     }, [activeProject, launchIntent]);
+
+    React.useEffect(() => {
+        setOptimisticProjectsById((current) => {
+            const validIds = new Set(projects.map((project) => project.id));
+            const next: Record<string, Project> = {};
+            let changed = false;
+            Object.entries(current).forEach(([id, project]) => {
+                if (validIds.has(id)) {
+                    next[id] = project;
+                } else {
+                    changed = true;
+                }
+            });
+            return changed ? next : current;
+        });
+    }, [projects]);
+
+    const setOptimisticProject = React.useCallback((project: Project) => {
+        setOptimisticProjectsById((current) => ({ ...current, [project.id]: project }));
+    }, []);
 
     const handleOpenProject = async (projectId: string) => {
         setOpeningProjectId(projectId);
@@ -184,19 +217,51 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
 
     const handleSelectProjectIcon = async (project: Project, nextIconKey: ProjectIconKey) => {
         if (getProjectIconKey(project) === nextIconKey) return;
+        const previousProject = projectsById.get(project.id) || project;
+        const optimisticProject: Project = {
+            ...previousProject,
+            tags: buildTagsWithProjectIcon(previousProject.tags, nextIconKey),
+        };
+        setOptimisticProject(optimisticProject);
         setIconUpdatingProjectId(project.id);
         try {
-            const updated = await saveProject({
-                ...project,
-                tags: buildTagsWithProjectIcon(project.tags, nextIconKey),
-            });
+            const updated = await persistProject(optimisticProject);
             if (!updated) {
+                setOptimisticProject(previousProject);
                 toast.error('Could not update project icon.');
+                return;
             }
+            setOptimisticProject(updated);
         } catch (saveError) {
+            setOptimisticProject(previousProject);
             toast.error(`Could not update project icon: ${saveError}`);
         } finally {
             setIconUpdatingProjectId(null);
+        }
+    };
+
+    const handleToggleProjectPin = async (project: Project) => {
+        const previousProject = projectsById.get(project.id) || project;
+        const currentlyPinned = isProjectPinned(previousProject);
+        const optimisticProject: Project = {
+            ...previousProject,
+            tags: buildTagsWithProjectPinned(previousProject.tags, !currentlyPinned),
+        };
+        setOptimisticProject(optimisticProject);
+        setPinUpdatingProjectId(project.id);
+        try {
+            const updated = await persistProject(optimisticProject);
+            if (!updated) {
+                setOptimisticProject(previousProject);
+                toast.error(`Could not ${currentlyPinned ? 'unpin' : 'pin'} project.`);
+                return;
+            }
+            setOptimisticProject(updated);
+        } catch (saveError) {
+            setOptimisticProject(previousProject);
+            toast.error(`Could not ${currentlyPinned ? 'unpin' : 'pin'} project: ${saveError}`);
+        } finally {
+            setPinUpdatingProjectId(null);
         }
     };
 
@@ -307,6 +372,10 @@ export const ProjectHub: React.FC<ProjectHubProps> = ({
                                 void handleSelectProjectIcon(project, iconKey);
                             }}
                             iconUpdatingProjectId={iconUpdatingProjectId}
+                            onToggleProjectPin={(project) => {
+                                void handleToggleProjectPin(project);
+                            }}
+                            pinUpdatingProjectId={pinUpdatingProjectId}
                             onRequestDelete={(project) => setProjectToDelete(project)}
                         />
                     </PanelFrame>

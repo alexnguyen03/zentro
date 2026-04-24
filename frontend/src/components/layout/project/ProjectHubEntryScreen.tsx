@@ -1,10 +1,11 @@
 import React from 'react';
-import { FolderOpen, Pencil, Pin, Plus, Search, Trash2 } from 'lucide-react';
+import { FolderOpen, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react';
 import { cn } from '../../../lib/cn';
 import { getEnvironmentMeta } from '../../../lib/projects';
 import { ENVIRONMENT_KEY } from '../../../lib/constants';
 import type { Project } from '../../../types/project';
 import {
+    isProjectPinned,
     PROJECT_ICON_MAP,
     PROJECT_ICON_OPTIONS,
     getProjectIconKey,
@@ -42,6 +43,8 @@ interface ProjectHubEntryScreenProps {
     onOpenProjectInExplorer: (project: Project) => void;
     onSelectProjectIcon: (project: Project, iconKey: ProjectIconKey) => void;
     iconUpdatingProjectId: string | null;
+    onToggleProjectPin: (project: Project) => void;
+    pinUpdatingProjectId: string | null;
     onRequestDelete: (project: Project) => void;
 }
 
@@ -71,13 +74,6 @@ function buildEnvironmentTags(project: Project): EnvironmentTag[] {
     });
 }
 
-function isPinnedProject(project: Project): boolean {
-    return (project.tags || []).some((tag) => {
-        const normalized = tag.trim().toLowerCase();
-        return normalized === 'pinned' || normalized === 'pin:true';
-    });
-}
-
 function hasProductionEnvironment(project: Project): boolean {
     return (project.environments || []).some((environment) => environment.key === ENVIRONMENT_KEY.PRODUCTION);
 }
@@ -104,7 +100,7 @@ function formatRelativeDate(value?: string): string {
 
 function matchesTab(project: Project, tab: ProjectTabKey): boolean {
     if (tab === 'all') return true;
-    if (tab === 'pinned') return isPinnedProject(project);
+    if (tab === 'pinned') return isProjectPinned(project);
     if (tab === 'production') return hasProductionEnvironment(project);
     return isLocalOnlyProject(project);
 }
@@ -130,38 +126,40 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
     onOpenProjectInExplorer,
     onSelectProjectIcon,
     iconUpdatingProjectId,
+    onToggleProjectPin,
+    pinUpdatingProjectId,
     onRequestDelete,
 }) => {
     const [activeTab, setActiveTab] = React.useState<ProjectTabKey>('all');
+    const [contextSelectedProjectId, setContextSelectedProjectId] = React.useState<string | null>(null);
     const tabbedProjects = React.useMemo(
         () => projects.filter((project) => matchesTab(project, activeTab)),
         [activeTab, projects],
     );
-    const displayedProjectCount = tabCount(projects, activeTab);
     const hasAnyProject = projects.length > 0;
     const hasFilteredProject = tabbedProjects.length > 0;
 
     return (
         <section className="flex h-full min-h-0 flex-col">
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                        {PROJECT_TABS.map((tab) => (
-                            <button
-                                key={tab.key}
-                                type="button"
-                                onClick={() => setActiveTab(tab.key)}
-                                className={cn(
-                                    'relative h-9 border-b-[3px] px-2 text-section transition-colors',
-                                    activeTab === tab.key
-                                        ? 'border-primary text-foreground'
-                                        : 'border-transparent text-muted-foreground hover:text-foreground',
-                                )}
-                            >
-                                <span>{tab.label}</span>
-                                <span className="ml-2 text-section font-normal opacity-90">{tabCount(projects, tab.key)}</span>
-                            </button>
-                        ))}
-                    </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    {PROJECT_TABS.map((tab) => (
+                        <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setActiveTab(tab.key)}
+                            className={cn(
+                                'relative h-9 border-b-[3px] px-2 text-section transition-colors',
+                                activeTab === tab.key
+                                    ? 'border-primary text-foreground'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                            )}
+                        >
+                            <span>{tab.label}</span>
+                            <span className="ml-2 text-section font-normal opacity-90">{tabCount(projects, tab.key)}</span>
+                        </button>
+                    ))}
+                </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <Input
                         placeholder="Search projects..."
@@ -190,7 +188,17 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                 </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div
+                className={cn(
+                    'min-h-0 flex-1',
+                    contextSelectedProjectId ? 'overflow-hidden' : 'overflow-y-auto',
+                )}
+                onWheelCapture={(event) => {
+                    if (contextSelectedProjectId) {
+                        event.preventDefault();
+                    }
+                }}
+            >
                 <div className="py-2 lg:px-4">
                     {isLoading ? (
                         <div className="flex h-full items-center justify-center">
@@ -229,22 +237,34 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                 const environmentTags = buildEnvironmentTags(project);
                                 const isDisabled = isOpening || isDeleting;
                                 const isUpdatingIcon = iconUpdatingProjectId === project.id;
+                                const isUpdatingPin = pinUpdatingProjectId === project.id;
                                 const DisplayIcon = PROJECT_ICON_MAP[iconKey].icon;
-                                const pinned = isPinnedProject(project);
+                                const pinned = isProjectPinned(project);
                                 const dateLabel = formatRelativeDate(project.updated_at);
+                                const isContextSelected = contextSelectedProjectId === project.id;
 
                                 return (
-                                    <ContextMenu key={project.id} modal={false}>
+                                    <ContextMenu
+                                        key={project.id}
+                                        modal={false}
+                                        onOpenChange={(open) => {
+                                            setContextSelectedProjectId((current) => {
+                                                if (open) return project.id;
+                                                return current === project.id ? null : current;
+                                            });
+                                        }}
+                                    >
                                         <ContextMenuTrigger asChild disabled={isDisabled}>
                                             <div
                                                 role="button"
                                                 tabIndex={isDisabled ? -1 : 0}
                                                 data-testid={`recent-project-${project.id}`}
                                                 className={cn(
-                                                    'group flex min-h-16 items-start gap-3 py-2 text-left transition-colors bg-primary/1 mb-2 p-3 rounded-sm',
-                                                    'hover:bg-primary/5',
+                                                    'group relative flex min-h-16 items-start gap-3 py-2 text-left transition-colors bg-primary/2 mb-2 p-3 rounded-sm',
+                                                    isContextSelected ? 'bg-primary/5' : 'hover:bg-primary/5',
                                                     isDisabled ? 'cursor-default opacity-60' : 'cursor-pointer',
                                                 )}
+                                                onContextMenu={() => setContextSelectedProjectId(project.id)}
                                                 onClick={() => {
                                                     if (!isDisabled) onOpenProject(project.id);
                                                 }}
@@ -260,16 +280,15 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                     <DisplayIcon size={20} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className="truncate text-small font-semibold text-foreground">{project.name}</div>
-                                                        <div className="truncate text-small font-semibold text-foreground">{project.description}</div>
-                                                        {pinned && <Pin size={12} className="shrink-0 text-primary" />}
+                                                    <div className="flex items-center gap-1.5 pr-8">
+                                                        <div className="truncate font-semibold text-foreground">{project.name}</div>
                                                     </div>
-                                                    {project.description?.trim() && (
-                                                        <div className="mt-0.5 truncate text-small text-muted-foreground">
-                                                            {project.description.trim()}
-                                                        </div>
-                                                    )}
+                                                    <div className={cn(
+                                                        'mt-0.5 truncate text-label!',
+                                                        project.description?.trim() ? 'text-muted-foreground' : 'text-muted-foreground/55',
+                                                    )}>
+                                                        {project.description?.trim() || 'No description'}
+                                                    </div>
                                                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                                                         {environmentTags.length > 0 ? environmentTags.map((tag, index) => (
                                                             <EnvironmentBadge
@@ -285,7 +304,29 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="ml-2 mt-0.5 shrink-0 text-label text-muted-foreground">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-xs"
+                                                    title={pinned ? 'Unpin project' : 'Pin project'}
+                                                    aria-label={pinned ? 'Unpin project' : 'Pin project'}
+                                                    data-testid={`project-pin-toggle-${project.id}`}
+                                                    disabled={isDisabled || isUpdatingPin}
+                                                    className={cn(
+                                                        'absolute right-3 top-2 h-5 w-5 p-0',
+                                                        (pinned || isUpdatingPin)
+                                                            ? 'opacity-100 text-primary hover:text-primary'
+                                                            : 'opacity-0 text-muted-foreground/65 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100',
+                                                    )}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        onToggleProjectPin(project);
+                                                    }}
+                                                    onKeyDown={(event) => event.stopPropagation()}
+                                                >
+                                                    {isUpdatingPin ? <Spinner size={10} /> : <Pin size={12} />}
+                                                </Button>
+                                                <div className="absolute right-3 bottom-3 text-label text-muted-foreground">
                                                     {isOpening ? (
                                                         <span className="inline-flex items-center gap-1 text-primary">
                                                             <Spinner size={10} /> Opening...
@@ -299,6 +340,13 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                                         <ContextMenuContent className="min-w-50">
                                             <ContextMenuItem disabled={isDisabled} onSelect={() => onOpenProject(project.id)}>
                                                 Open project
+                                            </ContextMenuItem>
+                                            <ContextMenuItem
+                                                disabled={isDisabled || isUpdatingPin}
+                                                onSelect={() => onToggleProjectPin(project)}
+                                            >
+                                                {pinned ? <PinOff size={13} className="mr-1.5" /> : <Pin size={13} className="mr-1.5" />}
+                                                {pinned ? 'Unpin project' : 'Pin project'}
                                             </ContextMenuItem>
                                             <ContextMenuSub>
                                                 <ContextMenuSubTrigger disabled={isDisabled || isUpdatingIcon}>

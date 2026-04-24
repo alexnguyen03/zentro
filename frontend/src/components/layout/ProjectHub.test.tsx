@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
     pickDirectory: vi.fn(),
     openProjectFromDirectory: vi.fn(),
     openDirectoryInExplorer: vi.fn(),
+    persistProject: vi.fn(),
     resetRuntime: vi.fn(),
     disconnect: vi.fn(),
     toastError: vi.fn(),
@@ -90,6 +91,7 @@ vi.mock('../../services/projectService', () => ({
     PickDirectory: mocks.pickDirectory,
     openProjectFromDirectory: mocks.openProjectFromDirectory,
     OpenDirectoryInExplorer: mocks.openDirectoryInExplorer,
+    saveProject: mocks.persistProject,
 }));
 
 vi.mock('../../stores/projectStore', () => ({
@@ -151,6 +153,7 @@ describe('ProjectHub', () => {
         mocks.pickDirectory.mockResolvedValue('C:/projects/example');
         mocks.openProjectFromDirectory.mockResolvedValue(makeProject('p2', 'Project Two'));
         mocks.openDirectoryInExplorer.mockResolvedValue(undefined);
+        mocks.persistProject.mockImplementation(async (project: Project) => project);
         mocks.disconnect.mockResolvedValue(undefined);
         mocks.loadConnections.mockResolvedValue([
             {
@@ -227,6 +230,34 @@ describe('ProjectHub', () => {
 
         await waitFor(() => {
             expect(mocks.openDirectoryInExplorer).toHaveBeenCalledWith('C:/projects/p1');
+        });
+        expect(mocks.openProject).not.toHaveBeenCalled();
+    });
+
+    it('pins project from context menu', async () => {
+        render(<ProjectHub />);
+
+        fireEvent.contextMenu(screen.getByTestId('recent-project-p2'));
+        fireEvent.click(await screen.findByText('Pin project'));
+
+        await waitFor(() => {
+            expect(mocks.persistProject).toHaveBeenCalledWith(expect.objectContaining({
+                id: 'p2',
+                tags: expect.arrayContaining(['pinned']),
+            }));
+        });
+    });
+
+    it('pins project directly from card pin button', async () => {
+        render(<ProjectHub />);
+
+        fireEvent.click(screen.getByTestId('project-pin-toggle-p2'));
+
+        await waitFor(() => {
+            expect(mocks.persistProject).toHaveBeenCalledWith(expect.objectContaining({
+                id: 'p2',
+                tags: expect.arrayContaining(['pinned']),
+            }));
         });
         expect(mocks.openProject).not.toHaveBeenCalled();
     });

@@ -15,6 +15,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { Project } from '../../types/project';
 
 const PROJECT_ICON_TAG_PREFIX = 'icon:';
+const PROJECT_PINNED_TAG_VALUES = new Set(['pinned', 'pin:true']);
 
 export type ProjectIconKey =
     | 'general'
@@ -86,4 +87,17 @@ export function getProjectIconKey(project: Project | null | undefined): ProjectI
 export function buildTagsWithProjectIcon(tags: string[] | undefined, iconKey: ProjectIconKey): string[] {
     const cleanTags = (tags || []).filter((tag) => tag && !tag.startsWith(PROJECT_ICON_TAG_PREFIX));
     return [...cleanTags, `${PROJECT_ICON_TAG_PREFIX}${iconKey}`];
+}
+
+export function isProjectPinned(project: Project | null | undefined): boolean {
+    return (project?.tags || []).some((tag) => PROJECT_PINNED_TAG_VALUES.has(tag.trim().toLowerCase()));
+}
+
+export function buildTagsWithProjectPinned(tags: string[] | undefined, pinned: boolean): string[] {
+    const cleanTags = (tags || []).filter((tag) => {
+        const normalized = tag.trim().toLowerCase();
+        return tag && !PROJECT_PINNED_TAG_VALUES.has(normalized);
+    });
+    if (!pinned) return cleanTags;
+    return [...cleanTags, 'pinned'];
 }
