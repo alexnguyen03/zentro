@@ -45,7 +45,7 @@ export const WizardStorageField: React.FC<WizardStorageFieldProps> = ({
                 <Button
                     type="button"
                     variant="secondary"
-                    size="icon-sm"
+                    size="icon"
                     onClick={() => void onPickFolder()}
                     disabled={loadingRoot}
                     title="Browse folder"

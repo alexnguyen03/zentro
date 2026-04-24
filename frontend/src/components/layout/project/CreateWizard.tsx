@@ -187,7 +187,7 @@ export const ProjectWizardView: React.FC<WizardProps> = ({
                             size="icon"
                             onClick={onCancel}
                             disabled={submitting}
-                            className="  rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                             title="Close"
                         >
                             <X size={16} />

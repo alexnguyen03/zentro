@@ -16,10 +16,10 @@ export const ProjectIconPicker: React.FC<ProjectIconPickerProps> = ({ value, onC
                     type="button"
                     variant="ghost"
                     size="icon-md"
-                    className="flex h-16 w-16 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground outline-none transition hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-24 w-24 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground outline-none transition hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring"
                     title="Change project icon"
                 >
-                    {React.createElement(PROJECT_ICON_MAP[value].icon, { size: 32 })}
+                    {React.createElement(PROJECT_ICON_MAP[value].icon, { size: 40 })}
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="z-topmost w-96 max-w-[calc(100vw-28px)] p-1.5" align="start" sideOffset={6}>
