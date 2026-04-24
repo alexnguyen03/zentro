@@ -19,7 +19,7 @@ const ContextMenuSubTrigger = React.forwardRef<
     <ContextMenuPrimitive.SubTrigger
         ref={ref}
         className={cn(
-            'flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-small outline-none focus:bg-[--state-hover-bg] data-[state=open]:bg-[--state-hover-bg]',
+            'flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-small outline-none focus:bg-[var(--state-hover-bg)] data-[state=open]:bg-[var(--state-hover-bg)]',
             inset && 'pl-8',
             className,
         )}
@@ -76,7 +76,7 @@ const ContextMenuItem = React.forwardRef<
     <ContextMenuPrimitive.Item
         ref={ref}
         className={cn(
-            'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-small outline-none transition-colors focus:bg-[--state-hover-bg]',
+            'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-small outline-none transition-colors focus:bg-[var(--state-hover-bg)]',
             'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
             inset && 'pl-8',
             className,
@@ -93,7 +93,7 @@ const ContextMenuCheckboxItem = React.forwardRef<
     <ContextMenuPrimitive.CheckboxItem
         ref={ref}
         className={cn(
-            'relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pr-2 pl-8 text-small outline-none transition-colors focus:bg-[--state-hover-bg]',
+            'relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pr-2 pl-8 text-small outline-none transition-colors focus:bg-[var(--state-hover-bg)]',
             'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
             className,
         )}
@@ -117,7 +117,7 @@ const ContextMenuRadioItem = React.forwardRef<
     <ContextMenuPrimitive.RadioItem
         ref={ref}
         className={cn(
-            'relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pr-2 pl-8 text-small outline-none transition-colors focus:bg-[--state-hover-bg]',
+            'relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pr-2 pl-8 text-small outline-none transition-colors focus:bg-[var(--state-hover-bg)]',
             'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
             className,
         )}

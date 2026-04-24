@@ -324,7 +324,7 @@ const RowDetailField: React.FC<RowDetailFieldProps> = ({
             className={cn(
                 'flex flex-col gap-0.5 p-0.5 transition-colors duration-150',
                 isDirty && 'bg-warning/10',
-                isSelected && ' bg-[--state-selected-bg]',
+                isSelected && ' bg-[var(--state-selected-bg)]',
             )}
         >
             <div className="group flex items-center justify-between gap-1 text-label font-semibold text-muted-foreground">

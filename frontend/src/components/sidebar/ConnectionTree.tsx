@@ -240,9 +240,9 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                             <ContextMenuTrigger asChild disabled={!canOpenContextMenu}>
                                 <div
                                     className={cn(
-                                        'flex items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 py-0.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
-                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-[--state-selected-bg] text-foreground',
-                                        category.canOpenDefinition && 'cursor-pointer',
+                                        'group mb-0.5 flex h-7 items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
+                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-[var(--state-selected-bg)] text-[var(--state-selected-text)]',
+                                        category.canOpenDefinition && 'cursor-pointer focus-visible:outline-none',
                                     )}
                                     onClick={() => {
                                         if (!category.canOpenDefinition) return;
@@ -671,8 +671,8 @@ export const ConnectionTree: React.FC = () => {
                             variant="ghost"
                             type="button"
                             className={cn(
-                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent text-body! text-foreground transition-colors duration-fast hover:bg-[--state-hover-bg]',
-                                activeCategory?.key === category.key && 'bg-[--state-active-bg] text-foreground',
+                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent text-body! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
+                                activeCategory?.key === category.key && 'bg-[var(--state-active-bg)] text-foreground',
                             )}
                             onClick={() => updateExplorerUiState({ activeCategoryKey: category.key })}
                         >
