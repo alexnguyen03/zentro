@@ -89,7 +89,7 @@ export const StatusBar: React.FC = () => {
     return (
         <div
             className={cn(
-                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-6 shrink-0 text-background transition-colors duration-500 ease-out',
+                'relative z-panel-overlay overflow-visible flex items-center justify-between px-4 h-5 shrink-0 text-background transition-colors duration-500 ease-out',
                 viewMode ? 'bg-linear-to-r from-warning/70 to-error/70' : barColor,
             )}
         >

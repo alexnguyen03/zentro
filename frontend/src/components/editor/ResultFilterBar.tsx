@@ -324,13 +324,13 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     return (
         <div className="flex items-center gap-1 shrink-0 relative py-1">
             {showFilterInput && (
-                <div className="flex items-center w-full min-w-0 gap-1">
+                <div className="flex items-center w-full min-w-0 gap-1 bg-card border border-border/30 rounded-sm">
                     <div className={cn(
-                        'flex items-center min-w-0 border border-border/30 rounded-sm',
+                        'flex items-center min-w-0 rounded-sm',
                         children ? 'flex-4' : 'flex-1',
                     )}>
                         <div
-                            className="relative p-1 px-2 h-full flex items-center bg-card"
+                            className="relative px-2 h-full flex items-center"
                             onMouseEnter={() => {
                                 tooltipTimeout.current && clearTimeout(tooltipTimeout.current);
                                 setShowTooltip(true);
@@ -449,28 +449,28 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     </div>
 
                     <div className={cn(
-                        'flex items-center min-w-0 rounded-sm border border-border/30',
-                        children ? 'flex-[4]' : 'flex-1',
+                        'flex items-center min-w-0 border-l border-border/60 bg-background',
+                        children ? 'flex-4' : 'flex-1',
                     )}>
                         <span
                             title={orderInputMode === 'chips' ? 'Switch to text mode' : 'Switch to chip mode'}
                             onClick={toggleOrderInputMode}
-                            className="text-label uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors p-1 px-2 h-full flex items-center bg-card">
+                            className="h-7 text-label uppercase cursor-pointer font-semibold text-muted-foreground hover:text-foreground tracking-wide shrink-0 select-none transition-colors p-1 px-2 flex items-center bg-card">
                             ORDER BY
                         </span>
                         {orderInputMode === 'chips' ? (
                             <>
                                 {orderTerms.length > 0 && (
-                                    <div className="ml-2 flex items-center gap-1 overflow-x-auto scrollbar-thin">
+                                    <div className=" flex items-center gap-1 overflow-x-auto scrollbar-thin">
                                         {orderTerms.map((term, index) => (
                                             <Popover key={`${term.field}:${index}`} open={editingOrderIndex === index} onOpenChange={(open) => setEditingOrderIndex(open ? index : null)}>
                                                 <PopoverTrigger asChild>
                                                     <Badge
-                                                        variant="default"
-                                                        className="cursor-pointer normal-case gap-1 pl-2 pr-1 py-1 text-label shrink-0"
+                                                        variant="info"
+                                                        className="cursor-pointer gap-1 px-1 text-label shrink-0 h-7 rounded-none"
                                                         onClick={() => handleOpenEditOrderTerm(index)}
                                                     >
-                                                        <span className="font-mono text-label">{term.field}</span>
+                                                        <span>{term.field}</span>
                                                         <span className="text-muted-foreground">{term.dir}</span>
                                                         <Button
                                                             type="button"
@@ -540,7 +540,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                             type="button"
                                             variant="ghost"
                                             size="icon-sm"
-                                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                                            className="h-7! shrink-0 text-muted-foreground hover:text-foreground"
                                             title="Add ORDER BY term"
                                         >
                                             <Plus size={12} />
@@ -604,7 +604,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                                 }}
                                 size="sm"
                                 variant="ghost"
-                                className="ml-2 font-mono"
+                                className="h-7! font-mono"
                                 placeholder="created_at DESC, id ASC"
                             />
                         )}

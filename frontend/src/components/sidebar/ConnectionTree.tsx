@@ -401,6 +401,7 @@ export const ConnectionTree: React.FC = () => {
     const [explorerUiState, setExplorerUiState] = useSidebarPanelState('primary', 'explorer', EXPLORER_PANEL_STATE_DEFAULT);
     const [selectedObjectKey, setSelectedObjectKey] = useState<string | null>(null);
     const selectionSourceRef = useRef<'editor' | 'tree' | null>(null);
+    const lastSyncedEditorObjectKeyRef = useRef<string | null>(null);
     const filter = explorerUiState.filter;
     const fuzzyMatch = explorerUiState.fuzzyMatch;
     const activeCategoryKey = explorerUiState.activeCategoryKey;
@@ -543,6 +544,7 @@ export const ConnectionTree: React.FC = () => {
 
     useEffect(() => {
         if (!activeEditorTableTarget) {
+            lastSyncedEditorObjectKeyRef.current = null;
             selectionSourceRef.current = 'editor';
             setSelectedObjectKey(null);
             return;
@@ -555,29 +557,32 @@ export const ConnectionTree: React.FC = () => {
         );
 
         if (!selected) {
+            lastSyncedEditorObjectKeyRef.current = null;
             selectionSourceRef.current = 'editor';
             setSelectedObjectKey(null);
             return;
         }
 
+        const targetChanged = lastSyncedEditorObjectKeyRef.current !== selected.selectedObjectKey;
         const updates: Partial<typeof explorerUiState> = {};
-        if (activeCategoryKey !== selected.categoryKey) {
+        if (targetChanged && activeCategoryKey !== selected.categoryKey) {
             updates.activeCategoryKey = selected.categoryKey;
         }
-        if (!selected.isPrimaryCategory && !showMoreCategories) {
+        if (targetChanged && !selected.isPrimaryCategory && !showMoreCategories) {
             updates.showMoreCategories = true;
         }
-        if (selectedSchema !== ALL_SCHEMAS_VALUE && selectedSchema !== selected.schemaName) {
+        if (targetChanged && selectedSchema !== ALL_SCHEMAS_VALUE && selectedSchema !== selected.schemaName) {
             updates.selectedSchema = selected.schemaName;
         }
         if (Object.keys(updates).length > 0) {
             updateExplorerUiState(updates);
         }
 
-        if (!isSchemaExpanded(selected.categoryKey, selected.schemaName)) {
+        if (targetChanged && !isSchemaExpanded(selected.categoryKey, selected.schemaName)) {
             toggleSchema(selected.categoryKey, selected.schemaName);
         }
 
+        lastSyncedEditorObjectKeyRef.current = selected.selectedObjectKey;
         selectionSourceRef.current = 'editor';
         setSelectedObjectKey(selected.selectedObjectKey);
     }, [
