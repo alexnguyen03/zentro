@@ -29,6 +29,7 @@
     --primitive-success-500: #4bb889;
     --primitive-error-500: #df6b6b;
     --primitive-warning-500: #f3ae48;
+    --primitive-testing-500: #c84be8;
 }
 
 /* ─────────────────────────────────────────────
@@ -61,6 +62,7 @@
     --status-success: var(--primitive-success-500);
     --status-error: var(--primitive-error-500);
     --status-warning: var(--primitive-warning-500);
+    --status-testing: var(--primitive-testing-500);
 
     /* Overlays */
     --overlay-backdrop: rgb(8 10 14 / 56%);
@@ -340,6 +342,7 @@
     --status-success: #1f9d6f;
     --status-error: #cf4e4e;
     --status-warning: #c48822;
+    --status-testing: #a832c8;
 
     /* Overlays */
     --overlay-backdrop: rgb(9 17 29 / 38%);

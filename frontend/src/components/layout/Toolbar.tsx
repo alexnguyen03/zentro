@@ -27,7 +27,7 @@ import { UpdateModal } from './UpdateModal';
 import { LicenseModal } from './LicenseModal';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
 import { cn } from '../../lib/cn';
-import { getEnvironmentMeta, sortEnvironmentKeys } from '../../lib/projects';
+import { getEnvironmentMeta, sortEnvironmentKeys, getEnvironmentBgClass } from '../../lib/projects';
 import type { CommandId } from '../../lib/shortcutRegistry';
 import { Button, Popover, PopoverAnchor, PopoverContent } from '../ui';
 import zentroLogo from '../../assets/images/main-logo.png';
@@ -99,36 +99,7 @@ export const Toolbar: React.FC = () => {
     const ActiveProjectIcon = PROJECT_ICON_MAP[activeProjectIconKey].icon;
     const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
-    const envToolbarTone = useMemo(() => {
-        if (activeEnvKey === ENVIRONMENT_KEY.PRODUCTION) {
-            return {
-                base: 'bg-error/12',
-                active: 'border-error/60',
-            };
-        }
-        if (activeEnvKey === ENVIRONMENT_KEY.STAGING) {
-            return {
-                base: 'bg-warning/12',
-                active: 'border-warning/60',
-            };
-        }
-        if (activeEnvKey === ENVIRONMENT_KEY.DEVELOPMENT) {
-            return {
-                base: 'bg-primary/12',
-                active: 'border-primary/60',
-            };
-        }
-        if (activeEnvKey === ENVIRONMENT_KEY.TESTING) {
-            return {
-                base: 'bg-accent/12',
-                active: 'border-accent/60',
-            };
-        }
-        return {
-            base: 'bg-success/10',
-            active: 'border-success/70',
-        };
-    }, [activeEnvKey]);
+    const envToolbarBg = getEnvironmentBgClass(activeEnvKey);
 
     const quickEnvOptions = useMemo(() => {
         const orderedKeys: EnvironmentKey[] = [];
@@ -402,155 +373,144 @@ export const Toolbar: React.FC = () => {
                 </div>
             </div>
 
-            {/* Center: 4/10 - project / connection pill + quick env switcher */}
-            <div className="col-span-4 min-w-0 flex items-center justify-center h-7">
-                <div
-                    className="flex flex-1 justify-center relative h-full"
-                    style={{ width: 'min(520px, 44vw)', '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
+            {/* Center: 4/10 - project / server+db (pinned center) / env badge */}
+            <div
+                className={cn('col-span-4 min-w-0 relative flex items-center h-7 rounded-sm', envToolbarBg)}
+                style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties & Record<'--wails-draggable', string>}
+            >
+                {/* Project button — left-aligned */}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    className={cn(
+                        'relative shrink-0 h-full flex min-w-0 items-center gap-1.5 px-2 transition-colors',
+                        !activeProject && 'opacity-60',
+                    )}
+                    title="Open Project Hub"
+                    onClick={() => {
+                        setQuickEnvOpen(false);
+                        emitCommand(DOM_EVENT.OPEN_PROJECT_HUB);
+                    }}
                 >
-                    <div
+                    <ActiveProjectIcon
+                        size={14}
                         className={cn(
-                            'relative flex items-stretch w-full rounded-sm text-small font-medium text-muted-foreground select-none transition-all duration-200',
-                            envToolbarTone.base,
-                            quickEnvOpen && cn(envToolbarTone.active, 'text-foreground'),
+                            'shrink-0',
+                            connectionStatus === CONNECTION_STATUS.CONNECTED
+                                ? 'text-success'
+                                : connectionStatus === CONNECTION_STATUS.ERROR
+                                    ? 'text-error animate-pulse'
+                                    : 'text-muted-foreground',
                         )}
-                    >
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className={cn('relative z-[2] h-full flex min-w-0 items-center gap-2 px-2.5 hover:bg-card/40 transition-colors text-label', !activeProject && 'opacity-60')}
-                            title="Open Project Hub"
-                            onClick={() => {
-                                setQuickEnvOpen(false);
-                                emitCommand(DOM_EVENT.OPEN_PROJECT_HUB);
-                            }}
-                        >
-                            <ActiveProjectIcon
-                                size={14}
-                                className={cn(
-                                    'shrink-0',
-                                    connectionStatus === CONNECTION_STATUS.CONNECTED
-                                        ? 'text-success'
-                                        : connectionStatus === CONNECTION_STATUS.ERROR
-                                            ? 'text-error animate-pulse'
-                                            : 'text-muted-foreground',
-                                )}
-                            />
-                            <span className="inline-flex min-w-0 items-center truncate max-w-42.5 text-foreground font-semibold">{activeProject?.name || 'No Project'}</span>
-                        </Button>
+                    />
+                    <span className="truncate max-w-32 text-foreground font-medium">{activeProject?.name || 'No Project'}</span>
+                </Button>
 
-                        <div
-                            className={cn(
-                                'relative z-1 h-full flex min-w-0 flex-1 items-center gap-2 px-3 border-r border-border/50 transition-all duration-200 leading-none',
-                                connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash',
-                                !quickEnvOpen && 'hover:text-foreground hover:border-border',
-                            )}
-                            title="Connection details"
-                        >
-                            <span className="sr-only">Connection details</span>
-                        </div>
-
-                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[1] flex h-full w-[min(340px,54%)] -translate-x-1/2 -translate-y-1/2 items-center text-label text-muted-foreground">
-                            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,1fr)] items-center gap-1.5">
-                                <span className="truncate text-end">{serverLabel}</span>
-                                <Server size={13} className="shrink-0" />
-                                <Database size={13} className="shrink-0" />
-                                <span className="truncate">{databaseLabel}</span>
-                            </div>
-                        </div>
-
-                        <Popover open={quickEnvOpen} onOpenChange={setQuickEnvOpen}>
-                            <PopoverAnchor asChild>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="relative z-[2] h-full shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 hover:bg-card/40 transition-colors leading-none"
-                                    title="Hover to quick switch environment, click to configure bindings"
-                                    onMouseEnter={() => openQuickEnv()}
-                                    onMouseLeave={scheduleQuickEnvClose}
-                                    onFocus={() => openQuickEnv()}
-                                    onBlur={scheduleQuickEnvClose}
-                                    onClick={() => {
-                                        setQuickEnvOpen(false);
-                                        if (!activeProject?.id) {
-                                            emitCommand(DOM_EVENT.OPEN_PROJECT_HUB);
-                                            return;
-                                        }
-                                        emitCommand(DOM_EVENT.OPEN_PROJECT_HUB, {
-                                            surface: 'wizard',
-                                            wizardMode: 'edit',
-                                            launchContext: 'env-config',
-                                            projectId: activeProject.id,
-                                            initialEnvironmentKey: activeEnvironmentKey || activeProject.default_environment_key,
-                                        });
-                                    }}
-                                >
-                                    {activeProject && (
-                                        <EnvironmentBadge
-                                            label={activeEnvironmentKey || activeProject.default_environment_key}
-                                            toneClassName={envMeta.colorClass}
-                                        />
-                                    )}
-                                </Button>
-                            </PopoverAnchor>
-                            {activeProject && (
-                                <PopoverContent
-                                    align="end"
-                                    side="bottom"
-                                    sideOffset={8}
-                                    className="z-dropdown w-120 max-w-[calc(100vw-28px)] rounded-sm border border-border/40 bg-card p-2 shadow-xl"
-                                    onMouseEnter={clearQuickEnvCloseTimer}
-                                    onMouseLeave={scheduleQuickEnvClose}
-                                >
-                                    <div className="space-y-1">
-                                        {quickEnvOptions.map((envKey) => {
-                                            const meta = getEnvironmentMeta(envKey);
-                                            const isActive = envKey === (activeEnvironmentKey || activeProject.default_environment_key);
-                                            const details = quickEnvConnectionDetails.get(envKey);
-                                            const shortcut = quickEnvShortcutDetails.get(envKey);
-                                            return (
-                                                <Button
-                                                    key={envKey}
-                                                    type="button"
-                                                    variant="ghost"
-                                                    className={cn(
-                                                        'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 text-left text-label transition-colors',
-                                                        isActive
-                                                            ? 'border border-accent/35 bg-accent/10 text-foreground'
-                                                            : 'text-muted-foreground hover:bg-background/50 hover:text-foreground',
-                                                    )}
-                                                    onClick={() => {
-                                                        void handleQuickSwitchEnv(envKey);
-                                                    }}
-                                                >
-                                                    <div className="grid min-w-0 w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5">
-                                                        <div className="justify-self-start">
-                                                            <EnvironmentBadge label={envKey} toneClassName={meta.colorClass} />
-                                                        </div>
-                                                        <div className="inline-flex min-w-0 max-w-75 items-center justify-center gap-3 justify-self-center text-muted-foreground">
-                                                            <span className="inline-flex w-6/12 items-center gap-1">
-                                                                <span className="truncate text-label" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
-                                                                <Server size={11} className="shrink-0" />
-                                                            </span>
-                                                            <span className="inline-flex w-6/12 items-center gap-1">
-                                                                <Database size={11} className="shrink-0" />
-                                                                <span className="truncate text-label" title={details?.database || 'No DB'}>{details?.database || 'No DB'}</span>
-                                                            </span>
-                                                        </div>
-                                                        <span className="justify-self-end shrink-0 text-label text-muted-foreground">
-                                                            {shortcut}
-                                                        </span>
-                                                    </div>
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
-                                </PopoverContent>
-                            )}
-                        </Popover>
-                    </div>
+                {/* Server + DB — absolutely centered in the col */}
+                <div
+                    className={cn(
+                        'pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-label text-muted-foreground select-none',
+                        connectionStatus === CONNECTION_STATUS.CONNECTING && 'connecting-soft-flash rounded-sm px-1',
+                    )}
+                >
+                    <span className="truncate max-w-28 text-end" title={serverLabel}>{serverLabel}</span>
+                    <Server size={12} className="shrink-0" />
+                    <Database size={12} className="shrink-0" />
+                    <span className="truncate max-w-28" title={databaseLabel}>{databaseLabel}</span>
                 </div>
 
+                {/* Env badge — right-aligned, no container */}
+                <div className="ml-auto shrink-0">
+                    <Popover open={quickEnvOpen} onOpenChange={setQuickEnvOpen}>
+                        <PopoverAnchor asChild>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-full shrink-0 flex items-center gap-1.5 transition-colors px-0 leading-none"
+                                title="Hover to quick switch environment, click to configure bindings"
+                                onMouseEnter={() => openQuickEnv()}
+                                onMouseLeave={scheduleQuickEnvClose}
+                                onFocus={() => openQuickEnv()}
+                                onBlur={scheduleQuickEnvClose}
+                                onClick={() => {
+                                    setQuickEnvOpen(false);
+                                    if (!activeProject?.id) {
+                                        emitCommand(DOM_EVENT.OPEN_PROJECT_HUB);
+                                        return;
+                                    }
+                                    emitCommand(DOM_EVENT.OPEN_PROJECT_HUB, {
+                                        surface: 'wizard',
+                                        wizardMode: 'edit',
+                                        launchContext: 'env-config',
+                                        projectId: activeProject.id,
+                                        initialEnvironmentKey: activeEnvironmentKey || activeProject.default_environment_key,
+                                    });
+                                }}
+                            >
+                                {activeProject && (
+                                    <EnvironmentBadge
+                                        label={activeEnvironmentKey || activeProject.default_environment_key}
+                                        toneClassName={envMeta.colorClass}
+                                    />
+                                )}
+                            </Button>
+                        </PopoverAnchor>
+                        {activeProject && (
+                            <PopoverContent
+                                align="end"
+                                side="bottom"
+                                sideOffset={8}
+                                className="z-dropdown w-120 max-w-[calc(100vw-28px)] rounded-sm border border-border/40 bg-card p-2 shadow-xl"
+                                onMouseEnter={clearQuickEnvCloseTimer}
+                                onMouseLeave={scheduleQuickEnvClose}
+                            >
+                                <div className="space-y-1">
+                                    {quickEnvOptions.map((envKey) => {
+                                        const meta = getEnvironmentMeta(envKey);
+                                        const isActive = envKey === (activeEnvironmentKey || activeProject.default_environment_key);
+                                        const details = quickEnvConnectionDetails.get(envKey);
+                                        const shortcut = quickEnvShortcutDetails.get(envKey);
+                                        return (
+                                            <Button
+                                                key={envKey}
+                                                type="button"
+                                                variant="ghost"
+                                                className={cn(
+                                                    'relative h-auto w-full justify-start rounded-sm px-2.5 py-2 text-left text-label transition-colors',
+                                                    isActive
+                                                        ? 'border border-accent/35 bg-accent/10 text-foreground'
+                                                        : 'text-muted-foreground hover:bg-background/50 hover:text-foreground',
+                                                )}
+                                                onClick={() => {
+                                                    void handleQuickSwitchEnv(envKey);
+                                                }}
+                                            >
+                                                <div className="grid min-w-0 w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2.5">
+                                                    <div className="justify-self-start">
+                                                        <EnvironmentBadge label={envKey} toneClassName={meta.colorClass} />
+                                                    </div>
+                                                    <div className="inline-flex min-w-0 max-w-75 items-center justify-center gap-3 justify-self-center text-muted-foreground">
+                                                        <span className="inline-flex w-6/12 items-center gap-1">
+                                                            <span className="truncate text-label" title={details?.host || 'No host'}>{details?.host || 'No host'}</span>
+                                                            <Server size={11} className="shrink-0" />
+                                                        </span>
+                                                        <span className="inline-flex w-6/12 items-center gap-1">
+                                                            <Database size={11} className="shrink-0" />
+                                                            <span className="truncate text-label" title={details?.database || 'No DB'}>{details?.database || 'No DB'}</span>
+                                                        </span>
+                                                    </div>
+                                                    <span className="justify-self-end shrink-0 text-label text-muted-foreground">
+                                                        {shortcut}
+                                                    </span>
+                                                </div>
+                                            </Button>
+                                        );
+                                    })}
+                                </div>
+                            </PopoverContent>
+                        )}
+                    </Popover>
+                </div>
             </div>
 
             {/* Right: 3/10 */}

@@ -22,6 +22,7 @@
   --color-success: var(--status-success);
   --color-error: var(--status-error);
   --color-warning: var(--status-warning);
+  --color-testing: var(--status-testing);
   --color-overlay: var(--overlay-backdrop);
   --color-overlay-strong: var(--overlay-backdrop-strong);
 
@@ -140,6 +141,18 @@
   .duration-base { transition-duration: var(--motion-base); }
   .duration-slow { transition-duration: var(--motion-slow); }
   .ease-standard { transition-timing-function: var(--ease-standard); }
+
+  /* env-badge-* — explicit classes so Tailwind scan doesn't miss dynamic token-based colors */
+  .env-badge-loc  { background-color: var(--status-success);      color: #fff; }
+  .env-badge-dev  { background-color: var(--interactive-primary);  color: #fff; }
+  .env-badge-tes  { background-color: var(--status-testing);       color: #fff; }
+  .env-badge-sta  { background-color: var(--status-warning);       color: #fff; }
+  .env-badge-pro  { background-color: var(--status-error);         color: #fff; }
+
+  /* env tinted — for colorClass (toolbar bg, list item bg) */
+  .text-testing   { color: var(--status-testing); }
+  .bg-testing\/10 { background-color: color-mix(in srgb, var(--status-testing) 10%, transparent); }
+  .border-testing\/40 { border-color: color-mix(in srgb, var(--status-testing) 40%, transparent); }
 }
 
 @import "./styles/tokens.css";

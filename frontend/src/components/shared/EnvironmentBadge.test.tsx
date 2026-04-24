@@ -3,14 +3,18 @@ import { render, screen } from '@testing-library/react';
 import { EnvironmentBadge } from './EnvironmentBadge';
 
 describe('EnvironmentBadge', () => {
-    it('renders filled pill with mapped environment color', () => {
+    it('renders filled pill with mapped environment class', () => {
         render(<EnvironmentBadge label="DEV" />);
         const badge = screen.getByText('DEV');
 
         expect(badge).toHaveClass('inline-flex');
-        expect(badge).toHaveClass('bg-[#1D9BF0]');
-        expect(badge).toHaveClass('text-white');
+        expect(badge).toHaveClass('env-badge-dev');
         expect(badge).toHaveClass('rounded-sm');
+    });
+
+    it('maps TES shorthand to testing badge class', () => {
+        render(<EnvironmentBadge label="TES" />);
+        expect(screen.getByText('TES')).toHaveClass('env-badge-tes');
     });
 
     it('keeps original label text without transform', () => {
