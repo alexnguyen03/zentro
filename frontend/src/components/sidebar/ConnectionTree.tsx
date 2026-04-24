@@ -49,13 +49,18 @@ import {
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 import { useSidebarPanelState } from '../../stores/sidebarUiStore';
 import { EXPLORER_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
-import { buildNewTableDraftTarget } from '../../lib/tableTargets';
+import { buildNewTableDraftTarget, parseTableTarget } from '../../lib/tableTargets';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
+import { resolveConnectionTreeSelection } from './connectionTreeSelection';
 
 const iconClass = 'opacity-80 shrink-0';
 const ALL_SCHEMAS_VALUE = '__all_schemas__';
 const PRIMARY_CATEGORY_KEYS = new Set(['tables', 'views']);
+
+function escapeObjectKeyForSelector(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
 
 function renderIcon(icon: ConnectionTreeIcon, size = 12): React.ReactNode {
     switch (icon) {
@@ -239,9 +244,10 @@ const SchemaBucketNodeView: React.FC<SchemaBucketNodeViewProps> = ({
                         <ContextMenu key={`${item.id}:${index}`}>
                             <ContextMenuTrigger asChild disabled={!canOpenContextMenu}>
                                 <div
+                                    data-object-key={`${category.key}:${item.schemaName}.${item.name}`}
                                     className={cn(
-                                        'group mb-0.5 flex h-7 items-center gap-1.5 overflow-hidden rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
-                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-[var(--state-selected-bg)] text-[var(--state-selected-text)]',
+                                        'group mb-0.5 flex h-7 items-center gap-1.5 overflow-hidden rounded-sm px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-(--state-hover-bg)',
+                                        selectedObjectKey === `${category.key}:${item.schemaName}.${item.name}` && 'bg-(--state-selected-bg) text-(--state-selected-text)',
                                         category.canOpenDefinition && 'cursor-pointer focus-visible:outline-none',
                                     )}
                                     onClick={() => {
@@ -388,16 +394,21 @@ export const ConnectionTree: React.FC = () => {
     const viewMode = useSettingsStore((state) => state.viewMode);
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const addTab = useEditorStore((state) => state.addTab);
+    const editorGroups = useEditorStore((state) => state.groups);
+    const editorActiveGroupId = useEditorStore((state) => state.activeGroupId);
     const { toast } = useToast();
     const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
     const [explorerUiState, setExplorerUiState] = useSidebarPanelState('primary', 'explorer', EXPLORER_PANEL_STATE_DEFAULT);
     const [selectedObjectKey, setSelectedObjectKey] = useState<string | null>(null);
+    const selectionSourceRef = useRef<'editor' | 'tree' | null>(null);
     const filter = explorerUiState.filter;
     const fuzzyMatch = explorerUiState.fuzzyMatch;
     const activeCategoryKey = explorerUiState.activeCategoryKey;
     const selectedSchema = explorerUiState.selectedSchema;
     const showMoreCategories = explorerUiState.showMoreCategories;
     const filterInputRef = useRef<HTMLInputElement>(null);
+    const objectListRef = useRef<HTMLDivElement>(null);
+    const scrollSyncRafRef = useRef<number | null>(null);
     const schemaTreeKey = activeProfile?.name && activeProfile?.db_name ? `${activeProfile.name}:${activeProfile.db_name}` : '';
     const schemas = useSchemaStore((state) => (schemaTreeKey ? state.trees[schemaTreeKey] : undefined));
 
@@ -481,6 +492,36 @@ export const ConnectionTree: React.FC = () => {
         () => scopedCategories.find((category) => category.key === activeCategoryKey) || scopedCategories[0] || null,
         [activeCategoryKey, scopedCategories],
     );
+    const activeEditorTableTarget = useMemo(() => {
+        const activeGroup = editorGroups.find((group) => group.id === editorActiveGroupId);
+        const activeTab = activeGroup?.tabs.find((tab) => tab.id === activeGroup.activeTabId);
+        if (!activeTab || activeTab.type !== TAB_TYPE.TABLE || !activeTab.content) return null;
+
+        const target = parseTableTarget(activeTab.content);
+        if (target.isCreateDraft || !target.schema || !target.table) return null;
+
+        return {
+            schemaName: target.schema,
+            objectName: target.table,
+        };
+    }, [editorActiveGroupId, editorGroups]);
+
+    const ensureObjectVisibleInViewport = useCallback((objectKey: string, attempt = 0) => {
+        const root = objectListRef.current;
+        if (!root) return;
+
+        const escapedKey = escapeObjectKeyForSelector(objectKey);
+        const selectedNode = root.querySelector<HTMLElement>(`[data-object-key="${escapedKey}"]`);
+        if (selectedNode) {
+            selectedNode.scrollIntoView({ block: 'center', inline: 'nearest' });
+            return;
+        }
+
+        if (attempt >= 8) return;
+        scrollSyncRafRef.current = window.requestAnimationFrame(() => {
+            ensureObjectVisibleInViewport(objectKey, attempt + 1);
+        });
+    }, []);
 
     useEffect(() => {
         if (scopedCategories.length === 0) return;
@@ -500,6 +541,74 @@ export const ConnectionTree: React.FC = () => {
         }
     }, [activeCategoryKey, updateExplorerUiState, visibleCategories]);
 
+    useEffect(() => {
+        if (!activeEditorTableTarget) {
+            selectionSourceRef.current = 'editor';
+            setSelectedObjectKey(null);
+            return;
+        }
+
+        const selected = resolveConnectionTreeSelection(
+            categories,
+            activeEditorTableTarget.schemaName,
+            activeEditorTableTarget.objectName,
+        );
+
+        if (!selected) {
+            selectionSourceRef.current = 'editor';
+            setSelectedObjectKey(null);
+            return;
+        }
+
+        const updates: Partial<typeof explorerUiState> = {};
+        if (activeCategoryKey !== selected.categoryKey) {
+            updates.activeCategoryKey = selected.categoryKey;
+        }
+        if (!selected.isPrimaryCategory && !showMoreCategories) {
+            updates.showMoreCategories = true;
+        }
+        if (selectedSchema !== ALL_SCHEMAS_VALUE && selectedSchema !== selected.schemaName) {
+            updates.selectedSchema = selected.schemaName;
+        }
+        if (Object.keys(updates).length > 0) {
+            updateExplorerUiState(updates);
+        }
+
+        if (!isSchemaExpanded(selected.categoryKey, selected.schemaName)) {
+            toggleSchema(selected.categoryKey, selected.schemaName);
+        }
+
+        selectionSourceRef.current = 'editor';
+        setSelectedObjectKey(selected.selectedObjectKey);
+    }, [
+        activeCategoryKey,
+        activeEditorTableTarget,
+        categories,
+        isSchemaExpanded,
+        selectedSchema,
+        showMoreCategories,
+        toggleSchema,
+        updateExplorerUiState,
+    ]);
+
+    useEffect(() => {
+        if (scrollSyncRafRef.current !== null) {
+            window.cancelAnimationFrame(scrollSyncRafRef.current);
+            scrollSyncRafRef.current = null;
+        }
+        if (!selectedObjectKey) return;
+
+        ensureObjectVisibleInViewport(selectedObjectKey);
+        selectionSourceRef.current = null;
+    }, [ensureObjectVisibleInViewport, selectedObjectKey, activeCategoryKey, selectedSchema, showMoreCategories, categories]);
+
+    useEffect(() => () => {
+        if (scrollSyncRafRef.current !== null) {
+            window.cancelAnimationFrame(scrollSyncRafRef.current);
+            scrollSyncRafRef.current = null;
+        }
+    }, []);
+
     const handleOpenDefinition = (schemaName: string, objectName: string) => {
         addTab({
             type: 'table',
@@ -510,6 +619,7 @@ export const ConnectionTree: React.FC = () => {
     };
 
     const handleSelectObject = useCallback((schemaName: string, objectName: string, categoryKey: string) => {
+        selectionSourceRef.current = 'tree';
         setSelectedObjectKey(`${categoryKey}:${schemaName}.${objectName}`);
     }, []);
 
@@ -685,7 +795,7 @@ export const ConnectionTree: React.FC = () => {
                     ))}
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+                <div ref={objectListRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                     {!activeCategory ? (
                         <div className={cn('flex items-center gap-1.5 rounded-sm px-1.5 py-1 text-body! text-muted-foreground')}>
                             {emptyMessage}
