@@ -23,7 +23,7 @@ const ENVIRONMENT_META: Record<EnvironmentKey, { label: string; description: str
     [ENVIRONMENT_KEY.TESTING]: {
         label: 'Testing',
         description: 'Validation space for quick verification before broader development work.',
-        colorClass: 'text-accent border-accent/35 bg-accent/9',
+        colorClass: 'text-white border-[#C84BE8]/40 bg-[#C84BE8]',
     },
     [ENVIRONMENT_KEY.DEVELOPMENT]: {
         label: 'Development',
