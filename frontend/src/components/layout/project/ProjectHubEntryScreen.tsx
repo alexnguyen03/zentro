@@ -144,12 +144,12 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                     {PROJECT_TABS.map((tab) => (
-                        <button
+                        <Button
                             key={tab.key}
-                            type="button"
+                            variant="ghost"
                             onClick={() => setActiveTab(tab.key)}
                             className={cn(
-                                'relative h-9 border-b-[3px] px-2 text-section transition-colors',
+                                'relative h-9 rounded-none border-b-[3px] px-2 text-section transition-colors',
                                 activeTab === tab.key
                                     ? 'border-primary text-foreground'
                                     : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -157,7 +157,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                         >
                             <span>{tab.label}</span>
                             <span className="ml-2 text-section font-normal opacity-90">{tabCount(projects, tab.key)}</span>
-                        </button>
+                        </Button>
                     ))}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

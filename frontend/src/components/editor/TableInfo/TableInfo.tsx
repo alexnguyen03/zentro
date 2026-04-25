@@ -113,7 +113,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [keysDirtyCount, setKeysDirtyCount] = useState(0);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [pendingOpenExport, setPendingOpenExport] = useState(false);
-    const [pendingOpenExport, setPendingOpenExport] = useState(false);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const prevConnRef = useRef<string>('');
     const autoRetryTimerRef = useRef<number | null>(null);

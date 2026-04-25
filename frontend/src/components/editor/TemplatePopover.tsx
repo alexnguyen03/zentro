@@ -197,13 +197,13 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
 
         if (isEditing) {
             return (
-                <input
+                <Input
                     data-name-id={field === 'name' ? row.id : undefined}
                     type="text"
                     value={value}
                     autoFocus
-                    className="rt-cell-input"
-                    style={cellStyle}
+                    className="rounded-none border-ring bg-background px-1.5 py-0 text-[11px] leading-none focus-visible:border-primary"
+                    style={{ height: '100%', ...cellStyle }}
                     onChange={(event) => handleDraftUpdate(row.id, field, event.target.value)}
                     onBlur={(event) => {
                         void handleInlineBlur(row.id, field, event.target.value);
