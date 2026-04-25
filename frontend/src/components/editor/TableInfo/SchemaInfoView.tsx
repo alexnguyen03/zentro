@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui';
 import { ColumnRow } from './ColumnRow';
 import { RowState, SortCol, SortDir } from './types';
 import { models } from '../../../../wailsjs/go/models';
@@ -32,10 +33,10 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const SortIcon = ({ col }: { col: SortCol }) => {
-        if (sortCol !== col || !sortDir) return <ArrowUpDown size={11} className="ml-1 opacity-20" />;
+        if (sortCol !== col || !sortDir) return <ChevronUp size={11} className="ml-1 opacity-20" />;
         return sortDir === 'asc'
-            ? <ArrowUp size={11} className="ml-1 text-success" />
-            : <ArrowDown size={11} className="ml-1 text-success" />;
+            ? <ChevronUp size={11} className="ml-1 text-success" />
+            : <ChevronDown size={11} className="ml-1 text-success" />;
     };
 
     return (
@@ -43,60 +44,65 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div
                     ref={tableContainerRef}
-                    className="flex-1 overflow-auto scrollbar-thin px-3"
+                    className="flex-1 overflow-auto scrollbar-thin"
                 >
-                    <table
+                    <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
                         style={{ width: '100%', minWidth: '100%' }}
                     >
-                        <thead>
-                            <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                        <TableHeader className="[&_tr]:border-b-0">
+                            <TableRow className="border-b-2 border-border hover:bg-transparent">
+                                <TableHead className="rt-th w-10 font-mono text-label text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
-                                </th>
-                                <th
+                                </TableHead>
+                                <TableHead
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('Name')}
                                 >
-                                    <div className="rt-th-label">
-                                        Name <SortIcon col="Name" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Name</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="Name" /></span>
                                     </div>
-                                </th>
-                                <th
+                                </TableHead>
+                                <TableHead
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('DataType')}
                                 >
-                                    <div className="rt-th-label">
-                                        Data Type <SortIcon col="DataType" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Data Type</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="DataType" /></span>
                                     </div>
-                                </th>
-                                <th
+                                </TableHead>
+                                <TableHead
                                     className="rt-th rt-th-sortable w-12"
                                     onClick={() => onSort('IsPrimaryKey')}
                                 >
-                                    <div className="rt-th-label justify-center">
-                                        PK <SortIcon col="IsPrimaryKey" />
+                                    <div className="rt-th-label w-full">
+                                        <span>PK</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="IsPrimaryKey" /></span>
                                     </div>
-                                </th>
-                                <th
+                                </TableHead>
+                                <TableHead
                                     className="rt-th rt-th-sortable w-16"
                                     onClick={() => onSort('IsNullable')}
                                 >
-                                    <div className="rt-th-label justify-center">
-                                        Null <SortIcon col="IsNullable" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Null</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="IsNullable" /></span>
                                     </div>
-                                </th>
-                                <th
+                                </TableHead>
+                                <TableHead
                                     className="rt-th rt-th-sortable"
                                     onClick={() => onSort('DefaultValue')}
                                 >
-                                    <div className="rt-th-label">
-                                        Default <SortIcon col="DefaultValue" />
+                                    <div className="rt-th-label w-full">
+                                        <span>Default</span>
+                                        <span className="ml-auto inline-flex"><SortIcon col="DefaultValue" /></span>
                                     </div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/20">
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-border/20 [&_tr:last-child]:border-b">
                             {displayIds.map((id, displayIdx) => {
                                 const rowIdx = rows.findIndex(r => r.id === id);
                                 const row = rows[rowIdx];
@@ -121,14 +127,14 @@ export const SchemaInfoView: React.FC<SchemaInfoViewProps> = ({
                                 );
                             })}
                             {rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={6} className="py-24 text-center text-muted-foreground italic bg-background/50 text-body">
                                         No columns found for this table.
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </div>

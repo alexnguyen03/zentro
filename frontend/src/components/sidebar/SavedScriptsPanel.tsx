@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState, useCallback } from 'react';
-import { FileCode, Search, Trash2, BookMarked } from 'lucide-react';
+import { FileCode, Trash2, BookMarked } from 'lucide-react';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -85,10 +85,10 @@ export const SavedScriptsPanel: React.FC = () => {
     if (!projectId || !connectionName) {
         return (
             <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-xs text-muted-foreground">
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-small text-muted-foreground">
                     <BookMarked size={24} className="opacity-30" />
                     <p className="m-0">No active connection</p>
-                    <p className="m-0 text-[11px] opacity-60">Connect to a database to manage saved scripts</p>
+                    <p className="m-0 text-label opacity-60">Connect to a database to manage saved scripts</p>
                 </div>
             </div>
         );
@@ -97,10 +97,10 @@ export const SavedScriptsPanel: React.FC = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0">
-                <div className="flex-1 relative flex items-center min-w-0">
-                    <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
+                <div className="flex-1 min-w-0">
                     <Input
-                        className="h-7 w-full border-border bg-background py-1 pl-[22px] pr-1.5 text-[11px]"
+                        size="sm"
+                        className="w-full px-2"
                         placeholder="Filter scripts..."
                         value={search}
                         onChange={(event) => setScriptsPanelState((state) => ({ ...state, search: event.target.value }))}
@@ -113,11 +113,11 @@ export const SavedScriptsPanel: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-xs text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center text-small text-muted-foreground">
                         <FileCode size={24} className="opacity-30" />
                         <p className="m-0">{search ? 'No matches' : 'No saved scripts'}</p>
                         {!search && (
-                            <p className="m-0 text-[11px] opacity-60">
+                            <p className="m-0 text-label opacity-60">
                                 Right-click a tab -&gt; &quot;Save Script&quot; to save your query
                             </p>
                         )}
@@ -132,8 +132,8 @@ export const SavedScriptsPanel: React.FC = () => {
                         >
                             <FileCode size={13} className="shrink-0 text-success opacity-70" />
                             <div className="flex-1 overflow-hidden">
-                                <div className="text-xs font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">{script.name}</div>
-                                <div className="mt-0.5 text-[10px] text-muted-foreground">{formatDate(String(script.updated_at ?? ''))}</div>
+                                <div className="text-small font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">{script.name}</div>
+                                <div className="mt-0.5 text-label text-muted-foreground">{formatDate(String(script.updated_at ?? ''))}</div>
                             </div>
                             <Button
                                 type="button"

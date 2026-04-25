@@ -5,12 +5,15 @@ export interface TabQueryContext {
     scriptProjectId?: string;
     scriptConnectionName?: string;
     resultFilterExpr?: string;
+    resultOrderByExpr?: string;
     resultQuickFilter?: string;
+    resultFilterBaseQuery?: string;
     compareLeftTabId?: string;
     compareRightTabId?: string;
     compareSyncScroll?: boolean;
     compareIgnoreWhitespace?: boolean;
     compareShowUnified?: boolean;
+    sourceControlFile?: 'gitignore';
 }
 
 export interface Tab {

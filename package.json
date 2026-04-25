@@ -10,6 +10,8 @@
     "check:backend:guardrails": "node scripts/check-be-guardrails.mjs",
     "check:backend:debt": "node scripts/be-debt-dashboard.mjs",
     "check:frontend:guardrails": "cmd /c \"cd frontend && npm run check:guardrails\"",
+    "check:frontend:guardrails:test": "node scripts/tests/check-fe-guardrails-regression.mjs",
+    "check:frontend:design-system": "cmd /c \"cd frontend && npm run check:design-system-contract\"",
     "check:frontend:boundaries": "node scripts/check-feature-boundaries.mjs",
     "check:frontend:debt": "cmd /c \"cd frontend && npm run check:debt\"",
     "bench:query-dx": "powershell -ExecutionPolicy Bypass -File scripts/query-dx-harness.ps1",

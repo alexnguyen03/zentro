@@ -74,7 +74,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className={`${btnBase} rounded-none hover:bg-white/10 hover:text-foreground`}
+                className={`${btnBase} rounded-none hover:bg-card hover:text-foreground`}
                 title="Minimize"
                 onClick={onMinimize}
             >
@@ -84,7 +84,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className={`${btnBase} rounded-none hover:bg-white/10 hover:text-foreground`}
+                className={`${btnBase} rounded-none hover:bg-card hover:text-foreground`}
                 title={isMaximised ? 'Restore' : 'Maximize'}
                 onClick={handleToggleMaximize}
             >

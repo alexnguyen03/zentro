@@ -7,9 +7,12 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useStatusStore } from '../stores/statusStore';
 import { useEnvironmentStore } from '../stores/environmentStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useZoomStore } from '../stores/zoomStore';
 import { DOM_EVENT, ENVIRONMENT_KEY, TRANSACTION_STATUS, type EnvironmentKey, TAB_TYPE } from './constants';
 import { emitCommand } from './commandBus';
 import { utils } from '../../wailsjs/go/models';
+import { getEnvironmentLabel } from './projects';
+import { toast as sonnerToast } from 'sonner';
 
 export type CommandCategory = 'Editor' | 'Layout' | 'Connection' | 'View' | 'App';
 
@@ -29,6 +32,9 @@ export type BuiltInCommandId =
   | 'view.openShortcuts'
   | 'view.commandPalette'
   | 'view.toggleViewMode'
+  | 'view.zoomIn'
+  | 'view.zoomOut'
+  | 'view.zoomReset'
   | 'layout.toggleSidebar'
   | 'layout.toggleRightSidebar'
   | 'layout.toggleResultPanel'
@@ -70,11 +76,23 @@ async function switchProjectEnvironmentShortcut(environmentKey: EnvironmentKey) 
   const activeProject = projectStore.activeProject;
   if (!activeProject) return;
 
-  if (environmentStore.activeEnvironmentKey !== environmentKey) {
-    environmentStore.setActiveEnvironment(environmentKey);
+  if (environmentStore.activeEnvironmentKey === environmentKey) return;
+
+  const hasBoundConnection = (activeProject.connections || []).some(
+    (connection) => connection.environment_key === environmentKey,
+  );
+  if (!hasBoundConnection) {
+    sonnerToast.error(`Cannot switch to ${getEnvironmentLabel(environmentKey)}: no bound connection.`);
+    return;
   }
 
-  await projectStore.setProjectEnvironment(environmentKey);
+  const updated = await projectStore.setProjectEnvironment(environmentKey);
+  if (!updated) {
+    sonnerToast.error('Could not switch environment.');
+    return;
+  }
+
+  environmentStore.setActiveEnvironment(environmentKey);
 }
 
 async function toggleViewModeShortcut() {
@@ -263,6 +281,27 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
     },
   },
   {
+    id: 'view.zoomIn',
+    label: 'Zoom In',
+    category: 'View',
+    defaultBinding: 'Ctrl+=',
+    action: () => { useZoomStore.getState().zoomIn(); },
+  },
+  {
+    id: 'view.zoomOut',
+    label: 'Zoom Out',
+    category: 'View',
+    defaultBinding: 'Ctrl+-',
+    action: () => { useZoomStore.getState().zoomOut(); },
+  },
+  {
+    id: 'view.zoomReset',
+    label: 'Reset Zoom',
+    category: 'View',
+    defaultBinding: 'Ctrl+0',
+    action: () => { useZoomStore.getState().resetZoom(); },
+  },
+  {
     id: 'layout.toggleSidebar',
     label: 'Toggle Left Sidebar',
     category: 'Layout',
@@ -300,10 +339,10 @@ function getBaseCommandRegistry(): CommandRegistryEntry[] {
   },
   {
     id: 'connection.openEnvironmentSwitcher',
-    label: 'Switch Environment / Connection',
+    label: 'Open Project Hub',
     category: 'Connection',
-    defaultBinding: 'Ctrl+Shift+C',
-    action: () => { emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER); },
+    defaultBinding: 'Ctrl+P',
+    action: () => { emitCommand(DOM_EVENT.OPEN_PROJECT_HUB); },
   },
   {
     id: 'connection.switchEnvLocal',

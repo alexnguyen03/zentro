@@ -41,22 +41,22 @@ export const SettingsNotifications: React.FC<Props> = ({ toastPlacement, onToast
                             <SelectItem value="top-right">Top Right</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">Where success and error messages will emerge.</p>
+                    <p className="text-label text-muted-foreground">Where success and error messages will emerge.</p>
                 </div>
                 <div className="space-y-1.5">
                     <Label>Preview Notification</Label>
                     <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" size="sm" variant="outline" onClick={() => onTestNotification('success')}>
+                        <Button type="button" size="sm" variant="outline" tone={'success'} onClick={() => onTestNotification('success')}>
                             Test Success
                         </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => onTestNotification('error')}>
+                        <Button type="button" size="sm" variant="outline" tone={'danger'} onClick={() => onTestNotification('error')}>
                             Test Error
                         </Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => onTestNotification('info')}>
+                        <Button type="button" size="sm" variant="outline" tone={'neutral'} onClick={() => onTestNotification('info')}>
                             Test Info
                         </Button>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">Send a sample toast to verify placement and style.</p>
+                    <p className="text-label text-muted-foreground">Send a sample toast to verify placement and style.</p>
                 </div>
             </div>
         </div>

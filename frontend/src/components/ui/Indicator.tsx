@@ -29,7 +29,7 @@ export const Indicator: React.FC<IndicatorProps> = ({
         return (
             <span
                 className={cn(
-                    'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none',
+                    'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-label font-semibold leading-none',
                     className,
                 )}
                 style={{

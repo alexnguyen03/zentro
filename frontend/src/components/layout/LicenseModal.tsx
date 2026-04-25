@@ -54,17 +54,17 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
             onClose={onClose}
             title={(
                 <div className="flex flex-col">
-                    <span className="text-[16px] font-bold">License</span>
-                    <span className="text-[11px] text-muted-foreground">MIT License</span>
+                    <span className="text-h2 font-bold">License</span>
+                    <span className="text-label text-muted-foreground">MIT License</span>
                 </div>
             )}
             width={720}
-            className="max-h-[86vh] rounded-md border border-border/10 shadow-elevation-lg"
+            className="max-h-[86vh] rounded-sm border border-border/10 shadow-elevation-lg"
         >
             <div className="min-h-0 overflow-y-auto px-1 py-1">
                 <div className="text-left">
                     {licenseState && (
-                        <div className="mb-3 rounded-md border border-border/30 bg-background/30 p-3 text-[11px] text-muted-foreground">
+                        <div className="mb-3 rounded-sm border border-border/30 bg-background/30 p-3 text-label text-muted-foreground">
                             <div>Status: <span className="font-semibold text-foreground">{licenseState.status}</span></div>
                             <div>
                                 Plugin Commands: {new FeatureGate(licenseState).canUse('plugin.ui.commands') ? 'Enabled' : 'Disabled'}
@@ -72,15 +72,15 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ onClose }) => {
                         </div>
                     )}
                     {isLoading && (
-                        <div className="text-[12px] text-muted-foreground">Loading license...</div>
+                        <div className="text-small text-muted-foreground">Loading license...</div>
                     )}
                     {!isLoading && error && (
-                        <div className="text-[12px] text-error">
+                        <div className="text-small text-error">
                             Failed to load license. {error}
                         </div>
                     )}
                     {!isLoading && !error && (
-                        <pre className="m-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-muted-foreground font-mono bg-background/40 rounded-md border border-border/20 p-4">
+                        <pre className="m-0 whitespace-pre-wrap break-words text-small leading-5 text-muted-foreground font-mono bg-background/40 rounded-sm border border-border/20 p-4">
                             {licenseText}
                         </pre>
                     )}

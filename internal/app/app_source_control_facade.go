@@ -123,3 +123,19 @@ func (a *App) SCInitRepo() error {
 	}
 	return a.sc.InitRepo(path)
 }
+
+func (a *App) SCReadGitIgnore() (string, error) {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return "", err
+	}
+	return a.sc.ReadGitIgnore(path)
+}
+
+func (a *App) SCWriteGitIgnore(content string) error {
+	path, err := a.scRepoPath()
+	if err != nil {
+		return err
+	}
+	return a.sc.WriteGitIgnore(path, content)
+}

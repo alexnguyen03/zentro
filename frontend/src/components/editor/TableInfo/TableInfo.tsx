@@ -3,10 +3,8 @@ import cx from 'classnames';
 import {
     Database,
     FileCode2,
-    Hash,
     Info,
     KeyRound,
-    Loader,
     Network,
     Plus,
     RefreshCw,
@@ -33,8 +31,8 @@ import { useResultStore } from '../../../stores/resultStore';
 import { useSettingsStore } from '../../../stores/settingsStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { getTypesForDriver } from '../../../lib/dbTypes';
-import { buildFilterQuery } from '../../../lib/queryBuilder';
-import { Button, Indicator, Input, Spinner } from '../../ui';
+import { buildFilterOrderQuery } from '../../../lib/queryBuilder';
+import { Button, Input, Tabs, TabsList, TabsTrigger } from '../../ui';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
 import { getErrorMessage } from '../../../lib/errors';
 import { useToast } from '../../layout/Toast';
@@ -52,9 +50,8 @@ import { emitCommand, onCommand } from '../../../lib/commandBus';
 import { SchemaInfoView } from './SchemaInfoView';
 import { DataExplorerView } from './DataExplorerView';
 import { RelationshipView } from './RelationshipView';
-import { IndexInfoView } from './IndexInfoView';
 import { DDLInfoView } from './DDLInfoView';
-import { ConstraintsView } from './ConstraintsView';
+import { KeysView } from './KeysView';
 import { TableSchemaBreadcrumb } from './TableSchemaBreadcrumb';
 import { RowState, TableInfoTab, SortCol, SortDir, TabAction } from './types';
 import { getColumnsDirtyCount, getDataDirtyCount } from './changeBadge';
@@ -78,19 +75,19 @@ const ToolbarButton: React.FC<{ action: TabAction }> = ({ action }) => {
             disabled={action.disabled || action.loading}
             title={action.title || action.label}
             className={cx(
-                'h-7 w-7 rounded-md p-0',
+                'h-7 w-7 rounded-sm p-0',
                 action.danger ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : '',
             )}
         >
-            {action.loading ? <Spinner size={12} /> : action.icon}
+            {action.icon}
         </Button>
     );
 };
 
 const TABLE_INFO_AUTO_RETRY_DELAYS_MS = [250, 500, 900, 1300, 1700, 2200];
 const TABLE_INFO_AUTO_RETRY_MAX_ATTEMPTS = 10;
-const TABLE_TAB_ICON_SIZE = 15;
-const TABLE_TAB_BADGE_CLASSNAME = 'absolute -right-1 -top-1 z-[70] h-4 min-w-[16px] border border-warning/35 bg-warning/15 px-1 text-[9px] text-warning';
+const TABLE_TAB_ICON_SIZE = 13;
+const TABLE_TAB_BADGE_CLASSNAME = 'absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-label font-semibold leading-none text-background';
 
 export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [rows, setRows] = useState<RowState[]>([]);
@@ -113,22 +110,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const createNameAutoSelectedRef = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
-    const [indexTabActions, setIndexTabActions] = useState<TabAction[]>([]);
-    const [indexDirtyCount, setIndexDirtyCount] = useState(0);
-    const [uniqueKeyTabActions, setUniqueKeyTabActions] = useState<TabAction[]>([]);
-    const [uniqueKeyDirtyCount, setUniqueKeyDirtyCount] = useState(0);
-    const [constraintTabActions, setConstraintTabActions] = useState<TabAction[]>([]);
-    const [constraintDirtyCount, setConstraintDirtyCount] = useState(0);
+    const [keysDirtyCount, setKeysDirtyCount] = useState(0);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
     const [pendingOpenExport, setPendingOpenExport] = useState(false);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
-    const [fadeInContent, setFadeInContent] = useState(false);
     const prevConnRef = useRef<string>('');
-    const fadeInTimerRef = useRef<number | null>(null);
     const autoRetryTimerRef = useRef<number | null>(null);
     const autoRetryAttemptRef = useRef(0);
     const autoRetryConnectionRef = useRef('');
-    const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns', 'indexes', 'unique_keys']), []);
+    const latestLoadRequestRef = useRef(0);
+    const filterTabs = useMemo<Set<TableInfoTab>>(() => new Set(['columns']), []);
 
     const { activeProfile, isConnected } = useConnectionStore();
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -159,19 +150,6 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             'bad connection',
         ].some((needle) => normalized.includes(needle));
     }, [fetchError]);
-    const triggerContentFadeIn = useCallback(() => {
-        setFadeInContent(false);
-        if (fadeInTimerRef.current !== null) {
-            window.clearTimeout(fadeInTimerRef.current);
-        }
-        fadeInTimerRef.current = window.setTimeout(() => {
-            setFadeInContent(true);
-            fadeInTimerRef.current = window.setTimeout(() => {
-                setFadeInContent(false);
-                fadeInTimerRef.current = null;
-            }, 260);
-        }, 0);
-    }, []);
     const clearAutoRetryTimer = useCallback(() => {
         if (autoRetryTimerRef.current !== null) {
             window.clearTimeout(autoRetryTimerRef.current);
@@ -243,11 +221,15 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             return;
         }
 
+        const requestId = latestLoadRequestRef.current + 1;
+        latestLoadRequestRef.current = requestId;
+
         try {
             if (silent) setReloading(true);
             else setLoading(true);
             if (!silent) setFetchError(null);
             const cols = await FetchTableColumns(schema, table);
+            if (latestLoadRequestRef.current != requestId) return;
             const rs: RowState[] = (cols || []).map((c, i) => ({
                 id: `col-${i}-${c.Name}`,
                 original: { ...c },
@@ -257,21 +239,24 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
             setRows(rs);
             setRowErrors({});
             setFetchError(null);
-            triggerContentFadeIn();
         } catch (error: unknown) {
+            if (latestLoadRequestRef.current != requestId) return;
             setFetchError(getErrorMessage(error));
         } finally {
+            if (latestLoadRequestRef.current != requestId) return;
             setLoading(false);
             setReloading(false);
         }
-    }, [driver, isCreateMode, schema, table, triggerContentFadeIn]);
+    }, [driver, isCreateMode, schema, table]);
 
-    const loadData = useCallback(async (filter?: string) => {
+    const loadData = useCallback(async (filter = '', orderByExpr = '', filterBaseQuery?: string) => {
         if (isCreateMode) return;
         if (!activeGroupId) return;
-        const baseTableQuery = `SELECT * FROM "${schema}"."${table}"`;
-        const query = filter?.trim() ? buildFilterQuery(baseTableQuery, filter) : baseTableQuery;
-        useResultStore.getState().setLastExecutedQuery(dataTabId, baseTableQuery);
+        const canonicalBaseQuery = `SELECT * FROM "${schema}"."${table}"`;
+        const providedBaseQuery = (filterBaseQuery || '').trim();
+        const baseQuery = providedBaseQuery || canonicalBaseQuery;
+        const query = buildFilterOrderQuery(baseQuery, filter, orderByExpr);
+        useResultStore.getState().setLastExecutedQuery(dataTabId, canonicalBaseQuery);
         ExecuteQuery(dataTabId, query).catch(console.error);
     }, [isCreateMode, schema, table, activeGroupId, dataTabId]);
 
@@ -373,17 +358,12 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         columns: () => loadInfo(true),
         data: loadData,
         erd: loadErd,
-        indexes: () => setInfoRefreshKey((k) => k + 1),
-        unique_keys: () => setInfoRefreshKey((k) => k + 1),
-        constraints: () => setInfoRefreshKey((k) => k + 1),
+        keys: () => setInfoRefreshKey((k) => k + 1),
         ddl: () => setInfoRefreshKey((k) => k + 1),
     }), [loadInfo, loadData, loadErd]);
 
     useEffect(() => { loadInfo(); }, [loadInfo]);
     useEffect(() => () => {
-        if (fadeInTimerRef.current !== null) {
-            window.clearTimeout(fadeInTimerRef.current);
-        }
         clearAutoRetryTimer();
     }, [clearAutoRetryTimer]);
     useEffect(() => {
@@ -574,6 +554,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     useEffect(() => {
         const h = (e: KeyboardEvent) => {
+            if (e.defaultPrevented) return;
             const activeGroup = groups.find((g) => g.id === activeGroupId);
             const isTabActive = activeGroup?.activeTabId === tabId;
             if (!isTabActive) return;
@@ -688,9 +669,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         ],
         data: [...dataTabActions, reloadAction],
         erd: [reloadAction],
-        indexes: [...indexTabActions, reloadAction],
-        unique_keys: [...uniqueKeyTabActions, reloadAction],
-        constraints: [...constraintTabActions, reloadAction],
+        keys: [reloadAction],
         ddl: [...ddlTabActions, reloadAction],
     };
 
@@ -701,13 +680,11 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         return [
             { key: 'columns', label: 'Columns', icon: <Table2 size={TABLE_TAB_ICON_SIZE} />, dirtyCount: columnsDirtyCount },
             { key: 'data', label: 'Data', icon: <Database size={TABLE_TAB_ICON_SIZE} />, dirtyCount: dataDirtyCount },
-            { key: 'erd', label: 'Erd', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
-            { key: 'indexes', label: 'Indexes', icon: <Hash size={TABLE_TAB_ICON_SIZE} />, dirtyCount: indexDirtyCount },
-            { key: 'unique_keys', label: 'Unique Keys', icon: <KeyRound size={TABLE_TAB_ICON_SIZE} />, dirtyCount: uniqueKeyDirtyCount },
-            { key: 'constraints', label: 'Constraints', icon: <Shield size={TABLE_TAB_ICON_SIZE} />, dirtyCount: constraintDirtyCount },
+            { key: 'erd', label: 'ERD', icon: <Network size={TABLE_TAB_ICON_SIZE} /> },
+            { key: 'keys', label: 'Keys', icon: <KeyRound size={TABLE_TAB_ICON_SIZE} />, dirtyCount: keysDirtyCount },
             { key: 'ddl', label: 'DDL', icon: <FileCode2 size={TABLE_TAB_ICON_SIZE} /> },
         ];
-    }, [columnsDirtyCount, dataDirtyCount, indexDirtyCount, isCreateMode]);
+    }, [columnsDirtyCount, dataDirtyCount, keysDirtyCount, isCreateMode]);
 
     const handleSelectTableFromBreadcrumb = useCallback((nextTableName: string) => {
         const normalized = nextTableName.trim();
@@ -724,8 +701,8 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center gap-4 h-full bg-background">
-                <Loader size={24} className="animate-spin text-accent" />
-                <span className="text-sm text-muted-foreground font-medium animate-pulse">Fetching table schema...</span>
+                <Table2 size={24} className="text-accent" />
+                <span className="text-body text-muted-foreground font-medium">Fetching table schema...</span>
             </div>
         );
     }
@@ -736,16 +713,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                 <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mb-6">
                     <Info size={32} className="text-error" />
                 </div>
-                <h2 className="text-xl font-bold text-foreground mb-2">Failed to load table</h2>
+                <h2 className="text-h1  text-foreground mb-2">Failed to load table</h2>
                 <p className="text-muted-foreground max-w-md mb-8">{fetchError}</p>
-                <Button onClick={() => loadInfo()} variant="secondary" className="rounded-md px-8">Try Again</Button>
+                <Button onClick={() => loadInfo()} variant="secondary" className="rounded-sm px-8">Try Again</Button>
             </div>
         );
     }
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-background outline-none">
-            <div className="shrink-0 h-12 px-4 border-b border-border/40 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <div className="shrink-0 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                 <div className="min-w-0 overflow-x-auto whitespace-nowrap">
                     <TableSchemaBreadcrumb
                         dbName={activeProfile?.db_name || ''}
@@ -760,61 +737,57 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     />
                 </div>
 
-                <div className="justify-self-center flex items-center gap-1 min-w-0 overflow-visible">
-                    {tabs.map(({ key, label, icon, dirtyCount, count }) => (
-                        <Button
-                            key={key}
-                            variant="ghost"
-                            type="button"
-                            title={
-                                count !== undefined && count !== null
+                <div className="justify-self-center flex items-center min-w-0">
+                    <Tabs
+                        value={activeTab}
+                        onValueChange={(value) => {
+                            setActiveTab(value as TableInfoTab);
+                            setFilterCol('');
+                        }}
+                        className="min-w-0"
+                    >
+                        <TabsList className="h-9 w-full justify-start gap-0 p-0 bg-transparent">
+                            {tabs.map(({ key, label, icon, dirtyCount, count }) => {
+                                const dirtyBadgeCount = typeof dirtyCount === 'number' && dirtyCount > 0 ? dirtyCount : null;
+                                const badgeValue = count ?? dirtyBadgeCount;
+                                const title = count !== undefined && count !== null
                                     ? `${label} (${count})`
                                     : (dirtyCount ?? 0) > 0
                                         ? `${label} (${dirtyCount} unsaved)`
-                                        : label
-                            }
-                            onClick={() => {
-                                setActiveTab(key);
-                                setFilterCol('');
-                            }}
-                            className={cx(
-                                'relative h-8 w-8 shrink-0 rounded-md p-0 transition-colors outline-none',
-                                activeTab === key
-                                    ? 'text-primary'
-                                    : 'text-muted-foreground/70 hover:text-foreground',
-                            )}
-                        >
-                            <span className={cx('transition-opacity', activeTab === key ? 'opacity-100' : 'opacity-75')}>{icon}</span>
-                            {count !== undefined && count !== null && (
-                                <Indicator
-                                    mode="count"
-                                    value={count}
-                                    className={TABLE_TAB_BADGE_CLASSNAME}
-                                />
-                            )}
-                            {(dirtyCount ?? 0) > 0 && (
-                                <Indicator
-                                    mode="count"
-                                    value={dirtyCount}
-                                    className={TABLE_TAB_BADGE_CLASSNAME}
-                                />
-                            )}
-                        </Button>
-                    ))}
+                                        : label;
+                                return (
+                                    <TabsTrigger
+                                        key={key}
+                                        value={key}
+                                        title={title}
+                                        aria-label={label}
+                                        className="relative h-8 my-1 rounded-sm cursor-pointer bg-transparent px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                    >
+                                        {icon}
+                                        {typeof badgeValue === 'number' && badgeValue > 0 && (
+                                            <span className={TABLE_TAB_BADGE_CLASSNAME}>
+                                                {badgeValue}
+                                            </span>
+                                        )}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    </Tabs>
                 </div>
 
-                <div className="min-w-0 justify-self-end flex items-center gap-1">
+                <div className="min-w-0 justify-self-end flex items-center">
                     {actionsByTab[activeTab].map((action) => (
                         <ToolbarButton key={action.id} action={action} />
                     ))}
 
                     {!isCreateMode && filterTabs.has(activeTab) && (
                         <div className="relative group flex items-center w-[180px] min-w-[180px]">
-                            <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent transition-colors" />
+                            <Search size={11} className="absolute left-3 text-muted-foreground group-focus-within:text-accent" />
                             <Input
                                 ref={filterInputRef}
                                 type="text"
-                                placeholder={activeTab === 'columns' ? 'Filter columns...' : activeTab === 'unique_keys' ? 'Filter unique keys...' : 'Filter indexes...'}
+                                placeholder="Filter columns..."
                                 value={filterCol}
                                 onChange={(e) => {
                                     if (activeTab === 'columns') {
@@ -826,14 +799,16 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Escape') setFilterCol('');
                                 }}
-                                className="h-7 w-full border-border/30 bg-muted/40 pl-8 pr-3 text-[11px] transition-all placeholder:text-muted-foreground/40 focus:bg-muted/60"
+                                size="sm"
+                                variant="ghost"
+                                className="w-full border-border/30 pl-8 pr-3 placeholder:text-muted-foreground/40"
                             />
                         </div>
                     )}
                 </div>
             </div>
 
-            <main className={`flex-1 flex flex-col min-h-0 relative ${fadeInContent ? 'ti-fade-in' : ''}`}>
+            <main className="flex-1 flex flex-col min-h-0 relative">
                 {activeTab === 'columns' && (
                     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                         <SchemaInfoView
@@ -882,51 +857,20 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     <RelationshipView schema={schema} table={table} refreshKey={erdRefreshKey} onCountChange={handleErdCountChange} />
                 )}
 
-                {/* Always rendered to preserve batch-edit state across tab switches */}
-                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'indexes' ? 'flex' : 'hidden'}`}>
-                    <IndexInfoView
-                        schema={schema}
-                        tableName={table}
-                        filterText={filterCol}
-                        refreshKey={infoRefreshKey}
-                        readOnlyMode={viewMode}
-                        isActive={activeTab === 'indexes'}
-                        tableColumns={rows.map((r) => r.current.Name)}
-                        onActionsChange={setIndexTabActions}
-                        onDirtyCountChange={setIndexDirtyCount}
-                    />
-                </div>
-
-                {/* Always rendered to preserve batch-edit state across tab switches */}
-                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'unique_keys' ? 'flex' : 'hidden'}`}>
-                    <IndexInfoView
-                        schema={schema}
-                        tableName={table}
-                        filterText={filterCol}
-                        refreshKey={infoRefreshKey}
-                        readOnlyMode={viewMode}
-                        isActive={activeTab === 'unique_keys'}
-                        tableColumns={rows.map((r) => r.current.Name)}
-                        onActionsChange={setUniqueKeyTabActions}
-                        onDirtyCountChange={setUniqueKeyDirtyCount}
-                        uniqueOnly
-                    />
-                </div>
-
-                {/* Always rendered to preserve pending state across tab switches */}
-                <div className={`flex-1 min-h-0 overflow-hidden flex-col ${activeTab === 'constraints' ? 'flex' : 'hidden'}`}>
-                    <ConstraintsView
-                        schema={schema}
-                        tableName={table}
-                        refreshKey={infoRefreshKey}
-                        readOnlyMode={viewMode}
-                        isActive={activeTab === 'constraints'}
-                        tableColumns={rows.map((r) => r.current.Name)}
-                        onActionsChange={setConstraintTabActions}
-                        onDirtyCountChange={setConstraintDirtyCount}
-                        driver={activeProfile?.driver}
-                    />
-                </div>
+                {activeTab === 'keys' && (
+                    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+                        <KeysView
+                            schema={schema}
+                            tableName={table}
+                            refreshKey={infoRefreshKey}
+                            readOnlyMode={viewMode}
+                            isActive
+                            tableColumns={rows.map((r) => r.current.Name)}
+                            onDirtyCountChange={setKeysDirtyCount}
+                            driver={activeProfile?.driver}
+                        />
+                    </div>
+                )}
 
                 {activeTab === 'ddl' && (
                     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -956,3 +900,4 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
         </div>
     );
 };
+

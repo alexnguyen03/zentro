@@ -14,31 +14,42 @@ const ENVIRONMENT_ORDER_INDEX = ENVIRONMENT_KEYS.reduce<Record<EnvironmentKey, n
     return acc;
 }, {} as Record<EnvironmentKey, number>);
 
+// Single source of truth for all env color styling.
+// badgeClass    — solid badge (full bg, white text) used in EnvironmentBadge
+// colorClass    — tinted variant (low-opacity bg, colored text/border) used in meta/toolbar
+export const ENVIRONMENT_BRAND: Record<EnvironmentKey, { badgeClass: string; colorClass: string }> = {
+    [ENVIRONMENT_KEY.LOCAL]:       { badgeClass: 'env-badge-loc', colorClass: 'text-success border-success/30 bg-success/8' },
+    [ENVIRONMENT_KEY.DEVELOPMENT]: { badgeClass: 'env-badge-dev', colorClass: 'text-primary border-primary/35 bg-primary/9' },
+    [ENVIRONMENT_KEY.TESTING]:     { badgeClass: 'env-badge-tes', colorClass: 'text-testing border-testing/40 bg-testing/10' },
+    [ENVIRONMENT_KEY.STAGING]:     { badgeClass: 'env-badge-sta', colorClass: 'text-warning border-warning/45 bg-warning/12' },
+    [ENVIRONMENT_KEY.PRODUCTION]:  { badgeClass: 'env-badge-pro', colorClass: 'text-error border-error/45 bg-error/11' },
+};
+
 const ENVIRONMENT_META: Record<EnvironmentKey, { label: string; description: string; colorClass: string }> = {
     [ENVIRONMENT_KEY.LOCAL]: {
         label: 'Local',
         description: 'Fast local querying and lowest-friction experimentation.',
-        colorClass: 'text-success border-success/40 bg-success/10',
+        colorClass: ENVIRONMENT_BRAND[ENVIRONMENT_KEY.LOCAL].colorClass,
     },
     [ENVIRONMENT_KEY.TESTING]: {
         label: 'Testing',
         description: 'Validation space for quick verification before broader development work.',
-        colorClass: 'text-fuchsia-400 border-fuchsia-400/40 bg-fuchsia-400/10',
+        colorClass: ENVIRONMENT_BRAND[ENVIRONMENT_KEY.TESTING].colorClass,
     },
     [ENVIRONMENT_KEY.DEVELOPMENT]: {
         label: 'Development',
         description: 'Main development environment for routine build and feature work.',
-        colorClass: 'text-sky-400 border-sky-400/40 bg-sky-400/10',
+        colorClass: ENVIRONMENT_BRAND[ENVIRONMENT_KEY.DEVELOPMENT].colorClass,
     },
     [ENVIRONMENT_KEY.STAGING]: {
         label: 'Staging',
         description: 'Pre-production validation with more caution and cleaner parity expectations.',
-        colorClass: 'text-amber-600 border-amber-500/70 bg-amber-500/18',
+        colorClass: ENVIRONMENT_BRAND[ENVIRONMENT_KEY.STAGING].colorClass,
     },
     [ENVIRONMENT_KEY.PRODUCTION]: {
         label: 'Production',
         description: 'Protected live environment where risk should stay explicit and controlled.',
-        colorClass: 'text-red-400 border-red-400/40 bg-red-400/10',
+        colorClass: ENVIRONMENT_BRAND[ENVIRONMENT_KEY.PRODUCTION].colorClass,
     },
 };
 
@@ -47,18 +58,23 @@ export function getEnvironmentMeta(key?: string | null) {
         return {
             label: 'Unknown',
             description: 'Environment metadata is not available yet.',
-            colorClass: 'text-text-secondary border-border bg-bg-tertiary',
+            colorClass: 'text-muted-foreground border-border/45 bg-muted/20',
         };
     }
     return ENVIRONMENT_META[key as EnvironmentKey] || {
         label: key.toUpperCase(),
         description: 'Custom environment metadata is not available yet.',
-        colorClass: 'text-text-secondary border-border bg-bg-tertiary',
+        colorClass: 'text-muted-foreground border-border/45 bg-muted/20',
     };
 }
 
 export function getEnvironmentLabel(key?: string | null) {
     return getEnvironmentMeta(key).label;
+}
+
+export function getEnvironmentBgClass(key?: string | null): string {
+    const { colorClass } = getEnvironmentMeta(key);
+    return colorClass.split(' ').find((c) => c.startsWith('bg-')) ?? '';
 }
 
 export function getEnvironmentOrderIndex(key?: EnvironmentKey | null): number {

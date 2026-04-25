@@ -19,9 +19,40 @@ const CRITICAL_STORAGE_KEYS = [
 ];
 
 const LEGACY_STORAGE_KEYS = [
+    // connection store
     'zentro:connection-store-v1',
     'zentro:connection-store-v2',
+    // editor session
+    'zentro:editor-session-v1',
+    'zentro:editor-session-v2',
+    'zentro:editor-session-v3',
+    'zentro:editor-session-v4',
+    // project store
+    'zentro:project-store-v1',
+    'zentro:project-store-v2',
+    // layout store
+    'zentro:layout-store-v1',
+    'zentro:layout-store-v2',
+    // sidebar ui
+    'zentro:sidebar-ui-v1',
+    // connection tree ui
+    'zentro:connection-tree-ui-v1',
+    // dismissed update version
+    'zentro:dismissed-update-version-v1',
+    'zentro:dismissed-update-version-v2',
+    // telemetry consent
     'zentro:telemetry-consent:v1',
+    'zentro:telemetry-consent:v2',
+    // query performance snapshots
+    'zentro:query-performance-snapshots:v1',
+    // telemetry events
+    'zentro:telemetry-events:v1',
+    // telemetry analytics outbox
+    'zentro:telemetry-analytics-outbox:v1',
+    // execution policy
+    'zentro:execution-policy-profiles:v1',
+    'zentro:execution-policy-assignments:v1',
+    'zentro:execution-policy-strong-confirm-from:v1',
 ];
 
 function removeCorruptedKey(key: string, warning: string, report: StartupRecoveryReport) {

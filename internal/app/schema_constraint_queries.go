@@ -70,7 +70,7 @@ func getMSSQLPrimaryKey(ctx context.Context, db *sql.DB, schema, tableName strin
 		JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
 		JOIN sys.tables t ON t.object_id = kc.parent_object_id
 		JOIN sys.schemas s ON s.schema_id = t.schema_id
-		WHERE kc.type = 'PK' AND s.name = ? AND t.name = ?
+		WHERE kc.type = 'PK' AND s.name = @p1 AND t.name = @p2
 		ORDER BY ic.key_ordinal
 	`, schema, tableName)
 	if err != nil {
@@ -140,7 +140,7 @@ func getMSSQLUniqueConstraints(ctx context.Context, db *sql.DB, schema, tableNam
 		JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
 		JOIN sys.tables t ON t.object_id = kc.parent_object_id
 		JOIN sys.schemas s ON s.schema_id = t.schema_id
-		WHERE kc.type = 'UQ' AND s.name = ? AND t.name = ?
+		WHERE kc.type = 'UQ' AND s.name = @p1 AND t.name = @p2
 		ORDER BY kc.name, ic.key_ordinal
 	`, schema, tableName)
 	if err != nil {

@@ -42,7 +42,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
         sonnerToast(message, {
             icon: <Icon size={18} className={cn('mt-[1px] shrink-0', variantStyle.icon)} />,
             className: cn(
-                'relative pointer-events-auto flex min-w-[280px] max-w-[520px] items-start gap-3 rounded-2xl border border-border/70 bg-card px-6 py-5 pr-12 text-[15px] shadow-elevation-md',
+                'relative pointer-events-auto flex min-w-[280px] max-w-[520px] items-start gap-2 !rounded-sm border border-border/70 bg-card px-6 py-5 pr-12 text-h3 shadow-elevation-md',
             ),
         });
     }, []);
@@ -67,7 +67,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children, placemen
                 offset={{ top: 56, right: 16, bottom: 36, left: 16 }}
                 toastOptions={{
                     classNames: {
-                        title: 'flex-1 break-words pr-1 leading-[1.35] text-[15px] font-semibold text-foreground',
+                        title: 'flex-1 break-words pr-1 leading-[1.35] text-h3 font-semibold text-foreground !rounded-sm',
                         closeButton: 'absolute !left-auto !right-0 !top-3 !translate-x-0 !translate-y-0 p-2 !border-none text-muted-foreground hover:bg-muted hover:text-foreground',
                     },
                 }}

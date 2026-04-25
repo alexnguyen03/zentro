@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ChevronDown, ChevronUp, Loader, RotateCcw, Save, Trash2, Hash, Plus, Check,
+    Loader, RotateCcw, Save, Trash2, Hash, Plus,
 } from 'lucide-react';
 import { GetIndexes, DropIndex, CreateIndex } from '../../../services/schemaService';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { useToast } from '../../layout/Toast';
 import { ConfirmationModal } from '../../ui/ConfirmationModal';
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Switch } from '../../ui';
+import { Button, Input, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui';
+import { ColumnPickerCell } from './ColumnPickerCell';
 import { getErrorMessage } from '../../../lib/errors';
 import { useWriteSafetyGuard } from '../../../features/query/useWriteSafetyGuard';
 import { type TabAction } from './types';
@@ -43,99 +44,6 @@ interface IndexInfoViewProps {
     onDirtyCountChange?: (count: number) => void;
     uniqueOnly?: boolean;
 }
-
-// ─── ColumnPicker ─────────────────────────────────────────────────────────────
-
-interface ColumnPickerCellProps {
-    columns: string[];
-    selected: string[];
-    onChange: (cols: string[]) => void;
-    onClose: () => void; // called when picker closes → exits cell edit
-    autoOpen?: boolean;
-}
-
-const ColumnPickerCell: React.FC<ColumnPickerCellProps> = ({
-    columns, selected, onChange, onClose, autoOpen = false,
-}) => {
-    const [open, setOpen] = useState(autoOpen);
-    const selectedRef = React.useRef(selected);
-    selectedRef.current = selected;
-
-    const toggle = (col: string) => {
-        const current = selectedRef.current;
-        onChange(current.includes(col) ? current.filter((c) => c !== col) : [...current, col]);
-    };
-
-    const handleOpenChange = (next: boolean) => {
-        setOpen(next);
-        if (!next) setTimeout(onClose, 0);
-    };
-
-    const label = selected.length === 0 ? 'Select columns…' : selected.join(', ');
-
-    return (
-        <Popover open={open} onOpenChange={handleOpenChange}>
-            <PopoverTrigger asChild>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    // prevent this click from bubbling to the tr mousedown (which would deselect row)
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className={`
-                        flex h-[26px] w-full items-center justify-between rounded border border-border/40
-                        bg-background px-2 text-[12px] text-left font-mono transition-colors
-                        hover:border-border focus:outline-none focus:ring-1 focus:ring-primary
-                        ${open ? 'border-primary ring-1 ring-primary' : ''}
-                    `}
-                >
-                    <span className={`truncate ${selected.length === 0 ? 'text-muted-foreground/50' : 'text-foreground'}`}>
-                        {label}
-                    </span>
-                    {open
-                        ? <ChevronUp size={11} className="shrink-0 text-muted-foreground ml-1" />
-                        : <ChevronDown size={11} className="shrink-0 text-muted-foreground ml-1" />}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent
-                align="start"
-                side="bottom"
-                sideOffset={4}
-                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[200px] rounded-md border border-border bg-popover p-1 shadow-elevation-md"
-            >
-                <div className="max-h-[220px] overflow-y-auto">
-                    {columns.length === 0 && (
-                        <div className="px-3 py-2 text-[11px] text-muted-foreground">No columns available</div>
-                    )}
-                    {columns.map((col) => {
-                        const checked = selected.includes(col);
-                        return (
-                            <Button
-                                key={col}
-                                type="button"
-                                variant="ghost"
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={() => toggle(col)}
-                                className={`
-                                    flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-[12px] text-left h-auto justify-start
-                                    transition-colors hover:bg-accent/10 font-mono
-                                    ${checked ? 'text-foreground font-medium' : 'text-muted-foreground'}
-                                `}
-                            >
-                                <div className={`
-                                    flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors shrink-0
-                                    ${checked ? 'bg-primary border-primary text-primary-foreground' : 'border-border/60 bg-background'}
-                                `}>
-                                    {checked && <Check size={10} strokeWidth={3} />}
-                                </div>
-                                <span className="truncate">{col}</span>
-                            </Button>
-                        );
-                    })}
-                </div>
-            </PopoverContent>
-        </Popover>
-    );
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -185,7 +93,22 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     const { activeProfile } = useConnectionStore();
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
-    const writeSafetyGuard = useWriteSafetyGuard(activeEnvironmentKey);
+    const toastRef = useRef(toast);
+    const { guardOperations, modals } = useWriteSafetyGuard(activeEnvironmentKey);
+    const onActionsChangeRef = useRef<IndexInfoViewProps['onActionsChange']>(onActionsChange);
+    const onDirtyCountChangeRef = useRef<IndexInfoViewProps['onDirtyCountChange']>(onDirtyCountChange);
+
+    useEffect(() => {
+        toastRef.current = toast;
+    }, [toast]);
+
+    useEffect(() => {
+        onActionsChangeRef.current = onActionsChange;
+    }, [onActionsChange]);
+
+    useEffect(() => {
+        onDirtyCountChangeRef.current = onDirtyCountChange;
+    }, [onDirtyCountChange]);
 
     // ── Load ───────────────────────────────────────────────────────────────────
 
@@ -198,18 +121,18 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             setEditCell(null);
             setSelectedRows(new Set());
         } catch (error: unknown) {
-            toast.error(`Failed to load indexes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to load indexes: ${getErrorMessage(error)}`);
         } finally {
             setLoading(false);
         }
-    }, [activeProfile?.name, schema, tableName, toast]);
+    }, [activeProfile?.name, schema, tableName]);
 
     useEffect(() => { loadIndexes(); }, [loadIndexes, refreshKey]);
 
     // ── Dirty tracking ────────────────────────────────────────────────────────
 
     const dirtyCount = useMemo(() => getDirtyCount(rows), [rows]);
-    useEffect(() => { onDirtyCountChange?.(dirtyCount); }, [dirtyCount, onDirtyCountChange]);
+    useEffect(() => { onDirtyCountChangeRef.current?.(dirtyCount); }, [dirtyCount]);
 
     // ── Row mutations ─────────────────────────────────────────────────────────
 
@@ -356,8 +279,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
         if (!toDelete.length && !toCreate.length && !toUpdate.length) return;
 
         for (const r of [...toCreate, ...toUpdate]) {
-            if (!r.current.Name.trim()) { toast.error('Index name is required'); return; }
-            if (!r.current.Columns.length) { toast.error(`"${r.current.Name}" needs at least one column`); return; }
+            if (!r.current.Name.trim()) { toastRef.current.error('Index name is required'); return; }
+            if (!r.current.Columns.length) { toastRef.current.error(`"${r.current.Name}" needs at least one column`); return; }
         }
 
         const ops: Array<'create' | 'drop'> = [
@@ -366,9 +289,9 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
             ...toUpdate.flatMap(() => ['drop', 'create'] as const),
         ];
 
-        const guard = await writeSafetyGuard.guardOperations(ops, 'Apply Index Changes');
+        const guard = await guardOperations(ops, 'Apply Index Changes');
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
 
@@ -384,33 +307,33 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                 await DropIndex(activeProfile.name, schema, tableName, r.original.Name);
                 await CreateIndex(activeProfile.name, schema, tableName, r.current.Name, r.current.Columns, r.current.Unique);
             }
-            toast.success('Index changes applied');
+            toastRef.current.success('Index changes applied');
             await loadIndexes();
         } catch (error: unknown) {
-            toast.error(`Failed to apply changes: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to apply changes: ${getErrorMessage(error)}`);
         } finally {
             setSaving(false);
         }
-    }, [activeProfile?.name, loadIndexes, readOnlyMode, rows, schema, tableName, toast, writeSafetyGuard]);
+    }, [activeProfile?.name, guardOperations, loadIndexes, readOnlyMode, rows, schema, tableName]);
 
     // Drop handler (for immediate drop via confirmation modal — not part of batch)
     const handleDropConfirm = useCallback(async () => {
         if (!dropTarget || !activeProfile?.name) return;
-        const guard = await writeSafetyGuard.guardOperations(['drop'], 'Drop Index');
+        const guard = await guardOperations(['drop'], 'Drop Index');
         if (!guard.allowed) {
-            if (guard.blockedReason) toast.error(guard.blockedReason);
+            if (guard.blockedReason) toastRef.current.error(guard.blockedReason);
             return;
         }
         try {
             await DropIndex(activeProfile.name, schema, tableName, dropTarget);
-            toast.success(`Index "${dropTarget}" dropped`);
+            toastRef.current.success(`Index "${dropTarget}" dropped`);
             await loadIndexes();
         } catch (error: unknown) {
-            toast.error(`Failed to drop index: ${getErrorMessage(error)}`);
+            toastRef.current.error(`Failed to drop index: ${getErrorMessage(error)}`);
         } finally {
             setDropTarget(null);
         }
-    }, [activeProfile?.name, dropTarget, loadIndexes, schema, toast, writeSafetyGuard]);
+    }, [activeProfile?.name, dropTarget, guardOperations, loadIndexes, schema]);
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
 
@@ -467,8 +390,8 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
     }, [hasChanges, readOnlyMode, saving, selectedRows.size, saveAll, addNewRow, discardAll, toggleDeleteRows]);
 
     useEffect(() => {
-        onActionsChange?.(panelActions);
-    }, [onActionsChange, panelActions]);
+        onActionsChangeRef.current?.(panelActions);
+    }, [panelActions]);
 
     // ── Filter ────────────────────────────────────────────────────────────────
 
@@ -494,33 +417,33 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                 confirmLabel="Drop"
                 variant="destructive"
             />
-            {writeSafetyGuard.modals}
+            {modals}
 
             <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-auto scrollbar-thin px-3">
-                    <table
+                <div className="flex-1 overflow-auto scrollbar-thin">
+                    <Table
                         className="result-table-tanstack border-collapse table-fixed select-none"
                         style={{ width: '100%', minWidth: '560px' }}
                     >
-                        <thead>
-                            <tr className="border-b-2 border-border">
-                                <th className="rt-th w-10 font-mono text-[10px] text-muted-foreground">
+                        <TableHeader className="[&_tr]:border-b-0">
+                            <TableRow className="border-b-2 border-border hover:bg-transparent">
+                                <TableHead className="rt-th w-10 font-mono text-label text-muted-foreground">
                                     <div className="rt-th-label justify-center">#</div>
-                                </th>
-                                <th className="rt-th">
+                                </TableHead>
+                                <TableHead className="rt-th">
                                     <div className="rt-th-label">Name</div>
-                                </th>
-                                <th className="rt-th" style={{ width: '320px' }}>
+                                </TableHead>
+                                <TableHead className="rt-th" style={{ width: '320px' }}>
                                     <div className="rt-th-label">Columns</div>
-                                </th>
+                                </TableHead>
                                 {!uniqueOnly && (
-                                    <th className="rt-th w-20">
+                                    <TableHead className="rt-th w-20">
                                         <div className="rt-th-label justify-center">Unique</div>
-                                    </th>
+                                    </TableHead>
                                 )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/20">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-border/20 [&_tr:last-child]:border-b">
                             {filteredRows.map((row, displayIdx) => {
                                 const isDeleted = row.deleted;
                                 const isNew = row.isNew;
@@ -537,14 +460,14 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                 `;
 
                                 return (
-                                    <tr
+                                    <TableRow
                                         key={row.id}
-                                        className={rowCls}
+                                        className={`${rowCls} border-b-0 hover:bg-transparent`}
                                         onMouseDown={(e) => handleRowMouseDown(e, row.id)}
                                         onMouseEnter={() => handleRowMouseEnter(row.id)}
                                     >
                                         {/* # — double-click to discard row (matches columns tab) */}
-                                        <td className="w-10 text-center border-b border-border">
+                                        <TableCell className="w-10 text-center border-b border-border">
                                             <div
                                                 className="rt-cell-content rt-cell-content--compact row-num-col"
                                                 onDoubleClick={() => (isDirty || isDeleted) && !isNew && discardRow(row.id)}
@@ -552,10 +475,10 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                             >
                                                 {displayIdx + 1}
                                             </div>
-                                        </td>
+                                        </TableCell>
 
                                         {/* Name */}
-                                        <td className="p-0 border-b border-border">
+                                        <TableCell className="p-0 border-b border-border">
                                             {isEditingName ? (
                                                 <Input
                                                     autoFocus
@@ -581,20 +504,20 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                 >
                                                     <span className="truncate">{row.current.Name || <span className="italic text-muted-foreground/50">untitled</span>}</span>
                                                     {isNew && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
+                                                        <span className="ml-1.5 text-label  text-success bg-success/10 px-1 py-0.5 rounded shrink-0">NEW</span>
                                                     )}
                                                     {isDirty && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
+                                                        <span className="ml-1.5 text-label  text-warning bg-warning/10 px-1 py-0.5 rounded shrink-0">EDITED</span>
                                                     )}
                                                     {row.current.Unique && !uniqueOnly && (
-                                                        <span className="ml-1.5 text-[9px] font-bold text-accent bg-accent/10 px-1 py-0.5 rounded-md shrink-0">UNIQUE</span>
+                                                        <span className="ml-1.5 text-label  text-accent bg-accent/10 px-1 py-0.5 rounded-sm shrink-0">UNIQUE</span>
                                                     )}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Columns */}
-                                        <td className="p-0 border-b border-border" style={{ width: '320px' }}>
+                                        <TableCell className="p-0 border-b border-border" style={{ width: '320px' }}>
                                             {isEditingCols ? (
                                                 <div
                                                     className="px-1.5 py-[3px]"
@@ -610,7 +533,7 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-[11px] text-muted-foreground
+                                                    className={`rt-cell-content rt-cell-content--compact font-mono text-label text-muted-foreground
                                                         ${isDirty && JSON.stringify(row.current.Columns) !== JSON.stringify(row.original.Columns) ? 'rt-cell-dirty' : ''}
                                                         ${isDeleted ? 'opacity-40' : ''}
                                                         ${!readOnlyMode && !isDeleted ? 'cursor-pointer' : ''}
@@ -623,11 +546,11 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                         : <span className="italic text-muted-foreground/40">no columns</span>}
                                                 </div>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Unique — always interactive, no double-click needed */}
                                         {!uniqueOnly && (
-                                            <td className="w-20 text-center border-b border-border">
+                                            <TableCell className="w-20 text-center border-b border-border">
                                                 <div
                                                     className="rt-cell-content rt-cell-content--compact justify-center"
                                                     onMouseDown={(e) => e.stopPropagation()}
@@ -639,33 +562,34 @@ export const IndexInfoView: React.FC<IndexInfoViewProps> = ({
                                                         className="scale-75 origin-center"
                                                     />
                                                 </div>
-                                            </td>
+                                            </TableCell>
                                         )}
-                                    </tr>
+                                    </TableRow>
                                 );
                             })}
 
                             {rows.length === 0 && !loading && (
-                                <tr>
-                                    <td colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-sm">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-24 text-center text-muted-foreground italic bg-background/50 text-body">
                                         {readOnlyMode
                                             ? (uniqueOnly ? 'No unique keys found for this table.' : 'No indexes found for this table.')
                                             : (uniqueOnly ? 'No unique keys yet. Click "Add Unique Key" to create one.' : 'No indexes yet. Click "Add Index" to create one.')}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
 
                             {rows.length > 0 && filteredRows.length === 0 && filterText && (
-                                <tr>
-                                    <td colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-[12px]">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={uniqueOnly ? 3 : 4} className="py-8 text-center text-muted-foreground text-small">
                                         {uniqueOnly ? `No unique keys match "${filterText}"` : `No indexes match "${filterText}"`}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
             </div>
         </div>
     );
 };
+

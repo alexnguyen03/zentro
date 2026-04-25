@@ -50,19 +50,19 @@ export const Modal: React.FC<ModalProps> = ({
             <DialogContent
                 overlayClassName={isConfirmLayer ? 'z-modal-confirm bg-overlay-strong' : 'z-modal bg-overlay'}
                 className={cn(
-                    'max-h-[90vh] overflow-hidden rounded-md border border-border/30 bg-card p-0 text-card-foreground shadow-elevation-lg',
+                    'max-h-[90vh] overflow-hidden rounded-sm border border-border/30 bg-card p-0 text-card-foreground shadow-elevation-lg',
                     isConfirmLayer ? 'z-modal-confirm' : 'z-modal',
                     className,
                 )}
                 style={{ width, maxWidth: '90vw' }}
             >
                 <DialogHeader className="shrink-0 border-b border-border/25 bg-card px-5 py-4">
-                    <DialogTitle className="m-0 text-base font-semibold text-foreground">
+                    <DialogTitle className="m-0 text-body font-semibold text-foreground">
                         {title}
                     </DialogTitle>
                 </DialogHeader>
                 <DialogDescription asChild>
-                    <div className="flex-1 overflow-y-auto px-5 py-5 text-[13px] text-muted-foreground">
+                    <div className="flex-1 overflow-y-auto px-5 py-5 text-small text-muted-foreground">
                         {children}
                     </div>
                 </DialogDescription>

@@ -43,8 +43,6 @@ export function CreateTable(arg1:string,arg2:string,arg3:string,arg4:Array<model
 
 export function CreateUniqueConstraint(arg1:string,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<void>;
 
-export function UpdateForeignKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:app.ForeignKeyInfo):Promise<void>;
-
 export function DeactivateLicense(arg1:string):Promise<void>;
 
 export function DeleteBookmark(arg1:string,arg2:string,arg3:number):Promise<void>;
@@ -107,19 +105,19 @@ export function FetchTableColumns(arg1:string,arg2:string):Promise<Array<models.
 
 export function FetchTableRelationships(arg1:string,arg2:string):Promise<Array<models.TableRelationship>>;
 
-export function FetchTotalRowCount(arg1:string):Promise<number>;
-
 export function ForceQuit():Promise<void>;
 
 export function FormatSQL(arg1:string,arg2:string):Promise<string>;
+
+export function GetAboutInfo():Promise<app.AboutInfo>;
 
 export function GetActiveProject():Promise<models.Project>;
 
 export function GetBookmarks(arg1:string,arg2:string):Promise<Array<models.Bookmark>>;
 
-export function GetCheckConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.CheckConstraintInfo>>;
+export function GetBookmarksByConnection(arg1:string):Promise<Record<string, Array<models.Bookmark>>>;
 
-export function GetForeignKeys(arg1:string,arg2:string,arg3:string):Promise<Array<app.ForeignKeyInfo>>;
+export function GetCheckConstraints(arg1:string,arg2:string,arg3:string):Promise<Array<app.CheckConstraintInfo>>;
 
 export function GetCommitFileDiffs(arg1:string):Promise<Array<app.GitCommitFileDiff>>;
 
@@ -130,6 +128,8 @@ export function GetCurrentVersion():Promise<string>;
 export function GetDefaultProjectStorageRoot():Promise<string>;
 
 export function GetExecutionPolicy(arg1:string):Promise<app.ExecutionPolicy>;
+
+export function GetForeignKeys(arg1:string,arg2:string,arg3:string):Promise<Array<app.ForeignKeyInfo>>;
 
 export function GetGitCommitDiff(arg1:string):Promise<string>;
 
@@ -177,6 +177,8 @@ export function LoadTemplates():Promise<Array<models.Template>>;
 
 export function ManualGitCommit(arg1:string):Promise<app.GitCommitResult>;
 
+export function OpenDirectoryInExplorer(arg1:string):Promise<void>;
+
 export function OpenProject(arg1:string):Promise<models.Project>;
 
 export function OpenProjectFromDirectory(arg1:string):Promise<models.Project>;
@@ -221,11 +223,15 @@ export function SCInitRepo():Promise<void>;
 
 export function SCListBranches():Promise<Array<string>>;
 
+export function SCReadGitIgnore():Promise<string>;
+
 export function SCStageAll():Promise<void>;
 
 export function SCStageFile(arg1:string):Promise<void>;
 
 export function SCUnstageFile(arg1:string):Promise<void>;
+
+export function SCWriteGitIgnore(arg1:string):Promise<void>;
 
 export function SaveBookmark(arg1:string,arg2:string,arg3:models.Bookmark):Promise<void>;
 
@@ -248,3 +254,5 @@ export function SwitchDatabase(arg1:string):Promise<void>;
 export function TestConnection(arg1:models.ConnectionProfile):Promise<void>;
 
 export function TruncateTable(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:boolean):Promise<void>;
+
+export function UpdateForeignKey(arg1:string,arg2:string,arg3:string,arg4:string,arg5:app.ForeignKeyInfo):Promise<void>;

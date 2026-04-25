@@ -15,6 +15,7 @@ export const ForceQuit = () => wailsGateway.ForceQuit();
 export const ConnectProjectEnvironment = (environmentKey: string) => wailsGateway.ConnectProjectEnvironment(environmentKey);
 export const GetDefaultProjectStorageRoot = () => wailsGateway.GetDefaultProjectStorageRoot();
 export const PickDirectory = (initialPath = '') => wailsGateway.PickDirectory(initialPath);
+export const OpenDirectoryInExplorer = (path: string) => wailsGateway.OpenDirectoryInExplorer(path);
 
 function toEnvironmentKey(value: unknown, fallback: EnvironmentKey = ENVIRONMENT_KEY.LOCAL): EnvironmentKey {
     if (typeof value === 'string' && ENVIRONMENT_KEYS.includes(value as EnvironmentKey)) {

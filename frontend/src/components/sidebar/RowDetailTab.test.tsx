@@ -50,17 +50,24 @@ describe('RowDetailTab', () => {
 
         render(<RowDetailTab />);
 
-        const editor = screen.getByRole('textbox');
-        fireEvent.change(editor, { target: { value: 'Alice 2' } });
-        fireEvent.keyDown(editor, { key: 'Enter' });
+        // Display is a div — click it to open the textarea editor
+        fireEvent.click(screen.getByTitle('Click to edit | Enter to save | Esc to cancel'));
+        const textarea = screen.getByTitle('Enter to save | Esc to cancel') as HTMLTextAreaElement;
+        fireEvent.change(textarea, { target: { value: 'Alice 2' } });
+        fireEvent.keyDown(textarea, { key: 'Enter' });
         expect(onSave).toHaveBeenCalledWith(0, 'Alice 2');
 
-        fireEvent.change(editor, { target: { value: 'Alice 3' } });
-        fireEvent.keyDown(editor, { key: 'Escape' });
-        expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Alice');
+        // After Enter the textarea closes; click the display div again
+        fireEvent.click(screen.getByTitle('Click to edit | Enter to save | Esc to cancel'));
+        const textarea2 = screen.getByTitle('Enter to save | Esc to cancel') as HTMLTextAreaElement;
+        fireEvent.change(textarea2, { target: { value: 'Alice 3' } });
+        fireEvent.keyDown(textarea2, { key: 'Escape' });
+        // After Escape the display div shows the reverted value
+        expect(screen.getByTitle('Click to edit | Enter to save | Esc to cancel').textContent).toBe('Alice');
 
         fireEvent.click(screen.getByTitle('Toggle selection mode for custom JSON copy'));
-        expect(screen.getByRole('textbox')).toBeDisabled();
+        expect(screen.queryByTitle('Click to edit | Enter to save | Esc to cancel')).toBeNull();
+        expect(screen.getByRole('checkbox')).toBeInTheDocument();
     });
 
     it('copies selected fields as JSON in selection mode', async () => {

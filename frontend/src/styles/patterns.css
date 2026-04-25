@@ -1,0 +1,156 @@
+/* UI System Pattern v1 primitives for shell-level composition */
+
+.ui-shell {
+    display: grid;
+    grid-template-rows: var(--layout-toolbar-height) minmax(0, 1fr);
+    height: 100%;
+    gap: var(--layout-shell-gap);
+    background: var(--surface-app);
+}
+
+.ui-shell-header {
+    height: var(--layout-toolbar-height);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface-panel);
+}
+
+.ui-shell-body {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(180px, 280px) minmax(0, 1fr);
+    gap: var(--layout-shell-gap);
+}
+
+.ui-panel {
+    min-height: 0;
+    border-radius: var(--radius-scale-md);
+    padding: var(--layout-panel-padding);
+    display: flex;
+    flex-direction: column;
+    gap: var(--layout-panel-gap);
+}
+
+.ui-content-region {
+    min-height: 0;
+    padding: var(--space-3);
+    max-width: var(--layout-content-max-width);
+}
+
+.ui-form {
+    display: grid;
+    gap: var(--layout-form-gap);
+}
+
+.ui-form-row {
+    display: grid;
+    gap: var(--layout-form-row-gap);
+}
+
+.ui-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+.ui-empty-state,
+.ui-loading-state,
+.ui-error-state {
+    display: grid;
+    place-items: center;
+    min-height: 120px;
+    padding: var(--space-4);
+    border-radius: var(--radius-scale-md);
+    text-align: center;
+}
+
+.ui-empty-state {
+    color: var(--state-empty-text);
+    background: color-mix(in srgb, var(--surface-elevated) 75%, transparent);
+}
+
+.ui-loading-state {
+    color: var(--state-loading-text);
+    background: color-mix(in srgb, var(--surface-elevated) 75%, transparent);
+}
+
+.ui-error-state {
+    color: var(--content-primary);
+    border: 1px solid var(--state-error-border);
+    background: var(--state-error-bg);
+}
+
+/* Typography roles */
+.ui-text-h1 {
+    font-size: var(--font-size-h1);
+    line-height: var(--line-height-h1);
+    font-weight: var(--font-weight-h1);
+}
+
+.ui-text-h2 {
+    font-size: var(--font-size-h2);
+    line-height: var(--line-height-h2);
+    font-weight: var(--font-weight-h2);
+}
+
+.ui-text-h3 {
+    font-size: var(--font-size-h3);
+    line-height: var(--line-height-h3);
+    font-weight: var(--font-weight-h3);
+}
+
+.ui-text-title {
+    font-size: var(--font-size-h2);
+    line-height: var(--line-height-h2);
+    font-weight: var(--font-weight-h2);
+}
+
+.ui-text-section {
+    font-size: var(--font-size-h3);
+    line-height: var(--line-height-h3);
+    font-weight: var(--font-weight-h3);
+}
+
+.ui-text-body {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    font-weight: var(--font-weight-body);
+}
+
+.ui-text-small,
+.ui-text-caption {
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-small);
+    font-weight: var(--font-weight-small);
+}
+
+.ui-text-label {
+    font-size: var(--font-size-label);
+    line-height: var(--line-height-label);
+    font-weight: var(--font-weight-label);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ui-text-code {
+    font-size: var(--font-size-code);
+    line-height: var(--line-height-code);
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-code);
+}
+
+/* Interaction states */
+.ui-state-hover:hover {
+    background: var(--state-hover-bg);
+}
+
+.ui-state-disabled,
+.ui-state-disabled:disabled {
+    opacity: var(--state-disabled-opacity);
+    pointer-events: none;
+}
+
+.ui-focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--state-focus-ring);
+}

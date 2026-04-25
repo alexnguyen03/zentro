@@ -26,7 +26,7 @@ export const SettingsRegion: React.FC = () => {
                             <SelectItem value="en">English (United States)</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">Zentro is currently optimized for English.</p>
+                    <p className="text-label text-muted-foreground">Zentro is currently optimized for English.</p>
                 </div>
             </div>
         </div>

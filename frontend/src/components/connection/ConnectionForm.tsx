@@ -17,8 +17,8 @@ import {
 } from '../ui';
 import type { ConnectionProfile } from '../../types/connection';
 
-const fieldInputClass = 'h-8 w-full text-[12px]';
-const labelClass = 'mb-0.5 block text-[11px] text-muted-foreground';
+const fieldInputClass = 'w-full';
+const labelClass = 'mb-0.5 block text-label text-muted-foreground';
 
 interface ConnectionFormProps {
     formData: Partial<ConnectionProfile>;
@@ -80,7 +80,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         value={connString}
                         onChange={onConnStringChange}
                         placeholder={`${DRIVER.POSTGRES}://user:pass@host:5432/db`}
-                        className={cn(fieldInputClass, 'font-mono text-[11px]')}
+                        className={cn(fieldInputClass, 'font-mono text-label')}
                     />
                 </div>
             )}
@@ -97,7 +97,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     className={cn(fieldInputClass, isEditing && 'opacity-50')}
                 />
                 {isEditing && (
-                    <span className="text-[10px] text-muted-foreground">Name cannot be changed after creation</span>
+                    <span className="text-label text-muted-foreground">Name cannot be changed after creation</span>
                 )}
             </div>
 
@@ -194,7 +194,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
 
             <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-0.5">
                 {requiresHost && (
-                    <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <label className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
                         <Checkbox
                             checked={formData.show_all_schemas ?? false}
                             onCheckedChange={(checked) => emitCheckboxChange('show_all_schemas', checked === true)}
@@ -203,7 +203,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                     </label>
                 )}
                 {extraFields.map((field) => (
-                    <label key={field.name as string} className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <label key={field.name as string} className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
                         <Checkbox
                             checked={(formData[field.name] as boolean) ?? false}
                             onCheckedChange={(checked) => emitCheckboxChange(field.name as string, checked === true)}
@@ -211,14 +211,14 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         {field.label}
                     </label>
                 ))}
-                <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
                     <Checkbox
                         checked={formData.save_password ?? true}
                         onCheckedChange={(checked) => emitCheckboxChange('save_password', checked === true)}
                     />
                     Save password
                 </label>
-                <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-muted-foreground">
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
                     <Checkbox
                         checked={formData.encrypt_password ?? true}
                         onCheckedChange={(checked) => emitCheckboxChange('encrypt_password', checked === true)}
@@ -229,13 +229,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </div>
 
             {errorMsg && (
-                <div className="flex items-start gap-1.5 rounded-md border border-destructive/20 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
+                <div className="flex items-start gap-1.5 rounded-sm border border-destructive/20 bg-destructive/10 px-2.5 py-1.5 text-label text-destructive">
                     <AlertCircle size={12} className="mt-px shrink-0" />
                     <span className="flex-1 break-words">{errorMsg}</span>
                 </div>
             )}
             {successMsg && (
-                <div className="flex items-center gap-1.5 rounded-md border border-success/20 bg-success/10 px-2.5 py-1.5 text-[11px] text-success">
+                <div className="flex items-center gap-1.5 rounded-sm border border-success/20 bg-success/10 px-2.5 py-1.5 text-label text-success">
                     <CheckCircle size={12} className="shrink-0" />
                     <span className="flex-1">{successMsg}</span>
                 </div>

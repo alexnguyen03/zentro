@@ -14,6 +14,7 @@ interface UseResultTableDataModelArgs {
     quickFilter: string;
     isDone: boolean;
     hasMore: boolean;
+    disableClientSort?: boolean;
 }
 
 export interface ResultTableDataModel {
@@ -40,20 +41,26 @@ export function useResultTableDataModel({
     quickFilter,
     isDone,
     hasMore,
+    disableClientSort = false,
 }: UseResultTableDataModelArgs): ResultTableDataModel {
     const displayRows = useMemo(() => buildDisplayRows(rows, draftRows), [rows, draftRows]);
     const displayRowsByKey = useMemo(() => new Map(displayRows.map((row) => [row.key, row])), [displayRows]);
     const rowOrder = useMemo(() => new Map(displayRows.map((row, index) => [row.key, index])), [displayRows]);
 
     const viewportState = resolveResultFetchStrategy(displayRows.length, hasMore, isDone);
-    const canSortClientSide = isDone && !hasMore;
+    const canSortClientSide = !disableClientSort && isDone && !hasMore;
     const shouldUseDeferredSort = canSortClientSide && viewportState.strategy === 'incremental_client';
 
     const [sorting, setSorting] = useState<SortingState>([]);
-    const [deferredSortedRows, setDeferredSortedRows] = useState<DisplayRow[]>(displayRows);
+    const [deferredSortedRows, setDeferredSortedRows] = useState<DisplayRow[] | null>(null);
     const [isDeferredSorting, setIsDeferredSorting] = useState(false);
-    const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[]>(displayRows);
+    const [deferredFilteredRows, setDeferredFilteredRows] = useState<DisplayRow[] | null>(null);
     const [isDeferredFiltering, setIsDeferredFiltering] = useState(false);
+
+    useEffect(() => {
+        if (!disableClientSort) return;
+        setSorting([]);
+    }, [disableClientSort]);
 
     const dataColumns = useMemo<DataColumnMeta[]>(
         () => columns.map((columnName, index) => ({
@@ -75,7 +82,7 @@ export function useResultTableDataModel({
     useEffect(() => {
         const query = quickFilter.trim().toLowerCase();
         if (!query) {
-            setDeferredFilteredRows(displayRows);
+            setDeferredFilteredRows(null);
             setIsDeferredFiltering(false);
             return;
         }
@@ -90,6 +97,9 @@ export function useResultTableDataModel({
         }
 
         let cancelled = false;
+        // Use an object so the pump closure always reads the latest timerId,
+        // ensuring every scheduled chunk is cancelled on cleanup — not just the last one.
+        const timerHandle = { id: null as number | null };
         setIsDeferredFiltering(true);
         const next: DisplayRow[] = [];
 
@@ -104,7 +114,7 @@ export function useResultTableDataModel({
             }
 
             if (chunkEnd < displayRows.length) {
-                window.setTimeout(() => pump(chunkEnd), 0);
+                timerHandle.id = window.setTimeout(() => pump(chunkEnd), 0);
                 return;
             }
 
@@ -117,12 +127,17 @@ export function useResultTableDataModel({
         pump(0);
         return () => {
             cancelled = true;
+            if (timerHandle.id !== null) {
+                window.clearTimeout(timerHandle.id);
+                timerHandle.id = null;
+            }
         };
     }, [displayRows, quickFilter, viewportState.strategy]);
 
     useEffect(() => {
+        const rowsForSort = quickFilter.trim() ? (deferredFilteredRows ?? []) : displayRows;
         if (!shouldUseDeferredSort || sorting.length === 0) {
-            setDeferredSortedRows(deferredFilteredRows);
+            setDeferredSortedRows(null);
             setIsDeferredSorting(false);
             return;
         }
@@ -131,7 +146,7 @@ export function useResultTableDataModel({
         const id = window.setTimeout(() => {
             const [sortRule] = sorting;
             if (!sortRule) {
-                setDeferredSortedRows(deferredFilteredRows);
+                setDeferredSortedRows(null);
                 setIsDeferredSorting(false);
                 return;
             }
@@ -139,12 +154,12 @@ export function useResultTableDataModel({
             const direction = sortRule.desc ? -1 : 1;
             const columnIndex = dataColumnById.get(String(sortRule.id))?.index ?? -1;
             if (columnIndex < 0) {
-                setDeferredSortedRows(deferredFilteredRows);
+                setDeferredSortedRows(null);
                 setIsDeferredSorting(false);
                 return;
             }
 
-            const next = [...deferredFilteredRows].sort((a, b) => {
+            const next = [...rowsForSort].sort((a, b) => {
                 const left = (a.values[columnIndex] || '').toLowerCase();
                 const right = (b.values[columnIndex] || '').toLowerCase();
                 if (left < right) return -1 * direction;
@@ -156,10 +171,10 @@ export function useResultTableDataModel({
         }, 0);
 
         return () => window.clearTimeout(id);
-    }, [dataColumnById, deferredFilteredRows, shouldUseDeferredSort, sorting]);
+    }, [dataColumnById, deferredFilteredRows, displayRows, quickFilter, shouldUseDeferredSort, sorting]);
 
-    const filteredRows = quickFilter.trim() ? deferredFilteredRows : displayRows;
-    const tableData = shouldUseDeferredSort ? deferredSortedRows : filteredRows;
+    const filteredRows = quickFilter.trim() ? (deferredFilteredRows ?? []) : displayRows;
+    const tableData = shouldUseDeferredSort ? (deferredSortedRows ?? filteredRows) : filteredRows;
 
     return {
         displayRows,

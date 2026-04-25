@@ -2,6 +2,7 @@ import React from 'react';
 import {
     ChevronDown,
     ChevronRight,
+    FileCode2,
     GitBranch,
     History,
     Minus,
@@ -18,6 +19,7 @@ import {
     SCGetFileDiffs,
     SCGetWorkingFileDiff,
     SCInitRepo,
+    SCReadGitIgnore,
 } from '../../services/sourceControlService';
 import type { SCFileStatus, SCCommit as SCCommitType, GitCommitFileDiff } from '../../platform/app-api/types';
 import { useProjectStore } from '../../stores/projectStore';
@@ -44,15 +46,15 @@ function formatDateTime(iso: string): string {
 }
 
 const STATUS_ICON: Record<string, { label: string; className: string }> = {
-    added: { label: 'A', className: 'text-green-500' },
-    deleted: { label: 'D', className: 'text-red-500' },
-    modified: { label: 'M', className: 'text-yellow-500' },
+    added: { label: 'A', className: 'text-success' },
+    deleted: { label: 'D', className: 'text-error' },
+    modified: { label: 'M', className: 'text-warning' },
     untracked: { label: '?', className: 'text-muted-foreground' },
 };
 
 function FileStatusBadge({ status }: { status: string }) {
     const meta = STATUS_ICON[status] ?? { label: '?', className: 'text-muted-foreground' };
-    return <span className={cn('shrink-0 font-mono text-[10px] font-bold', meta.className)}>{meta.label}</span>;
+    return <span className={cn('shrink-0 text-label font-bold', meta.className)}>{meta.label}</span>;
 }
 
 type Tab = 'changes' | 'history';
@@ -82,6 +84,7 @@ export const SourceControlPanel: React.FC = () => {
 
     const [repoNotInitialized, setRepoNotInitialized] = React.useState(false);
     const [initLoading, setInitLoading] = React.useState(false);
+    const [gitIgnoreLoading, setGitIgnoreLoading] = React.useState(false);
 
     const hasRepoPath = Boolean(activeProject?.git_repo_path);
     const scriptNameById = React.useMemo(() => {
@@ -118,8 +121,9 @@ export const SourceControlPanel: React.FC = () => {
         setRepoNotInitialized(false);
         try {
             const status = await SCGetStatus();
-            setStaged(status.files.filter((f) => f.staged));
-            setUnstaged(status.files.filter((f) => !f.staged));
+            const files = Array.isArray(status.files) ? status.files : [];
+            setStaged(files.filter((f) => f.staged));
+            setUnstaged(files.filter((f) => !f.staged));
         } catch (error) {
             const errorMsg = String(error);
             if (errorMsg.includes('cannot open repo') || errorMsg.includes('not a git repository')) {
@@ -231,6 +235,29 @@ export const SourceControlPanel: React.FC = () => {
         }
     }, [expandedHash, fileDiffsCache, toast]);
 
+    const handleOpenGitIgnoreEditor = React.useCallback(async () => {
+        try {
+            setGitIgnoreLoading(true);
+            const content = await SCReadGitIgnore();
+            addTab({
+                id: 'source-control:.gitignore',
+                type: TAB_TYPE.QUERY,
+                name: '.gitignore',
+                query: content || '',
+                context: {
+                    sourceControlFile: 'gitignore',
+                    savedScriptId: undefined,
+                    scriptProjectId: undefined,
+                    scriptConnectionName: undefined,
+                },
+            });
+        } catch (error) {
+            toast.error(`Load .gitignore failed: ${error}`);
+        } finally {
+            setGitIgnoreLoading(false);
+        }
+    }, [addTab, toast]);
+
     const handleOpenDiff = React.useCallback((hash: string, file: GitCommitFileDiff) => {
         const fileKey = `sc:${hash}:${file.path}`;
         setSelectedFileKey(fileKey);
@@ -305,7 +332,7 @@ export const SourceControlPanel: React.FC = () => {
 
     if (!activeProject?.id) {
         return (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-xs gap-2">
+            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-small gap-2">
                 <GitBranch size={24} className="opacity-30" />
                 <p className="m-0">Open a project to use Source Control.</p>
             </div>
@@ -314,21 +341,21 @@ export const SourceControlPanel: React.FC = () => {
 
     if (!hasRepoPath) {
         return (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-xs gap-2">
+            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-small gap-2">
                 <GitBranch size={24} className="opacity-30" />
                 <p className="m-0">No git repository configured.</p>
-                <p className="m-0 text-[10px]">Set a <strong>Git repo path</strong> in Project Settings to enable Source Control.</p>
+                <p className="m-0 text-label">Set a <strong>Git repo path</strong> in Project Settings to enable Source Control.</p>
             </div>
         );
     }
 
     if (repoNotInitialized) {
         return (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-xs gap-3">
+            <div className="flex flex-col items-center justify-center h-full px-4 text-center text-muted-foreground text-small gap-3">
                 <GitBranch size={24} className="opacity-30" />
                 <div>
                     <p className="m-0 text-foreground font-semibold">Initialize Repository</p>
-                    <p className="m-0 text-[10px] mt-1">The folder at this path is not yet a git repository.</p>
+                    <p className="m-0 text-label mt-1">The folder at this path is not yet a git repository.</p>
                 </div>
                 <Button
                     variant="default"
@@ -376,6 +403,17 @@ export const SourceControlPanel: React.FC = () => {
                     type="button" variant="ghost" size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
                     onClick={() => {
+                        void handleOpenGitIgnoreEditor();
+                    }}
+                    title="Edit .gitignore"
+                    disabled={gitIgnoreLoading}
+                >
+                    <FileCode2 size={13} className={cn(gitIgnoreLoading && 'animate-pulse')} />
+                </Button>
+                <Button
+                    type="button" variant="ghost" size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
                         void loadStatus();
                     }}
                     title="Refresh"
@@ -388,7 +426,7 @@ export const SourceControlPanel: React.FC = () => {
                 {activeTab === 'changes' && (
                     <div>
                         <div className="px-2.5 py-1 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            <span className="text-label font-semibold text-muted-foreground uppercase tracking-wide">
                                 Staged ({staged.length})
                             </span>
                             {unstaged.length > 0 && (
@@ -396,7 +434,7 @@ export const SourceControlPanel: React.FC = () => {
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                                    className="text-label text-muted-foreground hover:text-foreground flex items-center gap-0.5"
                                     title="Stage all"
                                     onClick={() => void handleStageAll()}
                                 >
@@ -405,13 +443,13 @@ export const SourceControlPanel: React.FC = () => {
                             )}
                         </div>
                         {staged.length === 0 ? (
-                            <div className="px-3 py-1 text-[10px] text-muted-foreground">No staged changes.</div>
+                            <div className="px-3 py-1 text-label text-muted-foreground">No staged changes.</div>
                         ) : staged.map((f) => (
                             <div
                                 key={f.path}
                                 className={cn(
-                                    'group flex w-full items-center gap-1.5 px-3 py-1 transition-colors hover:bg-muted',
-                                    selectedFileKey === `wip:staged:${f.path}` && 'bg-accent/15',
+                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
+                                    selectedFileKey === `wip:staged:${f.path}` && 'bg-[var(--state-selected-bg)]',
                                 )}
                                 role="button"
                                 tabIndex={0}
@@ -430,7 +468,7 @@ export const SourceControlPanel: React.FC = () => {
                                 }}
                             >
                                 <FileStatusBadge status={f.status} />
-                                <span className="flex-1 truncate text-[11px] font-mono text-foreground" title={f.path}>
+                                <span className="flex-1 truncate text-label text-foreground" title={f.path}>
                                     {getDisplayFileName(f.path)}
                                 </span>
                                 <Button
@@ -438,7 +476,7 @@ export const SourceControlPanel: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     title={`Unstage ${f.path}`}
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    className="h-7 w-7 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:bg-muted hover:text-foreground"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         void handleUnstage(f.path);
@@ -452,18 +490,18 @@ export const SourceControlPanel: React.FC = () => {
                         <div className="border-t border-border/30 mt-1" />
 
                         <div className="px-2.5 py-1">
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            <span className="text-label font-semibold text-muted-foreground uppercase tracking-wide">
                                 Unstaged ({unstaged.length})
                             </span>
                         </div>
                         {unstaged.length === 0 ? (
-                            <div className="px-3 py-1 text-[10px] text-muted-foreground">No unstaged changes.</div>
+                            <div className="px-3 py-1 text-label text-muted-foreground">No unstaged changes.</div>
                         ) : unstaged.map((f) => (
                             <div
                                 key={f.path}
                                 className={cn(
-                                    'group flex w-full items-center gap-1.5 px-3 py-1 transition-colors hover:bg-muted',
-                                    selectedFileKey === `wip:unstaged:${f.path}` && 'bg-accent/15',
+                                    'group flex h-7 w-full items-center gap-1.5 rounded-sm bg-transparent px-1.5 text-caption! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
+                                    selectedFileKey === `wip:unstaged:${f.path}` && 'bg-[var(--state-selected-bg)]',
                                 )}
                                 role="button"
                                 tabIndex={0}
@@ -482,7 +520,7 @@ export const SourceControlPanel: React.FC = () => {
                                 }}
                             >
                                 <FileStatusBadge status={f.status} />
-                                <span className="flex-1 truncate text-[11px] font-mono text-muted-foreground" title={f.path}>
+                                <span className="flex-1 truncate text-label text-foreground" title={f.path}>
                                     {getDisplayFileName(f.path)}
                                 </span>
                                 <Button
@@ -490,7 +528,7 @@ export const SourceControlPanel: React.FC = () => {
                                     variant="ghost"
                                     size="icon"
                                     title={`Stage ${f.path}`}
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                    className="h-7 w-7 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:bg-muted hover:text-foreground"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         void handleStage(f.path);
@@ -502,40 +540,43 @@ export const SourceControlPanel: React.FC = () => {
                         ))}
 
                         {staged.length === 0 && unstaged.length === 0 && !loading && (
-                            <div className="flex justify-center py-4 text-[11px] text-muted-foreground">Working tree clean.</div>
+                            <div className="flex justify-center py-4 text-label text-muted-foreground">Working tree clean.</div>
                         )}
                     </div>
                 )}
 
                 {activeTab === 'history' && (
                     historyLoading ? (
-                        <div className="flex justify-center py-4 text-[11px] text-muted-foreground">Loading...</div>
+                        <div className="flex justify-center py-4 text-label text-muted-foreground">Loading...</div>
                     ) : history.length === 0 ? (
-                        <div className="flex justify-center py-4 text-[11px] text-muted-foreground">No commits yet.</div>
+                        <div className="flex justify-center py-4 text-label text-muted-foreground">No commits yet.</div>
                     ) : (
                         history.map((commit) => {
                             const isExpanded = expandedHash === commit.hash;
                             const cachedFiles = fileDiffsCache[commit.hash];
                             const isLoadingFiles = fileDiffsLoading === commit.hash;
                             return (
-                                <div key={commit.hash} className="border-b border-white/5">
+                                <div key={commit.hash}>
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        className={cn('w-full text-left px-2.5 py-1.5 flex items-center gap-1 hover:bg-muted transition-colors', isExpanded && 'bg-muted')}
+                                        className={cn(
+                                            'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent px-1.5 text-left text-caption! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
+                                            isExpanded && 'bg-[var(--state-active-bg)]',
+                                        )}
                                         onClick={() => void handleToggleCommit(commit.hash)}
                                         title={`${commit.author} - ${formatDateTime(commit.when)}`}
                                     >
                                         {isExpanded
                                             ? <ChevronDown size={10} className="text-accent shrink-0" />
                                             : <ChevronRight size={10} className="text-muted-foreground shrink-0" />}
-                                        <span className="flex-1 text-[11px] text-foreground truncate">{commit.message}</span>
-                                        <span className="text-[10px] text-muted-foreground font-mono shrink-0">{commit.hash.slice(0, 7)}</span>
+                                        <span className="min-w-0 flex-1 truncate text-left leading-5">{commit.message}</span>
+                                        <span className="text-label text-muted-foreground shrink-0">{commit.hash.slice(0, 7)}</span>
                                     </Button>
                                     {isExpanded && (
-                                        <div className="bg-background border-t border-border/30">
+                                        <div className="relative pl-3">
                                             {isLoadingFiles ? (
-                                                <div className="px-5 py-1.5 text-[10px] text-muted-foreground">Loading...</div>
+                                                <div className="px-1.5 py-1 text-label text-muted-foreground">Loading...</div>
                                             ) : cachedFiles && cachedFiles.length > 0 ? (
                                                 cachedFiles.map((f) => {
                                                     const fileKey = `sc:${commit.hash}:${f.path}`;
@@ -546,24 +587,24 @@ export const SourceControlPanel: React.FC = () => {
                                                             type="button"
                                                             variant="ghost"
                                                             className={cn(
-                                                                'w-full text-left px-5 py-1 text-[10px] font-mono transition-colors flex items-center gap-1.5 truncate',
+                                                                'mb-0.5 h-7 w-full justify-start gap-1.5 rounded-sm bg-transparent pl-3 pr-1.5 text-left text-caption! text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
                                                                 isSelected
-                                                                    ? 'bg-accent/15 text-foreground'
-                                                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                                                                    ? 'bg-[var(--state-selected-bg)] text-foreground'
+                                                                    : 'text-foreground',
                                                             )}
                                                             title={f.path}
                                                             onClick={() => handleOpenDiff(commit.hash, f)}
                                                             onDoubleClick={() => handleOpenHistoryFileQuery(f)}
                                                         >
-                                                            {!f.before && <span className="text-green-500 shrink-0">A</span>}
-                                                            {!f.after && <span className="text-red-500 shrink-0">D</span>}
-                                                            {f.before && f.after && <span className="text-yellow-500 shrink-0">M</span>}
-                                                            <span className="truncate">{getDisplayFileName(f.path)}</span>
+                                                            {!f.before && <span className="text-success shrink-0">A</span>}
+                                                            {!f.after && <span className="text-error shrink-0">D</span>}
+                                                            {f.before && f.after && <span className="text-warning shrink-0">M</span>}
+                                                            <span className="min-w-0 flex-1 truncate text-left leading-5">{getDisplayFileName(f.path)}</span>
                                                         </Button>
                                                     );
                                                 })
                                             ) : (
-                                                <div className="px-5 py-1.5 text-[10px] text-muted-foreground">No file changes.</div>
+                                                <div className="px-1.5 py-1 text-label text-muted-foreground">No file changes.</div>
                                             )}
                                         </div>
                                     )}
@@ -576,7 +617,7 @@ export const SourceControlPanel: React.FC = () => {
 
             {activeTab === 'changes' && (
                 <div className="border-t border-border px-2.5 py-2">
-                    <div className="mb-1 text-[10px] text-muted-foreground">
+                    <div className="mb-1 text-label text-muted-foreground">
                         {workingDiffLoadingKey
                             ? 'Loading diff preview...'
                             : staged.length === 0
@@ -586,7 +627,7 @@ export const SourceControlPanel: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <Input
                             value={commitMessage}
-                            className="h-8 text-[11px]"
+                            className="text-label"
                             placeholder="Commit message (optional)"
                             onChange={(e) => setCommitMessage(e.target.value)}
                             onKeyDown={(e) => {

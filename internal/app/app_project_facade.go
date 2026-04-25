@@ -1,6 +1,9 @@
 package app
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"zentro/internal/models"
@@ -86,4 +89,32 @@ func (a *App) OpenProjectFromDirectory(directoryPath string) (*models.Project, e
 	a.draft = []*models.ConnectionProfile{}
 	a.bindTrackingProject(project)
 	return project, nil
+}
+
+func (a *App) OpenDirectoryInExplorer(path string) error {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return fmt.Errorf("path is required")
+	}
+
+	absPath, err := filepath.Abs(trimmedPath)
+	if err != nil {
+		return fmt.Errorf("resolve path: %w", err)
+	}
+
+	stat, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("path does not exist: %w", err)
+	}
+
+	target := absPath
+	if !stat.IsDir() {
+		target = filepath.Dir(absPath)
+	}
+
+	cmd := fileManagerCmd(target)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("open explorer: %w", err)
+	}
+	return nil
 }

@@ -135,20 +135,20 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
                 useStatusStore.getState().setQueryRuntime('running');
 
                 const executedText = payload.statementText || payload.query;
-                if (executedText && !executedText.includes('_zentro_filter')) {
+                if (executedText) {
                     useResultStore.getState().setLastExecutedQuery(payload.tabID, executedText);
                 }
 
-                // Derive a human-readable label from the statement text
+                // Derive a stable, human-readable label for multi-statement runs.
                 if (payload.statementText && payload.statementCount > 1) {
-                    const trimmed = payload.statementText.replace(/\s+/g, ' ').trim();
-                    const tokens = trimmed.split(' ').filter(Boolean);
-                    const verb = (tokens[0] || '').toUpperCase();
-                    const obj = tokens[1] || '';
-                    // Strip schema qualifier for brevity: schema.table → table
-                    const shortObj = obj.replace(/^["`\[]?[\w]+["`\]]?\.["`\[]?/, '').replace(/["`\]]+$/, '');
-                    const label = shortObj ? `${verb} ${shortObj}` : verb || `Result ${payload.statementIndex + 1}`;
-                    useResultStore.getState().setStatementLabel(payload.tabID, label.slice(0, 40));
+                    const normalized = payload.statementText
+                        .replace(/\s+/g, ' ')
+                        .replace(/;+\s*$/, '')
+                        .trim();
+                    const statementNo = payload.statementIndex + 1;
+                    const preview = normalized.length > 56 ? `${normalized.slice(0, 56).trimEnd()}...` : normalized;
+                    const label = `#${statementNo} ${preview || `Statement ${statementNo}`}`;
+                    useResultStore.getState().setStatementLabel(payload.tabID, label);
                 }
                 recordTelemetryEvent('query.started', {
                     tabId: payload.tabID,
@@ -251,3 +251,4 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
         };
     }, [setActiveProfile, setConnectionStatus, setDatabases, setIsConnected, setTransactionStatus, toast]);
 }
+

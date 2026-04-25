@@ -109,7 +109,11 @@ func newTestAppWithProject(project *models.Project) *App {
 
 func TestAppShutdown_AutoCommitOnExit_EnabledDirtyRepoCreatesCommit(t *testing.T) {
 	repoPath := testInitRepoWithBaseCommit(t)
-	if err := os.WriteFile(filepath.Join(repoPath, "dirty.sql"), []byte("select 1;\n"), 0o644); err != nil {
+	queryTrackingPath := filepath.Join(repoPath, "scripts", "queries", "local-postgres", "tab-1.sql")
+	if err := os.MkdirAll(filepath.Dir(queryTrackingPath), 0o755); err != nil {
+		t.Fatalf("mkdir query tracking path failed: %v", err)
+	}
+	if err := os.WriteFile(queryTrackingPath, []byte("select 1;\n"), 0o644); err != nil {
 		t.Fatalf("write dirty file failed: %v", err)
 	}
 
@@ -151,7 +155,11 @@ func TestAppShutdown_AutoCommitOnExit_EnabledCleanRepoSkipsCommit(t *testing.T) 
 
 func TestAppShutdown_AutoCommitOnExit_DisabledSkipsCommit(t *testing.T) {
 	repoPath := testInitRepoWithBaseCommit(t)
-	if err := os.WriteFile(filepath.Join(repoPath, "dirty.sql"), []byte("select 2;\n"), 0o644); err != nil {
+	queryTrackingPath := filepath.Join(repoPath, "scripts", "queries", "local-postgres", "tab-2.sql")
+	if err := os.MkdirAll(filepath.Dir(queryTrackingPath), 0o755); err != nil {
+		t.Fatalf("mkdir query tracking path failed: %v", err)
+	}
+	if err := os.WriteFile(queryTrackingPath, []byte("select 2;\n"), 0o644); err != nil {
 		t.Fatalf("write dirty file failed: %v", err)
 	}
 	before := testCommitCount(t, repoPath)
@@ -179,4 +187,25 @@ func TestAppShutdown_AutoCommitOnExit_InvalidRepoPathDoesNotBlockShutdown(t *tes
 
 	// Should not panic or error; shutdown must continue.
 	app.Shutdown()
+}
+
+func TestAppShutdown_AutoCommitOnExit_IgnoresProjectConfigFiles(t *testing.T) {
+	repoPath := testInitRepoWithBaseCommit(t)
+	if err := os.WriteFile(filepath.Join(repoPath, "project.json"), []byte("{\"name\":\"x\"}\n"), 0o644); err != nil {
+		t.Fatalf("write project.json failed: %v", err)
+	}
+	before := testCommitCount(t, repoPath)
+
+	app := newTestAppWithProject(&models.Project{
+		ID:               "p1",
+		GitRepoPath:      repoPath,
+		AutoCommitOnExit: true,
+	})
+
+	app.Shutdown()
+
+	after := testCommitCount(t, repoPath)
+	if after != before {
+		t.Fatalf("expected no new commit for project config changes, before=%d after=%d", before, after)
+	}
 }

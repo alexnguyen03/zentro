@@ -2,7 +2,7 @@ import React from 'react';
 import { models } from '../../../../wailsjs/go/models';
 import { DataTypeCell } from './DataTypeCell';
 import { RowState } from './types';
-import { Input, Switch } from '../../ui';
+import { Input, Switch, TableCell, TableRow } from '../../ui';
 
 interface ColumnRowProps {
     row: RowState;
@@ -37,13 +37,13 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
 
     return (
         <React.Fragment>
-            <tr
+            <TableRow
                 onMouseDown={(e) => onRowMouseDown(e, rowIdx)}
                 onMouseEnter={() => onRowMouseEnter(rowIdx)}
-                className={rowClassName}
+                className={`${rowClassName} border-b-0 hover:bg-transparent`}
             >
                 {/* Index / Selector */}
-                <td className="w-10 text-center border-b border-border">
+                <TableCell className="w-10 text-center border-b border-border">
                     <div
                         className="rt-cell-content rt-cell-content--compact row-num-col"
                         onDoubleClick={() => (isDirty || isDeleted) && onDiscard(rowIdx)}
@@ -51,10 +51,10 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                     >
                         {rowIdx + 1}
                     </div>
-                </td>
+                </TableCell>
 
                 {/* Name */}
-                <td className="p-0 border-b border-border">
+                <TableCell className="p-0 border-b border-border">
                     {editCell?.rowIdx === rowIdx && editCell.field === 'Name' ? (
                         <Input
                             autoFocus
@@ -76,10 +76,10 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             {col.Name}
                         </div>
                     )}
-                </td>
+                </TableCell>
 
                 {/* DataType */}
-                <td className="p-0 border-b border-border">
+                <TableCell className="p-0 border-b border-border">
                     <DataTypeCell
                         value={col.DataType}
                         types={types}
@@ -87,10 +87,10 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                         disabled={isDeleted || readOnlyMode}
                         onCommit={v => onUpdate(rowIdx, { DataType: v })}
                     />
-                </td>
+                </TableCell>
 
                 {/* PK */}
-                <td className="w-12 text-center border-b border-border">
+                <TableCell className="w-12 text-center border-b border-border">
                     <div className="rt-cell-content rt-cell-content--compact justify-center">
                         <Switch
                             checked={col.IsPrimaryKey}
@@ -99,10 +99,10 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             className="scale-75 origin-center"
                         />
                     </div>
-                </td>
+                </TableCell>
 
                 {/* Nullable */}
-                <td className="w-16 text-center border-b border-border">
+                <TableCell className="w-16 text-center border-b border-border">
                     <div className="rt-cell-content rt-cell-content--compact justify-center">
                         <Switch
                             checked={col.IsNullable}
@@ -111,17 +111,17 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                             className="scale-75 origin-center"
                         />
                     </div>
-                </td>
+                </TableCell>
 
                 {/* Default */}
-                <td className="p-0 border-b border-border">
+                <TableCell className="p-0 border-b border-border">
                     {isDeleted
                         ? <div className="rt-cell-content rt-cell-content--compact font-mono opacity-40 italic">{col.DefaultValue || 'NULL'}</div>
                         : editCell?.rowIdx === rowIdx && editCell.field === 'DefaultValue'
                             ? <Input
                                 autoFocus
                                 onFocus={e => e.target.select()}
-                                className="rt-cell-input font-mono text-[11px]"
+                                className="rt-cell-input font-mono text-label"
                                 defaultValue={col.DefaultValue}
                                 onBlur={e => { onUpdate(rowIdx, { DefaultValue: e.target.value }); setEditCell(null); }}
                                 onKeyDown={e => {
@@ -137,15 +137,15 @@ export const ColumnRow: React.FC<ColumnRowProps> = ({
                                 {col.DefaultValue || 'NULL'}
                             </div>
                     }
-                </td>
-            </tr>
+                </TableCell>
+            </TableRow>
             {rowError && (
-                <tr>
-                    <td colSpan={6} className="px-10 py-1 bg-error/10 text-error text-[10px] border-b border-border/20">
-                        <span className="font-bold mr-2 uppercase tracking-wider">Error</span>
+                <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={6} className="px-10 py-1 bg-error/10 text-error text-label border-b border-border/20">
+                        <span className=" mr-2 uppercase tracking-wider">Error</span>
                         {rowError}
-                    </td>
-                </tr>
+                    </TableCell>
+                </TableRow>
             )}
         </React.Fragment>
     );

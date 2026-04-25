@@ -85,7 +85,6 @@ export interface AppApiGateway {
     ExplainQuery(tabId: string, query: string, analyze: boolean): Promise<void>;
     ExecuteUpdateSync(sql: string): Promise<number>;
     FetchMoreRows(tabId: string, offset: number): Promise<void>;
-    FetchTotalRowCount(tabId: string): Promise<number>;
     FormatSQL(query: string, driver: string): Promise<string>;
     CompareQueries(original: string, modified: string): Promise<string>;
     ExportCSV(columns: string[], rows: unknown[]): Promise<string>;
@@ -134,6 +133,7 @@ export interface AppApiGateway {
     GetPreferences(): Promise<utils.Preferences>;
     SetPreferences(preferences: utils.Preferences): Promise<void>;
     CheckForUpdates(): Promise<app.UpdateInfo>;
+    GetAboutInfo(): Promise<app.AboutInfo>;
 
     // History / templates / scripts / bookmarks
     GetHistory(): Promise<models.HistoryEntry[]>;
@@ -146,6 +146,7 @@ export interface AppApiGateway {
     SaveScript(script: models.SavedScript, content: string): Promise<void>;
     DeleteScript(projectId: string, connectionName: string, scriptId: string): Promise<void>;
     GetBookmarks(profileName: string, dbName: string): Promise<models.Bookmark[]>;
+    GetBookmarksByConnection(connectionID: string): Promise<Record<string, models.Bookmark[]>>;
     SaveBookmark(profileName: string, dbName: string, bookmark: models.Bookmark): Promise<void>;
     DeleteBookmark(profileName: string, dbName: string, lineNumber: number): Promise<void>;
     EnableGitTracking(): Promise<void>;
@@ -175,6 +176,8 @@ export interface AppApiGateway {
     SCCreateBranchFrom(branchName: string, fromRef: string): Promise<void>;
     SCCheckoutDetached(ref: string): Promise<void>;
     SCInitRepo(): Promise<void>;
+    SCReadGitIgnore(): Promise<string>;
+    SCWriteGitIgnore(content: string): Promise<void>;
 
     // App-level lifecycle
     ForceQuit(): Promise<void>;
@@ -187,6 +190,7 @@ export interface AppApiGateway {
     SaveProject(project: models.Project): Promise<models.Project>;
     DeleteProject(projectId: string): Promise<void>;
     OpenProject(projectId: string): Promise<models.Project>;
+    OpenDirectoryInExplorer(path: string): Promise<void>;
     OpenProjectFromDirectory(directoryPath: string): Promise<models.Project>;
     GetDefaultProjectStorageRoot(): Promise<string>;
     PickDirectory(initialPath: string): Promise<string>;

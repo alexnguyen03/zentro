@@ -18,6 +18,8 @@ export function useResultTableInteractions({
     rows,
     selectedCells,
     setSelectedCells,
+    selectedRowKeys,
+    setSelectedRowKeys,
     editedCells,
     setEditedCells,
     deletedRows,
@@ -31,6 +33,7 @@ export function useResultTableInteractions({
     onFocusCellRequestHandled,
     onRemoveDraftRows,
     onCellContextMenu,
+    onRowHeaderContextMenu,
     onReadOnlyEditAttempt,
 }: UseResultTableInteractionsArgs): ResultTableInteractions {
     const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export function useResultTableInteractions({
         active: boolean;
         initialSelected: Set<string>;
     } | null>(null);
+    const [rowDragStart, setRowDragStart] = useState<{ rowKey: string; active: boolean } | null>(null);
     const pendingSelectionRef = useRef<{ cellId: string; rowKey: string; colIdx: number } | null>(null);
     const editValueRef = useRef(editValue);
     const editingCellRef = useRef(editingCell);
@@ -59,7 +63,7 @@ export function useResultTableInteractions({
     }, [isDone, rows]);
 
     useEffect(() => {
-        const handleMouseUp = () => setDragStart(null);
+        const handleMouseUp = () => { setDragStart(null); setRowDragStart(null); };
         window.addEventListener('mouseup', handleMouseUp);
         return () => window.removeEventListener('mouseup', handleMouseUp);
     }, []);
@@ -274,8 +278,98 @@ export function useResultTableInteractions({
         }
     }, [deletedRows, displayRowsByKey, onRemoveDraftRows, setDeletedRows, setEditedCells]);
 
+    const handleRowHeaderMouseDown = useCallback((event: React.MouseEvent, rowKey: string) => {
+        if (!isDone || event.button !== 0) return;
+        event.preventDefault();
+        setSelectedCells(new Set());
+        setSelectedRowKeys((prev) => {
+            const next = new Set(prev);
+            if (event.ctrlKey || event.metaKey) {
+                if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
+            } else if (event.shiftKey) {
+                // Shift+click: range from last selected row
+                const keys = Array.from(prev);
+                const lastKey = keys[keys.length - 1];
+                if (lastKey) {
+                    const lastOrder = rowOrder.get(lastKey);
+                    const currentOrder = rowOrder.get(rowKey);
+                    if (lastOrder !== undefined && currentOrder !== undefined) {
+                        const min = Math.min(lastOrder, currentOrder);
+                        const max = Math.max(lastOrder, currentOrder);
+                        for (let i = min; i <= max; i++) {
+                            next.add(displayRows[i].key);
+                        }
+                        return next;
+                    }
+                }
+                next.add(rowKey);
+            } else {
+                next.clear();
+                next.add(rowKey);
+            }
+            return next;
+        });
+        setRowDragStart({ rowKey, active: true });
+    }, [isDone, displayRows, rowOrder, setSelectedCells, setSelectedRowKeys]);
+
+    const handleRowHeaderMouseEnter = useCallback((rowKey: string) => {
+        if (!rowDragStart?.active) return;
+        const startOrder = rowOrder.get(rowDragStart.rowKey);
+        const currentOrder = rowOrder.get(rowKey);
+        if (startOrder === undefined || currentOrder === undefined) return;
+        const min = Math.min(startOrder, currentOrder);
+        const max = Math.max(startOrder, currentOrder);
+        setSelectedRowKeys(() => {
+            const next = new Set<string>();
+            for (let i = min; i <= max; i++) {
+                next.add(displayRows[i].key);
+            }
+            return next;
+        });
+    }, [displayRows, rowDragStart, rowOrder, setSelectedRowKeys]);
+
+    const handleRowHeaderClick = useCallback((event: React.MouseEvent, rowKey: string) => {
+        if (!isDone) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedCells(new Set());
+        setSelectedRowKeys((prev) => {
+            const next = new Set(prev);
+            if (event.shiftKey || event.ctrlKey || event.metaKey) {
+                if (next.has(rowKey)) next.delete(rowKey);
+                else next.add(rowKey);
+            } else {
+                if (next.size === 1 && next.has(rowKey)) next.clear();
+                else { next.clear(); next.add(rowKey); }
+            }
+            return next;
+        });
+    }, [isDone, setSelectedCells, setSelectedRowKeys]);
+
+    const handleRowHeaderContextMenu = useCallback((event: React.MouseEvent, rowKey: string) => {
+        if (!isDone || !onRowHeaderContextMenu) return;
+        event.preventDefault();
+        event.stopPropagation();
+        // Ensure right-clicked row is in the selection
+        setSelectedRowKeys((prev) => {
+            if (prev.has(rowKey)) return prev;
+            const next = new Set(prev);
+            next.add(rowKey);
+            return next;
+        });
+        setSelectedCells(new Set());
+        onRowHeaderContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            rowKey,
+            colIdx: 0,
+            cellId: makeCellId(rowKey, 0),
+        });
+    }, [isDone, onRowHeaderContextMenu, setSelectedCells, setSelectedRowKeys]);
+
     const tableMeta = useMemo<TableMeta>(() => ({
         selectedCells,
+        selectedRowKeys,
         editedCells,
         editingCell,
         editValue,
@@ -283,11 +377,16 @@ export function useResultTableInteractions({
         handleCellMouseEnter,
         handleCellDoubleClick,
         handleCellContextMenu,
+        handleRowHeaderMouseDown,
+        handleRowHeaderMouseEnter,
+        handleRowHeaderClick,
+        handleRowHeaderContextMenu,
         setEditValue,
         setEditingCell,
         handleRevertRow,
     }), [
         selectedCells,
+        selectedRowKeys,
         editedCells,
         editingCell,
         editValue,
@@ -295,6 +394,10 @@ export function useResultTableInteractions({
         handleCellMouseEnter,
         handleCellDoubleClick,
         handleCellContextMenu,
+        handleRowHeaderMouseDown,
+        handleRowHeaderMouseEnter,
+        handleRowHeaderClick,
+        handleRowHeaderContextMenu,
         handleRevertRow,
     ]);
     return {

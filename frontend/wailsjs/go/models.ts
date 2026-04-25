@@ -1,5 +1,23 @@
 export namespace app {
 	
+	export class AboutInfo {
+	    version: string;
+	    commit: string;
+	    date: string;
+	    os: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AboutInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.version = source["version"];
+	        this.commit = source["commit"];
+	        this.date = source["date"];
+	        this.os = source["os"];
+	    }
+	}
 	export class CheckConstraintInfo {
 	    Name: string;
 	    Expression: string;
@@ -62,6 +80,30 @@ export namespace app {
 	        this.row_cap_per_tab = source["row_cap_per_tab"];
 	        this.destructive_rules = source["destructive_rules"];
 	        this.environment_strictness = source["environment_strictness"];
+	    }
+	}
+	export class ForeignKeyInfo {
+	    Name: string;
+	    Columns: string[];
+	    RefSchema: string;
+	    RefTable: string;
+	    RefColumns: string[];
+	    OnDelete: string;
+	    OnUpdate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ForeignKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Name = source["Name"];
+	        this.Columns = source["Columns"];
+	        this.RefSchema = source["RefSchema"];
+	        this.RefTable = source["RefTable"];
+	        this.RefColumns = source["RefColumns"];
+	        this.OnDelete = source["OnDelete"];
+	        this.OnUpdate = source["OnUpdate"];
 	    }
 	}
 	export class GitCommitFileDiff {
@@ -162,30 +204,6 @@ export namespace app {
 	        this.Table = source["Table"];
 	        this.Columns = source["Columns"];
 	        this.Unique = source["Unique"];
-	    }
-	}
-	export class ForeignKeyInfo {
-	    Name: string;
-	    Columns: string[];
-	    RefSchema: string;
-	    RefTable: string;
-	    RefColumns: string[];
-	    OnDelete: string;
-	    OnUpdate: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ForeignKeyInfo(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Name = source["Name"];
-	        this.Columns = source["Columns"];
-	        this.RefSchema = source["RefSchema"];
-	        this.RefTable = source["RefTable"];
-	        this.RefColumns = source["RefColumns"];
-	        this.OnDelete = source["OnDelete"];
-	        this.OnUpdate = source["OnUpdate"];
 	    }
 	}
 	export class PrimaryKeyInfo {
@@ -880,6 +898,10 @@ export namespace utils {
 	export class Preferences {
 	    theme: string;
 	    font_size: number;
+	    font_family: string;
+	    mono_family: string;
+	    accent_color: string;
+	    density: string;
 	    default_limit: number;
 	    chunk_size: number;
 	    toast_placement: string;
@@ -899,6 +921,10 @@ export namespace utils {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.theme = source["theme"];
 	        this.font_size = source["font_size"];
+	        this.font_family = source["font_family"];
+	        this.mono_family = source["mono_family"];
+	        this.accent_color = source["accent_color"];
+	        this.density = source["density"];
 	        this.default_limit = source["default_limit"];
 	        this.chunk_size = source["chunk_size"];
 	        this.toast_placement = source["toast_placement"];

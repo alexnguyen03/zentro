@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -80,17 +81,30 @@ func (s *ConnectionService) LoadDatabasesForConnectionProfile(prof *models.Conne
 		return nil, fmt.Errorf("connection profile is required")
 	}
 
-	db, err := dbpkg.OpenConnection(prof)
-	if err != nil {
-		return nil, dbpkg.FriendlyError(prof.Driver, err)
+	activeProfile := s.getProfile()
+	activeDB := s.getDB()
+	useActive := activeDB != nil && isSameConnectionTarget(activeProfile, prof)
+
+	db := activeDB
+	if !useActive {
+		var err error
+		db, err = dbpkg.OpenConnection(prof)
+		if err != nil {
+			return nil, dbpkg.FriendlyError(prof.Driver, err)
+		}
+		defer db.Close()
 	}
-	defer db.Close()
 
 	prefs := s.getPrefs()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.ConnectTimeout)*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		return nil, dbpkg.FriendlyError(prof.Driver, err)
+	}
+	if useActive {
+		s.logDBStats("load_databases_reuse_active", db, prof)
+	} else {
+		s.logDBStats("load_databases_temp_conn", db, prof)
 	}
 
 	dbs, err := dbpkg.FetchDatabases(db, prof.Driver, prof.DBName, prof.ShowAllSchemas, s.logger)
@@ -113,6 +127,39 @@ func (s *ConnectionService) LoadDatabasesForConnectionProfile(prof *models.Conne
 	}
 
 	return names, nil
+}
+
+func isSameConnectionTarget(active, target *models.ConnectionProfile) bool {
+	if active == nil || target == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(active.Name), strings.TrimSpace(target.Name)) &&
+		strings.EqualFold(strings.TrimSpace(active.Driver), strings.TrimSpace(target.Driver)) &&
+		strings.EqualFold(strings.TrimSpace(active.Host), strings.TrimSpace(target.Host)) &&
+		active.Port == target.Port &&
+		strings.EqualFold(strings.TrimSpace(active.DBName), strings.TrimSpace(target.DBName)) &&
+		strings.EqualFold(strings.TrimSpace(active.Username), strings.TrimSpace(target.Username))
+}
+
+func (s *ConnectionService) logDBStats(scope string, db *sql.DB, prof *models.ConnectionProfile) {
+	if db == nil {
+		return
+	}
+	stats := db.Stats()
+	profileName := ""
+	dbName := ""
+	if prof != nil {
+		profileName = prof.Name
+		dbName = prof.DBName
+	}
+	s.logger.Debug("db pool stats",
+		"scope", scope,
+		"profile", profileName,
+		"db", dbName,
+		"open", stats.OpenConnections,
+		"in_use", stats.InUse,
+		"idle", stats.Idle,
+	)
 }
 
 func (s *ConnectionService) SaveConnection(p models.ConnectionProfile) error {
@@ -235,10 +282,11 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 
 	// Connection successful, update store
 	s.setDB(db, prof)
+	s.logDBStats("connect_success", db, prof)
 
-	kaCtx, kaCancel := context.WithCancel(context.Background())
-	s.keepAliveCancel = kaCancel
-	go s.startKeepAlive(kaCtx, db, prof)
+	// Disable periodic keep-alive ping to avoid background "--ping" sessions
+	// that can inflate connection count on the server side.
+	s.keepAliveCancel = nil
 
 	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
 		Profile: prof,
@@ -313,10 +361,11 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	}
 
 	s.setDB(db, &clone)
+	s.logDBStats("switch_database_success", db, &clone)
 
-	kaCtx, kaCancel := context.WithCancel(context.Background())
-	s.keepAliveCancel = kaCancel
-	go s.startKeepAlive(kaCtx, db, &clone)
+	// Disable periodic keep-alive ping to avoid background "--ping" sessions
+	// that can inflate connection count on the server side.
+	s.keepAliveCancel = nil
 
 	s.logger.Info("switched database ok")
 	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{

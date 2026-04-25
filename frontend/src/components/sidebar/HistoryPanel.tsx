@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState, useCallback } from 'react';
-import { Clock, Search, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
 import { GetHistory, ClearHistory } from '../../services/historyService';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
@@ -94,10 +94,10 @@ export const HistoryPanel: React.FC = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0">
-                <div className="flex-1 relative flex items-center min-w-0">
-                    <Search size={11} className="absolute left-1.5 text-muted-foreground pointer-events-none" />
+                <div className="flex-1 min-w-0">
                     <Input
-                        className="h-7 w-full border-border bg-background py-1 pl-[22px] pr-1.5 text-[11px]"
+                        size="sm"
+                        className="w-full px-2"
                         placeholder="Filter history..."
                         value={search}
                         onChange={(event) => setHistoryPanelState((state) => ({ ...state, search: event.target.value }))}
@@ -110,7 +110,7 @@ export const HistoryPanel: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-muted-foreground text-xs">
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-muted-foreground text-small">
                         <Clock size={24} className="opacity-30" />
                         <p className="m-0">{search ? 'No matches' : 'No history yet'}</p>
                     </div>
@@ -131,17 +131,17 @@ export const HistoryPanel: React.FC = () => {
                                 <span className={cn('flex', entry.error ? 'text-error' : 'text-success')}>
                                     {entry.error ? <AlertCircle size={11} /> : <CheckCircle size={11} />}
                                 </span>
-                                <span className="flex-1 text-[10px] text-muted-foreground font-mono overflow-hidden text-ellipsis whitespace-nowrap">
+                                <span className="flex-1 text-label text-muted-foreground font-mono overflow-hidden text-ellipsis whitespace-nowrap">
                                     {entry.profile}
                                     {entry.database ? `/${entry.database}` : ''}
                                 </span>
-                                <span className="text-[10px] text-muted-foreground shrink-0">{formatDuration(entry.duration_ms)}</span>
-                                <span className="text-[10px] text-muted-foreground shrink-0">{formatTime(entry.executed_at)}</span>
+                                <span className="text-label text-muted-foreground shrink-0">{formatDuration(entry.duration_ms)}</span>
+                                <span className="text-label text-muted-foreground shrink-0">{formatTime(entry.executed_at)}</span>
                                 <ChevronRight size={11} className="text-muted-foreground opacity-0 shrink-0 transition-opacity duration-100 group-hover:opacity-100" />
                             </div>
-                            <div className="text-[11px] font-mono text-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{entry.query}</div>
+                            <div className="text-label font-mono text-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{entry.query}</div>
                             {entry.error && (
-                                <div className="text-[10px] text-error mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{entry.error}</div>
+                                <div className="text-label text-error mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{entry.error}</div>
                             )}
                         </Button>
                     ))

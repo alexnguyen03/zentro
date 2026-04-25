@@ -60,6 +60,24 @@
     }
 }
 
+@keyframes startup-loading-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes startup-loading-fade-out {
+  0% { opacity: 1; }    /* 100% */
+  25% { opacity: 0.7; } /* 70% */
+  50% { opacity: 0.5; } /* 50% */
+  75% { opacity: 0.3; } /* 30% */
+  100% { opacity: 0; }  /* 0% */
+}
+
 .modal-backdrop-fade-in {
     animation: modal-backdrop-fade-in 150ms ease-out;
 }
@@ -68,12 +86,12 @@
     0%,
     100% {
         opacity: 1;
-        box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.08), 0 0 0 rgba(34, 197, 94, 0);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-connecting-color) 8%, transparent), 0 0 0 color-mix(in srgb, var(--state-connecting-color) 0%, transparent);
     }
 
     50% {
         opacity: 0.86;
-        box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.22), 0 0 10px rgba(34, 197, 94, 0.12);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-connecting-color) 22%, transparent), 0 0 10px color-mix(in srgb, var(--state-connecting-color) 12%, transparent);
     }
 }
 
@@ -92,7 +110,43 @@
 }
 
 .statusbar-connecting-overlay {
-    background-image: linear-gradient(90deg, rgba(14, 165, 233, 0.2) 0%, rgba(59, 130, 246, 0.32) 50%, rgba(14, 165, 233, 0.2) 100%);
+    background-image: linear-gradient(90deg,
+        color-mix(in srgb, var(--interactive-primary) 20%, transparent) 0%,
+        color-mix(in srgb, var(--interactive-primary) 32%, transparent) 50%,
+        color-mix(in srgb, var(--interactive-primary) 20%, transparent) 100%);
     background-size: 180% 100%;
     animation: statusbar-connecting-shift 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes accordion-down {
+    from {
+        height: 0;
+    }
+
+    to {
+        height: var(--radix-collapsible-content-height);
+    }
+}
+
+@keyframes accordion-up {
+    from {
+        height: var(--radix-collapsible-content-height);
+    }
+
+    to {
+        height: 0;
+    }
+}
+
+.accordion-content-animation {
+    overflow: hidden;
+}
+
+.accordion-content-animation[data-state='open'] {
+    animation: accordion-down 200ms ease-out;
+}
+
+.accordion-content-animation[data-state='closed'] {
+    animation: accordion-up 200ms ease-out;
+    height: 0;
 }

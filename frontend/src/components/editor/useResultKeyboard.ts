@@ -29,6 +29,7 @@ interface UseResultKeyboardOptions {
     onRun?: () => void;
     onSaveRequest: () => Promise<void> | void;
     onDeleteSelected: () => void;
+    onUndoLastAction?: () => void;
     onSetShowRightSidebar: (show: boolean) => void;
     onFocusSearch?: () => void;
     onFocusJump?: () => void;
@@ -62,6 +63,7 @@ export function useResultKeyboard({
     onRun,
     onSaveRequest,
     onDeleteSelected,
+    onUndoLastAction,
     onSetShowRightSidebar,
     onFocusSearch,
     onFocusJump,
@@ -72,15 +74,25 @@ export function useResultKeyboard({
 }: UseResultKeyboardOptions) {
     const lastTabTime = React.useRef(0);
     const { toast } = useToast();
+    const isTextEntryContext = React.useCallback((target: EventTarget | null) => {
+        if (!(target instanceof HTMLElement)) return false;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+        if (target.isContentEditable) return true;
+        if (target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')) return true;
+        if (target.closest('.monaco-editor, .zentro-filter-monaco, .monaco-inputbox')) return true;
+        return false;
+    }, []);
 
     const handleKeyDown = React.useCallback(
         (event: React.KeyboardEvent<HTMLDivElement>) => {
-            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+            if (isTextEntryContext(event.target)) return;
+            if (isTextEntryContext(document.activeElement)) return;
             if (!result) return;
 
             // F5 — re-run
             if (event.key === 'F5') {
                 event.preventDefault();
+                event.stopPropagation();
                 if (onRun && !hasPendingChanges && !isReadOnlyTab) onRun();
                 return;
             }
@@ -116,6 +128,14 @@ export function useResultKeyboard({
                 if (viewMode || !hasPendingChanges || isSavingDraftRows) return;
                 event.preventDefault();
                 void onSaveRequest();
+                return;
+            }
+
+            // Ctrl+Z — undo last grid/context action
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+                if (!onUndoLastAction) return;
+                event.preventDefault();
+                onUndoLastAction();
                 return;
             }
 
@@ -184,8 +204,8 @@ export function useResultKeyboard({
             deletedRows, displayRows, displayRowsByKey, draftRows, editedCells,
             hasPendingChanges, isEditable, isSavingDraftRows, isReadOnlyTab,
             onDeleteSelected, onRun, onSaveRequest, onSetShowRightSidebar,
-            onFocusJump, onFocusSearch, onSearchNext, onSearchPrev,
-            result, rowOrder, selectedCells, selectedRowKeys,
+            onFocusJump, onFocusSearch, onSearchNext, onSearchPrev, onUndoLastAction,
+            result, rowOrder, selectedCells, selectedRowKeys, isTextEntryContext,
             setDraftRows, setEditedCells, setSelectedCells, toast, viewMode,
         ],
     );

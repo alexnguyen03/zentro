@@ -27,6 +27,10 @@ type ShortcutRule struct {
 type Preferences struct {
 	Theme            string            `json:"theme"`              // "light" | "dark" | "system"
 	FontSize         int               `json:"font_size"`          // default 14
+	FontFamily       string            `json:"font_family"`        // "system" | "inter"
+	MonoFamily       string            `json:"mono_family"`        // "cascadia" | "firaCode" | "jetbrains" | "consolas"
+	AccentColor      string            `json:"accent_color"`       // hex string, "" = use CSS default
+	Density          string            `json:"density"`            // "compact" | "comfortable" | "spacious"
 	DefaultLimit     int               `json:"default_limit"`      // default 1000
 	ChunkSize        int               `json:"chunk_size"`         // default 500
 	ToastPlacement   string            `json:"toast_placement"`    // default bottom-left
@@ -124,6 +128,16 @@ func loadConfig() (*config, error) {
 	} else if cfg.Preferences.SchemaTimeout > 1000000 {
 		cfg.Preferences.SchemaTimeout /= int(time.Second)
 	}
+	if cfg.Preferences.FontFamily == "" {
+		cfg.Preferences.FontFamily = "system"
+	}
+	if cfg.Preferences.MonoFamily == "" {
+		cfg.Preferences.MonoFamily = "cascadia"
+	}
+	if cfg.Preferences.Density == "" {
+		cfg.Preferences.Density = "compact"
+	}
+	// AccentColor "" is valid — means use CSS token default
 	if cfg.Preferences.Shortcuts == nil {
 		cfg.Preferences.Shortcuts = map[string]string{}
 	}
@@ -231,6 +245,10 @@ func defaultConfig() *config {
 		Preferences: Preferences{
 			Theme:            "system",
 			FontSize:         14,
+			FontFamily:       "system",
+			MonoFamily:       "cascadia",
+			AccentColor:      "",
+			Density:          "compact",
 			DefaultLimit:     1000,
 			ChunkSize:        500,
 			ToastPlacement:   "bottom-left",

@@ -107,7 +107,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                         ref={inputRef}
                         autoFocus
                         onFocus={(e) => e.target.select()}
-                        className="rt-cell-input font-mono text-[11px]"
+                        className="rt-cell-input font-mono text-label"
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         onBlur={() => {
@@ -161,12 +161,12 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                 side="bottom"
                 sideOffset={4}
                 data-dtype-popover
-                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-md border border-border bg-popover p-1 shadow-elevation-md"
+                className="z-panel-overlay w-[var(--radix-popover-trigger-width)] min-w-[220px] rounded-sm border border-border bg-popover p-1 shadow-elevation-md"
             >
                 <Command className="border-0 bg-transparent">
                     <CommandList className="max-h-[220px]">
                         {filtered.length === 0 && (
-                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                            <div className="px-3 py-2 text-small text-muted-foreground">
                                 No matching data type
                             </div>
                         )}
@@ -182,7 +182,7 @@ export const DataTypeCell: React.FC<DataTypeCellProps> = ({ value, types, isDirt
                                     }}
                                     onSelect={() => handleSuggestionPick(typeName)}
                                     className={cn(
-                                        'font-mono text-xs',
+                                        'font-mono text-small',
                                         isSelected && 'bg-accent text-foreground font-semibold',
                                     )}
                                 >

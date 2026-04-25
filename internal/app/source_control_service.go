@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	pathpkg "path"
@@ -61,10 +62,35 @@ func (s *SourceControlService) InitRepo(repoPath string) error {
 		return fmt.Errorf("source control: git repo path is not configured")
 	}
 
-	_, err := git.PlainInit(repoPath, false)
+	if _, err := git.PlainOpen(repoPath); err == nil {
+		if err := ensureManagedProjectGitIgnore(repoPath); err != nil {
+			return err
+		}
+		repo, openErr := git.PlainOpen(repoPath)
+		if openErr != nil {
+			return fmt.Errorf("source control: cannot open repo at %q: %w", repoPath, openErr)
+		}
+		return ensureInitialProjectCommit(repo, repoPath, initialProjectCommitMessage)
+	} else if !errors.Is(err, git.ErrRepositoryNotExists) {
+		return fmt.Errorf("source control: cannot open repo at %q: %w", repoPath, err)
+	}
+
+	repo, err := git.PlainInit(repoPath, false)
 	if err != nil {
 		return fmt.Errorf("source control: cannot init repo at %q: %w", repoPath, err)
 	}
+	if err := repo.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	); err != nil {
+		return fmt.Errorf("source control: set default branch main: %w", err)
+	}
+	if err := ensureManagedProjectGitIgnore(repoPath); err != nil {
+		return err
+	}
+	if err := ensureInitialProjectCommit(repo, repoPath, initialProjectCommitMessage); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -265,7 +291,7 @@ func (s *SourceControlService) GetStatus(repoPath string) (SCStatus, error) {
 		}
 	}
 
-	var files []SCFileStatus
+	files := make([]SCFileStatus, 0, len(gitStatus))
 	for path, st := range gitStatus {
 		staged := st.Staging != git.Unmodified && st.Staging != git.Untracked
 
@@ -416,15 +442,29 @@ func (s *SourceControlService) CommitAllIfDirty(repoPath, message string) (strin
 		return "", false, fmt.Errorf("source control: worktree: %w", err)
 	}
 
-	if err := wt.AddWithOptions(&git.AddOptions{All: true}); err != nil {
-		return "", false, fmt.Errorf("source control: stage all: %w", err)
-	}
-
-	status, err := wt.Status()
+	statusBefore, err := wt.Status()
 	if err != nil {
 		return "", false, fmt.Errorf("source control: status: %w", err)
 	}
-	if len(changedFilesFromStatus(status)) == 0 {
+	allowed := trackedQuerySQLFilesFromStatus(statusBefore)
+	for _, path := range allowed {
+		st := statusBefore[path]
+		if st.Worktree == git.Deleted || st.Staging == git.Deleted {
+			if _, err := wt.Remove(path); err != nil && !os.IsNotExist(err) {
+				return "", false, fmt.Errorf("source control: stage delete %q: %w", path, err)
+			}
+			continue
+		}
+		if _, err := wt.Add(path); err != nil {
+			return "", false, fmt.Errorf("source control: stage %q: %w", path, err)
+		}
+	}
+
+	statusAfter, err := wt.Status()
+	if err != nil {
+		return "", false, fmt.Errorf("source control: status: %w", err)
+	}
+	if len(trackedQuerySQLFilesFromStatus(statusAfter)) == 0 {
 		return "", true, nil
 	}
 
@@ -456,6 +496,35 @@ func (s *SourceControlService) CommitAllIfDirty(repoPath, message string) (strin
 		return "", false, fmt.Errorf("source control: commit: %w", err)
 	}
 	return hash.String(), false, nil
+}
+
+func (s *SourceControlService) ReadGitIgnore(repoPath string) (string, error) {
+	path, err := resolveRepoRootFilePath(repoPath, ".gitignore")
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("source control: read .gitignore: %w", err)
+	}
+	return string(data), nil
+}
+
+func (s *SourceControlService) WriteGitIgnore(repoPath, content string) error {
+	path, err := resolveRepoRootFilePath(repoPath, ".gitignore")
+	if err != nil {
+		return err
+	}
+	if len(content) > 1024*1024 {
+		return fmt.Errorf("source control: .gitignore too large")
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("source control: write .gitignore: %w", err)
+	}
+	return nil
 }
 
 func (s *SourceControlService) GetHistory(repoPath string, limit int) ([]SCCommit, error) {

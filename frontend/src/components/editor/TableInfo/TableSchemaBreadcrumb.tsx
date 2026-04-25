@@ -1,21 +1,20 @@
 import React from 'react';
-import { ChevronDown, Database, Layers, Table2 } from 'lucide-react';
+import { Database, Layers, Table2 } from 'lucide-react';
 import { cn } from '../../../lib/cn';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useSchemaStore } from '../../../stores/schemaStore';
 import {
-    Button,
     Breadcrumb,
     BreadcrumbItem,
-    BreadcrumbLink,
     BreadcrumbList,
     BreadcrumbPage,
     BreadcrumbSeparator,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
     Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '../../ui';
 
 interface TableSchemaBreadcrumbProps {
@@ -41,7 +40,6 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
     onDraftTableNameReset,
     tableInputRef,
 }) => {
-    const [tableMenuOpen, setTableMenuOpen] = React.useState(false);
     const activeProfile = useConnectionStore((state) => state.activeProfile);
     const schemaTreeKey = activeProfile?.name && activeProfile?.db_name
         ? `${activeProfile.name}:${activeProfile.db_name}`
@@ -61,16 +59,16 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
 
     return (
         <Breadcrumb>
-            <BreadcrumbList className="flex-nowrap">
+            <BreadcrumbList className="flex-nowrap h-8">
                 <BreadcrumbItem>
-                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-body! text-foreground">
                         <Database size={12} className="shrink-0 text-muted-foreground" />
                         {dbName || 'N/A'}
                     </BreadcrumbPage>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                    <BreadcrumbPage className="inline-flex items-center gap-1.5 text-body! text-foreground">
                         <Layers size={12} className="shrink-0 text-muted-foreground" />
                         {schema || 'N/A'}
                     </BreadcrumbPage>
@@ -91,55 +89,46 @@ export const TableSchemaBreadcrumb: React.FC<TableSchemaBreadcrumbProps> = ({
                                     }
                                 }}
                                 placeholder="new_table"
-                                className="h-6 w-[220px] border-border/60 bg-background px-2 py-0 text-[12px] font-semibold"
+                                className="h-6 w-[220px] border-border/60 bg-background px-2 py-0 text-small"
                             />
                         </div>
                     ) : (
-                        <DropdownMenu open={tableMenuOpen} onOpenChange={setTableMenuOpen}>
-                            <DropdownMenuTrigger asChild>
-                                <BreadcrumbLink asChild>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className={cn(
-                                            'h-6 max-w-[260px] items-center gap-1 rounded-sm px-1.5 text-[11px] font-semibold text-foreground',
-                                            !hasTableOptions && 'opacity-80',
-                                        )}
-                                        disabled={!hasTableOptions}
-                                    >
+                        hasTableOptions ? (
+                            <Select
+                                value={table || tablesInSchema[0]}
+                                onValueChange={(value) => {
+                                    if (isCurrentTable(value)) return;
+                                    onSelectTable(value);
+                                }}
+                            >
+                                <SelectTrigger
+                                    aria-label="Select table"
+                                    title={table || 'N/A'}
+                                    className={cn(
+                                        'outline-none flex h-8 max-w-65 min-w-0 rounded-sm border-0 bg-transparent px-1.5 text-body! text-foreground shadow-none hover:bg-muted/70 focus:ring-0',
+                                    )}
+                                >
+                                    <div className="inline-flex min-w-0 items-center gap-1.5">
                                         <Table2 size={12} className="shrink-0 text-muted-foreground" />
-                                        <span className="truncate">{table || 'N/A'}</span>
-                                        <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
-                                    </Button>
-                                </BreadcrumbLink>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="max-h-64 min-w-[220px] overflow-y-auto">
-                                {tablesInSchema.map((tableName) => (
-                                    <DropdownMenuItem
-                                        key={tableName}
-                                        onSelect={(event) => {
-                                            event.preventDefault();
-                                            setTableMenuOpen(false);
-                                            if (isCurrentTable(tableName)) return;
-                                            onSelectTable(tableName);
-                                        }}
-                                        className={cn(
-                                            'truncate gap-2',
-                                            isCurrentTable(tableName) ? 'text-primary font-semibold' : '',
-                                        )}
-                                    >
-                                        <Table2 size={12} className="shrink-0 opacity-80" />
-                                        {tableName}
-                                    </DropdownMenuItem>
-                                ))}
-                                {!hasTableOptions && (
-                                    <DropdownMenuItem disabled>
-                                        No tables in schema
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                        <span className="truncate">
+                                            <SelectValue />
+                                        </span>
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {tablesInSchema.map((tableName) => (
+                                        <SelectItem key={tableName} value={tableName}>
+                                            {tableName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <BreadcrumbPage className="inline-flex items-center gap-1.5 text-body! text-foreground opacity-80">
+                                <Table2 size={12} className="shrink-0 text-muted-foreground" />
+                                {table || 'N/A'}
+                            </BreadcrumbPage>
+                        )
                     )}
                 </BreadcrumbItem>
             </BreadcrumbList>

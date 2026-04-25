@@ -88,7 +88,7 @@ func getMSSQLDDL(ctx context.Context, db *sql.DB, schema, tableName string) (str
 		JOIN sys.schemas s ON tb.schema_id = s.schema_id
 		LEFT JOIN sys.default_constraints dc ON c.default_object_id = dc.object_id
 		LEFT JOIN sys.index_columns ic ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-		WHERE s.name = ? AND tb.name = ?
+		WHERE s.name = @p1 AND tb.name = @p2
 		ORDER BY c.column_id
 	`, schema, tableName)
 	if err != nil {

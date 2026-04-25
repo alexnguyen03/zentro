@@ -25,7 +25,8 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
             <div className={SettingsClasses.sectionContent}>
                 <div className="space-y-1.5">
                     <Label>Interface Theme</Label>
-                    <Select value={theme} onValueChange={(value) => onThemeChange(value)}>
+                    <Select value={theme}
+                        onValueChange={(value) => onThemeChange(value)}>
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
@@ -35,7 +36,7 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
                             <SelectItem value="dark">Dark Mode</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground">Follows your operating system's color scheme.</p>
+                    <p className="text-label text-muted-foreground">Follows your operating system's color scheme.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -45,13 +46,14 @@ export const SettingsAppearance: React.FC<Props> = ({ theme, onThemeChange, font
                             className="max-w-[120px]"
                             type="number"
                             min={8}
+                            size="sm"
                             max={48}
                             value={fontSize}
                             onChange={(e) => onFontSizeChange(parseInt(e.target.value) || 14)}
                         />
-                        <span className="text-[13px] font-mono text-muted-foreground">Pixels</span>
+                        <span className="text-small font-mono text-muted-foreground">Pixels</span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">Adjust for optimal code readability.</p>
+                    <p className="text-label text-muted-foreground">Adjust for optimal code readability.</p>
                 </div>
             </div>
         </div>

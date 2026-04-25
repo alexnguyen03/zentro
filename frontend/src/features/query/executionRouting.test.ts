@@ -27,6 +27,7 @@ describe('executionRouting', () => {
             source: 'editor',
             editorQuery: query,
             filterExpr: 'balance_id = 18',
+            orderByExpr: 'balance_id DESC',
             filterBaseQuery: 'SELECT * FROM ignored',
         })).toBe(query);
     });
@@ -36,13 +37,26 @@ describe('executionRouting', () => {
             source: 'filter',
             editorQuery: 'SELECT * FROM t',
             filterExpr: 'id = 1',
+            orderByExpr: '',
             filterBaseQuery: 'SELECT * FROM t',
         });
         expect(query).toContain('where id = 1');
     });
 
+    it('builds ordered query for filter source when order by is provided', () => {
+        const query = resolveExecuteQuery({
+            source: 'filter',
+            editorQuery: 'SELECT * FROM t',
+            filterExpr: '',
+            orderByExpr: 'id DESC',
+            filterBaseQuery: 'SELECT * FROM t',
+        });
+        expect(query.toLowerCase()).toContain('order by id desc');
+    });
+
     it('clears related filter state for non-filter source', () => {
         const clearResultFilterExpr = vi.fn();
+        const clearResultOrderByExpr = vi.fn();
         const updateTabContext = vi.fn();
 
         applyPreExecuteFilterPolicy({
@@ -50,20 +64,27 @@ describe('executionRouting', () => {
             sourceTabId: 'tab-1',
             resultTabIds: ['tab-1', 'tab-1::result:2', 'tab-2'],
             clearResultFilterExpr,
+            clearResultOrderByExpr,
             updateTabContext,
         });
 
         expect(clearResultFilterExpr).toHaveBeenCalledTimes(2);
         expect(clearResultFilterExpr).toHaveBeenCalledWith('tab-1');
         expect(clearResultFilterExpr).toHaveBeenCalledWith('tab-1::result:2');
+        expect(clearResultOrderByExpr).toHaveBeenCalledTimes(2);
+        expect(clearResultOrderByExpr).toHaveBeenCalledWith('tab-1');
+        expect(clearResultOrderByExpr).toHaveBeenCalledWith('tab-1::result:2');
         expect(updateTabContext).toHaveBeenCalledWith('tab-1', {
             resultFilterExpr: '',
+            resultOrderByExpr: '',
             resultQuickFilter: '',
+            resultFilterBaseQuery: '',
         });
     });
 
     it('does not clear state for filter source', () => {
         const clearResultFilterExpr = vi.fn();
+        const clearResultOrderByExpr = vi.fn();
         const updateTabContext = vi.fn();
 
         applyPreExecuteFilterPolicy({
@@ -71,10 +92,12 @@ describe('executionRouting', () => {
             sourceTabId: 'tab-1',
             resultTabIds: ['tab-1', 'tab-1::result:2'],
             clearResultFilterExpr,
+            clearResultOrderByExpr,
             updateTabContext,
         });
 
         expect(clearResultFilterExpr).not.toHaveBeenCalled();
+        expect(clearResultOrderByExpr).not.toHaveBeenCalled();
         expect(updateTabContext).not.toHaveBeenCalled();
     });
 });

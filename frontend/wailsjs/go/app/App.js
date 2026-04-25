@@ -74,10 +74,6 @@ export function CreateUniqueConstraint(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['CreateUniqueConstraint'](arg1, arg2, arg3, arg4, arg5);
 }
 
-export function UpdateForeignKey(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['app']['App']['UpdateForeignKey'](arg1, arg2, arg3, arg4, arg5);
-}
-
 export function DeactivateLicense(arg1) {
   return window['go']['app']['App']['DeactivateLicense'](arg1);
 }
@@ -202,16 +198,16 @@ export function FetchTableRelationships(arg1, arg2) {
   return window['go']['app']['App']['FetchTableRelationships'](arg1, arg2);
 }
 
-export function FetchTotalRowCount(arg1) {
-  return window['go']['app']['App']['FetchTotalRowCount'](arg1);
-}
-
 export function ForceQuit() {
   return window['go']['app']['App']['ForceQuit']();
 }
 
 export function FormatSQL(arg1, arg2) {
   return window['go']['app']['App']['FormatSQL'](arg1, arg2);
+}
+
+export function GetAboutInfo() {
+  return window['go']['app']['App']['GetAboutInfo']();
 }
 
 export function GetActiveProject() {
@@ -222,12 +218,12 @@ export function GetBookmarks(arg1, arg2) {
   return window['go']['app']['App']['GetBookmarks'](arg1, arg2);
 }
 
-export function GetCheckConstraints(arg1, arg2, arg3) {
-  return window['go']['app']['App']['GetCheckConstraints'](arg1, arg2, arg3);
+export function GetBookmarksByConnection(arg1) {
+  return window['go']['app']['App']['GetBookmarksByConnection'](arg1);
 }
 
-export function GetForeignKeys(arg1, arg2, arg3) {
-  return window['go']['app']['App']['GetForeignKeys'](arg1, arg2, arg3);
+export function GetCheckConstraints(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetCheckConstraints'](arg1, arg2, arg3);
 }
 
 export function GetCommitFileDiffs(arg1) {
@@ -248,6 +244,10 @@ export function GetDefaultProjectStorageRoot() {
 
 export function GetExecutionPolicy(arg1) {
   return window['go']['app']['App']['GetExecutionPolicy'](arg1);
+}
+
+export function GetForeignKeys(arg1, arg2, arg3) {
+  return window['go']['app']['App']['GetForeignKeys'](arg1, arg2, arg3);
 }
 
 export function GetGitCommitDiff(arg1) {
@@ -342,6 +342,10 @@ export function ManualGitCommit(arg1) {
   return window['go']['app']['App']['ManualGitCommit'](arg1);
 }
 
+export function OpenDirectoryInExplorer(arg1) {
+  return window['go']['app']['App']['OpenDirectoryInExplorer'](arg1);
+}
+
 export function OpenProject(arg1) {
   return window['go']['app']['App']['OpenProject'](arg1);
 }
@@ -430,6 +434,10 @@ export function SCListBranches() {
   return window['go']['app']['App']['SCListBranches']();
 }
 
+export function SCReadGitIgnore() {
+  return window['go']['app']['App']['SCReadGitIgnore']();
+}
+
 export function SCStageAll() {
   return window['go']['app']['App']['SCStageAll']();
 }
@@ -440,6 +448,10 @@ export function SCStageFile(arg1) {
 
 export function SCUnstageFile(arg1) {
   return window['go']['app']['App']['SCUnstageFile'](arg1);
+}
+
+export function SCWriteGitIgnore(arg1) {
+  return window['go']['app']['App']['SCWriteGitIgnore'](arg1);
 }
 
 export function SaveBookmark(arg1, arg2, arg3) {
@@ -484,4 +496,8 @@ export function TestConnection(arg1) {
 
 export function TruncateTable(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['TruncateTable'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateForeignKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['UpdateForeignKey'](arg1, arg2, arg3, arg4, arg5);
 }

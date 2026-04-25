@@ -59,12 +59,10 @@ export const Sidebar: React.FC = () => {
     }
 
     return (
-        <div className="sidebar flex h-full w-full select-none flex-col overflow-hidden border-r border-border">
+        <div className="sidebar flex h-full w-full select-none flex-col overflow-hidden bg-card/40">
             <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
-                <div className="shrink-0 px-2 pt-1">
-                    <TabsList
-                        className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
-                    >
+                <div className="shrink-0 px-1">
+                    <TabsList className="h-9 w-full justify-start gap-0 p-0 bg-transparent">
                         {panels.map((panel) => {
                             const Icon = panel.icon;
                             const badge = panel.getBadge?.();
@@ -72,13 +70,13 @@ export const Sidebar: React.FC = () => {
                                 <TabsTrigger
                                     key={panel.id}
                                     value={panel.id}
-                                    className="relative h-8 w-8 cursor-pointer rounded-none bg-transparent p-0 text-muted-foreground opacity-55 transition hover:opacity-80 data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:opacity-100 data-[state=active]:shadow-none"
+                                    className="relative h-8 my-1 rounded-sm cursor-pointer px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-[var(--state-selected-bg)] data-[state=active]:text-[var(--state-selected-text)] data-[state=active]:shadow-none"
                                     title={panel.label}
                                     aria-label={panel.label}
                                 >
-                                    <Icon size={14} className="shrink-0" />
+                                    <Icon size={13} className="shrink-0" />
                                     {badge !== undefined && badge !== null && badge !== 0 && (
-                                        <span className="absolute right-[-2px] top-[-1px] inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-semibold leading-none text-white">
+                                        <span className="absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-label font-semibold leading-none text-background">
                                             {badge}
                                         </span>
                                     )}
@@ -87,7 +85,7 @@ export const Sidebar: React.FC = () => {
                         })}
                     </TabsList>
                 </div>
-                <div className="min-h-0 flex-1 overflow-hidden bg-background">
+                <div className="min-h-0 flex-1 overflow-hidden">
                     {panels.map((panel) => (
                         <TabsContent key={panel.id} value={panel.id} className="mt-0 h-full outline-none">
                             {panel.render()}
@@ -98,3 +96,4 @@ export const Sidebar: React.FC = () => {
         </div>
     );
 };
+

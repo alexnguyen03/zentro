@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useEditorStore, TabGroup } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useEnvironmentStore } from '../../stores/environmentStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -20,6 +21,8 @@ import { applyPreExecuteFilterPolicy, resolveExecuteQuery } from '../../features
 import { useToast } from '../layout/Toast';
 import { useWriteSafetyGuard } from '../../features/query/useWriteSafetyGuard';
 import { saveQueryTabById } from '../../features/editor/scriptAutosave';
+import { SCWriteGitIgnore } from '../../services/sourceControlService';
+import { isDuplicateScriptNameError } from '../../stores/scriptStore';
 
 interface QueryGroupProps {
     group: TabGroup;
@@ -28,6 +31,16 @@ interface QueryGroupProps {
 
 export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) => {
     const { id: groupId, tabs, activeTabId } = group;
+
+    // Lazy-mount: only render a tab's content after it has been active at least once.
+    // This prevents N Monaco instances from being created upfront (each costs ~50-100 MB).
+    const mountedTabsRef = useRef<Set<string>>(new Set());
+    if (activeTabId) mountedTabsRef.current.add(activeTabId);
+    // Evict closed tabs so their IDs don't linger in the set.
+    const tabIdSet = new Set(tabs.map(t => t.id));
+    for (const id of mountedTabsRef.current) {
+        if (!tabIdSet.has(id)) mountedTabsRef.current.delete(id);
+    }
     const {
         removeTab,
         setActiveTabId,
@@ -45,6 +58,16 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
     const writeSafety = useWriteSafetyGuard(activeEnvironmentKey);
 
     const activeTab = tabs.find(t => t.id === activeTabId);
+    const findTabById = useCallback((tabId: string) => tabs.find((t) => t.id === tabId), [tabs]);
+
+    const saveSourceControlTab = useCallback(async (tabId: string): Promise<boolean> => {
+        const tab = findTabById(tabId);
+        if (!tab || tab.type !== TAB_TYPE.QUERY) return false;
+        if (tab.context?.sourceControlFile !== 'gitignore') return false;
+        await SCWriteGitIgnore(tab.query || '');
+        toast.success('Saved .gitignore');
+        return true;
+    }, [findTabById, toast]);
 
     // Edge drop zones for splitting
     const { setNodeRef: setLeftNodeRef, isOver: isLeftOver, active: dragActive } = useDroppable({
@@ -80,7 +103,10 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         try {
             if (tab?.type === TAB_TYPE.QUERY) {
                 try {
-                    await saveQueryTabById(tab.id);
+                    const savedBySourceControl = await saveSourceControlTab(tab.id);
+                    if (!savedBySourceControl) {
+                        await saveQueryTabById(tab.id);
+                    }
                 } catch (error) {
                     console.error('Auto save failed before close', error);
                 }
@@ -88,15 +114,28 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         } finally {
             removeTab(id, groupId);
         }
-    }, [tabs, removeTab, groupId]);
+    }, [tabs, removeTab, groupId, saveSourceControlTab]);
 
     useEffect(() => {
         const off = onCommand(DOM_EVENT.SAVE_TAB_ACTION, (detail) => {
             if (!detail) return;
-            void saveQueryTabById(detail);
+            void (async () => {
+                try {
+                    const savedBySourceControl = await saveSourceControlTab(detail);
+                    if (!savedBySourceControl) {
+                        await saveQueryTabById(detail);
+                    }
+                } catch (error) {
+                    if (isDuplicateScriptNameError(error)) {
+                        toast.error('Tên script đã tồn tại. Vui lòng đặt tên khác.');
+                        return;
+                    }
+                    toast.error(`Failed to save script: ${getErrorMessage(error)}`);
+                }
+            })();
         });
         return off;
-    }, []);
+    }, [saveSourceControlTab, toast]);
 
     const executeQueryNow = useCallback(async (queryToRun: string) => {
         if (!activeTab || !isConnected || activeTab.readOnly) return;
@@ -106,6 +145,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
             sourceTabId: activeTab.id,
             resultTabIds: Object.keys(resultStore.results),
             clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            clearResultOrderByExpr: (tabId) => resultStore.setOrderByExpr(tabId, ''),
             updateTabContext,
         });
 
@@ -151,6 +191,18 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
         splitGroup(groupId, tabId);
     }, [groupId, splitGroup]);
 
+    const handleRenameTab = useCallback((tabId: string, newName: string) => {
+        const currentTab = tabs.find((tab) => tab.id === tabId);
+        if (!currentTab || currentTab.type !== TAB_TYPE.QUERY) {
+            renameTab(tabId, newName);
+            return;
+        }
+        const oldName = currentTab.name;
+        renameTab(tabId, newName);
+        if (!activeProfile?.name) return;
+        void useBookmarkStore.getState().remapTabBookmarks(activeProfile.name, tabId, oldName, newName);
+    }, [activeProfile?.name, renameTab, tabs]);
+
     const handleGroupClick = useCallback(() => {
         if (!isActiveGroup) {
             setActiveGroupId(groupId);
@@ -169,7 +221,7 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                 onActivate={(tabId) => setActiveTabId(tabId, groupId)}
                 onClose={handleClose}
                 onNewTab={() => addTab(undefined, groupId)}
-                onRename={renameTab}
+                onRename={handleRenameTab}
                 onSplit={handleSplit}
             />
 
@@ -189,33 +241,38 @@ export const QueryGroup: React.FC<QueryGroupProps> = ({ group, isActiveGroup }) 
                     </div>
                 ) : (
                     <div className="flex-1 overflow-hidden" style={{ height: '100%' }}>
-                        {tabs.map(tab => (
-                            <div
-                                key={tab.id}
-                                className={cn('h-full flex-col bg-background', tab.id === activeTabId ? 'flex' : 'hidden')}
-                            >
-                                {tab.type === 'table' ? (
-                                    <TableInfo tabId={tab.id} tableName={tab.content || ''} />
-                                ) : tab.type === 'settings' ? (
-                                    <SettingsView tabId={tab.id} />
-                                ) : tab.type === 'shortcuts' ? (
-                                    <ShortcutsView />
-                                ) : tab.type === 'git_diff' ? (
-                                    <GitDiffView tab={tab} />
-                                ) : (
-                                    <MonacoEditorWrapper
-                                        tabId={tab.id}
-                                        value={tab.query}
-                                        onChange={(v) => updateTabQuery(tab.id, v)}
-                                        onRun={handleRun}
-                                        onExplain={handleExplain}
-                                        isActive={isActiveGroup && tab.id === activeTabId}
-                                        onFocus={() => setActiveTabId(tab.id, groupId)}
-                                        readOnly={tab.readOnly}
-                                    />
-                                )}
-                            </div>
-                        ))}
+                        {tabs.map(tab => {
+                            const isActive = tab.id === activeTabId;
+                            const isMounted = mountedTabsRef.current.has(tab.id);
+                            if (!isMounted) return null;
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className={cn('h-full flex-col bg-background', isActive ? 'flex' : 'hidden')}
+                                >
+                                    {tab.type === 'table' ? (
+                                        <TableInfo tabId={tab.id} tableName={tab.content || ''} />
+                                    ) : tab.type === 'settings' ? (
+                                        <SettingsView tabId={tab.id} />
+                                    ) : tab.type === 'shortcuts' ? (
+                                        <ShortcutsView />
+                                    ) : tab.type === 'git_diff' ? (
+                                        <GitDiffView tab={tab} />
+                                    ) : (
+                                        <MonacoEditorWrapper
+                                            tabId={tab.id}
+                                            value={tab.query}
+                                            onChange={(v) => updateTabQuery(tab.id, v)}
+                                            onRun={handleRun}
+                                            onExplain={handleExplain}
+                                            isActive={isActiveGroup && isActive}
+                                            onFocus={() => setActiveTabId(tab.id, groupId)}
+                                            readOnly={tab.readOnly}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

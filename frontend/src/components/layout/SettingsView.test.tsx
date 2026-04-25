@@ -93,16 +93,6 @@ vi.mock('../../lib/profilePackage', () => ({
     parseProfilePackage: vi.fn(),
 }));
 
-vi.mock('../../features/telemetry/localMetricsStore', () => ({
-    buildTelemetryPipelineExportBundle: vi.fn(() => ({})),
-    exportTelemetryPipelineBundle: vi.fn(),
-}));
-
-vi.mock('../../features/telemetry/consent', () => ({
-    getTelemetryConsent: vi.fn(() => ({ optedIn: false })),
-    setTelemetryConsent: vi.fn(),
-}));
-
 vi.mock('../../../wailsjs/go/models', () => ({
     utils: {
         Preferences: class Preferences {
@@ -199,7 +189,6 @@ describe('SettingsView', () => {
         fireEvent.click(getSafetyTrigger());
         fireEvent.click(screen.getByRole('option', { name: 'Relaxed' }));
         expect(getSafetyTrigger()).toHaveTextContent(/relaxed/i);
-        expect(toastSuccessMock).toHaveBeenCalledWith('Write safety for Local set to relaxed.');
 
         environmentState.activeEnvironmentKey = 'pro';
         view.rerender(<SettingsView tabId="settings-tab" />);
@@ -209,10 +198,10 @@ describe('SettingsView', () => {
         view.rerender(<SettingsView tabId="settings-tab" />);
         expect(getSafetyTrigger()).toHaveTextContent(/relaxed/i);
 
-        fireEvent.click(screen.getByText('Staging'));
+        fireEvent.click(screen.getByLabelText('Set strong confirm threshold to Staging'));
         expect(getStrongConfirmSlider()).toHaveAttribute('aria-valuenow', '1');
-        expect(localStorage.getItem('zentro:execution-policy-strong-confirm-from:v1')).toBe('"sta"');
-        expect(toastSuccessMock).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem('zentro:execution-policy-strong-confirm-from')).toBe('"sta"');
+        expect(toastSuccessMock).not.toHaveBeenCalled();
     });
 
     it('disables auto-commit toggle when no active project or missing repo path', () => {

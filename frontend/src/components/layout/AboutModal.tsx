@@ -1,78 +1,128 @@
-import React, { useState } from 'react';
-import { ExternalLink, Github, FileText } from 'lucide-react';
-import { Button, Modal } from '../ui';
-import { ChangelogModal } from './ChangelogModal';
-import zentroLogo from '../../assets/images/main-logo.png';
-import pkg from '../../../package.json';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal } from '../ui';
+import appIcon from '../../assets/images/appicon.png';
+import { GetAboutInfo } from '../../services/settingsService';
+import type { app } from '../../../wailsjs/go/models';
+import { Environment } from '../../../wailsjs/runtime/runtime';
 
 interface AboutModalProps {
     onClose: () => void;
 }
 
 export const AboutModal: React.FC<AboutModalProps> = ({ onClose }) => {
-    const [showChangelog, setShowChangelog] = useState(false);
+    const [aboutInfo, setAboutInfo] = useState<app.AboutInfo | null>(null);
+    const [runtimeEnv, setRuntimeEnv] = useState<{ buildType: string; platform: string; arch: string } | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    if (showChangelog) {
-        return <ChangelogModal onClose={() => setShowChangelog(false)} />;
-    }
+    useEffect(() => {
+        let cancelled = false;
+
+        const load = async () => {
+            try {
+                const [info, env] = await Promise.all([GetAboutInfo(), Environment()]);
+                if (cancelled) {
+                    return;
+                }
+                setAboutInfo(info);
+                setRuntimeEnv(env);
+                setLoadError(null);
+            } catch (error) {
+                if (cancelled) {
+                    return;
+                }
+                console.error('Failed to load about info', error);
+                setLoadError('Unable to load build info');
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const userAgent = globalThis.navigator?.userAgent || '';
+    const chromiumMatch = userAgent.match(/(?:Edg|Chrome)\/([\d.]+)/);
+    const chromiumVersion = chromiumMatch?.[1] || 'unknown';
+
+    const dateWithRelative = useMemo(() => {
+        const raw = aboutInfo?.date?.trim();
+        if (!raw || raw === 'unknown') {
+            return 'unknown';
+        }
+
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) {
+            return raw;
+        }
+
+        const diffDays = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / (24 * 60 * 60 * 1000)));
+        const dayText = diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+        return `${raw} (${dayText})`;
+    }, [aboutInfo?.date]);
+
+    const osValue = useMemo(() => {
+        const platform = runtimeEnv?.platform || '';
+        const arch = runtimeEnv?.arch || '';
+        if (platform && arch) {
+            return `${platform} ${arch}`;
+        }
+        return aboutInfo?.os || 'unknown';
+    }, [aboutInfo?.os, runtimeEnv?.arch, runtimeEnv?.platform]);
+
+    const infoRows = useMemo(
+        () =>
+            [
+                { label: 'Version', value: aboutInfo?.version || 'unknown' },
+                { label: 'Commit', value: aboutInfo?.commit || 'unknown' },
+                { label: 'Date', value: dateWithRelative },
+                { label: 'Runtime', value: `Wails (${runtimeEnv?.buildType || 'unknown'})` },
+                { label: 'Chromium', value: chromiumVersion },
+                { label: 'OS', value: osValue },
+            ] as const,
+        [aboutInfo?.commit, aboutInfo?.version, chromiumVersion, dateWithRelative, osValue, runtimeEnv?.buildType],
+    );
 
     return (
         <Modal
             isOpen
             onClose={onClose}
             title="About Zentro"
-            width={420}
-            className="rounded-md border border-border/10 shadow-elevation-lg"
+            width={560}
+            className="rounded-sm border border-border/20 shadow-elevation-lg"
         >
-            <div className="overflow-y-auto px-5 pb-5 pt-1">
-                <div className="flex flex-col items-center">
-                    {/* Integrated Logo Section */}
-                    <div className="w-24 h-24 mb-6 bg-muted/40 rounded-md flex items-center justify-center p-4 border border-border/5">
-                        <img src={zentroLogo} alt="Zentro Logo" className="w-full h-full object-contain" />
+            <div className="pb-4 pt-2">
+                <div className="flex gap-3">
+                    <div className="h-42 w-42 overflow-hidden rounded-sm bg-background/60 p-2">
+                        <img src={appIcon} alt="Zentro App Icon" className="h-full w-full object-contain" />
                     </div>
 
-                    {/* App Branding */}
-                    <h2 className="text-2xl font-bold tracking-tight mb-1 text-foreground">Zentro</h2>
-                    <div className="px-3 py-1 rounded-full bg-accent/5 border border-accent/10 mb-6">
-                        <span className="text-[11px] font-bold text-accent uppercase tracking-widest">Version {pkg.version}</span>
-                    </div>
-
-                    <p className="text-[14px] text-center text-muted-foreground mb-8 leading-relaxed font-medium">
-                        A blazingly fast, modern, and cross-platform desktop SQL client built for developers.
-                    </p>
-
-                    {/* Information Grid */}
-                    <div className="w-full flex flex-col gap-2.5">
-                        <div className="flex items-center justify-between px-5 py-4 rounded-md bg-muted/20 border border-border/5">
-                            <span className="text-[13px] font-bold text-muted-foreground">Author</span>
-                            <span className="text-[13px] font-medium text-foreground">AlexNguyen</span>
-                        </div>
-
-                        <a
-                            href="https://github.com/alexnguyen03/zentro"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center justify-between px-5 py-4 rounded-md bg-muted/20 border border-border/5 hover:bg-muted/40 hover:border-accent/10 transition-all group cursor-pointer"
-                        >
-                            <div className="flex items-center gap-3">
-                                <Github size={16} className="text-muted-foreground group-hover:text-accent transition-colors" />
-                                <span className="text-[13px] font-bold text-muted-foreground group-hover:text-foreground transition-colors">GitHub Repository</span>
+                    <div className="min-w-0 flex-1 rounded-sm bg-background/60">
+                        {loading && (
+                            <div className="px-3 py-2 text-small text-muted-foreground">Loading build information...</div>
+                        )}
+                        {!loading && loadError && (
+                            <div className="px-3 py-2 text-small text-destructive">{loadError}</div>
+                        )}
+                        {!loading && infoRows.map((row, index) => (
+                            <div
+                                key={row.label}
+                                className="grid grid-cols-[120px_1fr] gap-2 px-3 py-1.5 text-small leading-relaxed even:bg-muted/20"
+                            >
+                                <span className="font-medium text-foreground">{row.label}:</span>
+                                <span
+                                    className={index === 1 ? 'break-all text-foreground' : 'text-foreground'}
+                                    title={row.value}
+                                >
+                                    {row.value}
+                                </span>
                             </div>
-                            <ExternalLink size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors" />
-                        </a>
-
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setShowChangelog(true)}
-                            className="h-auto w-full justify-between rounded-md border border-border/5 bg-muted/20 px-5 py-4 transition-all group hover:bg-muted/40 hover:border-accent/10"
-                        >
-                            <div className="flex items-center gap-3">
-                                <FileText size={16} className="text-muted-foreground group-hover:text-accent transition-colors" />
-                                <span className="text-[13px] font-bold text-muted-foreground group-hover:text-foreground transition-colors">Release Notes</span>
-                            </div>
-                            <ExternalLink size={14} className="text-muted-foreground/40 group-hover:text-accent transition-colors" />
-                        </Button>
+                        ))}
                     </div>
                 </div>
             </div>

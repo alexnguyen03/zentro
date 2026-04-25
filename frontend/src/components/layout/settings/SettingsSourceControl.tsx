@@ -30,10 +30,10 @@ export const SettingsSourceControl: React.FC<Props> = ({
                 </p>
             </div>
             <div className={SettingsClasses.sectionContent}>
-                <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/35 px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-sm bg-muted/35 px-3 py-2.5">
                     <div className="flex flex-col gap-0.5">
-                        <span className="text-[12px] font-semibold text-foreground">Auto commit on app exit</span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-small font-semibold text-foreground">Auto commit on app exit</span>
+                        <span className="text-label text-muted-foreground">
                             Stage all + commit pending changes in this project repository before closing.
                         </span>
                     </div>
@@ -45,11 +45,11 @@ export const SettingsSourceControl: React.FC<Props> = ({
                     />
                 </div>
                 {!enabled ? (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-label text-muted-foreground">
                         Requires an active project with a configured Git repo path.
                     </span>
                 ) : (
-                    <span className="truncate text-[11px] text-muted-foreground" title={repoPath || ''}>
+                    <span className="truncate text-label text-muted-foreground" title={repoPath || ''}>
                         Repo: {repoPath}
                     </span>
                 )}

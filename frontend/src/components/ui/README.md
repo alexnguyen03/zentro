@@ -2,11 +2,17 @@
 
 `components/ui` is reserved for reusable design-system primitives (shadcn + Radix composition).
 
+Reference: `docs/ui-system-pattern-v1.md` for strict spacing/typography/layout/UX rules and PR checklist.
+Release workflow: `docs/design-system-changelog.md` + `docs/design-system-release-template.md`.
+Pattern catalog: `docs/ui-pattern-catalog-v1.md`.
+
 ## Rules
 - Feature components must consume UI from `@/components/ui`.
 - Do not import `@radix-ui/*` directly outside `components/ui`.
 - Do not use legacy layout wrappers from `components/layout/Modal` or `components/layout/OverlayDialog`.
 - Prefer `Button`, `Input`, `Select`, `Checkbox`, `Switch`, `Slider`, `Dialog/Modal`, `Tooltip`, `DropdownMenu`, `Command`, `Tabs`, `ScrollArea`, `Sheet`, `Textarea`, `RadioGroup`.
+- Shared primitive API uses `tone`, `state`, `density="compact"` contract.
+- Composite API for app shell and settings includes `AppShell`, `Panel`, `FormSection`, `ActionBar`, and `DataEmpty/DataLoading/DataError`.
 
 ## Not Allowed In `components/ui`
 - Domain components (connection tree, result tables, editor business widgets).

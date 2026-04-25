@@ -294,39 +294,6 @@ func (s *QueryService) execNonSelect(ctx context.Context, executor sqlExecutor, 
 	return nil
 }
 
-func (s *QueryService) FetchTotalRowCount(tabID string) (int64, error) {
-	s.activeQueriesMu.Lock()
-	query, ok := s.activeQueries[tabID]
-	s.activeQueriesMu.Unlock()
-
-	if !ok || query == "" {
-		return 0, fmt.Errorf("no active query found for count")
-	}
-
-	executor := s.getExecutor()
-	if !isExecutorReady(executor) {
-		return 0, fmt.Errorf("no active connection")
-	}
-
-	cleanQuery := strings.TrimRight(strings.TrimSpace(query), ";")
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s\n) AS zentro_count", cleanQuery)
-
-	var count int64
-	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
-	defer cancel()
-	queryExecutor, releaseExecutor, prepErr := s.prepareExecutor(ctx, executor)
-	if prepErr != nil {
-		return 0, fmt.Errorf("prepare query context failed: %w", prepErr)
-	}
-	defer releaseExecutor()
-
-	err := queryExecutor.QueryRowContext(ctx, countQuery).Scan(&count)
-	if err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
 func (s *QueryService) CancelQuery(tabID string) {
 	s.sessionsMu.Lock()
 	defer s.sessionsMu.Unlock()

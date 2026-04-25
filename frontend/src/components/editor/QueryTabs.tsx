@@ -56,7 +56,7 @@ export const QueryTabs: React.FC = () => {
 
     const executeActiveTabQuery = React.useCallback(async (
         source: QueryExecutionSource,
-        options?: { filterExpr?: string; filterBaseQuery?: string },
+        options?: { filterExpr?: string; orderByExpr?: string; filterBaseQuery?: string },
     ) => {
         if (!isConnected) return;
 
@@ -71,6 +71,7 @@ export const QueryTabs: React.FC = () => {
             sourceTabId: latestActiveTab.id,
             resultTabIds: Object.keys(resultStore.results),
             clearResultFilterExpr: (tabId) => resultStore.setFilterExpr(tabId, ''),
+            clearResultOrderByExpr: (tabId) => resultStore.setOrderByExpr(tabId, ''),
             updateTabContext,
         });
 
@@ -78,6 +79,7 @@ export const QueryTabs: React.FC = () => {
             source,
             editorQuery: latestActiveTab.query,
             filterExpr: options?.filterExpr,
+            orderByExpr: options?.orderByExpr,
             filterBaseQuery: options?.filterBaseQuery,
         });
 
@@ -92,7 +94,7 @@ export const QueryTabs: React.FC = () => {
         await executeActiveTabQuery('editor');
     }, [executeActiveTabQuery]);
 
-    const handleFilterRunGlobal = React.useCallback(async (filter: string) => {
+    const handleFilterRunGlobal = React.useCallback(async (filter: string, orderByExpr = '', filterBaseQuery = '') => {
         if (!isConnected) return;
 
         const editorState = useEditorStore.getState();
@@ -101,12 +103,18 @@ export const QueryTabs: React.FC = () => {
         if (!latestActiveTab) return;
 
         // Filter should target the current executable statement, not the whole script.
-        const baseForFilter = splitLastQuery(latestActiveTab.query || '').base.trim() || latestActiveTab.query;
+        const baseForFilter =
+            filterBaseQuery.trim()
+            || globalActiveResult?.lastExecutedQuery?.trim()
+            || splitLastQuery(latestActiveTab.query || '').base.trim()
+            || latestActiveTab.query;
+        updateTabContext(latestActiveTab.id, { resultFilterBaseQuery: baseForFilter });
         await executeActiveTabQuery('filter', {
             filterExpr: filter,
+            orderByExpr,
             filterBaseQuery: baseForFilter,
         });
-    }, [executeActiveTabQuery, isConnected]);
+    }, [executeActiveTabQuery, globalActiveResult?.lastExecutedQuery, isConnected, updateTabContext]);
 
     const handleAppendToQuery = React.useCallback((fullQuery: string) => {
         if (!globalActiveTabId) return;
@@ -344,20 +352,37 @@ export const QueryTabs: React.FC = () => {
     const isExplainResult = currentResultTabId?.includes('::explain:');
     const isReadOnlySubTab = !isMainResult;
     const generatedKind = isExplainResult ? 'explain' : (isMainResult ? undefined : 'result');
+    const getResultSubTabLabel = React.useCallback((subTabId: string) => {
+        const subResult = results[subTabId];
+        if (subTabId.includes('::explain:analyze')) return 'Explain Analyze';
+        if (subTabId.includes('::explain:plan')) return 'Explain Plan';
+        if (subResult?.statementLabel?.trim()) return subResult.statementLabel.trim();
+
+        if (subTabId === globalActiveTabId) {
+            const mainQuery = splitLastQuery(globalActiveTab?.query || '').base.trim() || globalActiveTab?.query || '';
+            const preview = mainQuery.replace(/\s+/g, ' ').replace(/;+\s*$/, '').trim();
+            if (!preview) return '#1 Statement';
+            return `#1 ${preview.length > 56 ? `${preview.slice(0, 56).trimEnd()}...` : preview}`;
+        }
+
+        const match = subTabId.match(/::result:(\d+)/);
+        const ordinal = match ? parseInt(match[1], 10) + 1 : 1;
+        return `#${ordinal} Statement`;
+    }, [globalActiveTabId, globalActiveTab?.query, results]);
 
     if (groups.length === 0 || (groups.length === 1 && groups[0].tabs.length === 0)) {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center max-w-[320px]">
-                    <h2 className="text-base font-medium mb-2 text-foreground">No open queries</h2>
-                    <p className="text-[13px] my-1.5">Press <kbd className="bg-muted border border-border rounded-md px-1.5 py-px text-[11px] font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
+                    <h2 className="text-body font-medium mb-2 text-foreground">No open queries</h2>
+                    <p className="text-small my-1.5">Press <kbd className="bg-muted border border-border rounded-sm px-1.5 py-px text-label font-mono">Ctrl+T</kbd> or click <strong>+</strong> to open a new query tab.</p>
                     {!isConnected && (
-                        <p className="text-xs">Connect to a database using the sidebar first.</p>
+                        <p className="text-small">Connect to a database using the sidebar first.</p>
                     )}
                     <Button
                         type="button"
                         variant="default"
-                        className="mt-4 h-8 px-3 text-[13px]"
+                        className="mt-4 h-8 px-3 text-small"
                         onClick={() => addTab()}
                     >
                         New Query
@@ -377,7 +402,7 @@ export const QueryTabs: React.FC = () => {
             <div className="flex flex-col h-full w-full overflow-hidden">
                 {tabSwitcher.open && tabSwitcher.orderedIds.length > 0 && (
                     <div className="fixed left-1/2 top-40 z-topmost -translate-x-1/2 pointer-events-none">
-                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-md border border-border/60 bg-card/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
+                        <div className="min-w-70 max-w-140 max-h-70 overflow-auto rounded-sm border border-border/60 bg-card/95 shadow-elevation-sm backdrop-blur-sm pointer-events-auto p-2">
                             {tabSwitcher.orderedIds.map((id, index) => {
                                 const meta = tabMetaById.get(id);
                                 if (!meta) return null;
@@ -386,12 +411,12 @@ export const QueryTabs: React.FC = () => {
                                     <div
                                         key={id}
                                         className={cn(
-                                            'flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px]',
+                                            'flex items-center gap-2 rounded-sm px-2 py-1.5 text-small',
                                             isSelected ? 'bg-accent/25 text-foreground' : 'text-muted-foreground',
                                         )}
                                     >
                                         <span className="truncate flex-1">{meta.tab.name}</span>
-                                        <span className="text-[10px] text-muted-foreground">{meta.tab.type || 'query'}</span>
+                                        <span className="text-label text-muted-foreground">{meta.tab.type || 'query'}</span>
                                     </div>
                                 );
                             })}
@@ -422,22 +447,13 @@ export const QueryTabs: React.FC = () => {
                         minSize={100} 
                         visible={showResultPanel && activeTabIsQuery}
                     >
-                        <div className="h-full border-t border-border flex flex-col">
+                        <div className="h-full flex flex-col">
                             {globalActiveResultKeys.length > 1 && (
-                                <div className="flex bg-card border-b border-border overflow-x-auto">
+                                <div className="flex items-center bg-card h-8 shrink-0 overflow-hidden border-b border-border">
+                                    <div className="flex h-full items-stretch flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:h-px [&::-webkit-scrollbar]:opacity-0 transition-opacity [&:hover::-webkit-scrollbar]:opacity-100 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-sm [&:hover::-webkit-scrollbar-thumb]:bg-border">
                                     {globalActiveResultKeys.map((subTabId) => {
-                                        let label = 'Result 1';
-                                        if (subTabId !== globalActiveTabId) {
-                                            if (subTabId.includes('::explain:analyze')) label = 'Explain Analyze';
-                                            else if (subTabId.includes('::explain:plan')) label = 'Explain Plan';
-                                            else {
-                                                const subResult = results[subTabId];
-                                                const match = subTabId.match(/::result:(\d+)/);
-                                                label = subResult?.statementLabel
-                                                    || (match ? `Result ${parseInt(match[1], 10) + 1}` : 'Result');
-                                            }
-                                        }
-
+                                        const label = getResultSubTabLabel(subTabId);
+                                        const subResult = results[subTabId];
                                         const isActive = subTabId === currentResultTabId;
                                         return (
                                             <Button
@@ -446,20 +462,22 @@ export const QueryTabs: React.FC = () => {
                                                 variant="ghost"
                                                 onClick={() => setActiveSubTabId(subTabId)}
                                                 className={cn(
-                                                    'h-auto max-w-[150px] rounded-none border-r border-border px-3 py-1.5 text-[11px] whitespace-nowrap truncate transition-colors',
-                                                    isActive 
-                                                        ? 'bg-background text-foreground border-t-[3px] border-t-success font-medium'
-                                                        : 'bg-muted text-muted-foreground hover:bg-background hover:text-foreground border-t-[3px] border-t-transparent',
+                                                    'group flex items-center h-full gap-1.5 px-2 cursor-pointer border-r border-r-border text-small text-muted-foreground select-none whitespace-nowrap border-t-2 border-t-transparent mb-0 shrink-0 hover:text-foreground rounded-none',
+                                                    isActive && 'bg-background -mb-px text-primary',
                                                 )}
-                                                title={label}
+                                                title={subResult?.lastExecutedQuery || label}
                                             >
-                                                {label}
+                                                <span className="overflow-hidden text-ellipsis">{label}</span>
+                                                {subResult?.executionState === 'running' && (
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0 animate-pulse" title="Running" />
+                                                )}
                                             </Button>
                                         );
                                     })}
+                                    </div>
                                 </div>
                             )}
-                            <div className="flex-1 overflow-hidden relative">
+                            <div className="flex-1 overflow-hidden relative bg-card/40">
                                 <ResultPanel
                                     tabId={currentResultTabId ?? ''}
                                     contextTabId={globalActiveTabId || undefined}
@@ -483,7 +501,7 @@ export const QueryTabs: React.FC = () => {
             {/* Drag Overlay for smooth visual feedback while dragging outside the flow */}
             <DragOverlay dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
                 {activeDragTab ? (
-                    <div className="flex items-center px-[10px] pl-[14px] h-9 gap-1.5 bg-background text-foreground border-t-2 border-t-success border-b border-b-bg-primary text-xs cursor-grabbing opacity-90 w-[120px]">
+                    <div className="flex h-8 w-30 cursor-grabbing items-center gap-1.5 bg-background px-[10px] pl-[14px] text-small text-foreground opacity-90">
                         <span className="overflow-hidden text-ellipsis whitespace-nowrap">{activeDragTab.name}</span>
                     </div>
                 ) : null}

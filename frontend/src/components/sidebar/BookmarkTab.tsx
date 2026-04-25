@@ -1,13 +1,14 @@
 import React from 'react';
-import { ChevronDown, ChevronRight, RefreshCcw } from 'lucide-react';
+import { BookMarked, Bookmark, ChevronDown, ChevronRight, RefreshCcw, Trash2 } from 'lucide-react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useConnectionStore } from '../../stores/connectionStore';
-import { bookmarkKeyFromTabName, useBookmarkStore } from '../../stores/bookmarkStore';
+import { bookmarkKeyFromTabName, bookmarkLabelFromKey, getBookmarkScopeID, useBookmarkStore } from '../../stores/bookmarkStore';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { emitCommand } from '../../lib/commandBus';
 import { cn } from '../../lib/cn';
+import { DeleteBookmark } from '../../services/bookmarkService';
 import { Button } from '../ui';
 import { useSidebarPanelState } from '../../stores/sidebarUiStore';
 import { BOOKMARK_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
@@ -29,7 +30,7 @@ export const BookmarkTab: React.FC = () => {
     const { groups, activeGroupId, setActiveTabId, setActiveGroupId, addTab } = useEditorStore();
     const { activeProfile } = useConnectionStore();
     const activeProject = useProjectStore((state) => state.activeProject);
-    const { byTab, byKey, labelByKey, loadBookmarks, hydrateTabFromKey } = useBookmarkStore();
+    const { activeScopeID, byTab, byKey, labelByKey, loadBookmarks, loadAllBookmarksForScope, hydrateTabFromKey, toggleLine } = useBookmarkStore();
     const { activeConnection: activeScriptConnection, activeProjectId: activeScriptProjectId, loadScripts, getContent } = useScriptStore();
     const [bookmarkPanelState, setBookmarkPanelState] = useSidebarPanelState('secondary', 'bookmark', BOOKMARK_PANEL_STATE_DEFAULT);
     const scope = bookmarkPanelState.scope;
@@ -44,7 +45,13 @@ export const BookmarkTab: React.FC = () => {
 
     const activeGroup = groups.find((g) => g.id === activeGroupId);
     const activeTabId = activeGroup?.activeTabId || '';
-    const bookmarks = byTab[activeTabId] || [];
+    const connectionName = activeProfile?.name || '';
+    const currentScopeID = connectionName ? getBookmarkScopeID(connectionName) : null;
+    const isScopeAligned = Boolean(currentScopeID && activeScopeID === currentScopeID);
+    const scopedByTab = isScopeAligned ? byTab : {};
+    const scopedByKey = isScopeAligned ? byKey : {};
+    const scopedLabelByKey = isScopeAligned ? labelByKey : {};
+    const bookmarks = scopedByTab[activeTabId] || [];
 
     const queryTabs = React.useMemo(
         () =>
@@ -58,8 +65,8 @@ export const BookmarkTab: React.FC = () => {
 
     const globalBookmarks = React.useMemo(() => {
         const out: BookmarkItem[] = [];
-        for (const [bookmarkKey, list] of Object.entries(byKey)) {
-            const tabName = labelByKey[bookmarkKey] || bookmarkKey;
+        for (const [bookmarkKey, list] of Object.entries(scopedByKey)) {
+            const tabName = scopedLabelByKey[bookmarkKey] || bookmarkLabelFromKey(bookmarkKey);
             for (const b of list) {
                 out.push({ bookmarkKey, tabName, line: b.line, id: b.id });
             }
@@ -68,7 +75,7 @@ export const BookmarkTab: React.FC = () => {
             if (a.tabName !== b.tabName) return a.tabName.localeCompare(b.tabName);
             return a.line - b.line;
         });
-    }, [byKey, labelByKey]);
+    }, [scopedByKey, scopedLabelByKey]);
 
     const groupedGlobalBookmarks = React.useMemo<BookmarkGroup[]>(() => {
         const groupsByKey = new Map<string, BookmarkGroup>();
@@ -114,14 +121,38 @@ export const BookmarkTab: React.FC = () => {
 
     const refreshAll = React.useCallback(() => {
         if (!activeProfile?.name) return;
-        queryTabs.forEach((t) => {
-            loadBookmarks(activeProfile.name!, t.tabId).catch((err) => console.error('load bookmarks failed', err));
-        });
-    }, [activeProfile?.name, queryTabs, loadBookmarks]);
+        loadAllBookmarksForScope(activeProfile.name).catch((err) => console.error('load all bookmarks failed', err));
+    }, [activeProfile?.name, loadAllBookmarksForScope]);
+
+    const removeCurrentBookmark = React.useCallback(async (line: number) => {
+        if (!activeProfile?.name || !activeTabId) return;
+        try {
+            await toggleLine(activeProfile.name, activeTabId, line);
+        } catch (err) {
+            console.error('remove current bookmark failed', err);
+        }
+    }, [activeProfile?.name, activeTabId, toggleLine]);
+
+    const removeGlobalBookmark = React.useCallback(async (item: BookmarkItem) => {
+        if (!activeProfile?.name) return;
+        try {
+            const scopedConnectionID = getBookmarkScopeID(activeProfile.name);
+            await DeleteBookmark(scopedConnectionID, item.bookmarkKey, item.line);
+            refreshAll();
+            refreshCurrent();
+        } catch (err) {
+            console.error('remove global bookmark failed', err);
+        }
+    }, [activeProfile?.name, refreshAll, refreshCurrent]);
 
     React.useEffect(() => {
         refreshCurrent();
     }, [refreshCurrent]);
+
+    React.useEffect(() => {
+        if (!activeProfile?.name) return;
+        refreshAll();
+    }, [activeProfile?.name, refreshAll]);
 
     const restoreAndOpen = React.useCallback(
         async (item: BookmarkItem) => {
@@ -214,43 +245,55 @@ export const BookmarkTab: React.FC = () => {
         ]
     );
 
+    const scopeOptions = React.useMemo(() => ([
+        {
+            key: 'current' as const,
+            label: 'Current',
+            count: bookmarks.length,
+            icon: Bookmark,
+        },
+        {
+            key: 'global' as const,
+            label: 'Global',
+            count: globalBookmarks.length,
+            icon: BookMarked,
+        },
+    ]), [bookmarks.length, globalBookmarks.length]);
+
     return (
-        <div className="h-full flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between pb-1 border-b border-border/50 mb-1">
+        <div className="flex h-full flex-col overflow-hidden">
+            <div className="flex items-center justify-between gap-1.5 px-2 py-1 shrink-0">
                 <div className="flex items-center gap-1">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                            'h-auto px-2 py-0.5 text-[11px] transition-colors',
-                            scope === 'current' ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-foreground',
-                        )}
-                        onClick={() => updateBookmarkPanelState({ scope: 'current' })}
-                    >
-                        Current ({bookmarks.length})
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                            'h-auto px-2 py-0.5 text-[11px] transition-colors',
-                            scope === 'global' ? 'text-foreground bg-muted' : 'text-muted-foreground hover:text-foreground',
-                        )}
-                        onClick={() => updateBookmarkPanelState({ scope: 'global' })}
-                    >
-                        Global ({globalBookmarks.length})
-                    </Button>
+                    {scopeOptions.map((scopeOption) => {
+                        const ScopeIcon = scopeOption.icon;
+                        return (
+                            <Button
+                                key={scopeOption.key}
+                                variant="ghost"
+                                type="button"
+                                className={cn(
+                                    '!text-small text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]',
+                                    scope === scopeOption.key && 'bg-[var(--state-active-bg)] text-foreground',
+                                )}
+                                onClick={() => updateBookmarkPanelState({ scope: scopeOption.key })}
+                            >
+                                <ScopeIcon size={12} className="opacity-80 shrink-0" />
+                                <span className="truncate">{scopeOption.label}</span>
+                                <span className="text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                                    {scopeOption.count}
+                                </span>
+                            </Button>
+                        );
+                    })}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                     {scope === 'global' && groupedGlobalBookmarks.length > 0 && (
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 px-1.5 py-1 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
+                            className="h-7 w-7 p-0 text-muted-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)] hover:text-foreground"
                             title={collapseAllState === 'all' ? 'Expand all bookmark groups' : 'Collapse all bookmark groups'}
                             onClick={() => {
                                 updateBookmarkPanelState({
@@ -273,7 +316,7 @@ export const BookmarkTab: React.FC = () => {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 px-1.5 py-1 text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
+                        className="h-7 w-7 p-0 text-muted-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)] hover:text-foreground"
                         title={scope === 'global' ? 'Refresh global bookmarks' : 'Refresh current tab bookmarks'}
                         onClick={() => {
                             if (scope === 'global') refreshAll();
@@ -285,47 +328,73 @@ export const BookmarkTab: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-0.5">
                 {scope === 'current' ? (
                     bookmarks.length === 0 ? (
-                        <div className="text-[12px] text-muted-foreground px-2 py-2 rounded-md">No bookmarks for this tab.</div>
+                        <div className="flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm">
+                            No bookmarks for this tab.
+                        </div>
                     ) : (
-                        <div className="space-y-0.5">
+                        <div>
                             {bookmarks.map((item) => (
                                 <Button
                                     key={item.id || item.line}
                                     type="button"
                                     variant="ghost"
-                                    className="h-auto w-full justify-start gap-1.5 overflow-hidden rounded-md px-2 py-1 text-left text-[12px] text-foreground transition-colors duration-100 hover:bg-muted"
+                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]"
                                     onClick={() => {
                                         emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: activeTabId, line: item.line });
                                     }}
                                 >
                                     <span className="w-[13px] shrink-0 inline-block" />
+                                    <Bookmark size={12} className="opacity-80 shrink-0" />
                                     <span className="truncate flex-1">Line {item.line}</span>
-                                    <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">#saved</span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 p-0 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                                        title={`Remove bookmark at line ${item.line}`}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            void removeCurrentBookmark(item.line);
+                                        }}
+                                    >
+                                        <Trash2 size={12} />
+                                    </Button>
                                 </Button>
                             ))}
                         </div>
                     )
                 ) : groupedGlobalBookmarks.length === 0 ? (
-                    <div className="text-[12px] text-muted-foreground px-2 py-2 rounded-md">No global bookmarks yet.</div>
+                    <div className="flex items-center gap-1.5 px-1.5 py-1 text-small text-muted-foreground rounded-sm">
+                        No global bookmarks yet.
+                    </div>
                 ) : (
-                    <div className="space-y-1">
+                    <div>
                         {groupedGlobalBookmarks.map((group) => {
                             const isCollapsed = collapsedKeys[group.bookmarkKey] !== false;
 
                             return (
-                                <section key={group.bookmarkKey} className="overflow-hidden">
-                                    <div className="flex items-stretch">
+                                <section key={group.bookmarkKey}>
+                                    <div
+                                        className="group h-6 flex items-center gap-1 px-1.5 text-small rounded-sm text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]"
+                                        onClick={() => {
+                                            void restoreAndOpen({
+                                                bookmarkKey: group.bookmarkKey,
+                                                tabName: group.tabName,
+                                                line: group.items[0]?.line ?? 1,
+                                            });
+                                        }}
+                                    >
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="icon"
-                                            className="h-auto w-[18px] shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                                            className="h-4 w-4 p-0 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                                             title={isCollapsed ? 'Expand group' : 'Collapse group'}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
+                                            onClick={(event) => {
+                                                event.stopPropagation();
                                                 updateBookmarkPanelState({
                                                     collapsedKeys: {
                                                         ...collapsedKeys,
@@ -336,56 +405,44 @@ export const BookmarkTab: React.FC = () => {
                                         >
                                             {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                                         </Button>
-
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            className="h-auto min-w-0 flex-1 items-center gap-1.5 overflow-hidden rounded-md px-2 py-1 text-[13px] text-foreground transition-colors duration-100 hover:bg-muted"
-                                            onClick={() => {
-                                                void restoreAndOpen({
-                                                    bookmarkKey: group.bookmarkKey,
-                                                    tabName: group.tabName,
-                                                    line: group.items[0]?.line ?? 1,
-                                                });
-                                            }}
-                                        >
-                                            <span className="truncate flex-1 font-medium">{group.tabName}</span>
-                                            <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
-                                                {group.items.length}
-                                            </span>
-                                        </Button>
+                                        <BookMarked size={12} className="opacity-80 shrink-0" />
+                                        <span className="truncate flex-1">{group.tabName}</span>
+                                        <span className="text-label text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
+                                            {group.items.length}
+                                        </span>
                                     </div>
 
                                     {!isCollapsed && (
-                                        <div className="pl-4">
-                                            <div className="relative pl-4">
-                                                <div className="absolute left-[10px] top-0 bottom-1 w-px bg-border/70" />
-                                                {group.items.map((item, index) => (
+                                        <div className="pl-3">
+                                            {group.items.map((item) => (
+                                                <Button
+                                                    key={`${group.bookmarkKey}-${item.id || item.line}`}
+                                                    type="button"
+                                                    variant="ghost"
+                                                    className="group h-6 w-full justify-start gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-left text-small text-foreground transition-colors duration-fast hover:bg-[var(--state-hover-bg)]"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        void restoreAndOpen(item);
+                                                    }}
+                                                >
+                                                    <span className="w-[13px] shrink-0 inline-block" />
+                                                    <Bookmark size={12} className="opacity-80 shrink-0" />
+                                                    <span className="truncate flex-1">Line {item.line}</span>
                                                     <Button
-                                                        key={`${group.bookmarkKey}-${item.id || item.line}`}
                                                         type="button"
                                                         variant="ghost"
-                                                        className={cn(
-                                                            'group h-auto w-full justify-start gap-1.5 overflow-hidden rounded-md px-2 py-1 text-left text-[12px] text-foreground transition-colors duration-100 hover:bg-muted',
-                                                            index === 0 && 'mt-0',
-                                                        )}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            void restoreAndOpen(item);
+                                                        size="icon"
+                                                        className="h-5 w-5 p-0 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                                                        title={`Remove bookmark at line ${item.line}`}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            void removeGlobalBookmark(item);
                                                         }}
                                                     >
-                                                        <span className="flex items-center gap-2 min-w-0">
-                                                            <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-success/10 text-success text-[10px] shrink-0">
-                                                                {item.line}
-                                                            </span>
-                                                            <span className="truncate flex-1">Line {item.line}</span>
-                                                        </span>
-                                                        <span className="ml-auto text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 min-w-[18px] text-center shrink-0">
-                                                            #saved
-                                                        </span>
+                                                        <Trash2 size={12} />
                                                     </Button>
-                                                ))}
-                                            </div>
+                                                </Button>
+                                            ))}
                                         </div>
                                     )}
                                 </section>

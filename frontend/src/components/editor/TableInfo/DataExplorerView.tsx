@@ -6,7 +6,7 @@ import type { TabResult } from '../../../stores/resultStore';
 
 interface DataExplorerViewProps {
     tabId: string;
-    onRun: (filter?: string) => Promise<void>;
+    onRun: (filter?: string, orderByExpr?: string, filterBaseQuery?: string) => Promise<void>;
     result: TabResult | undefined;
     onActionsChange: (actions: TabAction[]) => void;
     schema: string;
@@ -18,6 +18,10 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     tabId, onRun, result, onActionsChange, schema, table, isReadOnlyMode = false
 }) => {
     const [refreshing, setRefreshing] = React.useState(false);
+    const canonicalBaseQuery = React.useMemo(
+        () => `SELECT * FROM "${schema}"."${table}"`,
+        [schema, table],
+    );
 
     const handleRefresh = React.useCallback(async () => {
         setRefreshing(true);
@@ -40,9 +44,9 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
         onActionsChange([refreshAction, ...actions]);
     }, [handleRefresh, onActionsChange, refreshing]);
 
-    const handleFilterRun = React.useCallback((filter: string) => {
-        onRun(filter);
-    }, [onRun]);
+    const handleFilterRun = React.useCallback((filter: string, orderByExpr?: string) => {
+        void onRun(filter, orderByExpr, canonicalBaseQuery);
+    }, [canonicalBaseQuery, onRun]);
 
     return (
         <div className="flex-1 h-full flex flex-col min-h-0 bg-background">
@@ -52,7 +56,8 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 result={result}
                 onActionsChange={handleActionsChange}
                 onFilterRun={handleFilterRun}
-                baseQuery={result?.lastExecutedQuery || `SELECT * FROM "${schema}"."${table}"`}
+                baseQuery={canonicalBaseQuery}
+                preferBaseQueryForFilter
                 isReadOnlyTab={isReadOnlyMode}
                 showMaximizeControl={false}
             />

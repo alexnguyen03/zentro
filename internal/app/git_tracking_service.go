@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	trackingDirName        = ".zentro-tracking"
 	trackingConfigFileName = "tracking-config.json"
 )
 
@@ -75,11 +74,14 @@ func (s *GitTrackingService) repoRoot(project *models.Project) (string, error) {
 	if storage == "" {
 		return "", fmt.Errorf("tracking: project storage path is empty")
 	}
-	return filepath.Join(storage, trackingDirName), nil
+	return storage, nil
 }
 
 func (s *GitTrackingService) ensureRepo(repoRoot string) (*git.Repository, error) {
 	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
+		return nil, err
+	}
+	if err := ensureManagedProjectGitIgnore(repoRoot); err != nil {
 		return nil, err
 	}
 	if err := s.ensureTrackingConfig(repoRoot, true); err != nil {
@@ -96,6 +98,11 @@ func (s *GitTrackingService) ensureRepo(repoRoot string) (*git.Repository, error
 
 	repo, err = git.PlainInit(repoRoot, false)
 	if err != nil {
+		return nil, err
+	}
+	if err := repo.Storer.SetReference(
+		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
+	); err != nil {
 		return nil, err
 	}
 	return repo, nil
@@ -230,7 +237,7 @@ func (s *GitTrackingService) GetStatus(project *models.Project) (GitTrackingStat
 	if wtErr == nil {
 		ws, stErr := wt.Status()
 		if stErr == nil {
-			status.PendingCount = len(changedFilesFromStatus(ws))
+			status.PendingCount = len(trackedQuerySQLFilesFromStatus(ws))
 		}
 	}
 
@@ -257,7 +264,7 @@ func (s *GitTrackingService) GetPendingChanges(project *models.Project) ([]strin
 	if err != nil {
 		return nil, err
 	}
-	return changedFilesFromStatus(status), nil
+	return trackedQuerySQLFilesFromStatus(status), nil
 }
 
 func (s *GitTrackingService) ListTimeline(project *models.Project, limit int, eventType string) ([]GitTimelineItem, error) {
@@ -528,7 +535,7 @@ func (s *GitTrackingService) TrackScriptSave(project *models.Project, script mod
 		return err
 	}
 
-	relPath := filepath.ToSlash(filepath.Join("scripts", sanitizePathSegment(script.ConnectionName), sanitizePathSegment(script.ID)+".sql"))
+	relPath := filepath.ToSlash(filepath.Join("scripts", "queries", sanitizePathSegment(script.ConnectionName), sanitizePathSegment(script.ID)+".sql"))
 	absPath := filepath.Join(repoRoot, filepath.FromSlash(relPath))
 
 	if existing, readErr := os.ReadFile(absPath); readErr == nil {
@@ -562,7 +569,7 @@ func (s *GitTrackingService) TrackScriptDelete(project *models.Project, connecti
 		return err
 	}
 
-	relPath := filepath.ToSlash(filepath.Join("scripts", sanitizePathSegment(connectionName), sanitizePathSegment(scriptID)+".sql"))
+	relPath := filepath.ToSlash(filepath.Join("scripts", "queries", sanitizePathSegment(connectionName), sanitizePathSegment(scriptID)+".sql"))
 	absPath := filepath.Join(repoRoot, filepath.FromSlash(relPath))
 	_ = os.Remove(absPath)
 	return nil
@@ -619,14 +626,29 @@ func (s *GitTrackingService) commitAllLocked(repoRoot, message string) (GitCommi
 	if err != nil {
 		return GitCommitResult{}, err
 	}
-	if err := wt.AddWithOptions(&git.AddOptions{All: true}); err != nil {
-		return GitCommitResult{}, err
-	}
-	status, err := wt.Status()
+	statusBefore, err := wt.Status()
 	if err != nil {
 		return GitCommitResult{}, err
 	}
-	files := changedFilesFromStatus(status)
+	allowed := trackedQuerySQLFilesFromStatus(statusBefore)
+	for _, path := range allowed {
+		st := statusBefore[path]
+		if st.Worktree == git.Deleted || st.Staging == git.Deleted {
+			if _, err := wt.Remove(path); err != nil && !os.IsNotExist(err) {
+				return GitCommitResult{}, err
+			}
+			continue
+		}
+		if _, err := wt.Add(path); err != nil {
+			return GitCommitResult{}, err
+		}
+	}
+
+	statusAfter, err := wt.Status()
+	if err != nil {
+		return GitCommitResult{}, err
+	}
+	files := trackedQuerySQLFilesFromStatus(statusAfter)
 	result := GitCommitResult{
 		Message:   strings.TrimSpace(message),
 		Files:     files,

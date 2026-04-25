@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { PanelRightClose, X } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useSidebarPanels } from './sidebarPanelRegistry';
 import { registerBuiltInSidebarPanels } from './sidebarPanels';
@@ -35,12 +35,10 @@ export const SecondarySidebar: React.FC = () => {
     return (
         <>
             <div className="resizer right-resizer" onMouseDown={startResizing} style={{ cursor: 'e-resize' }} />
-            <div className="sidebar flex h-full shrink-0 flex-col border-l border-border" style={{ width: sidebarWidth }}>
+            <div className="sidebar flex h-full shrink-0 flex-col bg-card/10" style={{ width: sidebarWidth }}>
                 <Tabs value={activePanelId} onValueChange={setActivePanelId} className="flex h-full flex-col">
-                    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-1">
-                        <TabsList
-                            className="h-8 w-fit justify-start gap-1 bg-transparent p-0"
-                        >
+                    <div className="flex items-center px-1">
+                        <TabsList className="h-9 flex-1 justify-start gap-0 p-0 bg-transparent">
                             {panels.map((panel) => {
                                 const Icon = panel.icon;
                                 const badge = panel.getBadge?.();
@@ -48,13 +46,13 @@ export const SecondarySidebar: React.FC = () => {
                                     <TabsTrigger
                                         key={panel.id}
                                         value={panel.id}
-                                        className="relative h-8 w-8 cursor-pointer rounded-none bg-transparent p-0 text-muted-foreground opacity-55 transition hover:opacity-80 data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:opacity-100 data-[state=active]:shadow-none"
+                                        className="relative h-8 rounded-sm cursor-pointer bg-transparent px-2.5 text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:bg-[var(--state-selected-bg)] data-[state=active]:text-[var(--state-selected-text)] data-[state=active]:shadow-none"
                                         title={panel.label}
                                         aria-label={panel.label}
                                     >
-                                        <Icon size={14} className="shrink-0" />
+                                        <Icon size={13} className="shrink-0" />
                                         {badge !== undefined && badge !== null && badge !== 0 && (
-                                            <span className="absolute right-[-2px] top-[-1px] inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-semibold leading-none text-white">
+                                            <span className="absolute right-0 top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-0.5 text-label font-semibold leading-none text-background">
                                                 {badge}
                                             </span>
                                         )}
@@ -62,20 +60,9 @@ export const SecondarySidebar: React.FC = () => {
                                 );
                             })}
                         </TabsList>
-
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="ml-auto h-7 w-7 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                            onClick={() => setShowRightSidebar(false)}
-                            title="Close right sidebar"
-                        >
-                            <X size={14} />
-                        </Button>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-hidden bg-background p-1.5">
+                    <div className="min-h-0 flex-1 overflow-hidden bg-card/10">
                         {panels.map((panel) => (
                             <TabsContent key={panel.id} value={panel.id} className="mt-0 h-full outline-none">
                                 {panel.render()}
@@ -87,3 +74,4 @@ export const SecondarySidebar: React.FC = () => {
         </>
     );
 };
+

@@ -4,8 +4,6 @@ import type {
     TelemetryAnalyticsEnvelope,
     TelemetryConsentState,
     TelemetryEventEnvelope,
-    TelemetryExportBundle,
-    TelemetryPipelineExportBundle,
 } from './contracts';
 
 const MAX_SNAPSHOTS = 200;
@@ -121,42 +119,4 @@ export function loadTelemetryAnalyticsOutbox(): TelemetryAnalyticsEnvelope[] {
     } catch {
         return [];
     }
-}
-
-export function buildTelemetryExportBundle(consent: TelemetryConsentState): TelemetryExportBundle {
-    return {
-        exportedAt: new Date().toISOString(),
-        snapshots: loadQuerySnapshots(),
-        events: loadTelemetryEvents(),
-        consent,
-    };
-}
-
-export function exportTelemetryBundle(bundle: TelemetryExportBundle) {
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    const safeDate = bundle.exportedAt.replace(/[:.]/g, '-');
-    anchor.href = url;
-    anchor.download = `zentro-telemetry-${safeDate}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-}
-
-export function buildTelemetryPipelineExportBundle(consent: TelemetryConsentState): TelemetryPipelineExportBundle {
-    return {
-        ...buildTelemetryExportBundle(consent),
-        analyticsOutbox: loadTelemetryAnalyticsOutbox(),
-    };
-}
-
-export function exportTelemetryPipelineBundle(bundle: TelemetryPipelineExportBundle) {
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    const safeDate = bundle.exportedAt.replace(/[:.]/g, '-');
-    anchor.href = url;
-    anchor.download = `zentro-telemetry-pipeline-${safeDate}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
 }

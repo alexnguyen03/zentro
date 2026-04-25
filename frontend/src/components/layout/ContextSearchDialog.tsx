@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Database, Eye, Hash, Layers, Link2, List, Sigma, Table2, Type, Zap } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, Database, Eye, Hash, Layers, Link2, List, Sigma, Table2, Type, Zap } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore, type SchemaNode } from '../../stores/schemaStore';
@@ -17,6 +17,11 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuTrigger,
     OverlayDialog,
 } from '../ui';
 
@@ -278,6 +283,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     const [enabledKinds, setEnabledKinds] = React.useState<Set<ObjectKind>>(new Set(DEFAULT_ENABLED_KINDS));
     const [showAllKinds, setShowAllKinds] = React.useState(false);
     const [contextMenu, setContextMenu] = React.useState<ItemContextMenu | null>(null);
+    const contextMenuTriggerRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (!isConnected || !profileName || !dbName || schemas || isLoading) return;
@@ -314,16 +320,6 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             .map((entry) => entry.item)
             .slice(0, 400);
     }, [allItems, enabledKinds, query]);
-
-    React.useEffect(() => {
-        const closeContextMenu = () => setContextMenu(null);
-        window.addEventListener('click', closeContextMenu);
-        window.addEventListener('scroll', closeContextMenu, true);
-        return () => {
-            window.removeEventListener('click', closeContextMenu);
-            window.removeEventListener('scroll', closeContextMenu, true);
-        };
-    }, []);
 
     const runItemAction = React.useCallback(
         async (item: SearchItem, action: ItemAction) => {
@@ -427,10 +423,24 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
         return `No matches for "${query}"`;
     }, [activeProfile, isConnected, isLoading, query, schemas]);
 
+    React.useEffect(() => {
+        if (!contextMenu) return;
+        const trigger = contextMenuTriggerRef.current;
+        if (!trigger) return;
+        const event = new MouseEvent('contextmenu', {
+            bubbles: true,
+            cancelable: true,
+            button: 2,
+            clientX: contextMenu.x,
+            clientY: contextMenu.y,
+        });
+        trigger.dispatchEvent(event);
+    }, [contextMenu]);
+
     return (
         <OverlayDialog onClose={onClose} className="items-start pt-[15vh]">
             <div
-                className="w-[720px] max-h-[560px] flex flex-col bg-card border border-border rounded-md shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
+                className="w-[720px] max-h-[560px] flex flex-col bg-card border border-border rounded-sm shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden animate-in slide-in-from-top-3 duration-150"
                 onClick={(event) => event.stopPropagation()}
             >
                 <Command shouldFilter={false} loop className="h-full bg-card text-foreground">
@@ -439,26 +449,54 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                             value={query}
                             onValueChange={setQuery}
                             placeholder="Search tables, views, functions..."
-                            className="pr-28"
+                            hideIcon
+                            className="pr-56 h-10"
                             onKeyDown={handleEnterBrowseFirst}
                         />
-                        <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-xs text-muted-foreground inline-flex items-center gap-1">
-                            <Database size={11} />
-                            {dbName || 'No DB'}
-                        </span>
+                        <div className="absolute top-1/2 right-3 -translate-y-1/2 inline-flex items-center gap-1">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size='sm'
+                                title={showAllKinds ? 'Show fewer object types' : 'Show more object types'}
+                                onClick={() =>
+                                    setShowAllKinds((prev) => {
+                                        const next = !prev;
+                                        if (!next) {
+                                            setEnabledKinds((current) => {
+                                                const filteredSet = new Set(
+                                                    [...current].filter((kind) => PRIMARY_VISIBLE_KINDS.includes(kind)),
+                                                );
+                                                if (filteredSet.size === 0) {
+                                                    PRIMARY_VISIBLE_KINDS.forEach((kind) => filteredSet.add(kind));
+                                                }
+                                                return filteredSet;
+                                            });
+                                        }
+                                        return next;
+                                    })
+                                }
+                            >
+                                {showAllKinds ? <ChevronsDownUp size={13} /> : <ChevronsUpDown size={13} />}
+                            </Button>
+                            <span className="pointer-events-none text-small text-muted-foreground inline-flex items-center gap-1">
+                                <Database size={11} />
+                                {dbName || 'No DB'}
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="px-3 py-2 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
+                    <div className="px-3 py-1 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
                         {(showAllKinds ? (Object.keys(KIND_LABEL) as ObjectKind[]) : PRIMARY_VISIBLE_KINDS).map((kind) => {
                             const active = enabledKinds.has(kind);
                             return (
                                 <Button
                                     key={kind}
                                     type="button"
+                                    size='sm'
                                     variant={active ? 'secondary' : 'ghost'}
                                     className={cn(
-                                        'h-7 gap-1.5 px-2 text-[11px] border whitespace-nowrap',
-                                        active ? 'border-success/40 bg-success/15 text-foreground' : 'text-muted-foreground',
+                                        active ? 'border-primary/40 bg-primary/15 text-foreground' : 'text-muted-foreground',
                                     )}
                                     onClick={() => toggleKind(kind)}
                                 >
@@ -467,33 +505,9 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                 </Button>
                             );
                         })}
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() =>
-                                setShowAllKinds((prev) => {
-                                    const next = !prev;
-                                    if (!next) {
-                                        setEnabledKinds((current) => {
-                                            const filteredSet = new Set(
-                                                [...current].filter((kind) => PRIMARY_VISIBLE_KINDS.includes(kind)),
-                                            );
-                                            if (filteredSet.size === 0) {
-                                                PRIMARY_VISIBLE_KINDS.forEach((kind) => filteredSet.add(kind));
-                                            }
-                                            return filteredSet;
-                                        });
-                                    }
-                                    return next;
-                                })
-                            }
-                        >
-                            {showAllKinds ? 'Less' : 'More'}
-                        </Button>
                     </div>
 
-                    <CommandList className="max-h-[430px] py-1">
+                    <CommandList className="max-h-107.5 py-1">
                         <CommandEmpty>{emptyMessage}</CommandEmpty>
                         {filtered.map((item) => (
                             <CommandItem
@@ -503,19 +517,23 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                                 onContextMenu={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    setContextMenu({ x: event.clientX, y: event.clientY, item });
+                                    setContextMenu({
+                                        x: event.clientX,
+                                        y: event.clientY,
+                                        item,
+                                    });
                                 }}
-                                className="group flex items-center justify-between px-4 py-2 text-[13px] data-[selected=true]:bg-success/10"
+                                className="group cursor-pointer flex items-center justify-between px-4 py-1 text-small data-[selected=true]:bg-primary/10"
                             >
                                 <span className="flex min-w-0 items-center gap-2">
-                                    <span className="shrink-0 group-data-[selected=true]:text-success">{KIND_ICON[item.kind]}</span>
-                                    <span className="truncate font-medium">{item.name}</span>
+                                    <span className="shrink-0 group-data-[selected=true]:text-primary">{KIND_ICON[item.kind]}</span>
+                                    <span className="truncate">{item.name}</span>
                                 </span>
                                 <span className="ml-4 flex shrink-0 items-center gap-2">
-                                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                    <span className="text-label uppercase tracking-wide text-muted-foreground">
                                         {KIND_LABEL[item.kind]}
                                     </span>
-                                    <span className="text-[11px] text-muted-foreground">{item.schema}</span>
+                                    <span className="text-label text-muted-foreground">{item.schema}</span>
                                 </span>
                             </CommandItem>
                         ))}
@@ -524,81 +542,40 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
             </div>
             {contextMenu && (
                 <div
-                    className="fixed z-popover min-w-[160px] rounded-md border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,0.32)]"
+                    className="fixed z-panel-overlay pointer-events-none"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
-                    onClick={(event) => event.stopPropagation()}
                 >
-                    {isTableLike(contextMenu.item.kind) ? (
-                        <>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'browse');
-                                }}
-                            >
-                                Browse
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'select');
-                                }}
-                            >
-                                Select
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'insert');
-                                }}
-                            >
-                                Insert
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'update');
-                                }}
-                            >
-                                Update
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
-                                onClick={() => {
-                                    setContextMenu(null);
-                                    void runItemAction(contextMenu.item, 'alter');
-                                }}
-                            >
-                                Alter
-                            </Button>
-                        </>
-                    ) : (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-auto w-full justify-start rounded-none px-3 py-1.5 text-[12px]"
-                            onClick={() => {
-                                setContextMenu(null);
-                                void runItemAction(contextMenu.item, 'open');
-                            }}
-                        >
-                            Open
-                        </Button>
-                    )}
+                    <ContextMenu modal={false} onOpenChange={(open) => { if (!open) setContextMenu(null); }}>
+                        <ContextMenuTrigger asChild>
+                            <div ref={contextMenuTriggerRef} className="h-px w-px" />
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-40 pointer-events-auto z-topmost">
+                            {isTableLike(contextMenu.item.kind) ? (
+                                <>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'browse'); }}>
+                                        Browse
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'select'); }}>
+                                        Select
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'insert'); }}>
+                                        Insert
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'update'); }}>
+                                        Update
+                                    </ContextMenuItem>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'alter'); }}>
+                                        Alter
+                                    </ContextMenuItem>
+                                </>
+                            ) : (
+                                <ContextMenuItem onSelect={() => { setContextMenu(null); void runItemAction(contextMenu.item, 'open'); }}>
+                                    Open
+                                </ContextMenuItem>
+                            )}
+                        </ContextMenuContent>
+                    </ContextMenu>
                 </div>
             )}
         </OverlayDialog>

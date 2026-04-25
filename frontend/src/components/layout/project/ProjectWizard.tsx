@@ -1,41 +1,41 @@
 import React from 'react';
-import { BadgeCheck, FolderOpen } from 'lucide-react';
-import { Disconnect, ImportConnectionPackage } from '../../../services/connectionService';
+import {
+    DeleteConnection,
+    Disconnect,
+    ExportConnectionPackage,
+    ImportConnectionPackage,
+    LoadConnections,
+} from '../../../services/connectionService';
 import { GetDefaultProjectStorageRoot, PickDirectory } from '../../../services/projectService';
 import { useProjectStore } from '../../../stores/projectStore';
 import { useConnectionStore } from '../../../stores/connectionStore';
 import { useEnvironmentStore } from '../../../stores/environmentStore';
 import { ENVIRONMENT_KEYS, getEnvironmentMeta } from '../../../lib/projects';
 import { useConnectionForm } from '../../../hooks/useConnectionForm';
-import { ConnectionForm } from '../../connection/ConnectionForm';
-import { ProviderPickerToolbar } from '../../connection/ProviderPickerToolbar';
-import { ProviderGrid } from '../../connection/ProviderGrid';
-import { Button, Input, Spinner } from '../../ui';
-import { DatabaseTreePicker } from '../../connection/DatabaseTreePicker';
-import { ENVIRONMENT_KEY } from '../../../lib/constants';
-import { cn } from '../../../lib/cn';
-import { getProvider } from '../../../lib/providers';
-import type { EnvironmentKey } from '../../../types/project';
+import { ConfirmationModal } from '../../ui';
+import { ENVIRONMENT_KEY, type ProjectHubLaunchContext, type ProjectWizardMode } from '../../../lib/constants';
+import type { EnvironmentKey, Project } from '../../../types/project';
 import type { ConnectionProfile } from '../../../types/connection';
 import { useToast } from '../Toast';
 import {
-    PROJECT_ICON_MAP,
-    PROJECT_ICON_OPTIONS,
     buildTagsWithProjectIcon,
+    getProjectIconKey,
     type ProjectIconKey,
 } from '../projectHubMeta';
-import { PanelFrame } from '../PanelFrame';
+import { ProjectWizardView } from './CreateWizard';
 
-type WizardStep = 'basics' | 'environment' | 'connection' | 'review';
 type ConnectionMode = 'existing' | 'new';
-
-const STEP_ORDER: WizardStep[] = ['basics', 'environment', 'connection', 'review'];
 
 interface WizardDraft {
     name: string;
     description: string;
     iconKey: ProjectIconKey;
-    starterEnv: EnvironmentKey;
+}
+
+interface DraftEnvironmentBinding {
+    profile: ConnectionProfile;
+    profileName: string;
+    database: string;
 }
 
 function slugifyProjectName(value: string): string {
@@ -68,40 +68,134 @@ function joinPath(parent: string, child: string): string {
     return `${normalized}${separator}${child}`;
 }
 
+function normalizePathForCompare(value: string): string {
+    return value.trim().replace(/[\\/]+/g, '\\').replace(/\\+$/, '').toLowerCase();
+}
+
+function resolveDefaultEnvironment(project?: Project): EnvironmentKey {
+    return (project?.last_active_environment_key || project?.default_environment_key || ENVIRONMENT_KEY.LOCAL) as EnvironmentKey;
+}
+
+function buildBoundProjectDraft(
+    project: Project,
+    environmentKey: EnvironmentKey,
+    profile: ConnectionProfile,
+    database: string,
+    profileName: string,
+): Pick<Project, 'environments' | 'connections'> {
+    const existingConnection = (project.connections || []).find((connection) => connection.environment_key === environmentKey);
+    const nextConnectionId = existingConnection?.id || crypto.randomUUID();
+    const nextConnection = {
+        id: nextConnectionId,
+        project_id: project.id,
+        environment_key: environmentKey,
+        name: profileName,
+        driver: profile.driver,
+        host: profile.host,
+        port: profile.port,
+        database,
+        username: profile.username,
+        password: profile.password,
+        save_password: profile.save_password,
+        ssl_mode: profile.ssl_mode,
+        use_socket: false,
+        ssh_enabled: false,
+        advanced_meta: {
+            profile_name: profileName,
+            encrypt_password: String(Boolean(profile.encrypt_password)),
+            show_all_schemas: String(Boolean(profile.show_all_schemas)),
+            trust_server_cert: String(Boolean(profile.trust_server_cert)),
+        },
+    };
+
+    const nextEnvironments = (project.environments || []).some((environment) => environment.key === environmentKey)
+        ? (project.environments || []).map((environment) => (
+            environment.key === environmentKey
+                ? { ...environment, connection_id: nextConnectionId }
+                : environment
+        ))
+        : [
+            ...(project.environments || []),
+            {
+                id: crypto.randomUUID(),
+                project_id: project.id,
+                key: environmentKey,
+                label: getEnvironmentMeta(environmentKey).label,
+                badge_color: environmentKey,
+                is_protected: environmentKey === ENVIRONMENT_KEY.STAGING || environmentKey === ENVIRONMENT_KEY.PRODUCTION,
+                is_read_only: environmentKey === ENVIRONMENT_KEY.PRODUCTION,
+                connection_id: nextConnectionId,
+            },
+        ];
+
+    const nextConnections = (project.connections || []).some((connection) => connection.environment_key === environmentKey)
+        ? (project.connections || []).map((connection) => (
+            connection.environment_key === environmentKey ? nextConnection : connection
+        ))
+        : [...(project.connections || []), nextConnection];
+
+    return {
+        environments: nextEnvironments,
+        connections: nextConnections,
+    };
+}
+
 interface ProjectWizardProps {
+    mode?: ProjectWizardMode;
+    project?: Project;
+    initialEnvironmentKey?: EnvironmentKey;
+    launchContext?: ProjectHubLaunchContext;
     overlay?: boolean;
     onClose?: () => void;
     onDone: () => void;
 }
 
-export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, onClose, onDone }) => {
+export const ProjectWizard: React.FC<ProjectWizardProps> = ({
+    mode = 'create',
+    project,
+    initialEnvironmentKey,
+    launchContext,
+    onClose,
+    onDone,
+}) => {
     const createProject = useProjectStore((s) => s.createProject);
-    const bindEnvironmentConnection = useProjectStore((s) => s.bindEnvironmentConnection);
-    const setProjectEnvironment = useProjectStore((s) => s.setProjectEnvironment);
+    const saveProject = useProjectStore((s) => s.saveProject);
+    const projects = useProjectStore((s) => s.projects);
+    const projectList = Array.isArray(projects) ? projects : [];
+    const activeProject = useProjectStore((s) => s.activeProject);
     const setActiveProject = useProjectStore((s) => s.setActiveProject);
     const resetRuntime = useConnectionStore((s) => s.resetRuntime);
     const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
     const { toast } = useToast();
 
-    const [step, setStep] = React.useState<WizardStep>('basics');
+    const isEditMode = mode === 'edit';
+
     const [draft, setDraft] = React.useState<WizardDraft>({
         name: '',
         description: '',
         iconKey: 'general',
-        starterEnv: ENVIRONMENT_KEY.LOCAL,
     });
     const [connectionMode, setConnectionMode] = React.useState<ConnectionMode>('existing');
-    const [selectedProfile, setSelectedProfile] = React.useState<ConnectionProfile | null>(null);
-    const [selectedProfileName, setSelectedProfileName] = React.useState<string | null>(null);
-    const [selectedDatabase, setSelectedDatabase] = React.useState('');
+    const [activeEnvKey, setActiveEnvKey] = React.useState<EnvironmentKey>(ENVIRONMENT_KEY.LOCAL);
+    const [editActiveEnvKey, setEditActiveEnvKey] = React.useState<EnvironmentKey>(ENVIRONMENT_KEY.LOCAL);
     const [providerFilter, setProviderFilter] = React.useState('');
     const [isSelectingProvider, setIsSelectingProvider] = React.useState(false);
     const [submitting, setSubmitting] = React.useState(false);
     const [storageParentPath, setStorageParentPath] = React.useState('');
+    const [storagePath, setStoragePath] = React.useState('');
     const [loadingStorageRoot, setLoadingStorageRoot] = React.useState(true);
     const [importingConnection, setImportingConnection] = React.useState(false);
     const [importingFormConnection, setImportingFormConnection] = React.useState(false);
+    const [exportingConnection, setExportingConnection] = React.useState(false);
     const [treeRefreshKey, setTreeRefreshKey] = React.useState(0);
+    const [connections, setConnections] = React.useState<ConnectionProfile[]>([]);
+    const [editingProfile, setEditingProfile] = React.useState<ConnectionProfile | null>(null);
+    const [pendingDeleteProfile, setPendingDeleteProfile] = React.useState<ConnectionProfile | null>(null);
+    const [deletingConnectionName, setDeletingConnectionName] = React.useState<string | null>(null);
+    const [draftEnvironmentBindings, setDraftEnvironmentBindings] = React.useState<Partial<Record<EnvironmentKey, DraftEnvironmentBinding>>>({});
+    // Per-env selection state in edit mode (profile/db shown per env in side panel)
+    const [editEnvSelections, setEditEnvSelections] = React.useState<Partial<Record<EnvironmentKey, { profileName: string | null; database: string }>>>({});
+    const editInitKeyRef = React.useRef<string | null>(null);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -113,59 +207,134 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
                     setStorageParentPath(root);
                 }
             })
-            .catch(() => {
-                // Ignore and allow manual path input.
-            })
+            .catch(() => { /* ignore, allow manual input */ })
             .finally(() => {
-                if (!cancelled) {
-                    setLoadingStorageRoot(false);
-                }
+                if (!cancelled) setLoadingStorageRoot(false);
             });
 
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, []);
 
-    const handleSelectFromTree = React.useCallback((profile: ConnectionProfile, database: string) => {
-        setSelectedProfile(profile);
-        setSelectedProfileName(profile.name || null);
-        setSelectedDatabase(database);
-    }, []);
-
-    const handlePickStorageFolder = React.useCallback(async () => {
+    const loadConnections = React.useCallback(async () => {
         try {
-            const picked = await PickDirectory(storageParentPath);
-            if (picked) {
-                setStorageParentPath(picked);
-            }
+            const loaded = await LoadConnections();
+            const next = loaded || [];
+            setConnections(next);
+            return next;
         } catch (error) {
-            toast.error(`Could not pick folder: ${error}`);
+            toast.error(`Could not load connections: ${error}`);
+            setConnections([]);
+            return [];
         }
-    }, [storageParentPath, toast]);
+    }, [toast]);
 
-    const form = useConnectionForm({
-        existingNames: [],
-        onSaved: async () => {
-            const savedName = form.formData.name || '';
-            if (savedName) setSelectedProfileName(savedName);
-            setSelectedProfile(form.formData as ConnectionProfile);
-            if (form.formData.db_name) setSelectedDatabase(form.formData.db_name);
+    React.useEffect(() => {
+        if (!isEditMode) {
+            setConnections([]);
+            return;
+        }
+        void loadConnections();
+    }, [isEditMode, loadConnections]);
+
+    React.useEffect(() => {
+        if (isEditMode && project) {
+            const initKey = `${project.id}:${initialEnvironmentKey || ''}`;
+            if (editInitKeyRef.current === initKey) return;
+            editInitKeyRef.current = initKey;
+
+            const nextEnv = (initialEnvironmentKey || resolveDefaultEnvironment(project)) as EnvironmentKey;
+            setDraft({
+                name: project.name || '',
+                description: project.description || '',
+                iconKey: getProjectIconKey(project),
+            });
+            setStoragePath(project.storage_path || '');
+            setEditActiveEnvKey(nextEnv);
+            // Initialize edit selections from project connections
+            const selections: Partial<Record<EnvironmentKey, { profileName: string | null; database: string }>> = {};
+            (project.connections || []).forEach((conn) => {
+                const envKey = conn.environment_key as EnvironmentKey;
+                selections[envKey] = {
+                    profileName: conn.advanced_meta?.profile_name || conn.name || null,
+                    database: conn.database || '',
+                };
+            });
+            setEditEnvSelections(selections);
+            setDraftEnvironmentBindings({});
+
             setConnectionMode('existing');
             setIsSelectingProvider(false);
             setProviderFilter('');
+            setEditingProfile(null);
+            return;
+        } else {
+            editInitKeyRef.current = null;
+            setDraft({ name: '', description: '', iconKey: 'general' });
+            setStoragePath('');
+            setDraftEnvironmentBindings({});
+            setEditEnvSelections({});
+            setActiveEnvKey(ENVIRONMENT_KEY.LOCAL);
+
+            setConnectionMode('new');
+            setIsSelectingProvider(true);
+            setProviderFilter('');
+            setEditingProfile(null);
+        }
+    }, [initialEnvironmentKey, isEditMode, project]);
+
+    const existingNames = React.useMemo(
+        () => connections.map((c) => c.name).filter(Boolean),
+        [connections],
+    );
+
+    const form = useConnectionForm({
+        profile: editingProfile,
+        isOpen: connectionMode === 'new',
+        existingNames,
+        onSaved: async () => {
+            const savedName = form.formData.name || '';
+            if (isEditMode) {
+                const refreshed = await loadConnections();
+                const matched = refreshed.find((c) => c.name === savedName) || null;
+                const activeEnv = editActiveEnvKey;
+                setEditEnvSelections((prev) => ({
+                    ...prev,
+                    [activeEnv]: {
+                        profileName: matched?.name || savedName || null,
+                        database: matched?.db_name || form.formData.db_name || '',
+                    },
+                }));
+            } else {
+                const savedProfile = form.formData as ConnectionProfile;
+                setConnections((current) => {
+                    const withoutOld = current.filter((c) => c.name !== savedProfile.name);
+                    return [...withoutOld, savedProfile];
+                });
+                const defaultDb = (savedProfile.db_name || '').trim();
+                if (savedName && defaultDb && activeEnvKey) {
+                    setDraftEnvironmentBindings((current) => ({
+                        ...current,
+                        [activeEnvKey]: {
+                            profile: savedProfile,
+                            profileName: savedName,
+                            database: defaultDb,
+                        },
+                    }));
+                }
+            }
+            setConnectionMode('existing');
+            setIsSelectingProvider(false);
+            setProviderFilter('');
+            setEditingProfile(null);
+            setTreeRefreshKey((k) => k + 1);
         },
         onClose: () => {
             setConnectionMode('existing');
             setIsSelectingProvider(false);
             setProviderFilter('');
+            setEditingProfile(null);
         },
     });
-
-    const selectedProvider = React.useMemo(
-        () => (form.selectedProvider ? getProvider(form.selectedProvider) : null),
-        [form.selectedProvider],
-    );
 
     const handleProviderSelect = React.useCallback((key: string) => {
         form.handleDriverChange(key);
@@ -173,31 +342,108 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         setProviderFilter('');
     }, [form.handleDriverChange]);
 
+    const resolveLatestEditProject = React.useCallback((): Project | null => {
+        if (!project?.id) return null;
+        return projectList.find((item) => item.id === project.id)
+            || (activeProject?.id === project.id ? activeProject : null)
+            || project;
+    }, [activeProject, project, projectList]);
+
+    const handleAutoBindFromTree = React.useCallback(async (envKey: EnvironmentKey, profile: ConnectionProfile, database: string) => {
+        const profileName = (profile.name || '').trim();
+        const dbName = database.trim();
+        if (!profileName || !dbName || submitting) return;
+
+        const baseProject = resolveLatestEditProject();
+        if (!baseProject) return;
+
+        setSubmitting(true);
+        try {
+            const bindingDraft = buildBoundProjectDraft(baseProject, envKey, profile, dbName, profileName);
+            const saved = await saveProject({ ...baseProject, ...bindingDraft });
+            if (!saved) {
+                toast.error('Could not save environment binding.');
+                return;
+            }
+            setActiveProject(saved);
+            setEditEnvSelections((prev) => ({
+                ...prev,
+                [envKey]: { profileName, database: dbName },
+            }));
+        } catch (error) {
+            toast.error(`Could not save binding: ${error}`);
+        } finally {
+            setSubmitting(false);
+        }
+    }, [resolveLatestEditProject, saveProject, setActiveProject, submitting, toast]);
+
+    const handleSelectFromTreeEdit = React.useCallback((envKey: EnvironmentKey, profile: ConnectionProfile, database: string) => {
+        void handleAutoBindFromTree(envKey, profile, database);
+    }, [handleAutoBindFromTree]);
+
+    const handleSelectFromTreeCreate = React.useCallback((envKey: EnvironmentKey, profile: ConnectionProfile, database: string) => {
+        if (!envKey) return;
+        setDraftEnvironmentBindings((current) => ({
+            ...current,
+            [envKey]: { profile, profileName: profile.name || '', database },
+        }));
+    }, []);
+
+    const handlePickStorageFolder = React.useCallback(async () => {
+        try {
+            const initialPath = isEditMode ? storagePath : storageParentPath;
+            const picked = await PickDirectory(initialPath);
+            if (!picked) return;
+            if (isEditMode) {
+                setStoragePath(picked);
+                return;
+            }
+            setStorageParentPath(picked);
+        } catch (error) {
+            toast.error(`Could not pick folder: ${error}`);
+        }
+    }, [isEditMode, storageParentPath, storagePath, toast]);
+
     const handleImportConnection = React.useCallback(async () => {
         setImportingConnection(true);
         try {
             const imported = await ImportConnectionPackage();
             if (!imported) return;
             const importedProfile = imported as ConnectionProfile;
-            const profileName = importedProfile.name || null;
-            setSelectedProfile(importedProfile);
-            setSelectedProfileName(profileName);
-            setSelectedDatabase(importedProfile.db_name || '');
-            setTreeRefreshKey((key) => key + 1);
-            toast.success(`Imported connection${profileName ? ` "${profileName}"` : ''}.`);
+            let matched = importedProfile;
+            if (isEditMode) {
+                const refreshed = await loadConnections();
+                matched = refreshed.find((c) => c.name === importedProfile.name) || importedProfile;
+            } else {
+                setConnections((current) => {
+                    const withoutOld = current.filter((c) => c.name !== importedProfile.name);
+                    return [...withoutOld, importedProfile];
+                });
+            }
+            if (!isEditMode && matched.name && matched.db_name && activeEnvKey) {
+                setDraftEnvironmentBindings((current) => ({
+                    ...current,
+                    [activeEnvKey]: {
+                        profile: matched,
+                        profileName: matched.name,
+                        database: matched.db_name,
+                    },
+                }));
+            }
+            setTreeRefreshKey((k) => k + 1);
+            toast.success(`Imported connection${matched.name ? ` "${matched.name}"` : ''}.`);
         } catch (error) {
             toast.error(`Could not import connection: ${error}`);
         } finally {
             setImportingConnection(false);
         }
-    }, [toast]);
+    }, [activeEnvKey, isEditMode, loadConnections, toast]);
 
     const handleImportConnectionToForm = React.useCallback(async () => {
         setImportingFormConnection(true);
         try {
             const imported = await ImportConnectionPackage();
             if (!imported) return;
-
             const importedProfile: ConnectionProfile = { ...(imported as ConnectionProfile) };
             form.setFormFromProfile(importedProfile);
             setIsSelectingProvider(false);
@@ -210,58 +456,128 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         }
     }, [form, toast]);
 
-    const canGoNext = React.useMemo(() => {
-        if (step === 'basics') return Boolean(draft.name.trim());
-        if (step === 'environment') return Boolean(draft.starterEnv);
-        if (step === 'connection') return Boolean(selectedProfileName && selectedDatabase.trim());
-        return true;
-    }, [draft.name, draft.starterEnv, selectedProfileName, selectedDatabase, step]);
+    const handleEditConnection = React.useCallback((profile: ConnectionProfile) => {
+        setEditingProfile(profile);
+        setConnectionMode('new');
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+    }, []);
 
-    const stepIndex = STEP_ORDER.indexOf(step);
-    const DraftIcon = PROJECT_ICON_MAP[draft.iconKey].icon;
-    const draftIconLabel = PROJECT_ICON_MAP[draft.iconKey].label;
+    const handleRequestDeleteConnection = React.useCallback((profile: ConnectionProfile) => {
+        setPendingDeleteProfile(profile);
+    }, []);
+
+    const handleConfirmDeleteConnection = React.useCallback(async () => {
+        const profileName = pendingDeleteProfile?.name;
+        if (!profileName) return;
+
+        setDeletingConnectionName(profileName);
+        try {
+            await DeleteConnection(profileName);
+            await loadConnections();
+
+            if (editingProfile?.name === profileName) {
+                setEditingProfile(null);
+                setConnectionMode('existing');
+                setIsSelectingProvider(false);
+                setProviderFilter('');
+            }
+
+            setTreeRefreshKey((k) => k + 1);
+            toast.success(`Deleted connection "${profileName}".`);
+        } catch (error) {
+            toast.error(`Could not delete connection: ${error}`);
+        } finally {
+            setDeletingConnectionName(null);
+            setPendingDeleteProfile(null);
+        }
+    }, [editingProfile?.name, loadConnections, pendingDeleteProfile?.name, toast]);
+
+    const handleExportConnection = React.useCallback(async () => {
+        setExportingConnection(true);
+        try {
+            const exportedPath = await ExportConnectionPackage(editActiveEnvKey);
+            if (!exportedPath) return;
+            toast.success(`Connection exported: ${exportedPath}`);
+        } catch (error) {
+            toast.error(`Could not export connection: ${error}`);
+        } finally {
+            setExportingConnection(false);
+        }
+    }, [editActiveEnvKey, toast]);
+
     const storagePathPreview = React.useMemo(() => {
+        if (isEditMode) return storagePath.trim();
         const slug = slugifyProjectName(draft.name);
         return storageParentPath.trim() ? joinPath(storageParentPath, slug) : '';
-    }, [draft.name, storageParentPath]);
+    }, [draft.name, isEditMode, storageParentPath, storagePath]);
 
-    const goNext = React.useCallback(() => {
-        if (!canGoNext) return;
-        const next = STEP_ORDER[stepIndex + 1];
-        if (next) setStep(next);
-    }, [canGoNext, stepIndex]);
-    const goBack = React.useCallback(() => {
-        const prev = STEP_ORDER[stepIndex - 1];
-        if (prev) setStep(prev);
-    }, [stepIndex]);
+    const pathConflictProject = React.useMemo(() => {
+        const preview = storagePathPreview.trim();
+        if (!preview) return null;
+        const normalizedPreview = normalizePathForCompare(preview);
+        return projectList.find((item) => (
+            item.id !== project?.id
+            && item.storage_path
+            && normalizePathForCompare(item.storage_path) === normalizedPreview
+        )) || null;
+    }, [project?.id, projectList, storagePathPreview]);
 
     const handleCreateAndEnter = async () => {
-        if (!selectedProfileName || !selectedProfile) return;
+        const bindingEntries = ENVIRONMENT_KEYS
+            .map((envKey) => [envKey, draftEnvironmentBindings[envKey]] as const)
+            .filter(([, binding]) => Boolean(binding?.profileName && binding?.database.trim() && binding.profile));
+
+        if (bindingEntries.length === 0) {
+            toast.error('Please bind at least one environment database.');
+            return;
+        }
+
+        const defaultEnvKey = bindingEntries[0][0];
+
         setSubmitting(true);
         try {
             try { await Disconnect(); } catch { /* ignore */ }
             resetRuntime();
 
-            const project = await createProject({
+            const createdProject = await createProject({
                 name: draft.name.trim(),
                 description: draft.description.trim(),
                 tags: buildTagsWithProjectIcon([], draft.iconKey),
                 storage_path: storagePathPreview || undefined,
             });
-            if (!project) { toast.error('Could not create project.'); return; }
+            if (!createdProject) {
+                toast.error('Could not create project.');
+                return;
+            }
 
-            setActiveProject(project);
-            const dbName = selectedDatabase.trim();
-            const boundProject = await bindEnvironmentConnection(draft.starterEnv, {
-                ...selectedProfile,
-                name: selectedProfileName,
-                db_name: dbName,
+            let projectWithBindings = createdProject;
+            bindingEntries.forEach(([envKey, binding]) => {
+                if (!binding) return;
+                projectWithBindings = {
+                    ...projectWithBindings,
+                    ...buildBoundProjectDraft(
+                        projectWithBindings,
+                        envKey,
+                        binding.profile,
+                        binding.database.trim(),
+                        binding.profileName.trim(),
+                    ),
+                };
             });
-            if (!boundProject) { toast.error('Could not bind starter environment.'); return; }
+            const createdWithBinding = await saveProject({
+                ...projectWithBindings,
+                git_repo_path: storagePathPreview || undefined,
+                default_environment_key: defaultEnvKey,
+                last_active_environment_key: defaultEnvKey,
+            });
+            if (!createdWithBinding) {
+                toast.error('Could not bind starter environment.');
+                return;
+            }
 
-            const envProject = await setProjectEnvironment(draft.starterEnv);
-            setActiveProject(envProject || boundProject);
-            setActiveEnvironment(draft.starterEnv);
+            setActiveProject(createdWithBinding);
+            setActiveEnvironment(defaultEnvKey);
             onDone();
         } catch (error) {
             toast.error(`Could not finish setup: ${error}`);
@@ -270,254 +586,152 @@ export const ProjectWizard: React.FC<ProjectWizardProps> = ({ overlay = false, o
         }
     };
 
-    const handleWizardKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (event.key !== 'Enter') return;
-        if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
-        const target = event.target as HTMLElement | null;
-        if (!target) return;
-
-        const tag = target.tagName.toLowerCase();
-        if (tag === 'textarea' || tag === 'button') return;
-        if (step === 'connection' && connectionMode === 'new') return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (step !== 'review') {
-            goNext();
+    const handleSaveEdit = async () => {
+        const baseProject = resolveLatestEditProject();
+        if (!baseProject) {
+            toast.error('Project was not found for editing.');
             return;
         }
 
-        if (!submitting && selectedProfile && selectedProfileName && selectedDatabase) {
-            void handleCreateAndEnter();
+        setSubmitting(true);
+        try {
+            const metadataSaved = await saveProject({
+                ...baseProject,
+                name: draft.name.trim(),
+                description: draft.description.trim(),
+                tags: buildTagsWithProjectIcon(baseProject.tags, draft.iconKey),
+                git_repo_path: storagePathPreview || undefined,
+                storage_path: storagePathPreview || undefined,
+                default_environment_key: editActiveEnvKey,
+                last_active_environment_key: editActiveEnvKey,
+            });
+            if (!metadataSaved) {
+                toast.error('Could not save project changes.');
+                return;
+            }
+            setActiveProject(metadataSaved);
+            setActiveEnvironment(editActiveEnvKey);
+            onDone();
+        } catch (error) {
+            toast.error(`Could not finish setup: ${error}`);
+        } finally {
+            setSubmitting(false);
         }
-    }, [connectionMode, goNext, selectedDatabase, selectedProfile, selectedProfileName, step, submitting]);
+    };
+
+    const getSelectedProfileName = React.useCallback((envKey: EnvironmentKey): string | null => {
+        return editEnvSelections[envKey]?.profileName ?? null;
+    }, [editEnvSelections]);
+
+    const getSelectedDatabase = React.useCallback((envKey: EnvironmentKey): string => {
+        return editEnvSelections[envKey]?.database ?? '';
+    }, [editEnvSelections]);
+
+    const handleAddNew = React.useCallback(() => {
+        form.resetForm();
+        setEditingProfile(null);
+        setConnectionMode('new');
+        setIsSelectingProvider(true);
+        setProviderFilter('');
+    }, [form]);
+
+    const handleBack = React.useCallback(() => {
+        setConnectionMode('existing');
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+        setEditingProfile(null);
+    }, []);
+
+    const handleCancelForm = React.useCallback(() => {
+        setConnectionMode('existing');
+        setIsSelectingProvider(false);
+        setProviderFilter('');
+        setEditingProfile(null);
+    }, []);
+
+    const handleUnbind = React.useCallback((envKey: EnvironmentKey) => {
+        setDraftEnvironmentBindings((current) => {
+            const next = { ...current };
+            delete next[envKey];
+            return next;
+        });
+    }, []);
+
+    const handleSetActiveEnvKey = React.useCallback((key: EnvironmentKey) => {
+        setActiveEnvKey(key);
+        if (key !== activeEnvKey) {
+            setConnectionMode('existing');
+            setIsSelectingProvider(false);
+            setProviderFilter('');
+        }
+    }, [activeEnvKey]);
+
+    const isBoundInEdit = React.useCallback((envKey: EnvironmentKey): boolean => {
+        return Boolean(editEnvSelections[envKey]?.profileName);
+    }, [editEnvSelections]);
 
     return (
-        <PanelFrame
-            title={
-                <>
-                    {step === 'basics' && 'Create the project shell'}
-                    {step === 'environment' && 'Pick the starter environment'}
-                    {step === 'connection' && 'Bind one database'}
-                    {step === 'review' && 'Review and enter project'}
-                </>
-            }
-            subtitle={`${stepIndex + 1} of ${STEP_ORDER.length}`}
-            onClose={overlay && onClose ? onClose : undefined}
-            className="h-full"
-            headerClassName="px-6 py-4"
-            bodyClassName="min-h-0 overflow-y-auto px-6"
-            titleClassName="text-[20px]"
-            footerClassName="flex items-center justify-between px-6 py-4"
-            footer={(
-                <>
-                    <div className="flex items-center gap-3">
-                        {step !== 'basics' ? (
-                            <Button variant="secondary" onClick={goBack} className="rounded-md">Back</Button>
-                        ) : (
-                            <Button variant="ghost" onClick={onClose} className="rounded-md" disabled={!onClose}>Cancel</Button>
-                        )}
-                    </div>
-                    {step !== 'review' ? (
-                        <Button variant="default" onClick={goNext} disabled={!canGoNext} className="rounded-md px-5">Continue</Button>
-                    ) : (
-                        <Button
-                            variant="default"
-                            onClick={() => void handleCreateAndEnter()}
-                            disabled={!selectedProfile || !selectedProfileName || !selectedDatabase || submitting}
-                            className="rounded-md px-5"
-                        >
-                            {submitting ? <><Spinner size={12} className="mr-2 text-white" />Creating...</> : <>Create &amp; enter</>}
-                        </Button>
-                    )}
-                </>
-            )}
-        >
-            <div className="mt-1" onKeyDown={handleWizardKeyDown}>
-                {/* Step: basics */}
-                {step === 'basics' && (
-                    <div className="mx-auto flex max-w-190 flex-col gap-4">
-                        <div className="">
-                            <div className="grid gap-3">
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Project name</label>
-                                    <Input value={draft.name} onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))} placeholder="Payments Platform" className="h-11 rounded-md bg-card" autoFocus />
-                                </div>
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Description</label>
-                                    <Input value={draft.description} onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value }))} placeholder="Optional context for the team or future you" className="h-11 rounded-md bg-card" />
-                                </div>
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Icon</label>
-                                    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                        {PROJECT_ICON_OPTIONS.map((option) => {
-                                            const OptionIcon = option.icon;
-                                            const active = draft.iconKey === option.key;
-                                            return (
-                                                <Button
-                                                    key={option.key} type="button"
-                                                    variant="ghost"
-                                                    onClick={() => setDraft((c) => ({ ...c, iconKey: option.key }))}
-                                                    className={cn('h-auto w-full justify-start gap-2 rounded-md px-3 py-2 text-left text-[12px] transition-colors', active ? 'bg-accent/10 text-foreground' : 'bg-card text-muted-foreground hover:text-foreground')}
-                                                >
-                                                    <OptionIcon size={14} /><span>{option.label}</span>
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="mb-2 block text-[12px] font-semibold text-foreground">Project data location</label>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            value={storageParentPath}
-                                            onChange={(e) => setStorageParentPath(e.target.value)}
-                                            placeholder={loadingStorageRoot ? 'Loading default storage root...' : 'Choose parent folder...'}
-                                            className="h-11 rounded-md bg-card"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            className="h-11 rounded-md px-3"
-                                            onClick={() => {
-                                                void handlePickStorageFolder();
-                                            }}
-                                            disabled={loadingStorageRoot}
-                                            title="Browse folder"
-                                        >
-                                            <FolderOpen size={14} />
-                                        </Button>
-                                    </div>
-                                    <div className="mt-1 text-[11px] text-muted-foreground truncate" title={storagePathPreview || undefined}>
-                                        {storagePathPreview || 'Project folder will use the app default location.'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+        <>
+            <ConfirmationModal
+                isOpen={Boolean(pendingDeleteProfile)}
+                onClose={() => {
+                    if (deletingConnectionName) return;
+                    setPendingDeleteProfile(null);
+                }}
+                onConfirm={() => { void handleConfirmDeleteConnection(); }}
+                title="Delete Connection"
+                message={`Delete "${pendingDeleteProfile?.name || ''}"?`}
+                description="This action removes the saved connection profile."
+                confirmLabel={deletingConnectionName ? 'Deleting...' : 'Delete'}
+                variant="destructive"
+            />
 
-                {/* Step: environment */}
-                {step === 'environment' && (
-                    <div className="mx-auto grid max-w-215 gap-4 md:grid-cols-2">
-                        {ENVIRONMENT_KEYS.map((envKey) => {
-                            const meta = getEnvironmentMeta(envKey);
-                            const active = draft.starterEnv === envKey;
-                            return (
-                                <Button
-                                    key={envKey} type="button"
-                                    variant="outline"
-                                    onClick={() => setDraft((c) => ({ ...c, starterEnv: envKey }))}
-                                    className={cn('h-auto w-full justify-start rounded-md px-4 py-4 text-left transition-colors', envKey === ENVIRONMENT_KEY.PRODUCTION && 'md:col-span-2', active ? 'border-accent/40 bg-accent/8' : 'border-border/25 bg-background/20 hover:bg-background/40')}
-                                >
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', meta.colorClass)}>{envKey}</span>
-                                        {active && <BadgeCheck size={16} className="text-accent" />}
-                                    </div>
-                                    <div className="mt-4 text-[16px] font-semibold text-foreground">{meta.label}</div>
-                                    <p className="mt-2 text-[12px] leading-5 text-muted-foreground">{meta.description}</p>
-                                </Button>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* Step: connection */}
-                {step === 'connection' && (
-                    <div className=" w-full max-w-245">
-                        <div className="flex min-h-130 flex-col rounded-md bg-background/20">
-                            {connectionMode === 'existing' ? (
-                                <div className="flex-1 overflow-hidden">
-                                    <DatabaseTreePicker
-                                        key={treeRefreshKey}
-                                        onSelect={handleSelectFromTree}
-                                        selectedProfile={selectedProfileName}
-                                        selectedDatabase={selectedDatabase}
-                                        onImport={handleImportConnection}
-                                        importing={importingConnection}
-                                        onAddNew={() => { form.resetForm(); setConnectionMode('new'); setIsSelectingProvider(true); setProviderFilter(''); }}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] px-4 py-3">
-                                    <ProviderPickerToolbar
-                                        isSelectingProvider={isSelectingProvider}
-                                        providerFilter={providerFilter}
-                                        selectedProvider={selectedProvider}
-                                        onBack={() => { setConnectionMode('existing'); setIsSelectingProvider(false); setProviderFilter(''); }}
-                                        onShowProviderPicker={() => setIsSelectingProvider(true)}
-                                        onProviderFilterChange={setProviderFilter}
-                                        onClearProviderFilter={() => setProviderFilter('')}
-                                        onImportConnection={handleImportConnectionToForm}
-                                        importingConnection={importingFormConnection}
-                                    />
-                                    {isSelectingProvider ? (
-                                        <div className="h-full min-h-0 rounded-md bg-background/15 p-2">
-                                            <ProviderGrid selected={form.selectedProvider} locked={form.isEditing} filterText={providerFilter} onSelect={handleProviderSelect} />
-                                        </div>
-                                    ) : (
-                                        <div className="h-full overflow-hidden">
-                                            <div className="mx-auto flex min-h-full w-full max-w-155 items-start justify-center">
-                                                <div className="w-full">
-                                                    <ConnectionForm
-                                                        formData={form.formData} connString={form.connString}
-                                                        testing={form.testing} saving={form.saving}
-                                                        testResult={form.testResult} errorMsg={form.errorMsg}
-                                                        successMsg={form.successMsg} isEditing={form.isEditing}
-                                                        showUriField={true}
-                                                        onChange={form.handleChange}
-                                                        onConnStringChange={form.handleParseConnectionString}
-                                                        onTest={form.handleTest} onSave={form.handleSave}
-                                                        onCancel={() => { setConnectionMode('existing'); setIsSelectingProvider(false); setProviderFilter(''); }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Step: review */}
-                {step === 'review' && (
-                    <div className="mx-auto flex max-w-190 flex-col gap-4">
-                        <div className="rounded-md bg-background/20 p-5">
-                            <div className="space-y-3">
-                                <div className="rounded-md bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Project</div>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-background/30">
-                                            <DraftIcon size={14} className="text-foreground" />
-                                        </div>
-                                        <div className="text-[16px] font-semibold text-foreground">{draft.name.trim()}</div>
-                                    </div>
-                                    <div className="mt-1 text-[12px] text-muted-foreground">{draft.description.trim() || draftIconLabel}</div>
-                                </div>
-                                <div className="rounded-md bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Starter environment</div>
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]', getEnvironmentMeta(draft.starterEnv).colorClass)}>{draft.starterEnv}</span>
-                                        <span className="text-[16px] font-semibold text-foreground">{getEnvironmentMeta(draft.starterEnv).label}</span>
-                                    </div>
-                                    <div className="mt-1 text-[12px] text-muted-foreground">The first project session will open in this context.</div>
-                                </div>
-                                <div className="rounded-md bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Connection</div>
-                                    <div className="mt-2 text-[16px] font-semibold text-foreground">{selectedProfileName || 'Missing connection'}</div>
-                                    <div className="mt-1 text-[12px] text-muted-foreground">{selectedDatabase || 'Pick a database'}</div>
-                                </div>
-                                <div className="rounded-md bg-card px-4 py-4">
-                                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Storage</div>
-                                    <div className="mt-2 text-[12px] text-foreground break-all">{storagePathPreview || 'App default location'}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </PanelFrame>
+            <ProjectWizardView
+                mode={isEditMode ? 'edit' : 'create'}
+                initialStep={launchContext === 'env-config' ? 2 : 1}
+                draft={draft}
+                onDraftChange={setDraft}
+                draftEnvironmentBindings={draftEnvironmentBindings}
+                onBind={isEditMode ? handleSelectFromTreeEdit : handleSelectFromTreeCreate}
+                onUnbind={handleUnbind}
+                getSelectedProfileName={getSelectedProfileName}
+                getSelectedDatabase={getSelectedDatabase}
+                isBoundInEdit={isBoundInEdit}
+                storageParentPath={storageParentPath}
+                storagePath={storagePath}
+                storagePathPreview={storagePathPreview}
+                loadingStorageRoot={loadingStorageRoot}
+                pathConflictProject={pathConflictProject}
+                onStorageChange={isEditMode ? setStoragePath : setStorageParentPath}
+                onPickFolder={handlePickStorageFolder}
+                submitting={submitting}
+                exportingConnection={exportingConnection}
+                onCancel={onClose ?? (() => onDone())}
+                onSubmit={isEditMode ? handleSaveEdit : handleCreateAndEnter}
+                onExport={isEditMode ? handleExportConnection : undefined}
+                activeEnvKey={isEditMode ? editActiveEnvKey : activeEnvKey}
+                onSetActiveEnvKey={isEditMode ? (key: EnvironmentKey) => setEditActiveEnvKey(key) : handleSetActiveEnvKey}
+                connectionMode={connectionMode}
+                isSelectingProvider={isSelectingProvider}
+                providerFilter={providerFilter}
+                connections={connections}
+                treeRefreshKey={treeRefreshKey}
+                importingConnection={importingConnection}
+                importingFormConnection={importingFormConnection}
+                deletingConnectionName={deletingConnectionName}
+                form={form}
+                onAddNew={handleAddNew}
+                onImportConnection={handleImportConnection}
+                onEditConnection={handleEditConnection}
+                onDeleteConnection={isEditMode ? handleRequestDeleteConnection : undefined}
+                onBack={handleBack}
+                onShowProviderPicker={() => setIsSelectingProvider(true)}
+                onProviderFilterChange={setProviderFilter}
+                onClearProviderFilter={() => setProviderFilter('')}
+                onProviderSelect={handleProviderSelect}
+                onImportConnectionToForm={handleImportConnectionToForm}
+                onCancelForm={handleCancelForm}
+            />
+        </>
     );
 };

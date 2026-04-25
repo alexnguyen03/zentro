@@ -103,15 +103,16 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
     return (
         <div className="absolute inset-0 z-modal p-2" onMouseDown={onClose}>
             <div
-                className="mx-auto mt-2 w-full max-w-[560px] rounded-md border border-border bg-card shadow-elevation-lg"
+                className="mx-auto mt-1 w-full max-w-[620px] overflow-hidden rounded-sm border border-border/90 bg-card shadow-elevation-lg"
                 onMouseDown={(event) => event.stopPropagation()}
             >
-                <div className="p-1.5">
+                <div className="border-b border-border/70 bg-muted/35 p-1.5">
                     <Input
                         ref={inputRef}
                         value={query}
-                        className="h-10 text-[12px] font-mono"
-                        placeholder="Select a branch to checkout"
+                        size="md"
+                        className="border-border/80 bg-background/95 font-mono"
+                        placeholder="Select a branch or tag to checkout"
                         onChange={(event) => setQuery(event.target.value)}
                         onKeyDown={(event) => {
                             if (event.key === 'Escape') {
@@ -138,42 +139,63 @@ export const BranchSpotlight: React.FC<BranchSpotlightProps> = ({
                         }}
                     />
                 </div>
-                <div className="max-h-[320px] overflow-y-auto border-t border-border/30 py-1">
+                <div className="max-h-[360px] overflow-y-auto py-1">
                     {loading ? (
-                        <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading branches...</div>
+                        <div className="px-3 py-2 text-small text-muted-foreground">Loading branches...</div>
+                    ) : items.length === 0 ? (
+                        <div className="px-3 py-2 text-small text-muted-foreground">No branch matches your search.</div>
                     ) : (
-                        items.map((item, index) => (
-                            <Button
-                                key={item.type === 'branch' ? `branch:${item.name}` : `action:${item.action}`}
-                                type="button"
-                                variant="ghost"
-                                className={cn(
-                                    'flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors',
-                                    index === activeIndex ? 'bg-accent/20 text-foreground' : 'text-foreground hover:bg-muted',
-                                    item.type === 'action' && item.disabled && 'opacity-50',
-                                )}
-                                disabled={busy || (item.type === 'action' && item.disabled)}
-                                onClick={() => {
-                                    setActiveIndex(index);
-                                    void handleSubmit(item);
-                                }}
-                            >
-                                {item.type === 'branch' ? (
-                                    <>
-                                        <GitBranch size={12} className="text-muted-foreground" />
-                                        <span className="font-mono">{item.name}</span>
-                                        {item.name === currentBranch && <span className="ml-auto text-[10px] text-accent">current</span>}
-                                    </>
-                                ) : (
-                                    <>
-                                        {item.action === 'detached'
-                                            ? <GitBranch size={12} className="text-muted-foreground" />
-                                            : <Plus size={12} className="text-muted-foreground" />}
-                                        <span>{item.label}</span>
-                                    </>
-                                )}
-                            </Button>
-                        ))
+                        <>
+                            {items.map((item, index) => {
+                                const isActive = index === activeIndex;
+                                const isBranch = item.type === 'branch';
+                                const isAction = item.type === 'action';
+                                const isDisabled = busy || (isAction && item.disabled);
+                                const key = isBranch ? `branch:${item.name}` : `action:${item.action}`;
+
+                                return (
+                                    <React.Fragment key={key}>
+                                        {index === 3 && (
+                                            <div className="mx-2 my-1.5 flex items-center justify-between border-t border-border/70 pt-1.5">
+                                                <span className="text-label font-semibold uppercase tracking-wider text-muted-foreground">Branches</span>
+                                                <span className="text-label text-muted-foreground">{filtered.length}</span>
+                                            </div>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className={cn(
+                                                'h-auto w-full justify-start rounded-none border-0 px-3 py-1.5 text-left transition-colors',
+                                                isActive ? 'bg-accent/25 text-foreground' : 'text-foreground hover:bg-muted/70',
+                                                isAction && item.disabled && 'opacity-45',
+                                            )}
+                                            disabled={isDisabled}
+                                            onClick={() => {
+                                                setActiveIndex(index);
+                                                void handleSubmit(item);
+                                            }}
+                                        >
+                                            {isBranch ? (
+                                                <div className="flex min-w-0 w-full items-center gap-2">
+                                                    <GitBranch size={12} className="shrink-0 text-muted-foreground" />
+                                                    <span className="truncate font-mono text-small">{item.name}</span>
+                                                    {item.name === currentBranch && (
+                                                        <span className="ml-auto text-label font-semibold text-[#3b82f6]">current</span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex min-w-0 w-full items-center gap-2">
+                                                    {item.action === 'detached'
+                                                        ? <GitBranch size={12} className="shrink-0 text-muted-foreground" />
+                                                        : <Plus size={12} className="shrink-0 text-muted-foreground" />}
+                                                    <span className="truncate text-small">{item.label}</span>
+                                                </div>
+                                            )}
+                                        </Button>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </>
                     )}
                 </div>
             </div>

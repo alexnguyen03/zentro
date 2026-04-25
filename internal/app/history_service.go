@@ -109,7 +109,7 @@ func (s *HistoryService) ClearHistory() error {
 func (s *HistoryService) historyFilePath() (string, error) {
 	if s.getProject != nil {
 		if project := s.getProject(); project != nil && project.StoragePath != "" {
-			dir := filepath.Join(project.StoragePath, trackingDirName, "runtime")
+			dir := filepath.Join(project.StoragePath, ".zentro-tracking", "runtime")
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return "", err
 			}

@@ -57,19 +57,34 @@ func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) erro
 	s.logger.Info("fetching schema", "profile", profileName, "db", dbName)
 
 	go func() {
-		clone := *prof
-		clone.DBName = dbName
-		conn, err := dbpkg.OpenConnection(&clone)
-		if err != nil {
-			s.logger.Warn("cannot open db for schema fetch", "db", dbName, "err", err)
-			EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaError, constant.EventSchemaErrorV2, SchemaErrorEvent{
-				ProfileName: profileName,
-				DBName:      dbName,
-				Error:       err.Error(),
-			})
-			return
+		activeProfile := s.getProfile()
+		activeDB := s.getDB()
+		useActive := activeDB != nil &&
+			activeProfile != nil &&
+			activeProfile.Name == profileName &&
+			activeProfile.DBName == dbName
+
+		var conn *sql.DB
+		if useActive {
+			conn = activeDB
+			s.logDBStats("fetch_schema_reuse_active", conn, activeProfile)
+		} else {
+			clone := *prof
+			clone.DBName = dbName
+			var err error
+			conn, err = dbpkg.OpenConnection(&clone)
+			if err != nil {
+				s.logger.Warn("cannot open db for schema fetch", "db", dbName, "err", err)
+				EmitVersionedEvent(s.emitter, s.ctx, constant.EventSchemaError, constant.EventSchemaErrorV2, SchemaErrorEvent{
+					ProfileName: profileName,
+					DBName:      dbName,
+					Error:       err.Error(),
+				})
+				return
+			}
+			defer conn.Close()
+			s.logDBStats("fetch_schema_temp_conn", conn, &clone)
 		}
-		defer conn.Close()
 
 		prefs := s.getPrefs()
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.SchemaTimeout)*time.Second)

@@ -11,6 +11,8 @@ export interface UseResultTableInteractionsArgs {
     rows: string[][];
     selectedCells: Set<string>;
     setSelectedCells: React.Dispatch<React.SetStateAction<Set<string>>>;
+    selectedRowKeys: Set<string>;
+    setSelectedRowKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
     editedCells: Map<string, string>;
     setEditedCells: React.Dispatch<React.SetStateAction<Map<string, string>>>;
     deletedRows?: Set<number>;
@@ -24,6 +26,7 @@ export interface UseResultTableInteractionsArgs {
     onFocusCellRequestHandled: () => void;
     onRemoveDraftRows: (draftIds: string[]) => void;
     onCellContextMenu?: (payload: ResultCellContextMenuPayload) => void;
+    onRowHeaderContextMenu?: (payload: ResultCellContextMenuPayload) => void;
     onReadOnlyEditAttempt?: () => void;
 }
 

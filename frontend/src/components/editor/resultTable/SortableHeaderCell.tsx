@@ -1,6 +1,5 @@
 import React from 'react';
 import { Header } from '@tanstack/react-table';
-import { GripVertical } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -12,7 +11,7 @@ interface SortableHeaderCellProps {
     title?: string;
     onSortToggle?: React.MouseEventHandler<HTMLTableHeaderCellElement>;
     onAutoFit?: () => void;
-    children: React.ReactNode;
+    children: React.ReactNode | ((dragHandleProps: React.HTMLAttributes<HTMLElement>) => React.ReactNode);
 }
 
 export const SortableHeaderCell: React.FC<SortableHeaderCellProps> = ({
@@ -33,6 +32,11 @@ export const SortableHeaderCell: React.FC<SortableHeaderCellProps> = ({
         zIndex: sortable.isDragging ? 2 : 1,
     };
 
+    const dragHandleProps = {
+        ...sortable.attributes,
+        ...sortable.listeners,
+    } as React.HTMLAttributes<HTMLElement>;
+
     return (
         <th
             ref={sortable.setNodeRef}
@@ -41,16 +45,7 @@ export const SortableHeaderCell: React.FC<SortableHeaderCellProps> = ({
             onClick={onSortToggle}
             title={title}
         >
-            {children}
-            <span
-                className="rt-th-drag-handle"
-                title="Drag to reorder column"
-                onClick={(event) => event.stopPropagation()}
-                {...sortable.attributes}
-                {...sortable.listeners}
-            >
-                <GripVertical size={11} />
-            </span>
+            {typeof children === 'function' ? children(dragHandleProps) : children}
             <div
                 className="rt-col-resizer"
                 onMouseDown={header.getResizeHandler()}

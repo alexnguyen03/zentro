@@ -57,7 +57,20 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
 
   const originalRef = useRef<MonacoEditor.ICodeEditor | null>(null);
   const modifiedRef = useRef<MonacoEditor.ICodeEditor | null>(null);
+  const diffEditorRef = useRef<MonacoEditor.IStandaloneDiffEditor | null>(null);
   const syncingRef = useRef(false);
+
+  // Dispose the DiffEditor before the component unmounts to prevent
+  // "TextModel got disposed before DiffEditorWidget model got reset" errors
+  // that occur when both DiffEditor and unified Editor unmount simultaneously.
+  useEffect(() => {
+    return () => {
+      diffEditorRef.current?.dispose();
+      diffEditorRef.current = null;
+      originalRef.current = null;
+      modifiedRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeTab?.id) return;
@@ -130,15 +143,15 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
 
   return (
     <OverlayDialog onClose={onClose} className="items-start pt-[8vh]">
-      <div className="flex h-[84vh] w-[92vw] flex-col overflow-hidden rounded-md border border-border bg-card shadow-2xl">
+      <div className="flex h-[84vh] w-[92vw] flex-col overflow-hidden rounded-sm border border-border bg-card shadow-2xl">
         <div className="h-11 px-4 border-b border-border flex items-center justify-between">
-          <div className="text-sm font-semibold text-foreground">Compare Queries</div>
+          <div className="text-body font-semibold text-foreground">Compare Queries</div>
           <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1.5 text-small text-muted-foreground">
               <Checkbox checked={syncScroll} onCheckedChange={(checked) => setSyncScroll(checked === true)} />
               Sync scroll
             </label>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1.5 text-small text-muted-foreground">
               <Checkbox checked={ignoreWhitespace} onCheckedChange={(checked) => setIgnoreWhitespace(checked === true)} />
               Normalize whitespace
             </label>
@@ -150,13 +163,13 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
         </div>
 
         <div className="flex items-center gap-3 border-b border-border bg-muted/35 px-4 py-2">
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1 text-small text-muted-foreground">
               Left
               <Select
                 value={leftTabId}
                 onValueChange={(value) => setLeftTabId(value)}
               >
-                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                <SelectTrigger className="ml-1 min-w-55 text-small" disabled={!canUseCompare}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -168,13 +181,13 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
                 </SelectContent>
               </Select>
             </label>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1 text-small text-muted-foreground">
               Right
               <Select
                 value={rightTabId}
                 onValueChange={(value) => setRightTabId(value)}
               >
-                <SelectTrigger className="ml-1 min-w-[220px] text-[12px]" disabled={!canUseCompare}>
+                <SelectTrigger className="ml-1 min-w-55 text-small" disabled={!canUseCompare}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -186,11 +199,11 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
                 </SelectContent>
               </Select>
             </label>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             Deterministic source order by group/tab index
           </span>
           {!canUseCompare && (
-            <span className="text-[11px] text-warning">
+            <span className="text-label text-warning">
               Compare is not available for this license policy.
             </span>
           )}
@@ -210,10 +223,9 @@ export const QueryCompareModal: React.FC<QueryCompareModalProps> = ({ onClose })
               ignoreTrimWhitespace: ignoreWhitespace,
             }}
             onMount={(editor: MonacoEditor.IStandaloneDiffEditor) => {
-              const originalEditor = editor.getOriginalEditor();
-              const modifiedEditor = editor.getModifiedEditor();
-              originalRef.current = originalEditor;
-              modifiedRef.current = modifiedEditor;
+              diffEditorRef.current = editor;
+              originalRef.current = editor.getOriginalEditor();
+              modifiedRef.current = editor.getModifiedEditor();
             }}
           />
         </div>

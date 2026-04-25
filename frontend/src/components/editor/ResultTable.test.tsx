@@ -7,9 +7,11 @@ vi.mock('../../services/queryService', () => ({
     FetchMoreRows: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockResults: Record<string, unknown> = {};
+
 vi.mock('../../stores/resultStore', () => ({
     useResultStore: () => ({
-        results: {},
+        results: mockResults,
         setOffset: vi.fn(),
     }),
 }));
@@ -20,11 +22,6 @@ vi.mock('../layout/Toast', () => ({
             error: vi.fn(),
         },
     }),
-}));
-
-vi.mock('../../stores/connectionStore', () => ({
-    useConnectionStore: (selector: (state: { activeProfile: { driver: string } }) => unknown) =>
-        selector({ activeProfile: { driver: 'postgres' } }),
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -43,7 +40,6 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 describe('ResultTable', () => {
     it('renders compact data type on header and sticky index column', () => {
-        const onHeaderFilterRun = vi.fn();
         render(
             <ResultTable
                 tabId="tab-1"
@@ -54,6 +50,8 @@ describe('ResultTable', () => {
                 setEditedCells={vi.fn()}
                 selectedCells={new Set()}
                 setSelectedCells={vi.fn()}
+                selectedRowKeys={new Set()}
+                setSelectedRowKeys={vi.fn()}
                 draftRows={[]}
                 setDraftRows={vi.fn()}
                 columnDefs={[
@@ -63,7 +61,6 @@ describe('ResultTable', () => {
                 focusCellRequest={null}
                 onFocusCellRequestHandled={vi.fn()}
                 onRemoveDraftRows={vi.fn()}
-                onHeaderFilterRun={onHeaderFilterRun}
                 onViewStatsChange={vi.fn()}
             />,
         );
@@ -72,20 +69,6 @@ describe('ResultTable', () => {
         const readonlyIndicator = screen.getByTitle('Read-only (No Primary Key or missing PK in SELECT)');
         const indexHeader = readonlyIndicator.closest('th');
         expect(indexHeader?.className).toContain('rt-index-sticky');
-
-        const filterButtons = screen.getAllByTitle('Filter this column');
-        fireEvent.click(filterButtons[0]);
-        const input = screen.getByPlaceholderText('Contains in id');
-        fireEvent.change(input, { target: { value: '12' } });
-        fireEvent.keyDown(input, { key: 'Enter' });
-
-        expect(onHeaderFilterRun).toHaveBeenCalled();
-
-        fireEvent.click(filterButtons[0]);
-        const reopenInput = screen.getByPlaceholderText('Contains in id');
-        fireEvent.change(reopenInput, { target: { value: 'abc' } });
-        fireEvent.keyDown(reopenInput, { key: 'Escape' });
-        expect(onHeaderFilterRun).toHaveBeenCalledTimes(2);
     });
 
     it('auto-fits column width when double-clicking resize handle', () => {
@@ -100,6 +83,8 @@ describe('ResultTable', () => {
                 setEditedCells={vi.fn()}
                 selectedCells={new Set()}
                 setSelectedCells={vi.fn()}
+                selectedRowKeys={new Set()}
+                setSelectedRowKeys={vi.fn()}
                 draftRows={[]}
                 setDraftRows={vi.fn()}
                 columnDefs={[
@@ -109,7 +94,6 @@ describe('ResultTable', () => {
                 focusCellRequest={null}
                 onFocusCellRequestHandled={vi.fn()}
                 onRemoveDraftRows={vi.fn()}
-                onHeaderFilterRun={vi.fn()}
                 onViewStatsChange={vi.fn()}
             />,
         );
@@ -141,6 +125,8 @@ describe('ResultTable', () => {
                 setEditedCells={vi.fn()}
                 selectedCells={new Set()}
                 setSelectedCells={setSelectedCells}
+                selectedRowKeys={new Set()}
+                setSelectedRowKeys={vi.fn()}
                 draftRows={[]}
                 setDraftRows={vi.fn()}
                 columnDefs={[
@@ -150,7 +136,6 @@ describe('ResultTable', () => {
                 focusCellRequest={null}
                 onFocusCellRequestHandled={vi.fn()}
                 onRemoveDraftRows={vi.fn()}
-                onHeaderFilterRun={vi.fn()}
                 onViewStatsChange={vi.fn()}
                 onCellContextMenu={onCellContextMenu}
             />,
@@ -166,5 +151,42 @@ describe('ResultTable', () => {
             colIdx: 1,
             cellId: 'p:0|1',
         }));
+    });
+
+    it('disables client-side sorting when server ORDER BY is active', () => {
+        mockResults['tab-order'] = {
+            hasMore: false,
+            orderByExpr: 'id DESC',
+        };
+
+        render(
+            <ResultTable
+                tabId="tab-order"
+                columns={['id', 'name']}
+                rows={[['2', 'Bob'], ['1', 'Alice']]}
+                isDone={true}
+                editedCells={new Map()}
+                setEditedCells={vi.fn()}
+                selectedCells={new Set()}
+                setSelectedCells={vi.fn()}
+                selectedRowKeys={new Set()}
+                setSelectedRowKeys={vi.fn()}
+                draftRows={[]}
+                setDraftRows={vi.fn()}
+                columnDefs={[
+                    { Name: 'id', DataType: 'integer' },
+                    { Name: 'name', DataType: 'character varying' },
+                ] as any}
+                focusCellRequest={null}
+                onFocusCellRequestHandled={vi.fn()}
+                onRemoveDraftRows={vi.fn()}
+                onViewStatsChange={vi.fn()}
+            />,
+        );
+
+        const idHeader = screen.getByText('id').closest('th');
+        expect(idHeader?.className).not.toContain('rt-th-sortable');
+
+        delete mockResults['tab-order'];
     });
 });

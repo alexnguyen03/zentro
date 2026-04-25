@@ -81,7 +81,7 @@ func getMSSQLIndexes(ctx context.Context, db *sql.DB, schema, tableName string) 
 		JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 		JOIN sys.tables t ON i.object_id = t.object_id
 		JOIN sys.schemas s ON t.schema_id = s.schema_id
-		WHERE s.name = ? AND t.name = ? AND i.is_primary_key = 0
+		WHERE s.name = @p1 AND t.name = @p2 AND i.is_primary_key = 0
 		ORDER BY i.name, ic.key_ordinal
 	`, schema, tableName)
 	if err != nil {

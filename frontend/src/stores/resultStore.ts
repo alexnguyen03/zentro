@@ -18,6 +18,7 @@ export interface TabResult {
     tableName?: string;
     primaryKeys?: string[];
     filterExpr: string;
+    orderByExpr: string;
     lastExecutedQuery?: string;
     statementLabel?: string;
     pendingEdits?: Map<string, string>;
@@ -54,6 +55,7 @@ interface ResultState {
     applyEdits: (tabId: string, edits: Map<string, string>, deletedRows?: Set<number>) => void;
     appendInsertedRows: (tabId: string, rows: string[][]) => void;
     setFilterExpr: (tabId: string, filterExpr: string) => void;
+    setOrderByExpr: (tabId: string, orderByExpr: string) => void;
     setLastExecutedQuery: (tabId: string, query: string) => void;
     setStatementLabel: (tabId: string, label: string) => void;
     updatePendingState: (tabId: string, editedCells: Map<string, string>, deletedRows: Set<number>, draftRows: DraftRow[]) => void;
@@ -141,6 +143,7 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
                 tableName: prev?.tableName,
                 primaryKeys: prev?.primaryKeys,
                 filterExpr: prev?.filterExpr || '',
+                orderByExpr: prev?.orderByExpr || '',
                 lastExecutedQuery: prev?.lastExecutedQuery,
                 pendingEdits: prev?.pendingEdits || new Map(),
                 pendingDeletions: prev?.pendingDeletions || new Set(),
@@ -273,6 +276,16 @@ export const useResultStore = create<ResultState>(withStoreLogger('resultStore',
         return {
             ...bucket,
             [tabId]: { ...prev, filterExpr },
+        };
+    })),
+
+    setOrderByExpr: (tabId, orderByExpr) => set((state) => updateActiveBucket(state, (bucket) => {
+        const prev = bucket[tabId];
+        if (!prev) return bucket;
+
+        return {
+            ...bucket,
+            [tabId]: { ...prev, orderByExpr },
         };
     })),
 
