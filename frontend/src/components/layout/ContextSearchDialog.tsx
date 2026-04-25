@@ -3,6 +3,7 @@ import { ChevronsDownUp, ChevronsUpDown, Database, Eye, Hash, Layers, Link2, Lis
 import { cn } from '../../lib/cn';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useSchemaStore, type SchemaNode } from '../../stores/schemaStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { FetchDatabaseSchema, FetchTableColumns } from '../../services/schemaService';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
@@ -24,6 +25,7 @@ import {
     ContextMenuTrigger,
     OverlayDialog,
 } from '../ui';
+import { ScriptSearchResults } from './ScriptSearchResults';
 
 type ObjectKind =
     | 'table'
@@ -269,9 +271,10 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     const { toast } = useToast();
 
     const { activeProfile, isConnected } = useConnectionStore();
+    const activeProject = useProjectStore((state) => state.activeProject);
     const setTree = useSchemaStore((state) => state.setTree);
     const setLoading = useSchemaStore((state) => state.setLoading);
-    const addTab = useEditorStore((state) => state.addTab);
+    const { addTab, groups, setActiveGroupId, setActiveTabId } = useEditorStore();
 
     const profileName = activeProfile?.name || '';
     const dbName = activeProfile?.db_name || '';
@@ -279,7 +282,13 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     const schemas = useSchemaStore((state) => state.trees[schemaKey]);
     const isLoading = useSchemaStore((state) => state.loadingKeys.has(schemaKey));
 
+    const projectId = activeProject?.id ?? '';
+    const connectionName = profileName;
+
     const [query, setQuery] = React.useState('');
+    const searchMode: 'schema' | 'script' = query.startsWith('#') ? 'script' : 'schema';
+    const effectiveQuery = searchMode === 'script' ? query.slice(1).trimStart() : query;
+
     const [enabledKinds, setEnabledKinds] = React.useState<Set<ObjectKind>>(new Set(DEFAULT_ENABLED_KINDS));
     const [showAllKinds, setShowAllKinds] = React.useState(false);
     const [contextMenu, setContextMenu] = React.useState<ItemContextMenu | null>(null);
@@ -400,11 +409,40 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
 
     const handleEnterBrowseFirst = React.useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
         if (event.key !== 'Enter') return;
-        if (filtered.length === 0) return;
+        if (searchMode !== 'schema' || filtered.length === 0) return;
         event.preventDefault();
         event.stopPropagation();
         void runItemAction(filtered[0], 'browse');
-    }, [filtered, runItemAction]);
+    }, [filtered, runItemAction, searchMode]);
+
+    const handleOpenScript = React.useCallback(
+        (scriptId: string, scriptName: string, content: string) => {
+            const existing = groups
+                .flatMap((g) => g.tabs)
+                .find((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId);
+            if (existing) {
+                const group = groups.find((g) => g.tabs.some((t) => t.id === existing.id));
+                if (group) {
+                    setActiveGroupId(group.id);
+                    setActiveTabId(existing.id, group.id);
+                    onClose();
+                    return;
+                }
+            }
+            addTab({
+                type: TAB_TYPE.QUERY,
+                name: scriptName,
+                query: content,
+                context: {
+                    savedScriptId: scriptId,
+                    scriptProjectId: projectId,
+                    scriptConnectionName: connectionName,
+                },
+            });
+            onClose();
+        },
+        [addTab, connectionName, groups, onClose, projectId, setActiveGroupId, setActiveTabId],
+    );
 
     const toggleKind = (kind: ObjectKind) => {
         setEnabledKinds((prev) => {
@@ -420,8 +458,8 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
         if (!isConnected || !activeProfile) return 'No active connection';
         if (isLoading && !schemas) return 'Loading schema...';
         if (!schemas) return 'No schema loaded';
-        return `No matches for "${query}"`;
-    }, [activeProfile, isConnected, isLoading, query, schemas]);
+        return `No matches for "${effectiveQuery}"`;
+    }, [activeProfile, effectiveQuery, isConnected, isLoading, schemas]);
 
     React.useEffect(() => {
         if (!contextMenu) return;
@@ -448,7 +486,11 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                         <CommandInput
                             value={query}
                             onValueChange={setQuery}
-                            placeholder="Search tables, views, functions..."
+                            placeholder={
+                                searchMode === 'script'
+                                    ? 'Search script content...'
+                                    : 'Search tables, views, functions... (# for scripts)'
+                            }
                             hideIcon
                             className="pr-56 h-10"
                             onKeyDown={handleEnterBrowseFirst}
@@ -486,57 +528,70 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                         </div>
                     </div>
 
-                    <div className="px-3 py-1 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
-                        {(showAllKinds ? (Object.keys(KIND_LABEL) as ObjectKind[]) : PRIMARY_VISIBLE_KINDS).map((kind) => {
-                            const active = enabledKinds.has(kind);
-                            return (
-                                <Button
-                                    key={kind}
-                                    type="button"
-                                    size='sm'
-                                    variant={active ? 'secondary' : 'ghost'}
-                                    className={cn(
-                                        active ? 'border-primary/40 bg-primary/15 text-foreground' : 'text-muted-foreground',
-                                    )}
-                                    onClick={() => toggleKind(kind)}
-                                >
-                                    {KIND_ICON[kind]}
-                                    <span>{KIND_LABEL[kind]}</span>
-                                </Button>
-                            );
-                        })}
-                    </div>
+                    {searchMode === 'schema' && (
+                        <div className="px-3 py-1 border-b border-border bg-background/40 flex items-center gap-2 flex-wrap">
+                            {(showAllKinds ? (Object.keys(KIND_LABEL) as ObjectKind[]) : PRIMARY_VISIBLE_KINDS).map((kind) => {
+                                const active = enabledKinds.has(kind);
+                                return (
+                                    <Button
+                                        key={kind}
+                                        type="button"
+                                        size='sm'
+                                        variant={active ? 'secondary' : 'ghost'}
+                                        className={cn(
+                                            active ? 'border-primary/40 bg-primary/15 text-foreground' : 'text-muted-foreground',
+                                        )}
+                                        onClick={() => toggleKind(kind)}
+                                    >
+                                        {KIND_ICON[kind]}
+                                        <span>{KIND_LABEL[kind]}</span>
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     <CommandList className="max-h-107.5 py-1">
-                        <CommandEmpty>{emptyMessage}</CommandEmpty>
-                        {filtered.map((item) => (
-                            <CommandItem
-                                key={item.id}
-                                value={`${item.qualifiedName} ${KIND_LABEL[item.kind]} ${item.schema}`}
-                                onSelect={() => void runItemAction(item, 'browse')}
-                                onContextMenu={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    setContextMenu({
-                                        x: event.clientX,
-                                        y: event.clientY,
-                                        item,
-                                    });
-                                }}
-                                className="group cursor-pointer flex items-center justify-between px-4 py-1 text-small data-[selected=true]:bg-primary/10"
-                            >
-                                <span className="flex min-w-0 items-center gap-2">
-                                    <span className="shrink-0 group-data-[selected=true]:text-primary">{KIND_ICON[item.kind]}</span>
-                                    <span className="truncate">{item.name}</span>
-                                </span>
-                                <span className="ml-4 flex shrink-0 items-center gap-2">
-                                    <span className="text-label uppercase tracking-wide text-muted-foreground">
-                                        {KIND_LABEL[item.kind]}
-                                    </span>
-                                    <span className="text-label text-muted-foreground">{item.schema}</span>
-                                </span>
-                            </CommandItem>
-                        ))}
+                        {searchMode === 'script' ? (
+                            <ScriptSearchResults
+                                query={effectiveQuery}
+                                projectId={projectId}
+                                connectionName={connectionName}
+                                onOpen={handleOpenScript}
+                            />
+                        ) : (
+                            <>
+                                <CommandEmpty>{emptyMessage}</CommandEmpty>
+                                {filtered.map((item) => (
+                                    <CommandItem
+                                        key={item.id}
+                                        value={`${item.qualifiedName} ${KIND_LABEL[item.kind]} ${item.schema}`}
+                                        onSelect={() => void runItemAction(item, 'browse')}
+                                        onContextMenu={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            setContextMenu({
+                                                x: event.clientX,
+                                                y: event.clientY,
+                                                item,
+                                            });
+                                        }}
+                                        className="group cursor-pointer flex items-center justify-between px-4 py-1 text-small data-[selected=true]:bg-primary/10"
+                                    >
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            <span className="shrink-0 group-data-[selected=true]:text-primary">{KIND_ICON[item.kind]}</span>
+                                            <span className="truncate">{item.name}</span>
+                                        </span>
+                                        <span className="ml-4 flex shrink-0 items-center gap-2">
+                                            <span className="text-label uppercase tracking-wide text-muted-foreground">
+                                                {KIND_LABEL[item.kind]}
+                                            </span>
+                                            <span className="text-label text-muted-foreground">{item.schema}</span>
+                                        </span>
+                                    </CommandItem>
+                                ))}
+                            </>
+                        )}
                     </CommandList>
                 </Command>
             </div>
