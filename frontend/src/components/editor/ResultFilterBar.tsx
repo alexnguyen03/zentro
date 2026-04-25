@@ -611,7 +611,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
                     </div>
 
                     {children && (
-                        <div className="flex items-center justify-end min-w-0 gap-1 overflow-visible">
+                        <div className="flex items-center justify-end min-w-0 overflow-visible">
                             {children}
                         </div>
                     )}

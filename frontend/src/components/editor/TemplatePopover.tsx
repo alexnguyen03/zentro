@@ -5,7 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { models } from '../../../wailsjs/go/models';
 import { Button, ConfirmationModal, Input, Spinner } from '../ui';
-import { BaseTable, type BaseTableColumn } from '../shared/BaseTable';
+import { cn } from '../../lib/cn';
 
 type Template = models.Template;
 type EditableField = 'name' | 'trigger' | 'content';
@@ -23,6 +23,7 @@ const POPOVER_WIDTH = 760;
 const POPOVER_HEIGHT = 420;
 const VIEWPORT_PADDING = 8;
 const ANCHOR_GAP = 8;
+const ROW_H = 28;
 
 export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
     onClose,
@@ -189,21 +190,20 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
     const renderEditableCell = (
         row: Template,
         field: EditableField,
-        displayClassName: string,
-        inputClassName: string,
-        inputTitle: string,
+        cellStyle?: React.CSSProperties,
     ) => {
         const value = String(row[field] || '');
         const isEditing = editingCell?.id === row.id && editingCell.field === field;
 
         if (isEditing) {
             return (
-                <Input
+                <input
                     data-name-id={field === 'name' ? row.id : undefined}
+                    type="text"
                     value={value}
-                    title={inputTitle}
                     autoFocus
-                    className={inputClassName}
+                    className="rt-cell-input"
+                    style={cellStyle}
                     onChange={(event) => handleDraftUpdate(row.id, field, event.target.value)}
                     onBlur={(event) => {
                         void handleInlineBlur(row.id, field, event.target.value);
@@ -216,15 +216,16 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
 
         return (
             <div
-                className={displayClassName}
-                title={value}
+                className="rt-cell-content rt-cell-content--compact"
+                title={value || undefined}
+                style={cellStyle}
                 onDoubleClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
                     beginInlineEdit(row.id, field);
                 }}
             >
-                {value || ' '}
+                {value || ' '}
             </div>
         );
     };
@@ -290,117 +291,26 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
         };
     }, [anchorRect]);
 
-    const columns: Array<BaseTableColumn<Template>> = [
-        {
-            key: 'index',
-            header: '#',
-            width: '40px',
-            align: 'center',
-            cellClassName: 'font-mono text-label text-muted-foreground',
-            renderCell: (_row, index) => index + 1,
-        },
-        {
-            key: 'name',
-            header: 'Name',
-            width: '26%',
-            renderCell: (row) => (
-                renderEditableCell(
-                    row,
-                    'name',
-                    'truncate px-1.5 py-1 text-small text-foreground',
-                    'h-7 border-transparent bg-transparent px-1.5 text-small focus:border-border focus:bg-background',
-                    row.name || '',
-                )
-            ),
-        },
-        {
-            key: 'shortcut',
-            header: 'Shortcut',
-            width: '18%',
-            renderCell: (row) => (
-                renderEditableCell(
-                    row,
-                    'trigger',
-                    'truncate px-1.5 py-1 text-small font-mono text-warning',
-                    'h-7 border-transparent bg-transparent px-1.5 text-small font-mono text-warning focus:border-border focus:bg-background',
-                    row.trigger || '',
-                )
-            ),
-        },
-        {
-            key: 'content',
-            header: 'SQL Content',
-            width: '44%',
-            renderCell: (row) => (
-                renderEditableCell(
-                    row,
-                    'content',
-                    'truncate px-1.5 py-1 text-small font-mono text-foreground',
-                    'h-7 border-transparent bg-transparent px-1.5 text-small font-mono focus:border-border focus:bg-background',
-                    row.content || '',
-                )
-            ),
-        },
-        {
-            key: 'actions',
-            header: (
-                <span className="sr-only">Actions</span>
-            ),
-            width: '96px',
-            align: 'right',
-            renderCell: (row) => (
-                <div className="flex items-center justify-end gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Append to current editor"
-                        disabled={!canAppendToEditor || !row.content?.trim()}
-                        onMouseDown={stopActionEvent}
-                        onPointerDown={stopActionEvent}
-                        onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            handleAppend(row);
-                        }}
-                    >
-                        <FilePlus size={14} />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-error/80 hover:text-error hover:bg-error/10"
-                        title="Delete template"
-                        onMouseDown={stopActionEvent}
-                        onPointerDown={stopActionEvent}
-                        onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            requestDeleteTemplates([row.id]);
-                        }}
-                    >
-                        <Trash2 size={14} />
-                    </Button>
-                </div>
-            ),
-        },
-    ];
-
     return (
         <div
             ref={containerRef}
             style={popoverStyle}
-            className="z-popover flex flex-col overflow-hidden rounded-sm border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="z-popover flex flex-col overflow-hidden rounded-sm border border-border/50 bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-150"
         >
-            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+            {/* Header / filter bar */}
+            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    <h3 className="truncate text-small  text-foreground">TEMPLATES</h3>
+                    <h3 className="truncate text-small text-foreground">TEMPLATES</h3>
                     <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-label text-muted-foreground">
                         {templates.length}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="relative w-[200px]">
-                        <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={13} />
+                <div className="flex items-center gap-1">
+                    <div className="relative w-50">
+                        <Search
+                            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                            size={13}
+                        />
                         <Input
                             value={filter}
                             onChange={(event) => setFilter(event.target.value)}
@@ -409,6 +319,31 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                             title="Filter templates"
                         />
                     </div>
+                    {selectedIds.size > 0 && (
+                        <span
+                            className="ml-0.5 rounded-sm px-1.5 py-0.5 text-label"
+                            style={{
+                                border: '1px solid color-mix(in srgb, var(--status-success) 30%, transparent)',
+                                background: 'color-mix(in srgb, var(--status-success) 10%, transparent)',
+                                color: 'var(--status-success)',
+                            }}
+                        >
+                            {selectedIds.size}
+                        </span>
+                    )}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Delete selected templates"
+                        disabled={selectedIds.size === 0}
+                        style={selectedIds.size > 0 ? {
+                            color: 'color-mix(in srgb, var(--status-error) 80%, transparent)',
+                        } : undefined}
+                        className="hover:text-error hover:bg-error/10"
+                        onClick={() => requestDeleteTemplates(Array.from(selectedIds))}
+                    >
+                        <Trash2 size={14} />
+                    </Button>
                     <Button variant="ghost" size="icon" title="Add template" onClick={() => void handleAdd()}>
                         <Plus size={14} />
                     </Button>
@@ -418,23 +353,106 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 </div>
             </div>
 
-            <div className="min-h-0 flex-1 px-2 py-2">
+            {/* Table */}
+            <div className="min-h-0 flex-1 overflow-auto">
                 {filteredTemplates.length > 0 ? (
-                    <BaseTable
-                        rows={filteredTemplates}
-                        columns={columns}
-                        fixedHeader
-                        containerClassName="h-full"
-                        getRowKey={(row) => row.id}
-                        onRowClick={(row, _index, event) => {
-                            const target = event.target as HTMLElement;
-                            if (target.closest('input, button')) return;
-                            toggleSelect(row.id, Boolean(event.ctrlKey || event.metaKey || event.shiftKey));
-                        }}
-                        getRowClassName={(row) => (
-                            selectedIds.has(row.id) ? '!bg-success/15' : undefined
-                        )}
-                    />
+                    <table
+                        className="result-table-tanstack"
+                        style={{ width: '100%', tableLayout: 'fixed' }}
+                    >
+                        <thead>
+                            <tr>
+                                <th className="rt-th rt-index-sticky" style={{ width: 40 }}>
+                                    <span className="rt-th-label" style={{ justifyContent: 'center' }}>#</span>
+                                </th>
+                                <th className="rt-th" style={{ width: '26%' }}>
+                                    <span className="rt-th-label">Name</span>
+                                </th>
+                                <th className="rt-th" style={{ width: '18%' }}>
+                                    <span className="rt-th-label">Shortcut</span>
+                                </th>
+                                <th className="rt-th">
+                                    <span className="rt-th-label">SQL Content</span>
+                                </th>
+                                <th className="rt-th" style={{ width: 84, borderRight: 'none' }}>
+                                    <span className="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredTemplates.map((row, index) => (
+                                <tr
+                                    key={row.id}
+                                    className={cn(
+                                        'cursor-pointer',
+                                        index % 2 !== 0 && 'rt-row-alt',
+                                        selectedIds.has(row.id) && 'rt-row-selected',
+                                    )}
+                                    onClick={(event) => {
+                                        const target = event.target as HTMLElement;
+                                        if (target.closest('input, button')) return;
+                                        toggleSelect(row.id, Boolean(event.ctrlKey || event.metaKey || event.shiftKey));
+                                    }}
+                                >
+                                    <td
+                                        className={cn(
+                                            'rt-index-sticky',
+                                            selectedIds.has(row.id) && 'rt-index-sticky-row-selected',
+                                        )}
+                                        style={{ width: 40, height: ROW_H }}
+                                    >
+                                        <div className="rt-cell-content rt-cell-content--compact row-num-col">
+                                            {index + 1}
+                                        </div>
+                                    </td>
+                                    <td style={{ height: ROW_H }}>
+                                        {renderEditableCell(row, 'name')}
+                                    </td>
+                                    <td style={{ height: ROW_H }}>
+                                        {renderEditableCell(row, 'trigger', { color: 'var(--status-warning)' })}
+                                    </td>
+                                    <td style={{ height: ROW_H }}>
+                                        {renderEditableCell(row, 'content')}
+                                    </td>
+                                    <td style={{ height: ROW_H, borderRight: 'none', paddingRight: 4 }}>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Append to current editor"
+                                                disabled={!canAppendToEditor || !row.content?.trim()}
+                                                onMouseDown={stopActionEvent}
+                                                onPointerDown={stopActionEvent}
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    handleAppend(row);
+                                                }}
+                                            >
+                                                <FilePlus size={14} />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Delete template"
+                                                style={{ color: 'color-mix(in srgb, var(--status-error) 80%, transparent)' }}
+                                                className="hover:text-error hover:bg-error/10"
+                                                onMouseDown={stopActionEvent}
+                                                onPointerDown={stopActionEvent}
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    requestDeleteTemplates([row.id]);
+                                                }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                         <AlertCircle size={28} strokeWidth={1.4} className="opacity-60" />
@@ -443,32 +461,16 @@ export const TemplatePopover: React.FC<TemplatePopoverProps> = ({
                 )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-border px-3 py-2">
-                <div className="flex items-center gap-2">
-                    {isLoading && (
-                        <span className="inline-flex h-6 w-6 items-center justify-center text-success" title="Saving templates">
-                            <Spinner size={12} />
-                        </span>
-                    )}
+            {/* Footer — loading indicator only */}
+            {isLoading && (
+                <div
+                    className="flex items-center gap-2 border-t border-border px-3 py-1.5"
+                    style={{ background: 'var(--card)' }}
+                >
+                    <Spinner size={12} />
+                    <span className="text-label text-muted-foreground">Saving…</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    {selectedIds.size > 0 && (
-                        <span className="rounded-sm border border-success/30 bg-success/10 px-1.5 py-0.5 text-label  text-success">
-                            {selectedIds.size}
-                        </span>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Delete selected templates"
-                        disabled={selectedIds.size === 0}
-                        className="text-error/80 hover:text-error hover:bg-error/10"
-                        onClick={() => requestDeleteTemplates(Array.from(selectedIds))}
-                    >
-                        <Trash2 size={14} />
-                    </Button>
-                </div>
-            </div>
+            )}
 
             <ConfirmationModal
                 isOpen={showDeleteConfirm}

@@ -721,7 +721,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
 
     return (
         <div ref={containerRef} tabIndex={-1} className="flex flex-col h-full overflow-hidden bg-background outline-none">
-            <div className="shrink-0 px-4 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <div className="shrink-0 bg-background grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                 <div className="min-w-0 overflow-x-auto whitespace-nowrap">
                     <TableSchemaBreadcrumb
                         dbName={activeProfile?.db_name || ''}
@@ -775,7 +775,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
                     </Tabs>
                 </div>
 
-                <div className="min-w-0 justify-self-end flex items-center gap-1">
+                <div className="min-w-0 justify-self-end flex items-center">
                     {actionsByTab[activeTab].map((action) => (
                         <ToolbarButton key={action.id} action={action} />
                     ))}

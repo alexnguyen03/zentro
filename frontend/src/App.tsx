@@ -307,7 +307,7 @@ function App() {
                             variant="destructive"
                         />
                         <Toolbar />
-                        <div className="flex flex-1 overflow-hidden">
+                        <div className="flex flex-1 overflow-hidden px-2">
                             {showSidebar && (
                                 <>
                                     <div style={{ width: sidebarWidth, flexShrink: 0 }}>
