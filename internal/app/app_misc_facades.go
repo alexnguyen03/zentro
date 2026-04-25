@@ -1,7 +1,6 @@
 package app
 
 import (
-	"runtime"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -167,7 +166,7 @@ func (a *App) GetAboutInfo() AboutInfo {
 		Version: Version,
 		Commit:  "unknown",
 		Date:    "unknown",
-		OS:      runtime.GOOS + " " + runtime.GOARCH,
+		OS:      osArchLabel(),
 	}
 
 	buildInfo, ok := debug.ReadBuildInfo()

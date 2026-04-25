@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -208,6 +210,21 @@ func isNumeric(s string) bool {
 	}
 	_, err := fmt.Sscanf(s, "%f")
 	return err == nil
+}
+
+func osArchLabel() string {
+	return goruntime.GOOS + " " + goruntime.GOARCH
+}
+
+func fileManagerCmd(target string) *exec.Cmd {
+	switch goruntime.GOOS {
+	case "windows":
+		return exec.Command("explorer", target)
+	case "darwin":
+		return exec.Command("open", target)
+	default:
+		return exec.Command("xdg-open", target)
+	}
 }
 
 // getDriver looks up a registered DatabaseDriver by name.

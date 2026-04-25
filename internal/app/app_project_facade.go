@@ -3,9 +3,7 @@ package app
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"zentro/internal/models"
@@ -114,16 +112,7 @@ func (a *App) OpenDirectoryInExplorer(path string) error {
 		target = filepath.Dir(absPath)
 	}
 
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("explorer", target)
-	case "darwin":
-		cmd = exec.Command("open", target)
-	default:
-		cmd = exec.Command("xdg-open", target)
-	}
-
+	cmd := fileManagerCmd(target)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("open explorer: %w", err)
 	}
