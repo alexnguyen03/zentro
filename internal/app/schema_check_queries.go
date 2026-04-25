@@ -125,7 +125,7 @@ func parseSQLiteCheckConstraints(ddl string) []CheckConstraintInfo {
 		// name is the token between CONSTRAINT and CHECK
 		nameToken := strings.TrimSpace(rest[:checkIdx])
 		// remove quotes if any
-		nameToken = strings.Trim(nameToken, `"'` + "`")
+		nameToken = strings.Trim(nameToken, `"'`+"`")
 		// expression is inside the first balanced parens after CHECK
 		afterCheck := strings.TrimSpace(rest[checkIdx+len("CHECK"):])
 		expr := extractBalancedParens(afterCheck)

@@ -11,6 +11,7 @@ import {
     RotateCcw,
     Save,
     Search,
+    Shield,
     Table2,
     Trash2,
 } from 'lucide-react';
@@ -111,6 +112,7 @@ export const TableInfo: React.FC<TableInfoProps> = ({ tabId, tableName }) => {
     const [dataTabActions, setDataTabActions] = useState<TabAction[]>([]);
     const [keysDirtyCount, setKeysDirtyCount] = useState(0);
     const [ddlTabActions, setDdlTabActions] = useState<TabAction[]>([]);
+    const [pendingOpenExport, setPendingOpenExport] = useState(false);
     const [pendingOpenExport, setPendingOpenExport] = useState(false);
     const [erdRefreshKey, setErdRefreshKey] = useState(0);
     const prevConnRef = useRef<string>('');

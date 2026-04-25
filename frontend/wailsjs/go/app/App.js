@@ -10,6 +10,10 @@ export function AddPrimaryKey(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['AddPrimaryKey'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function AddPrimaryKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['AddPrimaryKey'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function AddTableColumn(arg1, arg2, arg3) {
   return window['go']['app']['App']['AddTableColumn'](arg1, arg2, arg3);
 }

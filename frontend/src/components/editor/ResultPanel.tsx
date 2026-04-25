@@ -78,6 +78,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
     const [showColumnsPopover, setShowColumnsPopover] = React.useState(false);
     const columnsPopoverRef = React.useRef<HTMLDivElement>(null);
     const [showExportModal, setShowExportModal] = React.useState(false);
+    const [pendingOpenExportModal, setPendingOpenExportModal] = React.useState(false);
     const [exportScope, setExportScope] = React.useState<'all' | 'view'>('all');
     const [exportFormat, setExportFormat] = React.useState<'csv' | 'json' | 'sql'>('csv');
     const [selectedExportColumns, setSelectedExportColumns] = React.useState<string[]>([]);
