@@ -75,12 +75,14 @@ jobs:
         run: |
           # Set ldflags based on platform
           LDFLAGS="-s -w"
+          EXTRA_FLAGS=""
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             LDFLAGS="$LDFLAGS -H windowsgui"
+            EXTRA_FLAGS="-nsis"
           fi
           
           # Wails build will automatically run npm install/build based on wails.json
-          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean
+          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean $EXTRA_FLAGS
 
       - name: Package macOS
         if: matrix.os == 'macos-latest'
@@ -101,9 +103,20 @@ jobs:
           VERSION=${{ steps.get_version.outputs.version }}
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             mv build/bin/zentro.exe zentro-v${VERSION}-windows-amd64.exe
+            # Optional NSIS output, name can vary by Wails/NSIS templates
+            if compgen -G "build/bin/*setup*.exe" > /dev/null; then
+              cp "$(ls build/bin/*setup*.exe | head -n 1)" "zentro-v${VERSION}-windows-amd64-setup.exe"
+            fi
           else
             mv build/bin/zentro zentro-v${VERSION}-linux-amd64
           fi
+
+      - name: Package Linux
+        if: matrix.os == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          tar -czf zentro-v${VERSION}-linux-amd64.tar.gz zentro-v${VERSION}-linux-amd64
 
       - name: Zip for SignPath
         if: matrix.os == 'windows-latest'
@@ -263,12 +276,13 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: RELEASE_NOTES.md
           files: |
             ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64-setup.exe', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64.tar.gz', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'macos-latest' && format('zentro-v{0}-macos-universal.zip', steps.get_version.outputs.version) || '' }}
           fail_on_unmatched_files: false
           generate_release_notes: true
           draft: false
-          prerelease: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
