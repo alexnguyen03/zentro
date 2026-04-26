@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileCode, Trash2, BookMarked } from 'lucide-react';
 import { useScriptStore } from '../../stores/scriptStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -6,9 +6,12 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { cn } from '../../lib/cn';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
-import { Button, Input } from '../ui';
+import { Button, Input, HoverCard, HoverCardTrigger, HoverCardContent } from '../ui';
 import { useSidebarPanelState } from '../../stores/sidebarUiStore';
 import { SCRIPTS_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
+import { highlightMatch, getMatchedLinesWithNumbers, getFirstMeaningfulLine, MatchedLinesDisplay } from '../layout/ScriptSearchResults';
+import { emitCommand } from '../../lib/commandBus';
+import { DOM_EVENT } from '../../lib/constants';
 
 function formatDate(iso: string): string {
     try {
@@ -17,6 +20,86 @@ function formatDate(iso: string): string {
         return '';
     }
 }
+
+interface ScriptListItemProps {
+    script: { id: string; name: string; updated_at?: string | number | null };
+    content: string | undefined;
+    search: string;
+    onOpen: (id: string, name: string, lineNumber?: number) => void;
+    onDelete: (id: string, name: string) => void;
+}
+
+const ScriptListItem: React.FC<ScriptListItemProps> = ({ script, content, search, onOpen, onDelete }) => {
+    const [previewOpen, setPreviewOpen] = useState(false);
+    const kw = search.trim();
+    const matchedLines = content && kw ? getMatchedLinesWithNumbers(content, kw, 3) : [];
+    const preview = content && !matchedLines.length ? getFirstMeaningfulLine(content) : '';
+
+    const itemBody = (
+        <div
+            className={cn(
+                'group flex cursor-pointer flex-col border-b border-white/5 px-2.5 py-1.5 transition-colors duration-100',
+                previewOpen ? 'bg-muted' : 'hover:bg-muted',
+            )}
+            onClick={() => onOpen(script.id, script.name)}
+            title={`Open "${script.name}" in new tab`}
+        >
+            <div className="flex items-center gap-1.5">
+                <FileCode size={13} className="shrink-0 text-success opacity-70" />
+                <div className="min-w-0 flex-1 truncate text-small font-medium text-foreground">
+                    {kw ? highlightMatch(script.name, kw) : script.name}
+                </div>
+                <div className="shrink-0 text-label text-muted-foreground">
+                    {formatDate(String(script.updated_at ?? ''))}
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                        'h-6 w-6 p-[3px] text-muted-foreground transition-all duration-100 hover:bg-destructive/10 hover:text-destructive',
+                        'shrink-0 opacity-0 group-hover:opacity-100',
+                    )}
+                    title="Delete script"
+                    onClick={(e) => { e.stopPropagation(); onDelete(script.id, script.name); }}
+                >
+                    <Trash2 size={12} />
+                </Button>
+            </div>
+
+            {matchedLines.length > 0 && (
+                <div className="mt-0.5 flex flex-col pl-[17px] pr-1">
+                    <MatchedLinesDisplay
+                        lines={matchedLines}
+                        keyword={kw}
+                        onLineClick={(ln) => onOpen(script.id, script.name, ln)}
+                    />
+                </div>
+            )}
+
+            {preview && (
+                <div className="mt-0.5 truncate pl-[17px] text-label text-muted-foreground/70">
+                    {preview}
+                </div>
+            )}
+        </div>
+    );
+
+    if (!preview) return itemBody;
+
+    return (
+        <HoverCard openDelay={150} closeDelay={100} onOpenChange={setPreviewOpen}>
+            <HoverCardTrigger asChild>
+                {itemBody}
+            </HoverCardTrigger>
+            <HoverCardContent side="right" align="start" className="w-80 p-0 font-mono">
+                <pre className="max-h-64 overflow-auto p-3 text-label text-foreground whitespace-pre-wrap break-all leading-relaxed">
+                    {content}
+                </pre>
+            </HoverCardContent>
+        </HoverCard>
+    );
+};
 
 export const SavedScriptsPanel: React.FC = () => {
     const { scripts, loadScripts, deleteScript, getContent } = useScriptStore();
@@ -27,6 +110,8 @@ export const SavedScriptsPanel: React.FC = () => {
     const [scriptsPanelState, setScriptsPanelState] = useSidebarPanelState('primary', 'scripts', SCRIPTS_PANEL_STATE_DEFAULT);
     const search = scriptsPanelState.search;
 
+    const [contentCache, setContentCache] = useState<Map<string, string>>(new Map());
+
     const projectId = activeProject?.id ?? '';
     const connectionName = activeProfile?.name ?? '';
 
@@ -36,8 +121,23 @@ export const SavedScriptsPanel: React.FC = () => {
         }
     }, [connectionName, loadScripts, projectId]);
 
+    useEffect(() => {
+        if (!projectId || !connectionName || scripts.length === 0) return;
+        let cancelled = false;
+        Promise.all(
+            scripts.map(async (s) => [s.id, await getContent(projectId, connectionName, s.id)] as const),
+        )
+            .then((entries) => {
+                if (!cancelled) setContentCache(new Map(entries));
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [scripts, projectId, connectionName, getContent]);
+
     const handleOpen = useCallback(
-        async (scriptId: string, scriptName: string) => {
+        async (scriptId: string, scriptName: string, lineNumber?: number) => {
             if (!projectId || !connectionName) return;
             const existing = groups.find((group) => group.tabs.some((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId));
             if (existing) {
@@ -45,13 +145,15 @@ export const SavedScriptsPanel: React.FC = () => {
                 if (existingTab) {
                     setActiveGroupId(existing.id);
                     setActiveTabId(existingTab.id, existing.id);
+                    if (lineNumber) {
+                        setTimeout(() => emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: existingTab.id, line: lineNumber }), 0);
+                    }
                     return;
                 }
             }
-
             try {
-                const content = await getContent(projectId, connectionName, scriptId);
-                addTab({
+                const content = contentCache.get(scriptId) ?? await getContent(projectId, connectionName, scriptId);
+                const tabId = addTab({
                     name: scriptName,
                     query: content,
                     context: {
@@ -60,11 +162,14 @@ export const SavedScriptsPanel: React.FC = () => {
                         scriptConnectionName: connectionName,
                     },
                 });
+                if (lineNumber) {
+                    setTimeout(() => emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId, line: lineNumber }), 50);
+                }
             } catch (error) {
                 console.error('Failed to load script content', error);
             }
         },
-        [addTab, connectionName, getContent, groups, projectId, setActiveGroupId, setActiveTabId],
+        [addTab, connectionName, contentCache, getContent, groups, projectId, setActiveGroupId, setActiveTabId],
     );
 
     const handleDelete = useCallback(
@@ -80,7 +185,14 @@ export const SavedScriptsPanel: React.FC = () => {
         [connectionName, deleteScript, projectId],
     );
 
-    const filtered = scripts.filter((script) => script.name.toLowerCase().includes(search.toLowerCase()));
+    const filtered = useMemo(() => {
+        const kw = search.trim().toLowerCase();
+        if (!kw) return scripts;
+        return scripts.filter((s) => {
+            if (s.name.toLowerCase().includes(kw)) return true;
+            return (contentCache.get(s.id) ?? '').toLowerCase().includes(kw);
+        });
+    }, [scripts, contentCache, search]);
 
     if (!projectId || !connectionName) {
         return (
@@ -124,34 +236,14 @@ export const SavedScriptsPanel: React.FC = () => {
                     </div>
                 ) : (
                     filtered.map((script) => (
-                        <div
+                        <ScriptListItem
                             key={script.id}
-                            className="group flex items-center gap-1.5 border-b border-white/5 px-2.5 py-1.5 transition-colors duration-100 hover:bg-muted"
-                            onClick={() => handleOpen(script.id, script.name)}
-                            title={`Open "${script.name}" in new tab`}
-                        >
-                            <FileCode size={13} className="shrink-0 text-success opacity-70" />
-                            <div className="flex-1 overflow-hidden">
-                                <div className="text-small font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">{script.name}</div>
-                                <div className="mt-0.5 text-label text-muted-foreground">{formatDate(String(script.updated_at ?? ''))}</div>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={cn(
-                                    'h-6 w-6 p-[3px] text-muted-foreground transition-all duration-100 hover:bg-destructive/10 hover:text-destructive',
-                                    'shrink-0 opacity-0 group-hover:opacity-100',
-                                )}
-                                title="Delete script"
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    setPendingDeleteScript({ id: script.id, name: script.name });
-                                }}
-                            >
-                                <Trash2 size={12} />
-                            </Button>
-                        </div>
+                            script={script}
+                            content={contentCache.get(script.id)}
+                            search={search}
+                            onOpen={handleOpen}
+                            onDelete={(id, name) => setPendingDeleteScript({ id, name })}
+                        />
                     ))
                 )}
             </div>

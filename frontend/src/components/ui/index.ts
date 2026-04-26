@@ -6,6 +6,7 @@ export * from './overlay-dialog';
 export * from './toast';
 export * from './sheet';
 export * from './popover';
+export * from './hover-card';
 export * from './collapsible';
 export * from './dropdown-menu';
 export * from './context-menu';
