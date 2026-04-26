@@ -36,16 +36,60 @@ export function getMatchedLines(content: string, keyword: string, max = 3): stri
         .slice(0, max);
 }
 
+export function getMatchedLinesWithNumbers(
+    content: string,
+    keyword: string,
+    max = 3,
+): { text: string; lineNumber: number }[] {
+    if (!keyword.trim()) return [];
+    const kw = keyword.toLowerCase();
+    const results: { text: string; lineNumber: number }[] = [];
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length && results.length < max; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.length > 0 && trimmed.toLowerCase().includes(kw)) {
+            results.push({ text: trimmed, lineNumber: i + 1 });
+        }
+    }
+    return results;
+}
+
 export function getFirstMeaningfulLine(content: string): string {
     const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
     return lines.find((l) => !l.startsWith('--') && !l.startsWith('/*')) ?? lines[0] ?? '';
 }
 
+export interface MatchedLinesDisplayProps {
+    lines: { text: string; lineNumber: number }[];
+    keyword: string;
+    onLineClick: (lineNumber: number) => void;
+}
+
+export const MatchedLinesDisplay: React.FC<MatchedLinesDisplayProps> = ({ lines, keyword, onLineClick }) => {
+    if (lines.length === 0) return null;
+    return (
+        <>
+            {lines.map((line) => (
+                <div
+                    key={line.lineNumber}
+                    className="flex w-full items-baseline gap-2 py-0.5 rounded-sm text-label text-muted-foreground/85 hover:bg-primary/15 hover:text-foreground cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); onLineClick(line.lineNumber); }}
+                >
+                    <span className="shrink-0 w-7 text-right text-muted-foreground/45 select-none tabular-nums">
+                        {line.lineNumber}
+                    </span>
+                    <span className="truncate">{highlightMatch(line.text, keyword)}</span>
+                </div>
+            ))}
+        </>
+    );
+};
+
 interface ScriptSearchResultsProps {
     query: string;
     projectId: string;
     connectionName: string;
-    onOpen: (scriptId: string, scriptName: string, content: string) => void;
+    onOpen: (scriptId: string, scriptName: string, content: string, lineNumber?: number) => void;
 }
 
 export const ScriptSearchResults: React.FC<ScriptSearchResultsProps> = ({
@@ -93,8 +137,8 @@ export const ScriptSearchResults: React.FC<ScriptSearchResultsProps> = ({
     }, [scripts, contentCache, query]);
 
     const handleSelect = useCallback(
-        (scriptId: string, scriptName: string) => {
-            onOpen(scriptId, scriptName, contentCache.get(scriptId) ?? '');
+        (scriptId: string, scriptName: string, lineNumber?: number) => {
+            onOpen(scriptId, scriptName, contentCache.get(scriptId) ?? '', lineNumber);
         },
         [contentCache, onOpen],
     );
@@ -114,16 +158,16 @@ export const ScriptSearchResults: React.FC<ScriptSearchResultsProps> = ({
             {results.map((script) => {
                 const content = contentCache.get(script.id) ?? '';
                 const kw = query.trim();
-                const matchedLines = getMatchedLines(content, kw);
+                const matchedLines = getMatchedLinesWithNumbers(content, kw);
                 const nameMatch = kw ? script.name.toLowerCase().includes(kw.toLowerCase()) : false;
                 return (
                     <CommandItem
                         key={script.id}
                         value={`script:${script.id}:${script.name}`}
                         onSelect={() => handleSelect(script.id, script.name)}
-                        className="flex flex-col items-start gap-0.5 px-4 py-1.5 cursor-pointer data-[selected=true]:bg-primary/10"
+                        className="flex flex-col items-start gap-0 px-4 py-0 cursor-pointer border-b border-border last:border-b-0 data-[selected=true]:bg-primary/10"
                     >
-                        <div className="flex w-full items-center gap-2">
+                        <div className="flex w-full items-center gap-2 py-1.5">
                             <FileCode size={13} className="shrink-0 text-success opacity-80" />
                             <span className="flex-1 truncate text-small font-medium text-foreground">
                                 {nameMatch ? highlightMatch(script.name, kw) : script.name}
@@ -132,11 +176,15 @@ export const ScriptSearchResults: React.FC<ScriptSearchResultsProps> = ({
                                 {formatDate(String(script.updated_at ?? ''))}
                             </span>
                         </div>
-                        {matchedLines.map((line, i) => (
-                            <div key={i} className="w-full pl-5 truncate font-mono text-label text-muted-foreground/85">
-                                {highlightMatch(line, kw)}
+                        {matchedLines.length > 0 && (
+                            <div className="w-full pl-5 pr-2 pb-1">
+                                <MatchedLinesDisplay
+                                    lines={matchedLines}
+                                    keyword={kw}
+                                    onLineClick={(ln) => handleSelect(script.id, script.name, ln)}
+                                />
                             </div>
-                        ))}
+                        )}
                     </CommandItem>
                 );
             })}

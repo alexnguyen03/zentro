@@ -7,10 +7,11 @@ import { useProjectStore } from '../../stores/projectStore';
 import { FetchDatabaseSchema, FetchTableColumns } from '../../services/schemaService';
 import { onSchemaLoaded } from '../../lib/events';
 import { useEditorStore } from '../../stores/editorStore';
-import { TAB_TYPE } from '../../lib/constants';
+import { DOM_EVENT, TAB_TYPE } from '../../lib/constants';
 import { useToast } from './Toast';
 import { getErrorMessage } from '../../lib/errors';
 import { models } from '../../../wailsjs/go/models';
+import { emitCommand } from '../../lib/commandBus';
 import {
     Button,
     Command,
@@ -416,7 +417,7 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
     }, [filtered, runItemAction, searchMode]);
 
     const handleOpenScript = React.useCallback(
-        (scriptId: string, scriptName: string, content: string) => {
+        (scriptId: string, scriptName: string, content: string, lineNumber?: number) => {
             const existing = groups
                 .flatMap((g) => g.tabs)
                 .find((tab) => tab.type === 'query' && tab.context?.savedScriptId === scriptId);
@@ -425,11 +426,14 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                 if (group) {
                     setActiveGroupId(group.id);
                     setActiveTabId(existing.id, group.id);
+                    if (lineNumber) {
+                        setTimeout(() => emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId: existing.id, line: lineNumber }), 0);
+                    }
                     onClose();
                     return;
                 }
             }
-            addTab({
+            const tabId = addTab({
                 type: TAB_TYPE.QUERY,
                 name: scriptName,
                 query: content,
@@ -439,6 +443,9 @@ export const ContextSearchDialog: React.FC<Props> = ({ onClose }) => {
                     scriptConnectionName: connectionName,
                 },
             });
+            if (lineNumber) {
+                setTimeout(() => emitCommand(DOM_EVENT.JUMP_TO_LINE_ACTION, { tabId, line: lineNumber }), 50);
+            }
             onClose();
         },
         [addTab, connectionName, groups, onClose, projectId, setActiveGroupId, setActiveTabId],
