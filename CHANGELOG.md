@@ -4,6 +4,43 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 
 ---
 
+## v0.3.0 (2026-04-26)
+
+### Scope
+* Release scope includes commits from `v0.2.0-beta` to `f653d26`.
+* This release packages Beta 3 improvements into the first stable `0.3.x` line.
+
+### SQL Editor, Search & Productivity
+* Added universal script search in Context Search using `#` prefix.
+* Added matched-line search results with direct jump-to-line navigation.
+* Polished saved scripts UX with content previews and hover cards.
+* Improved multi-result labeling and SQL workflow helpers (insert/update actions, copy helpers, definition navigation).
+
+### Result Grid & Data Workflows
+* Modularized `ResultTable` and related hooks to improve maintainability and reload resilience.
+* Improved result filtering flow and order-by builder behavior.
+* Added richer result context actions (copy value, copy with headers, copy as JSON, SQL copy helpers).
+* Fixed dirty-cell state edge cases and stabilized result sync loops after rerun.
+
+### Schema Explorer & Table Info
+* Expanded Table Info with unified key/constraint workflows and stronger behavior consistency.
+* Added full foreign key CRUD flow in table constraints management.
+* Added richer object operations from explorer context menu (drop/truncate/export flows).
+* Improved DDL handling paths and index operation correctness across drivers.
+
+### Source Control & Project Safety
+* Added SQL-oriented Git tracking with timeline, manual commit flow, and diff preview.
+* Added close-flush/exit commit hardening in project source-control workflows.
+* Hardened write-safety protections, including stronger confirmation behavior for high-risk environments.
+
+### UI System, Architecture & Stability
+* Migrated core frontend surfaces to shadcn/radix primitives and standardized control patterns.
+* Introduced broader design-token and UI consistency updates across toolbar/sidebar/settings/project hub.
+* Continued decomposition of large frontend modules into focused units (editor/result/table-info domains).
+* Fixed multiple frontend guardrail, accessibility, lifecycle, and memory/performance issues (including Monaco lifecycle stability).
+
+---
+
 ## v0.2.0-beta (2026-03-30)
 
 ### Scope
