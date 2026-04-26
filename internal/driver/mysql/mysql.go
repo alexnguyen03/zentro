@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"zentro/internal/models"
 
@@ -26,7 +27,15 @@ func (d *MySQLDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
 	// DSN format: user:password@tcp(host:port)/dbname
 	userInfo := url.UserPassword(p.Username, p.Password).String()
 	dsn := fmt.Sprintf("%s@tcp(%s:%d)/%s?parseTime=true", userInfo, p.Host, p.Port, p.DBName)
-	return sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(2 * time.Minute)
+	return db, nil
 }
 
 func (d *MySQLDriver) FriendlyError(err error) error {
@@ -249,7 +258,6 @@ func (d *MySQLDriver) FetchTableRelationships(ctx context.Context, db *sql.DB, s
 	}
 	return rels, rows.Err()
 }
-
 
 // DropTableColumn implements driver.SchemaFetcher.
 func (d *MySQLDriver) DropTableColumn(ctx context.Context, db *sql.DB, schema, table, column string) error {

@@ -5,37 +5,45 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"zentro/internal/constant"
 	dbpkg "zentro/internal/db"
 	"zentro/internal/models"
 	"zentro/internal/utils"
 )
 
 type ConnectionService struct {
-	ctx             context.Context
-	logger          *slog.Logger
-	getPrefs        func() utils.Preferences
-	getDB           func() *sql.DB
-	getProfile      func() *models.ConnectionProfile
-	setDB           func(*sql.DB, *models.ConnectionProfile)
-	keepAliveCancel context.CancelFunc
+	ctx              context.Context
+	logger           *slog.Logger
+	getPrefs         func() utils.Preferences
+	getDB            func() *sql.DB
+	getProfile       func() *models.ConnectionProfile
+	rollbackActiveTx func() error
+	setDB            func(*sql.DB, *models.ConnectionProfile)
+	keepAliveCancel  context.CancelFunc
+	emitter          EventEmitter
 }
 
 func NewConnectionService(
 	ctx context.Context, logger *slog.Logger, getPrefs func() utils.Preferences,
 	getDB func() *sql.DB, getProfile func() *models.ConnectionProfile,
+	rollbackActiveTx func() error,
 	setDB func(*sql.DB, *models.ConnectionProfile),
+	emitter EventEmitter,
 ) *ConnectionService {
 	return &ConnectionService{
-		ctx:        ctx,
-		logger:     logger,
-		getPrefs:   getPrefs,
-		getDB:      getDB,
-		getProfile: getProfile,
-		setDB:      setDB,
+		ctx:              ctx,
+		logger:           logger,
+		getPrefs:         getPrefs,
+		getDB:            getDB,
+		getProfile:       getProfile,
+		rollbackActiveTx: rollbackActiveTx,
+		setDB:            setDB,
+		emitter:          emitter,
 	}
 }
 
@@ -48,7 +56,116 @@ func (s *ConnectionService) LoadConnections() ([]*models.ConnectionProfile, erro
 	return utils.LoadConnections()
 }
 
+func (s *ConnectionService) LoadDatabasesForProfile(name string) ([]string, error) {
+	profiles, err := utils.LoadConnections()
+	if err != nil {
+		return nil, err
+	}
+
+	var prof *models.ConnectionProfile
+	for _, p := range profiles {
+		if p.Name == name {
+			prof = p
+			break
+		}
+	}
+	if prof == nil {
+		return nil, fmt.Errorf("connection %q not found", name)
+	}
+
+	return s.LoadDatabasesForConnectionProfile(prof)
+}
+
+func (s *ConnectionService) LoadDatabasesForConnectionProfile(prof *models.ConnectionProfile) ([]string, error) {
+	if prof == nil {
+		return nil, fmt.Errorf("connection profile is required")
+	}
+
+	activeProfile := s.getProfile()
+	activeDB := s.getDB()
+	useActive := activeDB != nil && isSameConnectionTarget(activeProfile, prof)
+
+	db := activeDB
+	if !useActive {
+		var err error
+		db, err = dbpkg.OpenConnection(prof)
+		if err != nil {
+			return nil, dbpkg.FriendlyError(prof.Driver, err)
+		}
+		defer db.Close()
+	}
+
+	prefs := s.getPrefs()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.ConnectTimeout)*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		return nil, dbpkg.FriendlyError(prof.Driver, err)
+	}
+	if useActive {
+		s.logDBStats("load_databases_reuse_active", db, prof)
+	} else {
+		s.logDBStats("load_databases_temp_conn", db, prof)
+	}
+
+	dbs, err := dbpkg.FetchDatabases(db, prof.Driver, prof.DBName, prof.ShowAllSchemas, s.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(dbs)+1)
+	seen := make(map[string]bool)
+	if prof.DBName != "" {
+		names = append(names, prof.DBName)
+		seen[prof.DBName] = true
+	}
+	for _, d := range dbs {
+		if d.Name == "" || seen[d.Name] {
+			continue
+		}
+		names = append(names, d.Name)
+		seen[d.Name] = true
+	}
+
+	return names, nil
+}
+
+func isSameConnectionTarget(active, target *models.ConnectionProfile) bool {
+	if active == nil || target == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(active.Name), strings.TrimSpace(target.Name)) &&
+		strings.EqualFold(strings.TrimSpace(active.Driver), strings.TrimSpace(target.Driver)) &&
+		strings.EqualFold(strings.TrimSpace(active.Host), strings.TrimSpace(target.Host)) &&
+		active.Port == target.Port &&
+		strings.EqualFold(strings.TrimSpace(active.DBName), strings.TrimSpace(target.DBName)) &&
+		strings.EqualFold(strings.TrimSpace(active.Username), strings.TrimSpace(target.Username))
+}
+
+func (s *ConnectionService) logDBStats(scope string, db *sql.DB, prof *models.ConnectionProfile) {
+	if db == nil {
+		return
+	}
+	stats := db.Stats()
+	profileName := ""
+	dbName := ""
+	if prof != nil {
+		profileName = prof.Name
+		dbName = prof.DBName
+	}
+	s.logger.Debug("db pool stats",
+		"scope", scope,
+		"profile", profileName,
+		"db", dbName,
+		"open", stats.OpenConnections,
+		"in_use", stats.InUse,
+		"idle", stats.Idle,
+	)
+}
+
 func (s *ConnectionService) SaveConnection(p models.ConnectionProfile) error {
+	if p.SavePassword && !p.EncryptPassword {
+		p.EncryptPassword = true
+	}
 	profiles, err := utils.LoadConnections()
 	if err != nil {
 		return err
@@ -117,6 +234,9 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 	)
 
 	// Clean up previous connection regardless of success to reflect the user's intent to switch
+	if s.rollbackActiveTx != nil {
+		_ = s.rollbackActiveTx()
+	}
 	previousDB := s.getDB()
 	if previousDB != nil {
 		_ = previousDB.Close()
@@ -126,22 +246,22 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 		s.keepAliveCancel = nil
 	}
 
-	// Set active profile immediately with nil DB. If connection fails, 
+	// Set active profile immediately with nil DB. If connection fails,
 	// it acts as the "errored" active profile.
 	s.setDB(nil, prof)
 
-	emitEvent(s.ctx, "connection:changed", map[string]any{
-		"profile": prof,
-		"status":  "connecting",
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: prof,
+		Status:  constant.StatusConnecting,
 	})
 
 	db, err := dbpkg.OpenConnection(prof)
 	if err != nil {
 		s.logger.Error("open connection failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
-			"profile": prof,
-			"status":  "error",
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: prof,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
@@ -153,25 +273,26 @@ func (s *ConnectionService) ConnectWithProfile(prof *models.ConnectionProfile) e
 		db.Close()
 		s.logger.Error("ping failed", "profile", prof.Name, "err", err)
 		fErr := dbpkg.FriendlyError(prof.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
-			"profile": prof,
-			"status":  "error",
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: prof,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
 
 	// Connection successful, update store
 	s.setDB(db, prof)
+	s.logDBStats("connect_success", db, prof)
 
-	kaCtx, kaCancel := context.WithCancel(context.Background())
-	s.keepAliveCancel = kaCancel
-	go s.startKeepAlive(kaCtx, db, prof)
+	// Disable periodic keep-alive ping to avoid background "--ping" sessions
+	// that can inflate connection count on the server side.
+	s.keepAliveCancel = nil
 
-	emitEvent(s.ctx, "connection:changed", map[string]any{
-		"profile": prof,
-		"status":  "connected",
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: prof,
+		Status:  constant.StatusConnected,
 	})
-	s.logger.Info("connected — emitted connection:changed",
+	s.logger.Info("connected and emitted connection changed event",
 		"profile", prof.Name,
 		"driver", prof.Driver,
 		"db_name", prof.DBName,
@@ -197,6 +318,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	clone.DBName = dbName
 
 	previousDB := s.getDB()
+	if s.rollbackActiveTx != nil {
+		_ = s.rollbackActiveTx()
+	}
 	if previousDB != nil {
 		_ = previousDB.Close()
 	}
@@ -206,18 +330,18 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 	}
 	s.setDB(nil, &clone)
 
-	emitEvent(s.ctx, "connection:changed", map[string]any{
-		"profile": &clone,
-		"status":  "connecting",
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: &clone,
+		Status:  constant.StatusConnecting,
 	})
 
 	db, err := dbpkg.OpenConnection(&clone)
 	if err != nil {
 		s.logger.Error("switch database failed", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
-			"profile": &clone,
-			"status":  "error",
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: &clone,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
@@ -229,23 +353,24 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 		db.Close()
 		s.logger.Error("ping failed on new db", "db", dbName, "err", err)
 		fErr := dbpkg.FriendlyError(clone.Driver, err)
-		emitEvent(s.ctx, "connection:changed", map[string]any{
-			"profile": &clone,
-			"status":  "error",
+		EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+			Profile: &clone,
+			Status:  constant.StatusError,
 		})
 		return fErr
 	}
 
 	s.setDB(db, &clone)
+	s.logDBStats("switch_database_success", db, &clone)
 
-	kaCtx, kaCancel := context.WithCancel(context.Background())
-	s.keepAliveCancel = kaCancel
-	go s.startKeepAlive(kaCtx, db, &clone)
+	// Disable periodic keep-alive ping to avoid background "--ping" sessions
+	// that can inflate connection count on the server side.
+	s.keepAliveCancel = nil
 
 	s.logger.Info("switched database ok")
-	emitEvent(s.ctx, "connection:changed", map[string]any{
-		"profile": &clone,
-		"status":  "connected",
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Profile: &clone,
+		Status:  constant.StatusConnected,
 	})
 
 	go s.fetchDatabaseList(db, &clone)
@@ -253,6 +378,9 @@ func (s *ConnectionService) SwitchDatabase(dbName string) error {
 }
 
 func (s *ConnectionService) Disconnect() {
+	if s.rollbackActiveTx != nil {
+		_ = s.rollbackActiveTx()
+	}
 	if s.keepAliveCancel != nil {
 		s.keepAliveCancel()
 		s.keepAliveCancel = nil
@@ -262,21 +390,23 @@ func (s *ConnectionService) Disconnect() {
 		_ = db.Close()
 	}
 	s.setDB(nil, nil)
-	emitEvent(s.ctx, "connection:changed", map[string]any{"status": "disconnected"})
+	EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+		Status: constant.StatusDisconnected,
+	})
 	runtime.WindowSetTitle(s.ctx, "Zentro")
 	s.logger.Info("disconnected")
 }
 
-func (s *ConnectionService) GetConnectionStatus() (map[string]any, error) {
+func (s *ConnectionService) GetConnectionStatus() (ConnectionRuntimeState, error) {
 	prof := s.getProfile()
 	db := s.getDB()
-	status := "disconnected"
+	status := constant.StatusDisconnected
 	if db != nil {
-		status = "connected"
+		status = constant.StatusConnected
 	}
-	return map[string]any{
-		"profile": prof,
-		"status":  status,
+	return ConnectionRuntimeState{
+		Profile: prof,
+		Status:  status,
 	}, nil
 }
 
@@ -284,7 +414,7 @@ func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	currentState := "connected"
+	currentState := constant.StatusConnected
 
 	for {
 		select {
@@ -312,254 +442,19 @@ func (s *ConnectionService) startKeepAlive(ctx context.Context, db *sql.DB, prof
 				return
 			}
 
-			newState := "connected"
+			newState := constant.StatusConnected
 			if pingErr != nil {
-				newState = "error"
+				newState = constant.StatusError
 				s.logger.Warn("keep-alive ping failed", "profile", prof.Name, "err", pingErr)
 			}
 
 			if newState != currentState {
 				currentState = newState
-				emitEvent(s.ctx, "connection:changed", map[string]any{
-					"profile": prof,
-					"status":  currentState,
+				EmitVersionedEvent(s.emitter, s.ctx, constant.EventConnectionChanged, constant.EventConnectionChangedV2, ConnectionChangedEvent{
+					Profile: prof,
+					Status:  currentState,
 				})
 			}
 		}
 	}
-}
-
-func (s *ConnectionService) fetchDatabaseList(db *sql.DB, prof *models.ConnectionProfile) {
-	if db == nil || prof == nil {
-		return
-	}
-
-	s.logger.Info("fetchDatabaseList start",
-		"profile", prof.Name,
-		"profile_db_name", prof.DBName,
-		"driver", prof.Driver,
-	)
-
-	dbs, err := dbpkg.FetchDatabases(db, prof.Driver, prof.DBName, prof.ShowAllSchemas, s.logger)
-	if err != nil {
-		s.logger.Warn("fetch databases failed", "err", err)
-		return
-	}
-
-	names := make([]string, 0, len(dbs)+4)
-	seen := make(map[string]bool)
-
-	if prof.DBName != "" {
-		names = append(names, prof.DBName)
-		seen[prof.DBName] = true
-	}
-
-	for _, d := range dbs {
-		if !seen[d.Name] {
-			names = append(names, d.Name)
-			seen[d.Name] = true
-		}
-	}
-
-	allProfiles, loadErr := utils.LoadConnections()
-	if loadErr == nil {
-		for _, p := range allProfiles {
-			if p.Driver == prof.Driver &&
-				p.Host == prof.Host &&
-				p.Port == prof.Port &&
-				p.DBName != "" &&
-				!seen[p.DBName] {
-				names = append(names, p.DBName)
-				seen[p.DBName] = true
-			}
-		}
-	}
-
-	emitEvent(s.ctx, "schema:databases", map[string]any{
-		"profileName": prof.Name,
-		"databases":   names,
-	})
-}
-
-func (s *ConnectionService) FetchDatabaseSchema(profileName, dbName string) error {
-	prof := s.getProfile()
-	if prof == nil || prof.Name != profileName {
-		return fmt.Errorf("no active connection for profile %q", profileName)
-	}
-	s.logger.Info("fetching schema", "profile", profileName, "db", dbName)
-
-	go func() {
-		clone := *prof
-		clone.DBName = dbName
-		conn, err := dbpkg.OpenConnection(&clone)
-		if err != nil {
-			s.logger.Warn("cannot open db for schema fetch", "db", dbName, "err", err)
-			emitEvent(s.ctx, "schema:error", map[string]any{
-				"profileName": profileName,
-				"dbName":      dbName,
-				"error":       err.Error(),
-			})
-			return
-		}
-		defer conn.Close()
-
-		prefs := s.getPrefs()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(prefs.SchemaTimeout)*time.Second)
-		defer cancel()
-
-		d, ok := getDriver(prof.Driver)
-		if !ok {
-			emitEvent(s.ctx, "schema:error", map[string]any{
-				"profileName": profileName,
-				"dbName":      dbName,
-				"error":       "driver not found",
-			})
-			return
-		}
-		schemas, err := d.FetchSchema(ctx, conn, prof.ShowAllSchemas, s.logger)
-		if err != nil {
-			s.logger.Warn("fetch schema failed", "db", dbName, "err", err)
-			emitEvent(s.ctx, "schema:error", map[string]any{
-				"profileName": profileName,
-				"dbName":      dbName,
-				"error":       err.Error(),
-			})
-			return
-		}
-		emitEvent(s.ctx, "schema:loaded", map[string]any{
-			"profileName": profileName,
-			"dbName":      dbName,
-			"schemas":     schemas,
-		})
-	}()
-	return nil
-}
-
-func (s *ConnectionService) FetchTableColumns(schema, table string) ([]*models.ColumnDef, error) {
-	prof := s.getProfile()
-	if prof == nil {
-		return nil, fmt.Errorf("no active connection")
-	}
-	db := s.getDB()
-	if db == nil {
-		return nil, fmt.Errorf("no active connection")
-	}
-	d, ok := getDriver(prof.Driver)
-	if !ok {
-		return nil, fmt.Errorf("driver not found")
-	}
-
-	prefs := s.getPrefs()
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
-	defer cancel()
-
-	s.logger.Info("fetching table columns", "schema", schema, "table", table)
-	return d.FetchTableColumns(ctx, db, schema, table)
-}
-
-func (s *ConnectionService) AlterTableColumn(schema, table string, old, updated models.ColumnDef) error {
-	prof := s.getProfile()
-	if prof == nil {
-		return fmt.Errorf("no active connection")
-	}
-	db := s.getDB()
-	if db == nil {
-		return fmt.Errorf("no active connection")
-	}
-	d, ok := getDriver(prof.Driver)
-	if !ok {
-		return fmt.Errorf("driver not found")
-	}
-
-	prefs := s.getPrefs()
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
-	defer cancel()
-
-	s.logger.Info("altering column", "schema", schema, "table", table, "column", old.Name)
-	return d.AlterTableColumn(ctx, db, schema, table, &old, &updated)
-}
-
-func (s *ConnectionService) ReorderTableColumns(schema, table string, newOrder []string) error {
-	prof := s.getProfile()
-	if prof == nil {
-		return fmt.Errorf("no active connection")
-	}
-	db := s.getDB()
-	if db == nil {
-		return fmt.Errorf("no active connection")
-	}
-	d, ok := getDriver(prof.Driver)
-	if !ok {
-		return fmt.Errorf("driver not found")
-	}
-	prefs := s.getPrefs()
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
-	defer cancel()
-	s.logger.Info("reordering columns", "schema", schema, "table", table, "newOrder", newOrder)
-	return d.ReorderTableColumns(ctx, db, schema, table, newOrder)
-}
-
-func (s *ConnectionService) FetchTableRelationships(schema, table string) ([]models.TableRelationship, error) {
-	prof := s.getProfile()
-	if prof == nil {
-		return nil, fmt.Errorf("no active connection")
-	}
-	db := s.getDB()
-	if db == nil {
-		return nil, fmt.Errorf("no active connection")
-	}
-	d, ok := getDriver(prof.Driver)
-	if !ok {
-		return nil, fmt.Errorf("driver not found")
-	}
-	prefs := s.getPrefs()
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
-	defer cancel()
-	
-	s.logger.Info("fetching table relationships", "schema", schema, "table", table)
-	return d.FetchTableRelationships(ctx, db, schema, table)
-}
-
-func (s *ConnectionService) AddTableColumn(schema, table string, col models.ColumnDef) error {
-	prof := s.getProfile()
-	if prof == nil {
-		return fmt.Errorf("no active connection")
-	}
-	db := s.getDB()
-	if db == nil {
-		return fmt.Errorf("no active connection")
-	}
-	d, ok := getDriver(prof.Driver)
-	if !ok {
-		return fmt.Errorf("driver not found")
-	}
-
-	prefs := s.getPrefs()
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
-	defer cancel()
-
-	s.logger.Info("adding column", "schema", schema, "table", table, "column", col.Name)
-	return d.AddTableColumn(ctx, db, schema, table, &col)
-}
-
-func (s *ConnectionService) DropTableColumn(schema, table, column string) error {
-	prof := s.getProfile()
-	if prof == nil {
-		return fmt.Errorf("no active connection")
-	}
-	db := s.getDB()
-	if db == nil {
-		return fmt.Errorf("no active connection")
-	}
-	d, ok := getDriver(prof.Driver)
-	if !ok {
-		return fmt.Errorf("driver not found")
-	}
-
-	prefs := s.getPrefs()
-	ctx, cancel := context.WithTimeout(s.ctx, time.Duration(prefs.SchemaTimeout)*time.Second)
-	defer cancel()
-
-	s.logger.Info("dropping column", "schema", schema, "table", table, "column", column)
-	return d.DropTableColumn(ctx, db, schema, table, column)
 }

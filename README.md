@@ -1,37 +1,60 @@
 # Zentro
 
+![Release](https://img.shields.io/badge/release-v0.3.0-2ea44f)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
+![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)
+![Wails](https://img.shields.io/badge/Wails-v2-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+Free cross-platform SQL IDE for developers, data engineers, and database operators.
+
+- Supports PostgreSQL, MySQL, SQL Server, and SQLite out of the box.
+- Includes SQL editor, schema explorer, result grid, ERD, saved scripts, and Git tracking.
+- Built with Go + Wails backend and React + TypeScript frontend.
+
 ![Zentro Banner](assets/banner.png)
 
-**Zentro** is a high-performance, cross-platform SQL IDE engineered for speed, reliability, and modern developer workflows. Built with a modular Go backend and a sleek React frontend, it provides a unified interface for managing multiple database engines with enterprise-grade features.
+## Download
 
-## 🚀 Key Features
+Download the latest prebuilt binaries from [GitHub Releases](https://github.com/alexnguyen03/zentro/releases).
 
-### 🛠 Core Capabilities
-- **Multi-Engine Support**: Seamlessly connect to PostgreSQL, MySQL, MariaDB, Microsoft SQL Server, and SQLite.
-- **Advanced Query Engine**: Multi-tab editor with asynchronous execution, real-time query cancellation, and persistable history.
-- **Intuitive Schema Browser**: Explore databases, tables, and relationships with ease.
-- **ERD Visualization**: Interactive Entity-Relationship Diagrams to understand your data architecture.
+Current stable release: **v0.3.0** (April 26, 2026).  
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
-### 📊 Data & Schema Engineering
-- **Direct Table Editing**: Add, drop, or alter columns directly through the UI.
-- **Data Export**: Export results to CSV with support for large datasets.
-- **Script Management**: Save and organize frequent SQL scripts and templates.
+## Running
 
-### 🔒 Enterprise Ready
-- **Secure Credentials**: Integrated with OS-level keyrings (Windows Credential Manager, macOS Keychain, Linux Secret Service).
-- **Customizable Environment**: Global preferences for themes, font sizes, and execution limits.
-- **Cross-Platform DNA**: Identical experience across Windows, macOS, and Linux.
+### Prerequisites
 
-## 🏗 Technology Stack
+- Go `1.25+`
+- Node.js `18+`
+- Wails CLI:
 
-- **Backend**: [Go 1.25+](https://go.dev/) + [Wails v2](https://wails.io/)
-- **Frontend**: [React](https://reactjs.org/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vitejs.dev/)
-- **Styling**: Tailwind CSS / Vanilla CSS
-- **Inter-process Communication**: Wails high-speed bridge (Go-JS/TS)
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+```
 
-## 📐 Architecture
+### Development Mode
 
-Zentro follows a clean, modular architecture designed for extensibility.
+```bash
+wails dev
+```
+
+### Production Build
+
+```bash
+wails build
+```
+
+## Documentation
+
+- Product wiki: [Zentro Wiki](https://github.com/alexnguyen03/zentro/wiki)
+- Getting started: [Home](https://github.com/alexnguyen03/zentro/wiki/Home)
+- Contributing guide: [docs/wiki/Contributing-Guide.md](docs/wiki/Contributing-Guide.md)
+- Issue tracker: [GitHub Issues](https://github.com/alexnguyen03/zentro/issues)
+
+## Architecture
+
+Zentro follows a modular service architecture:
 
 ```mermaid
 graph TD
@@ -40,42 +63,42 @@ graph TD
     App <--> Conn[Connection Service]
     App <--> Query[Query Service]
     App <--> History[History Service]
-    
-    Conn <--> Drivers[Plugin Driver System]
-    Drivers --> PG[Postgres]
+
+    Conn <--> Drivers[Database Driver Registry]
+    Drivers --> PG[PostgreSQL]
     Drivers --> MY[MySQL]
-    Drivers --> MS[MSSQL]
+    Drivers --> MS[SQL Server]
     Drivers --> SQ[SQLite]
 ```
 
-## 🛠 Getting Started
+## Supported Databases
 
-### Prerequisites
-- **Go**: 1.25 or higher
-- **Node.js**: 18.x or higher
-- **Wails CLI**: Installed via `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+Zentro currently ships with these built-in drivers:
 
-### Development
-To run Zentro in live development mode:
-```bash
-wails dev
-```
+- PostgreSQL
+- MySQL
+- SQL Server
+- SQLite
 
-### Production Build
-To create a redistributable package for your current OS:
-```bash
-wails build
-```
+## Project Structure
 
-## 📂 Project Structure
+- `/cmd`: application entry points
+- `/internal/app`: Wails app layer and facades
+- `/internal/core`: driver registry and core abstractions
+- `/internal/driver`: database-specific implementations
+- `/frontend`: React app source
+- `/assets`: static assets
 
-- `/cmd`: Application entry points.
-- `/internal/app`: Wails application logic and service orchestration.
-- `/internal/core`: Core abstractions and driver registry.
-- `/internal/driver`: Implementation of database-specific drivers.
-- `/frontend`: React application source code.
-- `/assets`: Static assets and branding.
+## Feedback
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Bug report or feature request: [open an issue](https://github.com/alexnguyen03/zentro/issues/new/choose)
+- Questions and ideas: [GitHub Discussions](https://github.com/alexnguyen03/zentro/discussions)
+- Pull requests are welcome
 
+## Contributing
+
+Please read [docs/wiki/Contributing-Guide.md](docs/wiki/Contributing-Guide.md) before opening a PR.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

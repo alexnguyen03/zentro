@@ -1,351 +1,225 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import { STORAGE_KEY } from '../lib/constants';
+import { withStoreLogger } from './logger';
+import { EditorState, ProjectEditorSession, Tab } from './editor/types';
+import { 
+    DEFAULT_WORKSPACE_ID, 
+    createEmptySession, 
+    getSessionProjectId, 
+    normalizeSession 
+} from './editor/sessionUtils';
+import { createTabSlice } from './editor/tabSlice';
+import { createGroupSlice } from './editor/groupSlice';
 
-export interface Tab {
-    id: string;
-    name: string;
-    query: string;
-    isRunning: boolean;
-    type?: 'query' | 'table' | 'settings' | 'shortcuts';
-    content?: string; // used for table name if type === 'table'
+const MAX_PROJECT_SESSIONS = 12;
+const MAX_GROUPS_PER_SESSION = 6;
+const MAX_TABS_PER_GROUP = 30;
+const MAX_QUERY_LENGTH = 20000;
+const MAX_QUERY_LENGTH_FALLBACK = 3000;
+
+function isQuotaExceededError(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    return error.name === 'QuotaExceededError'
+        || error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+        || /quota/i.test(error.message);
 }
 
-export interface TabGroup {
-    id: string;
-    tabs: Tab[];
-    activeTabId: string | null;
+function trimTabForPersistence(tab: Tab, queryLimit: number): Tab {
+    const nextQuery = typeof tab.query === 'string' ? tab.query.slice(0, queryLimit) : '';
+    return {
+        ...tab,
+        query: nextQuery,
+        isRunning: false,
+        content: undefined,
+        gitDiffBefore: undefined,
+        gitDiffAfter: undefined,
+    };
 }
 
-interface EditorState {
-    groups: TabGroup[];
-    activeGroupId: string | null;
+function trimSessionForPersistence(
+    session: ProjectEditorSession,
+    queryLimit: number,
+    groupLimit = MAX_GROUPS_PER_SESSION,
+    tabLimit = MAX_TABS_PER_GROUP,
+): ProjectEditorSession {
+    const groups = session.groups.slice(0, groupLimit).map((group) => {
+        const tabs = group.tabs.slice(-tabLimit).map((tab) => trimTabForPersistence(tab, queryLimit));
+        const activeTabId = tabs.some((tab) => tab.id === group.activeTabId)
+            ? group.activeTabId
+            : tabs[tabs.length - 1]?.id || null;
+        return {
+            ...group,
+            tabs,
+            activeTabId,
+        };
+    });
 
-    addTab: (tabInit?: Partial<Tab>, targetGroupId?: string) => string;
-    removeTab: (id: string, groupId?: string) => void;
-    setActiveTabId: (tabId: string, groupId: string) => void;
-    setActiveGroupId: (groupId: string) => void;
-    updateTabQuery: (id: string, query: string) => void;
-    setTabRunning: (id: string, isRunning: boolean) => void;
-    renameTab: (id: string, newName: string) => void;
-    setTabQuery: (id: string, query: string) => void;
-
-    // Split View Actions
-    splitGroup: (sourceGroupId: string, tabId: string) => void;
-    splitGroupFromDrag: (sourceGroupId: string, tabId: string, targetGroupId: string, direction: 'left' | 'right') => void;
-    closeGroup: (groupId: string) => void;
-
-    // DnD Actions
-    moveTab: (tabId: string, sourceGroupId: string, targetGroupId: string, newIndex: number) => void;
+    return {
+        groups,
+        activeGroupId: groups.some((group) => group.id === session.activeGroupId) ? session.activeGroupId : groups[0]?.id || null,
+    };
 }
 
-// Helper to generate a unique query name
-const getNextTabName = (groups: TabGroup[], baseName: string = 'New Query'): string => {
-    let name = baseName;
-    let count = 1;
-    let checkName = name;
+function buildPersistedProjectSessions(
+    sessions: Record<string, ProjectEditorSession>,
+    queryLimit: number,
+    projectLimit = MAX_PROJECT_SESSIONS,
+): Record<string, ProjectEditorSession> {
+    const entries = Object.entries(sessions);
+    const limited = entries.slice(-projectLimit);
+    return Object.fromEntries(
+        limited.map(([projectId, session]) => [
+            projectId,
+            trimSessionForPersistence(session, queryLimit),
+        ]),
+    );
+}
 
-    // Check across all groups
-    while (groups.some(g => g.tabs.some(t => t.name === checkName))) {
-        count++;
-        checkName = `${name} ${count}`;
-    }
-    return checkName;
+const safeEditorSessionStorage: StateStorage = {
+    getItem: (name) => localStorage.getItem(name),
+    removeItem: (name) => localStorage.removeItem(name),
+    setItem: (name, value) => {
+        try {
+            localStorage.setItem(name, value);
+            return;
+        } catch (error) {
+            if (!isQuotaExceededError(error)) {
+                throw error;
+            }
+        }
+
+        // Quota overflow fallback:
+        // 1) aggressively compact editor sessions
+        // 2) if still failing, drop editor session key to keep app functional
+        try {
+            const parsed = JSON.parse(value) as {
+                state?: { projectSessions?: Record<string, ProjectEditorSession> };
+                version?: number;
+            };
+            const compactState = {
+                ...(parsed.state || {}),
+                projectSessions: buildPersistedProjectSessions(parsed.state?.projectSessions || {}, MAX_QUERY_LENGTH_FALLBACK, 2),
+            };
+            localStorage.setItem(name, JSON.stringify({ ...parsed, state: compactState }));
+            return;
+        } catch {
+            // fall through
+        }
+
+        try {
+            localStorage.removeItem(name);
+        } catch {
+            // ignore
+        }
+    },
 };
 
 export const useEditorStore = create<EditorState>()(
     persist(
-        (set, get) => ({
-            groups: [{ id: 'group-1', tabs: [], activeTabId: null }],
-            activeGroupId: 'group-1',
-
-            addTab: (tabInit, targetGroupId) => {
-                let id = tabInit?.id || crypto.randomUUID();
-
-                set((state) => {
-                    const targetId = targetGroupId || state.activeGroupId || state.groups[0].id;
-                    const groupIndex = state.groups.findIndex(g => g.id === targetId);
-                    if (groupIndex === -1) return state;
-
-                    // If it's a table tab, verify if one already exists with the same content
-                    if (tabInit?.type === 'table' && tabInit.content) {
-                        for (const g of state.groups) {
-                            const existingTab = g.tabs.find(t => t.type === 'table' && t.content === tabInit.content);
-                            if (existingTab) {
-                                id = existingTab.id;
-                                return {
-                                    groups: state.groups.map(grp => grp.id === g.id ? { ...grp, activeTabId: existingTab.id } : grp),
-                                    activeGroupId: g.id,
-                                };
-                            }
-                        }
-                    }
-
-                    // If it's a settings or shortcuts tab, only allow one
-                    if (tabInit?.type === 'settings' || tabInit?.type === 'shortcuts') {
-                        for (const g of state.groups) {
-                            const existingTab = g.tabs.find(t => t.type === tabInit.type);
-                            if (existingTab) {
-                                id = existingTab.id;
-                                return {
-                                    groups: state.groups.map(grp => grp.id === g.id ? { ...grp, activeTabId: existingTab.id } : grp),
-                                    activeGroupId: g.id,
-                                };
-                            }
-                        }
-                    }
-
-                    const name = tabInit?.name || getNextTabName(state.groups);
-                    const newTab: Tab = {
-                        id,
-                        name,
-                        query: tabInit?.query || '',
-                        isRunning: false,
-                        type: tabInit?.type || 'query',
-                        content: tabInit?.content,
-                        ...tabInit
-                    };
-
-                    const newGroups = state.groups.map(g => {
-                        if (g.id === targetId) {
-                            return {
-                                ...g,
-                                tabs: [...g.tabs, newTab],
-                                activeTabId: id,
-                            };
-                        }
-                        return g;
-                    });
-
-                    return {
-                        groups: newGroups,
-                        activeGroupId: targetId,
-                    };
-                });
-                return id;
+        withStoreLogger('editorStore', (set, get, ...args) => ({
+            projectSessions: {
+                [DEFAULT_WORKSPACE_ID]: createEmptySession(),
             },
+            activeProjectId: DEFAULT_WORKSPACE_ID,
+            groups: createEmptySession().groups,
+            activeGroupId: createEmptySession().activeGroupId,
 
-            removeTab: (id, targetGroupId) => set((state) => {
-                const newGroups = state.groups.map(g => {
-                    if (targetGroupId && g.id !== targetGroupId) return g;
+            switchProject: (projectId) => set((state) => {
+                const nextProjectId = getSessionProjectId(projectId);
+                const nextSession = normalizeSession(state.projectSessions[nextProjectId]);
 
-                    if (!g.tabs.some(t => t.id === id)) return g;
-
-                    const newTabs = g.tabs.filter(t => t.id !== id);
-                    let newActiveId = g.activeTabId;
-                    if (newActiveId === id) {
-                        newActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
-                    }
-                    return { ...g, tabs: newTabs, activeTabId: newActiveId };
-                });
-                return { groups: newGroups };
-            }),
-
-            setActiveTabId: (tabId, groupId) => set((state) => {
                 return {
-                    groups: state.groups.map(g => g.id === groupId ? { ...g, activeTabId: tabId } : g),
-                    activeGroupId: groupId, // Also focus the group
+                    projectSessions: {
+                        ...state.projectSessions,
+                        [nextProjectId]: nextSession,
+                    },
+                    activeProjectId: nextProjectId,
+                    groups: nextSession.groups,
+                    activeGroupId: nextSession.activeGroupId,
                 };
             }),
 
-            setActiveGroupId: (groupId) => set({ activeGroupId: groupId }),
-
-            updateTabQuery: (id, query) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, query } : t)
-                }))
-            })),
-
-            setTabRunning: (id, isRunning) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, isRunning } : t)
-                }))
-            })),
-
-            renameTab: (id, newName) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, name: newName } : t)
-                }))
-            })),
-
-            setTabQuery: (id, query) => set((state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => t.id === id ? { ...t, query } : t)
-                }))
-            })),
-
-            splitGroup: (sourceGroupId, tabId) => set((state) => {
-                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
-                if (!sourceGroup) return state;
-
-                const tabToMove = sourceGroup.tabs.find(t => t.id === tabId);
-                if (!tabToMove) return state;
-
-                // Move tab out of source group
-                const newSourceTabs = sourceGroup.tabs.filter(t => t.id !== tabId);
-                let newSourceActiveId = sourceGroup.activeTabId;
-                if (newSourceActiveId === tabId) {
-                    newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
-                }
-
-                const newGroupId = crypto.randomUUID();
-                const newGroup: TabGroup = {
-                    id: newGroupId,
-                    tabs: [tabToMove],
-                    activeTabId: tabId,
-                };
-
-                const newGroups = state.groups.map(g =>
-                    g.id === sourceGroupId
-                        ? { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId }
-                        : g
-                );
-
-                // Insert the new group immediately after the source group
-                const sourceIndex = newGroups.findIndex(g => g.id === sourceGroupId);
-                newGroups.splice(sourceIndex + 1, 0, newGroup);
+            hydrateProjectSession: (projectId, session, activate = false) => set((state) => {
+                const nextProjectId = getSessionProjectId(projectId);
+                const nextSession = normalizeSession(session);
+                const shouldActivate = activate || nextProjectId === getSessionProjectId(state.activeProjectId);
 
                 return {
-                    groups: newGroups,
-                    activeGroupId: newGroupId
+                    projectSessions: {
+                        ...state.projectSessions,
+                        [nextProjectId]: nextSession,
+                    },
+                    ...(shouldActivate ? {
+                        activeProjectId: nextProjectId,
+                        groups: nextSession.groups,
+                        activeGroupId: nextSession.activeGroupId,
+                    } : {}),
                 };
             }),
 
-            splitGroupFromDrag: (sourceGroupId, tabId, targetGroupId, direction) => set((state) => {
-                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
-                if (!sourceGroup) return state;
-
-                const tabToMove = sourceGroup.tabs.find(t => t.id === tabId);
-                if (!tabToMove) return state;
-
-                // Move tab out of source group
-                const newSourceTabs = sourceGroup.tabs.filter(t => t.id !== tabId);
-                let newSourceActiveId = sourceGroup.activeTabId;
-                if (newSourceActiveId === tabId) {
-                    newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
-                }
-
-                const newGroupId = crypto.randomUUID();
-                const newGroup: TabGroup = {
-                    id: newGroupId,
-                    tabs: [tabToMove],
-                    activeTabId: tabId,
-                };
-
-                const intermediateGroups = state.groups.map(g =>
-                    g.id === sourceGroupId
-                        ? { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId }
-                        : g
-                );
-
-                const targetIndex = intermediateGroups.findIndex(g => g.id === targetGroupId);
-                if (targetIndex === -1) return state;
-
-                const insertIndex = direction === 'left' ? targetIndex : targetIndex + 1;
-                intermediateGroups.splice(insertIndex, 0, newGroup);
+            resetProject: (projectId) => set((state) => {
+                const nextProjectId = getSessionProjectId(projectId || state.activeProjectId);
+                const nextSession = createEmptySession();
+                const isActive = nextProjectId === getSessionProjectId(state.activeProjectId);
 
                 return {
-                    groups: intermediateGroups,
-                    activeGroupId: newGroupId
+                    projectSessions: {
+                        ...state.projectSessions,
+                        [nextProjectId]: nextSession,
+                    },
+                    ...(isActive ? {
+                        groups: nextSession.groups,
+                        activeGroupId: nextSession.activeGroupId,
+                    } : {}),
                 };
             }),
 
-            closeGroup: (groupId) => set((state) => {
-                let newGroups = state.groups.filter(g => g.id !== groupId);
-
-                // Fallback to a default group if we closed the last one
-                if (newGroups.length === 0) {
-                    newGroups = [{ id: 'group-1', tabs: [], activeTabId: null }];
-                }
-
-                let newActiveGrpId = state.activeGroupId;
-                if (newActiveGrpId === groupId) {
-                    newActiveGrpId = newGroups[0].id;
-                }
-
-                return {
-                    groups: newGroups,
-                    activeGroupId: newActiveGrpId
-                };
-            }),
-
-            moveTab: (tabId, sourceGroupId, targetGroupId, newIndex) => set((state) => {
-                const sourceGroup = state.groups.find(g => g.id === sourceGroupId);
-                const targetGroup = state.groups.find(g => g.id === targetGroupId);
-                if (!sourceGroup || !targetGroup) return state;
-
-                const tabIndexInSource = sourceGroup.tabs.findIndex(t => t.id === tabId);
-                if (tabIndexInSource === -1) return state;
-
-                const tab = sourceGroup.tabs[tabIndexInSource];
-
-                let newGroups = [...state.groups];
-
-                if (sourceGroupId === targetGroupId) {
-                    // Reorder within the same group
-                    const newTabs = [...sourceGroup.tabs];
-                    newTabs.splice(tabIndexInSource, 1);
-                    newTabs.splice(newIndex, 0, tab);
-
-                    newGroups = newGroups.map(g => g.id === sourceGroupId ? { ...g, tabs: newTabs } : g);
-                } else {
-                    // Move to a different group
-                    const newSourceTabs = [...sourceGroup.tabs];
-                    newSourceTabs.splice(tabIndexInSource, 1);
-
-                    let newSourceActiveId = sourceGroup.activeTabId;
-                    if (newSourceActiveId === tabId) {
-                        newSourceActiveId = newSourceTabs.length > 0 ? newSourceTabs[newSourceTabs.length - 1].id : null;
-                    }
-
-                    const newTargetTabs = [...targetGroup.tabs];
-                    newTargetTabs.splice(newIndex, 0, tab);
-
-                    newGroups = newGroups.map(g => {
-                        if (g.id === sourceGroupId) {
-                            return { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveId };
-                        }
-                        if (g.id === targetGroupId) {
-                            return { ...g, tabs: newTargetTabs, activeTabId: tabId }; // activate moved tab
-                        }
-                        return g;
-                    });
-                }
-
-                return {
-                    groups: newGroups,
-                    activeGroupId: targetGroupId,
-                };
-            })
-        }),
+            // Compose slices
+            ...createTabSlice(set, get, ...args),
+            ...createGroupSlice(set, get, ...args),
+        })),
         {
-            name: 'zentro:editor-session-v2', // Change name to drop old state because schema changed
+            name: STORAGE_KEY.EDITOR_SESSION,
+            storage: createJSONStorage(() => safeEditorSessionStorage),
             partialize: (state) => ({
-                groups: state.groups.map(g => ({
-                    ...g,
-                    tabs: g.tabs.map(t => ({ ...t, isRunning: false }))
-                })),
-                activeGroupId: state.activeGroupId,
+                projectSessions: buildPersistedProjectSessions(state.projectSessions, MAX_QUERY_LENGTH),
             }),
             onRehydrateStorage: () => (state, error) => {
                 if (error) {
                     console.error('Failed to hydrate editor session', error);
-                } else if (state) {
-                    if (!state.groups || state.groups.length === 0) {
-                        const newTab = { id: crypto.randomUUID(), name: 'New Query', query: '', isRunning: false };
-                        state.groups = [{ id: 'group-1', tabs: [newTab], activeTabId: newTab.id }];
-                        state.activeGroupId = 'group-1';
-                    } else if (state.groups.every(g => g.tabs.length === 0)) {
-                        const g = state.groups[0];
-                        const newTab = { id: crypto.randomUUID(), name: 'New Query', query: '', isRunning: false };
-                        g.tabs.push(newTab);
-                        g.activeTabId = newTab.id;
-                    }
+                    return;
                 }
-            }
+
+                if (!state) return;
+
+                const rawProjectSessions: Record<string, Partial<ProjectEditorSession> | null | undefined> | undefined =
+                    state.projectSessions && Object.keys(state.projectSessions).length > 0
+                    ? state.projectSessions
+                    : undefined;
+
+                const projectSessions = rawProjectSessions && Object.keys(rawProjectSessions).length > 0
+                    ? Object.fromEntries(
+                        Object.entries(rawProjectSessions).map(([projectId, session]) => [
+                            projectId,
+                            normalizeSession(session),
+                        ])
+                    )
+                    : { [DEFAULT_WORKSPACE_ID]: createEmptySession() };
+
+                const rawActiveProjectId = state.activeProjectId;
+                const activeProjectId = rawActiveProjectId && projectSessions[rawActiveProjectId]
+                    ? rawActiveProjectId
+                    : DEFAULT_WORKSPACE_ID;
+                const activeSession = normalizeSession(projectSessions[activeProjectId]);
+
+                state.projectSessions = projectSessions;
+                state.activeProjectId = activeProjectId;
+                state.groups = activeSession.groups;
+                state.activeGroupId = activeSession.activeGroupId;
+            },
         }
     )
 );
+
+export type { Tab, TabGroup, ProjectEditorSession } from './editor/types';

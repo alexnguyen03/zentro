@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 
 	zentroapp "zentro/internal/app"
 	"zentro/internal/core"
@@ -44,6 +45,12 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 18, G: 18, B: 18, A: 1},
 		OnStartup:        app.Startup,
 		OnBeforeClose:    app.OnBeforeClose,
+		Mac: &mac.Options{
+			TitleBar:            mac.TitleBarHiddenInset(),
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  false,
+			Appearance:          mac.NSAppearanceNameDarkAqua,
+		},
 		Bind: []interface{}{
 			app,
 		},

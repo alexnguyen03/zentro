@@ -2,8 +2,8 @@
 package db
 
 import (
-	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"zentro/internal/core"
@@ -12,6 +12,9 @@ import (
 // limitPattern matches queries that already contain a LIMIT, TOP, or OFFSET clause.
 // Covers: LIMIT, OFFSET, TOP, FETCH (MSSQL), and MySQL legacy LIMIT x,y syntax
 var limitPattern = regexp.MustCompile(`(?i)\bLIMIT\b|\bOFFSET\b|\bTOP\b|\bFETCH\b`)
+var withMutatingPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|MERGE)\b`)
+var leadingCommentPattern = regexp.MustCompile(`(?is)\A(?:\s+|--[^\n]*\n|/\*.*?\*/)*`)
+var firstKeywordPattern = regexp.MustCompile(`(?i)^[a-z]+`)
 
 // fromPattern matches "FROM [schema.]table" to extract for in-line editing.
 var fromPattern = regexp.MustCompile(`(?i)\bFROM\s+([a-zA-Z0-9_"\[\]]+)(?:\.([a-zA-Z0-9_"\[\]]+))?`)
@@ -21,6 +24,36 @@ func IsSelectQuery(query string) bool {
 	upper := strings.ToUpper(strings.TrimSpace(query))
 	for _, prefix := range []string{"SELECT", "WITH", "SHOW", "EXPLAIN"} {
 		if strings.HasPrefix(upper, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsReadOnlyStatement returns true when the SQL statement is read-only.
+// This is stricter than IsSelectQuery and is used for "view mode" write-blocking.
+func IsReadOnlyStatement(query string) bool {
+	trimmed := stripLeadingComments(query)
+	if trimmed == "" {
+		return false
+	}
+
+	keyword := strings.ToUpper(firstKeyword(trimmed))
+	switch keyword {
+	case "SELECT", "SHOW", "EXPLAIN", "DESCRIBE", "DESC":
+		return true
+	case "WITH":
+		// CTEs can still mutate (e.g. WITH ... INSERT/UPDATE/DELETE ... RETURNING ...)
+		return !withMutatingPattern.MatchString(trimmed)
+	default:
+		return false
+	}
+}
+
+// BatchHasMutatingStatements returns true when any statement in the batch is not read-only.
+func BatchHasMutatingStatements(statements []string) bool {
+	for _, statement := range statements {
+		if !IsReadOnlyStatement(statement) {
 			return true
 		}
 	}
@@ -64,8 +97,127 @@ func fallbackInjectPage(query string, limit, offset int) string {
 		return query
 	}
 	trimmed := strings.TrimSpace(query)
+	var b strings.Builder
+	b.Grow(len(trimmed) + 32)
+	b.WriteString(trimmed)
+	b.WriteString(" LIMIT ")
+	b.WriteString(strconv.Itoa(limit))
 	if offset > 0 {
-		return trimmed + fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+		b.WriteString(" OFFSET ")
+		b.WriteString(strconv.Itoa(offset))
 	}
-	return trimmed + fmt.Sprintf(" LIMIT %d", limit)
+	return b.String()
+}
+
+// SplitStatements separates SQL statements on semicolons outside of strings/comments.
+func SplitStatements(query string) []string {
+	var statements []string
+	var current strings.Builder
+
+	inSingle := false
+	inDouble := false
+	inBacktick := false
+	inLineComment := false
+	inBlockComment := false
+
+	runes := []rune(query)
+	for i := 0; i < len(runes); i++ {
+		ch := runes[i]
+		next := rune(0)
+		if i+1 < len(runes) {
+			next = runes[i+1]
+		}
+
+		if inLineComment {
+			current.WriteRune(ch)
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+
+		if inBlockComment {
+			current.WriteRune(ch)
+			if ch == '*' && next == '/' {
+				current.WriteRune(next)
+				i++
+				inBlockComment = false
+			}
+			continue
+		}
+
+		if !inSingle && !inDouble && !inBacktick {
+			if ch == '-' && next == '-' {
+				current.WriteRune(ch)
+				current.WriteRune(next)
+				i++
+				inLineComment = true
+				continue
+			}
+			if ch == '/' && next == '*' {
+				current.WriteRune(ch)
+				current.WriteRune(next)
+				i++
+				inBlockComment = true
+				continue
+			}
+		}
+
+		switch ch {
+		case '\'':
+			current.WriteRune(ch)
+			if !inDouble && !inBacktick {
+				if inSingle && next == '\'' {
+					current.WriteRune(next)
+					i++
+				} else {
+					inSingle = !inSingle
+				}
+			}
+		case '"':
+			current.WriteRune(ch)
+			if !inSingle && !inBacktick {
+				if inDouble && next == '"' {
+					current.WriteRune(next)
+					i++
+				} else {
+					inDouble = !inDouble
+				}
+			}
+		case '`':
+			current.WriteRune(ch)
+			if !inSingle && !inDouble {
+				inBacktick = !inBacktick
+			}
+		case ';':
+			if inSingle || inDouble || inBacktick {
+				current.WriteRune(ch)
+				continue
+			}
+			statement := strings.TrimSpace(current.String())
+			if statement != "" {
+				statements = append(statements, statement)
+			}
+			current.Reset()
+		default:
+			current.WriteRune(ch)
+		}
+	}
+
+	statement := strings.TrimSpace(current.String())
+	if statement != "" {
+		statements = append(statements, statement)
+	}
+
+	return statements
+}
+
+func stripLeadingComments(query string) string {
+	trimmed := leadingCommentPattern.ReplaceAllString(query, "")
+	return strings.TrimSpace(trimmed)
+}
+
+func firstKeyword(query string) string {
+	match := firstKeywordPattern.FindString(query)
+	return strings.TrimSpace(match)
 }

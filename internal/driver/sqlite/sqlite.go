@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 
 	"zentro/internal/models"
 
@@ -22,7 +23,15 @@ func New() *SQLiteDriver {
 func (d *SQLiteDriver) Name() string { return "sqlite" }
 
 func (d *SQLiteDriver) Open(p *models.ConnectionProfile) (*sql.DB, error) {
-	return sql.Open("sqlite", p.DBName)
+	db, err := sql.Open("sqlite", p.DBName)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(2)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(2 * time.Minute)
+	return db, nil
 }
 
 func (d *SQLiteDriver) FriendlyError(err error) error {
@@ -219,7 +228,7 @@ func (d *SQLiteDriver) FetchTableRelationships(ctx context.Context, db *sql.DB, 
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: fetch tables for incoming rels: %w", err)
 	}
-	
+
 	var allTables []string
 	for tRows.Next() {
 		var tName string

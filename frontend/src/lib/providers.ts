@@ -1,10 +1,9 @@
-import { models } from '../../wailsjs/go/models';
 import PostgresLogo from '../assets/images/postgresql-logo-svgrepo-com.svg';
-import SqlServerLogo from '../assets/images/microsoft-sql-server-logo-svgrepo-com.svg';
+import SqlServerLogo from '../assets/images/sql-server.svg';
 import MySqlLogo from '../assets/images/mysql-logo-svgrepo-com.svg';
 import SqliteLogo from '../assets/images/sqlite-svgrepo-com.svg';
-
-type ConnectionProfile = models.ConnectionProfile;
+import { DRIVER } from './constants';
+import type { ConnectionProfile } from '../types/connection';
 
 // ── Extra field descriptor ────────────────────────────────────────────────────
 export interface ExtraField {
@@ -36,7 +35,7 @@ export interface ProviderConfig {
 // ── Registry — add new providers HERE only ───────────────────────────────────
 export const PROVIDERS: ProviderConfig[] = [
     {
-        key: 'postgres',
+        key: DRIVER.POSTGRES,
         label: 'PostgreSQL',
         defaultPort: 5432,
         defaultSsl: 'disable',
@@ -46,7 +45,7 @@ export const PROVIDERS: ProviderConfig[] = [
         requiresAuth: true,
     },
     {
-        key: 'sqlserver',
+        key: DRIVER.SQLSERVER,
         label: 'SQL Server',
         defaultPort: 1433,
         defaultSsl: 'disable',
@@ -59,7 +58,7 @@ export const PROVIDERS: ProviderConfig[] = [
         ],
     },
     {
-        key: 'mysql',
+        key: DRIVER.MYSQL,
         label: 'MySQL',
         defaultPort: 3306,
         defaultSsl: 'disable',
@@ -69,7 +68,7 @@ export const PROVIDERS: ProviderConfig[] = [
         requiresAuth: true,
     },
     {
-        key: 'sqlite',
+        key: DRIVER.SQLITE,
         label: 'SQLite',
         defaultPort: null,
         defaultSsl: 'disable',
@@ -84,15 +83,16 @@ export const PROVIDERS: ProviderConfig[] = [
 export const getProvider = (key: string): ProviderConfig =>
     PROVIDERS.find(p => p.key === key) ?? PROVIDERS[0];
 
-export const makeDefaultForm = (driver = 'postgres'): Partial<ConnectionProfile> => {
-    const p = getProvider(driver);
+export const makeDefaultForm = (driver = ''): Partial<ConnectionProfile> => {
+    const p = driver ? getProvider(driver) : null;
     return {
         driver,
         host: 'localhost',
-        port: p.defaultPort ?? 5432,
-        ssl_mode: p.defaultSsl,
+        port: p?.defaultPort ?? 5432,
+        ssl_mode: p?.defaultSsl ?? 'disable',
         connect_timeout: 30,
         save_password: true,
+        encrypt_password: true,
         name: '',
         username: '',
         password: '',
@@ -107,12 +107,12 @@ export const parseConnectionString = (
     uri: string,
     currentName: string | undefined
 ): Partial<ConnectionProfile> => {
-    const toParse = uri.includes('://') ? uri : `postgres://${uri}`;
+    const toParse = uri.includes('://') ? uri : `${DRIVER.POSTGRES}://${uri}`;
     try {
         const url = new URL(toParse);
         const updates: Partial<ConnectionProfile> = {};
-        if (url.protocol.startsWith('postgres')) updates.driver = 'postgres';
-        if (url.protocol.startsWith('sqlserver')) updates.driver = 'sqlserver';
+        if (url.protocol.startsWith(DRIVER.POSTGRES)) updates.driver = DRIVER.POSTGRES;
+        if (url.protocol.startsWith(DRIVER.SQLSERVER)) updates.driver = DRIVER.SQLSERVER;
         if (url.hostname) updates.host = url.hostname;
         if (url.port) updates.port = parseInt(url.port, 10);
         const db = url.pathname.replace(/^\//, '');
@@ -135,12 +135,14 @@ export const validateConnectionForm = (
     isEditing: boolean,
     existingNames: string[]
 ): string | null => {
+    if (!form.driver?.trim()) return 'Please select a provider';
     if (!form.name?.trim()) return 'Profile name is required';
     if (!isEditing && existingNames.includes(form.name.trim()))
         return `"${form.name.trim()}" already exists`;
-    const p = getProvider(form.driver ?? 'postgres');
+    const p = getProvider(form.driver ?? DRIVER.POSTGRES);
     if (p.requiresHost && !form.host?.trim()) return 'Host is required';
     if (p.requiresAuth && !form.username?.trim()) return 'Username is required';
+    if (form.save_password && !form.encrypt_password) return 'Encrypt password must be enabled when saving password';
     if (!form.db_name?.trim()) return 'Database name is required';
     if (p.requiresHost && (!form.port || form.port <= 0)) return 'Port must be a positive number';
     return null;

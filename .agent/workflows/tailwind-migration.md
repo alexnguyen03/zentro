@@ -13,7 +13,7 @@ Design tokens live in `frontend/src/styles/base.css` and are exposed to Tailwind
 - `border-border`
 - `text-error`, `text-success`, `text-accent`
 - `font-sans`, `font-mono`
-- `rounded-sm` (3px), `rounded-md` (4px), `rounded-lg` (6px), `rounded-xl` (8px)
+- `rounded-sm` (3px), `rounded-sm` (4px), `rounded-sm` (6px), `rounded-xl` (8px)
 
 The `cn()` helper lives at `frontend/src/lib/cn.ts`.
 

@@ -1,18 +1,24 @@
 import React from 'react';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { DRIVER } from '../../lib/constants';
 import { getProvider } from '../../lib/providers';
 import { TestResult } from '../../hooks/useConnectionForm';
-import { models } from '../../../wailsjs/go/models';
-import { Button, Spinner } from '../ui';
+import {
+    Button,
+    Checkbox,
+    Input,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Spinner,
+} from '../ui';
+import type { ConnectionProfile } from '../../types/connection';
 
-type ConnectionProfile = models.ConnectionProfile;
-
-// ── Style tokens (shared, defined once) ──────────────────────────────────────
-export const fi = 'bg-bg-primary border border-border text-text-primary px-2 py-1 rounded text-[12px] outline-none focus:border-success transition-colors w-full';
-export const lbl = 'text-[11px] text-text-secondary block mb-0.5';
-export const btnOk = 'bg-[#89d185]/15 border-success text-success hover:bg-[#89d185]/20';
-export const btnErr = 'bg-[#f48771]/15 border-error text-error hover:bg-[#f48771]/20';
+const fieldInputClass = 'w-full';
+const labelClass = 'mb-0.5 block text-label text-muted-foreground';
 
 interface ConnectionFormProps {
     formData: Partial<ConnectionProfile>;
@@ -23,7 +29,6 @@ interface ConnectionFormProps {
     errorMsg: string;
     successMsg: string;
     isEditing: boolean;
-    /** When true the connection-string URI field is shown at the top */
     showUriField?: boolean;
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
     onConnStringChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -48,60 +53,69 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
     onSave,
     onCancel,
 }) => {
-    // Derive capabilities from provider registry — no hardcoded strings in JSX
-    const provider = getProvider(formData.driver ?? 'postgres');
+    const emitCheckboxChange = React.useCallback((name: string, checked: boolean) => {
+        onChange({
+            target: { name, type: 'checkbox', checked, value: checked ? 'on' : 'off' },
+        } as React.ChangeEvent<HTMLInputElement>);
+    }, [onChange]);
+
+    const provider = getProvider(formData.driver ?? DRIVER.POSTGRES);
     const { requiresHost, requiresAuth, extraFields = [] } = provider;
+    const providerLogo = formData.driver ? provider.icon : null;
 
     return (
-        <form onSubmit={onSave} className="flex-1 overflow-y-auto flex flex-col gap-2.5 px-4 py-3">
+        <form onSubmit={onSave} className="relative flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+            {providerLogo && (
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-4 right-4 h-72 w-72 bg-contain bg-center bg-no-repeat opacity-[0.15]"
+                    style={{ backgroundImage: `url(${providerLogo})` }}
+                />
+            )}
 
-            {/* URI — new connections only */}
             {showUriField && (
-                <div className="pb-2.5 border-b border-border">
-                    <label className={lbl}>Connection string (URI)</label>
-                    <input
-                        type="text"
+                <div className="border-b border-border pb-2.5">
+                    <label className={labelClass}>Connection string (URI)</label>
+                    <Input
                         value={connString}
                         onChange={onConnStringChange}
-                        placeholder="postgres://user:pass@host:5432/db"
-                        className={cn(fi, 'font-mono text-[11px]')}
+                        placeholder={`${DRIVER.POSTGRES}://user:pass@host:5432/db`}
+                        className={cn(fieldInputClass, 'font-mono text-label')}
                     />
                 </div>
             )}
 
-            {/* Profile name */}
             <div>
-                <label className={lbl}>Profile name <span className="text-error">*</span></label>
-                <input
+                <label className={labelClass}>Profile name <span className="text-destructive">*</span></label>
+                <Input
                     name="name"
                     value={formData.name || ''}
                     onChange={onChange}
                     placeholder="e.g. Production"
                     autoFocus={!isEditing}
                     disabled={isEditing}
-                    className={cn(fi, isEditing && 'opacity-50')}
+                    className={cn(fieldInputClass, isEditing && 'opacity-50')}
                 />
                 {isEditing && (
-                    <span className="text-[10px] text-text-muted">Name cannot be changed after creation</span>
+                    <span className="text-label text-muted-foreground">Name cannot be changed after creation</span>
                 )}
             </div>
 
-            {/* Host + Port */}
-            <div className="flex gap-2">
-                <div className="flex-1" style={{ flex: 3 }}>
-                    <label className={lbl}>Host {requiresHost && <span className="text-error">*</span>}</label>
-                    <input
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 sm:basis-3/4">
+                    <label className={labelClass}>Host {requiresHost && <span className="text-destructive">*</span>}</label>
+                    <Input
                         name="host"
                         value={formData.host || ''}
                         onChange={onChange}
                         placeholder="localhost"
                         disabled={!requiresHost}
-                        className={cn(fi, !requiresHost && 'opacity-40')}
+                        className={cn(fieldInputClass, !requiresHost && 'opacity-40')}
                     />
                 </div>
-                <div style={{ flex: 1 }}>
-                    <label className={lbl}>Port {requiresHost && <span className="text-error">*</span>}</label>
-                    <input
+                <div className="sm:basis-1/4">
+                    <label className={labelClass}>Port {requiresHost && <span className="text-destructive">*</span>}</label>
+                    <Input
                         type="number"
                         name="port"
                         value={requiresHost ? (formData.port || '') : ''}
@@ -109,136 +123,148 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({
                         min={1}
                         max={65535}
                         disabled={!requiresHost}
-                        placeholder={!requiresHost ? '—' : ''}
-                        className={cn(fi, !requiresHost && 'opacity-40')}
+                        placeholder={!requiresHost ? '-' : ''}
+                        className={cn(fieldInputClass, !requiresHost && 'opacity-40')}
                     />
                 </div>
             </div>
 
-            {/* Username + Password */}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1">
-                    <label className={lbl}>Username {requiresAuth && <span className="text-error">*</span>}</label>
-                    <input
+                    <label className={labelClass}>Username {requiresAuth && <span className="text-destructive">*</span>}</label>
+                    <Input
                         name="username"
                         value={formData.username || ''}
                         onChange={onChange}
-                        placeholder={requiresAuth ? 'postgres' : '—'}
+                        placeholder={requiresAuth ? DRIVER.POSTGRES : '-'}
                         disabled={!requiresAuth}
                         autoComplete="username"
-                        className={cn(fi, !requiresAuth && 'opacity-40')}
+                        className={cn(fieldInputClass, !requiresAuth && 'opacity-40')}
                     />
                 </div>
                 <div className="flex-1">
-                    <label className={lbl}>Password</label>
-                    <input
+                    <label className={labelClass}>Password</label>
+                    <Input
                         type="password"
                         name="password"
                         value={formData.password || ''}
                         onChange={onChange}
                         disabled={!requiresAuth}
                         autoComplete="current-password"
-                        className={cn(fi, !requiresAuth && 'opacity-40')}
+                        className={cn(fieldInputClass, !requiresAuth && 'opacity-40')}
                     />
                 </div>
             </div>
 
-            {/* Database + SSL */}
-            <div className="flex gap-2">
-                <div className="flex-1" style={{ flex: 2 }}>
-                    <label className={lbl}>Database <span className="text-error">*</span></label>
-                    <input
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 sm:basis-2/3">
+                    <label className={labelClass}>Database <span className="text-destructive">*</span></label>
+                    <Input
                         name="db_name"
                         value={formData.db_name || ''}
                         onChange={onChange}
-                        placeholder={!requiresHost ? '/path/to/file.db' : 'postgres'}
-                        className={fi}
+                        placeholder={!requiresHost ? '/path/to/file.db' : DRIVER.POSTGRES}
+                        className={fieldInputClass}
                     />
                 </div>
                 {requiresHost && (
-                    <div style={{ flex: 1 }}>
-                        <label className={lbl}>SSL</label>
-                        <select name="ssl_mode" value={formData.ssl_mode || 'disable'} onChange={onChange} className={fi}>
-                            <option value="disable">Disable</option>
-                            <option value="require">Require</option>
-                            <option value="verify-ca">Verify CA</option>
-                            <option value="verify-full">Verify Full</option>
-                        </select>
+                    <div className="sm:basis-1/3">
+                        <label className={labelClass}>SSL</label>
+                        <Select
+                            value={formData.ssl_mode || 'disable'}
+                            onValueChange={(value) => {
+                                onChange({
+                                    target: { name: 'ssl_mode', value },
+                                } as React.ChangeEvent<HTMLSelectElement>);
+                            }}
+                        >
+                            <SelectTrigger className={fieldInputClass}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="disable">Disable</SelectItem>
+                                <SelectItem value="require">Require</SelectItem>
+                                <SelectItem value="verify-ca">Verify CA</SelectItem>
+                                <SelectItem value="verify-full">Verify Full</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
             </div>
 
-            {/* Checkboxes — common + provider-specific via extraFields */}
             <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-0.5">
                 {requiresHost && (
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                        <input
-                            type="checkbox"
-                            name="show_all_schemas"
+                    <label className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
+                        <Checkbox
                             checked={formData.show_all_schemas ?? false}
-                            onChange={onChange}
-                            className="w-3 h-3 cursor-pointer accent-success"
+                            onCheckedChange={(checked) => emitCheckboxChange('show_all_schemas', checked === true)}
                         />
                         Show all schemas
                     </label>
                 )}
-                {/* Provider-specific extra fields from registry */}
-                {extraFields.map(field => (
-                    <label key={field.name as string} className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                        <input
-                            type="checkbox"
-                            name={field.name as string}
+                {extraFields.map((field) => (
+                    <label key={field.name as string} className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
+                        <Checkbox
                             checked={(formData[field.name] as boolean) ?? false}
-                            onChange={onChange}
-                            className="w-3 h-3 cursor-pointer accent-success"
+                            onCheckedChange={(checked) => emitCheckboxChange(field.name as string, checked === true)}
                         />
                         {field.label}
                     </label>
                 ))}
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-text-secondary select-none">
-                    <input
-                        type="checkbox"
-                        name="save_password"
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
+                    <Checkbox
                         checked={formData.save_password ?? true}
-                        onChange={onChange}
-                        className="w-3 h-3 cursor-pointer accent-success"
+                        onCheckedChange={(checked) => emitCheckboxChange('save_password', checked === true)}
                     />
                     Save password
                 </label>
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-label text-muted-foreground">
+                    <Checkbox
+                        checked={formData.encrypt_password ?? true}
+                        onCheckedChange={(checked) => emitCheckboxChange('encrypt_password', checked === true)}
+                        disabled={!(formData.save_password ?? true)}
+                    />
+                    Encrypt password
+                </label>
             </div>
 
-            {/* Feedback */}
             {errorMsg && (
-                <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded text-[11px] text-error bg-[#f48771]/10 border border-[#f48771]/20">
-                    <AlertCircle size={12} className="shrink-0 mt-px" />
-                    <span className="wrap-break-word flex-1">{errorMsg}</span>
+                <div className="flex items-start gap-1.5 rounded-sm border border-destructive/20 bg-destructive/10 px-2.5 py-1.5 text-label text-destructive">
+                    <AlertCircle size={12} className="mt-px shrink-0" />
+                    <span className="flex-1 break-words">{errorMsg}</span>
                 </div>
             )}
             {successMsg && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] text-success bg-[#89d185]/10 border border-[#89d185]/20">
+                <div className="flex items-center gap-1.5 rounded-sm border border-success/20 bg-success/10 px-2.5 py-1.5 text-label text-success">
                     <CheckCircle size={12} className="shrink-0" />
                     <span className="flex-1">{successMsg}</span>
                 </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-1.5 mt-auto pt-2.5">
+            <div className="mt-auto flex gap-1.5 pt-2.5">
                 <Button
                     type="button"
-                    variant="solid"
-                    className={testResult === 'ok' ? btnOk : testResult === 'error' ? btnErr : ''}
+                    variant="secondary"
+                    className={cn(
+                        'transition-all',
+                        testResult === 'ok' && 'border-success bg-success/15 text-success hover:bg-success/20',
+                        testResult === 'error' && 'border-destructive bg-destructive/15 text-destructive hover:bg-destructive/20',
+                    )}
                     onClick={onTest}
                     disabled={testing}
                 >
                     {testing
-                        ? <><Spinner size={11} className="mr-1" /> Testing…</>
+                        ? <><Spinner size={11} className="mr-1" /> Testing...</>
                         : testResult === 'ok'
                             ? <><CheckCircle size={11} className="mr-1" /> OK</>
                             : 'Test'}
                 </Button>
                 <div className="flex-1" />
-                <Button type="submit" variant="success" className="w-6/12" disabled={saving}>
-                    {saving ? <><Spinner size={11} className="text-white mr-1" /> Saving…</> : 'Save'}
+                <Button type="button" variant="ghost" onClick={onCancel}>
+                    Cancel
+                </Button>
+                <Button type="submit" variant="default" className="min-w-[120px]" disabled={saving}>
+                    {saving ? <><Spinner size={11} className="mr-1 text-white" /> Saving...</> : 'Save'}
                 </Button>
             </div>
         </form>

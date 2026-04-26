@@ -24,14 +24,14 @@ func slugify(s string) string {
 	return s
 }
 
-// scriptDir returns and ensures the per-connection script directory exists.
-// Path: ~/.config/zentro/scripts/<slug>/
-func scriptDir(connectionName string) (string, error) {
+// scriptDir returns and ensures the per-project/per-connection script directory exists.
+// Path: ~/.config/zentro/scripts/<project-slug>/<connection-slug>/
+func scriptDir(projectID, connectionName string) (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("scripts: config dir: %w", err)
 	}
-	dir := filepath.Join(base, "zentro", "scripts", slugify(connectionName))
+	dir := filepath.Join(base, "zentro", "scripts", slugify(projectID), slugify(connectionName))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("scripts: mkdir: %w", err)
 	}
@@ -76,19 +76,29 @@ func saveIndex(dir string, entries []models.SavedScript) error {
 	return os.Rename(tmp, p)
 }
 
-// LoadScripts returns all saved script metadata for a connection.
+// LoadScripts returns all saved script metadata for a project+connection scope.
 // Content (SQL) is NOT loaded here — only metadata from index.json.
-func LoadScripts(connectionName string) ([]models.SavedScript, error) {
-	dir, err := scriptDir(connectionName)
+func LoadScripts(projectID, connectionName string) ([]models.SavedScript, error) {
+	dir, err := scriptDir(projectID, connectionName)
 	if err != nil {
 		return nil, err
 	}
-	return loadIndex(dir)
+	entries, err := loadIndex(dir)
+	if err != nil {
+		return nil, err
+	}
+	filtered := entries[:0]
+	for _, entry := range entries {
+		if entry.ProjectID == projectID {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered, nil
 }
 
 // GetScriptContent reads the SQL content of a single script file.
-func GetScriptContent(connectionName, scriptID string) (string, error) {
-	dir, err := scriptDir(connectionName)
+func GetScriptContent(projectID, connectionName, scriptID string) (string, error) {
+	dir, err := scriptDir(projectID, connectionName)
 	if err != nil {
 		return "", err
 	}
@@ -102,7 +112,7 @@ func GetScriptContent(connectionName, scriptID string) (string, error) {
 
 // SaveScript writes the .sql file and upserts the metadata in index.json.
 func SaveScript(script models.SavedScript, content string) error {
-	dir, err := scriptDir(script.ConnectionName)
+	dir, err := scriptDir(script.ProjectID, script.ConnectionName)
 	if err != nil {
 		return err
 	}
@@ -129,9 +139,9 @@ func SaveScript(script models.SavedScript, content string) error {
 	return saveIndex(dir, entries)
 }
 
-// DeleteScript removes the .sql file and its entry from index.json.
-func DeleteScript(connectionName, scriptID string) error {
-	dir, err := scriptDir(connectionName)
+// DeleteScript removes the .sql file and its entry from index.json within project+connection scope.
+func DeleteScript(projectID, connectionName, scriptID string) error {
+	dir, err := scriptDir(projectID, connectionName)
 	if err != nil {
 		return err
 	}

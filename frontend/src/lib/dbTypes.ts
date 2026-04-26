@@ -1,6 +1,8 @@
+import { DRIVER } from './constants';
+
 // Database-specific column types for autocomplete in TableInfo editor
 export const DB_TYPES: Record<string, string[]> = {
-    sqlserver: [
+    [DRIVER.SQLSERVER]: [
         'int', 'bigint', 'smallint', 'tinyint', 'bit',
         'decimal', 'numeric', 'float', 'real', 'money', 'smallmoney',
         'char', 'varchar', 'nchar', 'nvarchar', 'text', 'ntext',
@@ -10,7 +12,7 @@ export const DB_TYPES: Record<string, string[]> = {
         'binary', 'varbinary', 'varbinary(max)', 'image',
         'uniqueidentifier', 'xml', 'sql_variant', 'timestamp', 'rowversion',
     ],
-    postgres: [
+    [DRIVER.POSTGRES]: [
         'integer', 'bigint', 'smallint', 'serial', 'bigserial', 'smallserial',
         'numeric', 'decimal', 'real', 'double precision', 'money',
         'boolean',
@@ -23,7 +25,7 @@ export const DB_TYPES: Record<string, string[]> = {
         'int2', 'int4', 'int8', 'float4', 'float8',
         'tsvector', 'tsquery',
     ],
-    mysql: [
+    [DRIVER.MYSQL]: [
         'int', 'bigint', 'mediumint', 'smallint', 'tinyint',
         'decimal', 'float', 'double', 'numeric', 'bit',
         'char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext',
@@ -32,13 +34,13 @@ export const DB_TYPES: Record<string, string[]> = {
         'binary', 'varbinary', 'tinyblob', 'blob', 'mediumblob', 'longblob',
         'json', 'enum', 'set',
     ],
-    sqlite: [
+    [DRIVER.SQLITE]: [
         'INTEGER', 'REAL', 'TEXT', 'BLOB', 'NUMERIC',
         'NULL', 'BOOLEAN', 'DATE', 'DATETIME',
     ],
 };
 
 export function getTypesForDriver(driver: string): string[] {
-    const key = driver.toLowerCase().replace('sqlserver', 'sqlserver');
-    return DB_TYPES[key] ?? DB_TYPES['sqlserver'];
+    const key = driver.toLowerCase().replace('sqlserver', DRIVER.SQLSERVER);
+    return DB_TYPES[key] ?? DB_TYPES[DRIVER.SQLSERVER];
 }

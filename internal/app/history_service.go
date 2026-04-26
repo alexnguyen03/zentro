@@ -17,11 +17,19 @@ type HistoryService struct {
 	mu         sync.Mutex
 	entries    []models.HistoryEntry
 	getProfile func() *models.ConnectionProfile
+	getProject func() *models.Project
+	getEnvKey  func() string
 }
 
-func NewHistoryService(getProfile func() *models.ConnectionProfile) *HistoryService {
+func NewHistoryService(
+	getProfile func() *models.ConnectionProfile,
+	getProject func() *models.Project,
+	getEnvKey func() string,
+) *HistoryService {
 	return &HistoryService{
 		getProfile: getProfile,
+		getProject: getProject,
+		getEnvKey:  getEnvKey,
 	}
 }
 
@@ -47,6 +55,14 @@ func (s *HistoryService) AppendEntry(query string, rowCount int64, duration time
 		RowCount:   rowCount,
 		Error:      errStr,
 		ExecutedAt: time.Now().Format(time.RFC3339),
+	}
+	if s.getProject != nil {
+		if project := s.getProject(); project != nil {
+			e.ProjectID = project.ID
+		}
+	}
+	if s.getEnvKey != nil {
+		e.EnvKey = s.getEnvKey()
 	}
 
 	s.mu.Lock()
@@ -84,10 +100,23 @@ func (s *HistoryService) ClearHistory() error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(p)
+	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func (s *HistoryService) historyFilePath() (string, error) {
+	if s.getProject != nil {
+		if project := s.getProject(); project != nil && project.StoragePath != "" {
+			dir := filepath.Join(project.StoragePath, ".zentro-tracking", "runtime")
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return "", err
+			}
+			return filepath.Join(dir, "history.json"), nil
+		}
+	}
+
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err

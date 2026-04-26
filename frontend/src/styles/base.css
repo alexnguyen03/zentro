@@ -1,31 +1,4 @@
-/* ─── Design tokens ────────────────────────────────────── */
-:root {
-    --bg-primary: #1e1e1e;
-    --bg-secondary: #252526;
-    --bg-tertiary: #333333;
-    --text-primary: #cccccc;
-    --text-secondary: #808080;
-    --accent-color: #007acc;
-    --accent-hover: #005f9e;
-    --border-color: #3c3c3c;
-    --error-color: #f48771;
-    --success-color: #89d185;
-}
-
-[data-theme='light'] {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f3f3f3;
-    --bg-tertiary: #e8e8e8;
-    --text-primary: #333333;
-    --text-secondary: #666666;
-    --accent-color: #0060a0;
-    --accent-hover: #004d80;
-    --border-color: #cccccc;
-    --error-color: #d13438;
-    --success-color: #107c10;
-}
-
-/* ─── Global resets ────────────────────────────────────── */
+/* Global resets */
 * {
     box-sizing: border-box;
 }
@@ -33,9 +6,9 @@
 body {
     margin: 0;
     padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
+    font-family: var(--font-family-sans);
+    background-color: var(--surface-app);
+    color: var(--content-primary);
     overflow: hidden;
     height: 100vh;
 }
@@ -44,12 +17,56 @@ body {
     height: 100%;
 }
 
+h1 {
+    font-size: var(--font-size-h1);
+    line-height: var(--line-height-h1);
+    font-weight: var(--font-weight-h1);
+}
+
+h2 {
+    font-size: var(--font-size-h2);
+    line-height: var(--line-height-h2);
+    font-weight: var(--font-weight-h2);
+}
+
+h3 {
+    font-size: var(--font-size-h3);
+    line-height: var(--line-height-h3);
+    font-weight: var(--font-weight-h3);
+}
+
+p {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    font-weight: var(--font-weight-body);
+}
+
+small {
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-small);
+    font-weight: var(--font-weight-small);
+}
+
+label {
+    font-size: var(--font-size-label);
+    line-height: var(--line-height-label);
+    font-weight: var(--font-weight-label);
+}
+
+button {
+    cursor: pointer !important;
+}
+
+button:disabled {
+    cursor: not-allowed !important;
+}
+
 input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* ─── Scrollbars ───────────────────────────────────────── */
+/* Scrollbars */
 ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -60,10 +77,10 @@ input:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--bg-tertiary);
+    background: var(--surface-elevated);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    background: var(--content-secondary);
 }

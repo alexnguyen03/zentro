@@ -1,9 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Clock, Trash2, Search, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
-import { GetHistory, ClearHistory } from '../../../wailsjs/go/app/App';
+﻿import React, { useEffect, useState, useCallback } from 'react';
+import { Clock, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { GetHistory, ClearHistory } from '../../services/historyService';
 import { useEditorStore } from '../../stores/editorStore';
 import { EventsOn } from '../../../wailsjs/runtime/runtime';
 import { cn } from '../../lib/cn';
+import { TAB_TYPE } from '../../lib/constants';
+import { Button, Input } from '../ui';
+import { useSidebarPanelState } from '../../stores/sidebarUiStore';
+import { HISTORY_PANEL_STATE_DEFAULT } from './sidebarPanelStateDefaults';
 
 interface HistoryEntry {
     id: string;
@@ -28,111 +32,118 @@ function formatDuration(ms: number): string {
 
 export const HistoryPanel: React.FC = () => {
     const [entries, setEntries] = useState<HistoryEntry[]>([]);
-    const [search, setSearch] = useState('');
     const [confirmClear, setConfirmClear] = useState(false);
+    const [historyPanelState, setHistoryPanelState] = useSidebarPanelState('primary', 'history', HISTORY_PANEL_STATE_DEFAULT);
+    const search = historyPanelState.search;
     const { groups, activeGroupId, addTab, setTabQuery } = useEditorStore();
 
     const load = useCallback(async () => {
         try {
             const data = await GetHistory();
             setEntries((data as HistoryEntry[]) || []);
-        } catch { /* ignore */ }
+        } catch {
+            // Ignore history loading errors.
+        }
     }, []);
 
     useEffect(() => {
         load();
         const off = EventsOn('query:done', load);
-        return () => { if (typeof off === 'function') off(); };
+        return () => {
+            if (typeof off === 'function') off();
+        };
     }, [load]);
 
     const pasteQuery = (query: string) => {
-        const activeGroup = groups.find(g => g.id === activeGroupId);
+        const activeGroup = groups.find((group) => group.id === activeGroupId);
         const activeTabId = activeGroup?.activeTabId;
+        const activeTab = activeGroup?.tabs.find((tab) => tab.id === activeTabId);
 
-        if (activeTabId && activeGroupId) {
-            setTabQuery(activeTabId, query);
+        if (activeTabId && activeGroupId && activeTab?.type === TAB_TYPE.QUERY) {
+            const currentQuery = activeTab.query || '';
+            const suffix = query.trim();
+            if (!suffix) return;
+            const separator = currentQuery.trimEnd() ? '\n\n' : '';
+            setTabQuery(activeTabId, `${currentQuery.trimEnd()}${separator}${suffix}`);
         } else {
             addTab({ query });
         }
     };
 
     const handleClear = async () => {
-        if (!confirmClear) { setConfirmClear(true); return; }
-        try { await ClearHistory(); setEntries([]); } catch { /* ignore */ }
+        if (!confirmClear) {
+            setConfirmClear(true);
+            return;
+        }
+        try {
+            await ClearHistory();
+            setEntries([]);
+        } catch {
+            // Ignore clear errors.
+        }
         setConfirmClear(false);
     };
 
-    const filtered = entries.filter(e =>
-        e.query.toLowerCase().includes(search.toLowerCase()) ||
-        e.profile.toLowerCase().includes(search.toLowerCase()) ||
-        e.database.toLowerCase().includes(search.toLowerCase())
+    const filtered = entries.filter(
+        (entry) =>
+            entry.query.toLowerCase().includes(search.toLowerCase())
+            || entry.profile.toLowerCase().includes(search.toLowerCase())
+            || entry.database.toLowerCase().includes(search.toLowerCase()),
     );
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border shrink-0 bg-bg-secondary">
-                <div className="flex-1 relative flex items-center min-w-0">
-                    <Search size={11} className="absolute left-1.5 text-text-secondary pointer-events-none" />
-                    <input
-                        className="w-full bg-bg-primary border border-border text-text-primary text-[11px] py-1 pl-[22px] pr-1.5 rounded-[3px] outline-none focus:border-success transition-colors"
-                        placeholder="Filter history…"
+            <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0">
+                <div className="flex-1 min-w-0">
+                    <Input
+                        size="sm"
+                        className="w-full px-2"
+                        placeholder="Filter history..."
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Escape' && setSearch('')}
+                        onChange={(event) => setHistoryPanelState((state) => ({ ...state, search: event.target.value }))}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Escape') setHistoryPanelState((state) => ({ ...state, search: '' }));
+                        }}
                     />
                 </div>
-                {entries.length > 0 && (
-                    <button
-                        className={cn(
-                            "bg-transparent border border-transparent text-text-secondary cursor-pointer flex items-center gap-1 px-1.5 py-1 rounded-[3px] text-[11px] transition-all hover:text-error hover:border-error hover:bg-[#f48771]/10 shrink-0",
-                            confirmClear && "text-error border-error bg-[#f48771]/10"
-                        )}
-                        onClick={handleClear}
-                        title={confirmClear ? 'Click again to confirm' : 'Clear all history'}
-                        onBlur={() => setConfirmClear(false)}
-                    >
-                        <Trash2 size={12} />
-                        {confirmClear ? 'Sure?' : ''}
-                    </button>
-                )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
                 {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-text-secondary text-xs">
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-muted-foreground text-small">
                         <Clock size={24} className="opacity-30" />
                         <p className="m-0">{search ? 'No matches' : 'No history yet'}</p>
                     </div>
                 ) : (
-                    filtered.map(e => (
-                        <div
-                            key={e.id}
+                    filtered.map((entry) => (
+                        <Button
+                            key={entry.id}
+                            type="button"
+                            variant="ghost"
                             className={cn(
-                                "group px-2.5 py-1.5 border-b border-white/5 cursor-pointer transition-colors duration-100 hover:bg-bg-tertiary",
-                                e.error && "border-l-2 border-l-error"
+                                'group h-auto w-full justify-start rounded-none border-b border-white/5 px-2.5 py-1.5 text-left transition-colors duration-100 last:border-none',
+                                entry.error ? 'border-l-2 border-l-error' : 'text-foreground',
                             )}
-                            onClick={() => pasteQuery(e.query)}
+                            onClick={() => pasteQuery(entry.query)}
                             title="Click to paste into editor"
                         >
                             <div className="flex items-center gap-1.5 mb-1">
-                                <span className={cn("flex", e.error ? "text-error" : "text-success")}>
-                                    {e.error
-                                        ? <AlertCircle size={11} />
-                                        : <CheckCircle size={11} />
-                                    }
+                                <span className={cn('flex', entry.error ? 'text-error' : 'text-success')}>
+                                    {entry.error ? <AlertCircle size={11} /> : <CheckCircle size={11} />}
                                 </span>
-                                <span className="flex-1 text-[10px] text-text-secondary font-mono overflow-hidden text-ellipsis whitespace-nowrap">
-                                    {e.profile}{e.database ? `/${e.database}` : ''}
+                                <span className="flex-1 text-label text-muted-foreground font-mono overflow-hidden text-ellipsis whitespace-nowrap">
+                                    {entry.profile}
+                                    {entry.database ? `/${entry.database}` : ''}
                                 </span>
-                                <span className="text-[10px] text-text-secondary shrink-0">{formatDuration(e.duration_ms)}</span>
-                                <span className="text-[10px] text-text-secondary shrink-0">{formatTime(e.executed_at)}</span>
-                                <ChevronRight size={11} className="text-text-secondary opacity-0 shrink-0 transition-opacity duration-100 group-hover:opacity-100" />
+                                <span className="text-label text-muted-foreground shrink-0">{formatDuration(entry.duration_ms)}</span>
+                                <span className="text-label text-muted-foreground shrink-0">{formatTime(entry.executed_at)}</span>
+                                <ChevronRight size={11} className="text-muted-foreground opacity-0 shrink-0 transition-opacity duration-100 group-hover:opacity-100" />
                             </div>
-                            <div className="text-[11px] font-mono text-text-primary whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{e.query}</div>
-                            {e.error && (
-                                <div className="text-[10px] text-error mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{e.error}</div>
+                            <div className="text-label font-mono text-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-full">{entry.query}</div>
+                            {entry.error && (
+                                <div className="text-label text-error mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">{entry.error}</div>
                             )}
-                        </div>
+                        </Button>
                     ))
                 )}
             </div>

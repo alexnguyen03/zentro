@@ -1,15 +1,16 @@
 # Build outputs
 build/bin/
 frontend/dist/
+frontend/coverage/
 *.exe
 
 # Node
 node_modules/
 frontend/node_modules/
+frontend/.env
 
 # Go
-go.sum
-
+.gocache/
 # IDE
 .vscode/
 .idea/
@@ -19,5 +20,3 @@ go.sum
 .DS_Store
 Thumbs.db
 
-# Wails dev temp
-frontend/wailsjs/

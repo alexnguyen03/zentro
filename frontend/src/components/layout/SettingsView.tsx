@@ -1,9 +1,36 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Settings as SettingsIcon, Laptop, Bell, Database, Globe, Search as SearchIcon, Keyboard } from 'lucide-react';
+import { Search, Settings as SettingsIcon, Keyboard } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { utils } from '../../../wailsjs/go/models';
-import { cn } from '../../lib/cn';
+import { useToast } from './Toast';
+import {
+    applyProfilePackage,
+    buildCurrentProfilePackage,
+    downloadProfilePackage,
+    parseProfilePackage,
+} from '../../lib/profilePackage';
+import { SettingsAppearance } from './settings/SettingsAppearance';
+import { SettingsNotifications } from './settings/SettingsNotifications';
+import { SettingsData } from './settings/SettingsData';
+import { SettingsFeedback } from './settings/SettingsFeedback';
+import { SettingsRegion } from './settings/SettingsRegion';
+import { SettingsProfiles } from './settings/SettingsProfiles';
+import { SettingsUpdates } from './settings/SettingsUpdates';
+import { SettingsSourceControl } from './settings/SettingsSourceControl';
+import { Button, Input } from '../ui';
+import { ENVIRONMENT_KEY } from '../../lib/constants';
+import { getEnvironmentMeta } from '../../lib/projects';
+import type { EnvironmentKey } from '../../types/project';
+import {
+    type SafetyLevel,
+    resolveEnvironmentSafetyLevel,
+    resolveStrongConfirmFromEnvironment,
+    setStrongConfirmFromEnvironment,
+    setEnvironmentSafetyLevel,
+} from '../../features/query/policyProfiles';
 
 interface SettingsViewProps {
     tabId: string;
@@ -11,7 +38,12 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const { theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout, save } = useSettingsStore();
+    const autoCheckUpdates = useSettingsStore((state) => state.autoCheckUpdates);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
+    const activeProject = useProjectStore((state) => state.activeProject);
+    const saveProject = useProjectStore((state) => state.saveProject);
     const { addTab } = useEditorStore();
+    const { toast } = useToast();
 
     const [formTheme, setFormTheme] = useState(theme);
     const [formFontSize, setFormFontSize] = useState(fontSize);
@@ -19,7 +51,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
     const [formConnectTimeout, setFormConnectTimeout] = useState(connectTimeout);
     const [formQueryTimeout, setFormQueryTimeout] = useState(queryTimeout);
     const [formToastPlacement, setFormToastPlacement] = useState(toastPlacement);
+    const [profileName, setProfileName] = useState('Zentro Profile');
     const [searchQuery, setSearchQuery] = useState('');
+    const [autoCommitOnExit, setAutoCommitOnExit] = useState<boolean>(Boolean(activeProject?.auto_commit_on_exit));
+    const [autoCommitSaving, setAutoCommitSaving] = useState(false);
+    const safetyEnvironment: EnvironmentKey = activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL;
+    const [safetyLevel, setSafetyLevel] = useState<SafetyLevel>(() => (
+        resolveEnvironmentSafetyLevel(activeEnvironmentKey || ENVIRONMENT_KEY.LOCAL)
+    ));
+    const [strongConfirmFromEnvironment, setStrongConfirmFromEnvironmentState] = useState<EnvironmentKey>(
+        () => resolveStrongConfirmFromEnvironment(),
+    );
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -45,6 +87,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         setFormQueryTimeout(queryTimeout);
         setFormToastPlacement(toastPlacement);
     }, [theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout]);
+
+    useEffect(() => {
+        setSafetyLevel(resolveEnvironmentSafetyLevel(safetyEnvironment));
+    }, [safetyEnvironment]);
+
+    useEffect(() => {
+        setAutoCommitOnExit(Boolean(activeProject?.auto_commit_on_exit));
+    }, [activeProject?.id, activeProject?.auto_commit_on_exit]);
 
     // Auto-save effect
     useEffect(() => {
@@ -73,205 +123,218 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ tabId }) => {
         return () => clearTimeout(timer);
     }, [formTheme, formFontSize, formLimit, formConnectTimeout, formQueryTimeout, formToastPlacement, save, theme, fontSize, defaultLimit, toastPlacement, connectTimeout, queryTimeout]);
 
-    const labelClass = "text-[12px] font-medium text-text-primary mb-0.5";
-    const inputClass = "w-full max-w-sm bg-bg-primary border border-border text-[12px] px-3 py-1.5 rounded-md outline-none transition-all focus:border-success focus:ring-1 focus:ring-success/10 disabled:opacity-50 disabled:cursor-not-allowed";
-    const hintClass = "text-[11px] text-text-muted mt-1 opacity-60";
-    
-    const sectionClass = "grid grid-cols-1 lg:grid-cols-3 gap-8 py-8 first:pt-0 border-b border-border/50 last:border-0 hover:bg-bg-secondary/10 transition-colors px-4 -mx-4 rounded-xl";
-    const sectionInfoClass = "lg:col-span-1 flex flex-col gap-1.5";
-    const sectionContentClass = "lg:col-span-2 flex flex-col gap-5";
-
     const matchesSearch = (title: string, labels: string[]) => {
         const query = searchQuery.toLowerCase();
         if (!query) return true;
         return title.toLowerCase().includes(query) || labels.some(l => l.toLowerCase().includes(query));
     };
 
-    return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
-            {/* Minimal Header */}
-            <div className="flex items-center justify-between px-8 h-12 border-b border-border bg-bg-primary/50 backdrop-blur-sm z-10">
-                {/* Spacer for left side balance */}
-                <div className="w-10" />
+    const handleExportProfile = () => {
+        try {
+            const profile = buildCurrentProfilePackage(profileName);
+            downloadProfilePackage(profile);
+        } catch (error) {
+            console.error('Export profile failed:', error);
+        }
+    };
 
-                {/* Centered Search Bar */}
-                <div className="flex-1 flex justify-center max-w-2xl">
-                    <div className="relative group w-full max-w-md">
-                        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-success" />
-                        <input
-                            type="text"
-                            placeholder="Find settings..."
+    const handleImportProfile = async (file: File) => {
+        try {
+            const raw = await file.text();
+            const profile = parseProfilePackage(raw);
+            await applyProfilePackage(profile);
+            setProfileName(profile.metadata.name || 'Zentro Profile');
+        } catch (error) {
+            console.error('Import profile failed:', error);
+        }
+    };
+
+    const handleSafetyLevelChange = (level: SafetyLevel) => {
+        const currentLevel = resolveEnvironmentSafetyLevel(safetyEnvironment);
+        if (currentLevel === level) {
+            setSafetyLevel(level);
+            return;
+        }
+
+        setEnvironmentSafetyLevel(safetyEnvironment, level);
+        setSafetyLevel(resolveEnvironmentSafetyLevel(safetyEnvironment));
+    };
+
+    const handleStrongConfirmFromEnvironmentChange = (environment: EnvironmentKey) => {
+        if (environment === strongConfirmFromEnvironment) return;
+        setStrongConfirmFromEnvironment(environment);
+        setStrongConfirmFromEnvironmentState(environment);
+    };
+
+    const sourceControlEnabled = Boolean(activeProject?.id && activeProject?.git_repo_path);
+    const appearanceMatch = matchesSearch('Appearance', ['Theme Interface', 'Editor Font Size']);
+    const notificationsMatch = matchesSearch('Notifications', ['Toast Position']);
+    const dataMatch = matchesSearch('Data & Query', ['Default Row Limit', 'Write Safety', 'Strong Confirm']);
+    const feedbackMatch = matchesSearch('Feedback & Issue', ['Feedback', 'Issue', 'Bug', 'Feature request']);
+    const regionMatch = matchesSearch('Region', ['Language']);
+    const profilesMatch = matchesSearch('Profiles', ['Import Profile', 'Export Profile', 'Theme', 'Layout', 'Shortcuts']);
+    const updatesMatch = matchesSearch('Updates', ['Auto-Check For Updates']);
+    const sourceControlMatch = matchesSearch('Source Control', ['Auto commit on app exit', 'Git repo path']);
+    const hasSettingsMatch = appearanceMatch || notificationsMatch || dataMatch || feedbackMatch || regionMatch || profilesMatch || updatesMatch || sourceControlMatch;
+
+    const handleAutoCommitOnExitChange = async (checked: boolean) => {
+        if (!activeProject || !activeProject.git_repo_path) return;
+        setAutoCommitOnExit(checked);
+        setAutoCommitSaving(true);
+        try {
+            const saved = await saveProject({
+                ...activeProject,
+                auto_commit_on_exit: checked,
+            });
+            if (!saved) {
+                setAutoCommitOnExit(Boolean(activeProject.auto_commit_on_exit));
+                return;
+            }
+        } finally {
+            setAutoCommitSaving(false);
+        }
+    };
+
+    return (
+        <div className="flex h-full flex-col overflow-hidden bg-background">
+            <div className="z-sticky flex h-16 items-center justify-between bg-background/92 px-10">
+                <div className="flex items-center gap-3 text-foreground">
+                    <div className="rounded-sm bg-accent/5 p-2 text-accent">
+                        <SettingsIcon size={18} />
+                    </div>
+                    <h1 className="ui-text-section tracking-tight">System Settings</h1>
+                </div>
+
+                <div className="flex max-w-2xl flex-1 justify-center px-8">
+                    <div className="relative w-full max-w-md">
+                        <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search settings..."
                             ref={searchInputRef}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-bg-secondary/50 border border-border text-[13px] text-text-primary pl-9 pr-3 py-1.5 rounded-lg outline-none transition-all focus:border-success focus:bg-bg-primary h-8"
+                            size="sm"
+                            variant="ghost"
+                            className="pl-8"
+                            aria-label="Search settings"
                         />
                     </div>
                 </div>
 
-                {/* Right Actions */}
                 <div className="flex items-center gap-2">
-                    <button
+                    <Button
                         onClick={() => addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' })}
-                        className="p-2 text-text-secondary hover:text-success hover:bg-success/10 rounded-lg transition-all"
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2 text-label  uppercase tracking-widest"
                         title="Keyboard Shortcuts"
+                        aria-label="Open keyboard shortcuts"
                     >
-                        <Keyboard size={18} />
-                    </button>
-                    <div className="w-2" />
+                        <Keyboard size={16} />
+                    </Button>
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-                <main className="flex-1 overflow-y-auto">
-                    <div className="max-w-4xl mx-auto px-10 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex flex-col">
-                            {/* Appearance */}
-                            {matchesSearch("Appearance", ["Theme Interface", "Editor Font Size"]) && (
-                                <div className={sectionClass}>
-                                    <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Laptop size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Appearance</h2>
-                                        </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Customize the visual appearance of your workspace, including themes and font sizes.
-                                        </p>
-                                    </div>
-                                    <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Theme Interface</label>
-                                            <select className={inputClass} value={formTheme} onChange={(e) => setFormTheme(e.target.value)}>
-                                                <option value="system">System Default</option>
-                                                <option value="light">Light</option>
-                                                <option value="dark">Dark</option>
-                                            </select>
-                                            <span className={hintClass}>Synchronizes with your operating system theme settings.</span>
-                                        </div>
+                <main className="flex-1 overflow-y-auto scroll-smooth">
+                    <div className="mx-auto flex w-full max-w-4xl flex-col px-5 py-6 animate-in fade-in duration-300">
+                {appearanceMatch && (
+                    <SettingsAppearance
+                        theme={formTheme}
+                        onThemeChange={setFormTheme}
+                        fontSize={formFontSize}
+                        onFontSizeChange={setFormFontSize}
+                    />
+                )}
 
-                                        <div className="flex flex-col gap-1.5 pt-2">
-                                            <label className={labelClass}>Editor Font Size (px)</label>
-                                            <input
-                                                className={inputClass}
-                                                type="number"
-                                                min={8}
-                                                max={48}
-                                                value={formFontSize}
-                                                onChange={(e) => setFormFontSize(parseInt(e.target.value) || 14)}
-                                            />
-                                            <span className={hintClass}>Set a comfortable reading size for the code editor.</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                {notificationsMatch && (
+                    <SettingsNotifications
+                        toastPlacement={formToastPlacement}
+                        onToastPlacementChange={setFormToastPlacement}
+                        onTestNotification={(variant) => {
+                            if (variant === 'success') {
+                                toast.success('This is a success notification preview.');
+                                return;
+                            }
+                            if (variant === 'error') {
+                                toast.error('This is an error notification preview.');
+                                return;
+                            }
+                            toast.info('This is an info notification preview.');
+                        }}
+                    />
+                )}
 
-                            {/* Notifications */}
-                            {matchesSearch("Notifications", ["Toast Position"]) && (
-                                <div className={sectionClass}>
-                                    <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Bell size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Notifications</h2>
-                                        </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Configure how and where system alerts and toasts appear.
-                                        </p>
-                                    </div>
-                                    <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Toast Position</label>
-                                            <select className={inputClass} value={formToastPlacement} onChange={(e) => setFormToastPlacement(e.target.value as any)}>
-                                                <option value="bottom-left">Bottom Left</option>
-                                                <option value="bottom-center">Bottom Center</option>
-                                                <option value="bottom-right">Bottom Right</option>
-                                                <option value="top-left">Top Left</option>
-                                                <option value="top-center">Top Center</option>
-                                                <option value="top-right">Top Right</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                {dataMatch && (
+                    <SettingsData
+                        limit={formLimit}
+                        onLimitChange={setFormLimit}
+                        connectTimeout={formConnectTimeout}
+                        onConnectTimeoutChange={setFormConnectTimeout}
+                        queryTimeout={formQueryTimeout}
+                        onQueryTimeoutChange={setFormQueryTimeout}
+                        activeSafetyEnvironment={safetyEnvironment}
+                        safetyLevel={safetyLevel}
+                        onSafetyLevelChange={handleSafetyLevelChange}
+                        strongConfirmFromEnvironment={strongConfirmFromEnvironment}
+                        onStrongConfirmFromEnvironmentChange={handleStrongConfirmFromEnvironmentChange}
+                    />
+                )}
 
-                            {/* Editor & Data */}
-                            {matchesSearch("Data & Query", ["Default Row Limit"]) && (
-                                <div className={sectionClass}>
-                                    <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Database size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Data & Query</h2>
-                                        </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Set thresholds to prevent large result sets from slowing down the UI.
-                                        </p>
-                                    </div>
-                                    <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Default Row Limit</label>
-                                            <select className={inputClass} value={formLimit} onChange={(e) => setFormLimit(parseInt(e.target.value) || 1000)}>
-                                                <option value={100}>100 rows</option>
-                                                <option value={500}>500 rows</option>
-                                                <option value={1000}>1,000 rows</option>
-                                                <option value={5000}>5,000 rows</option>
-                                                <option value={10000}>10,000 rows</option>
-                                            </select>
-                                            <span className={hintClass}>Limits the number of rows displayed in the result grid by default.</span>
-                                        </div>
+                {feedbackMatch && (
+                    <SettingsFeedback
+                        environmentLabel={getEnvironmentMeta(safetyEnvironment).label}
+                    />
+                )}
 
-                                        <div className="flex flex-col gap-1.5 pt-2">
-                                            <label className={labelClass}>Connect Timeout (sec)</label>
-                                            <input
-                                                className={inputClass}
-                                                type="number"
-                                                min={5}
-                                                max={300}
-                                                value={formConnectTimeout}
-                                                onChange={(e) => setFormConnectTimeout(parseInt(e.target.value) || 10)}
-                                            />
-                                            <span className={hintClass}>Maximum time to wait for a database connection to be established.</span>
-                                        </div>
+                {regionMatch && <SettingsRegion />}
 
-                                        <div className="flex flex-col gap-1.5 pt-2">
-                                            <label className={labelClass}>Query Timeout (sec)</label>
-                                            <input
-                                                className={inputClass}
-                                                type="number"
-                                                min={5}
-                                                max={100000}
-                                                value={formQueryTimeout}
-                                                onChange={(e) => setFormQueryTimeout(parseInt(e.target.value) || 60)}
-                                            />
-                                            <span className={hintClass}>Abort long-running queries after this amount of time.</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                {profilesMatch && (
+                    <SettingsProfiles
+                        profileName={profileName}
+                        onProfileNameChange={setProfileName}
+                        onExportProfile={handleExportProfile}
+                        onImportProfile={handleImportProfile}
+                    />
+                )}
 
-                            {/* Region */}
-                            {matchesSearch("Region", ["Language"]) && (
-                                <div className={sectionClass}>
-                                    <div className={sectionInfoClass}>
-                                        <div className="flex items-center gap-2 text-text-primary mb-1">
-                                            <Globe size={16} />
-                                            <h2 className="text-sm font-semibold uppercase tracking-tight opacity-80">Region</h2>
-                                        </div>
-                                        <p className="text-[12px] text-text-secondary leading-relaxed pr-8">
-                                            Manage language preferences and regional formatting.
-                                        </p>
-                                    </div>
-                                    <div className={sectionContentClass}>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className={labelClass}>Language</label>
-                                            <select className={inputClass} disabled>
-                                                <option value="en">English (US)</option>
-                                            </select>
-                                            <span className={hintClass}>Localization for other languages is coming soon.</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                {updatesMatch && (
+                    <SettingsUpdates
+                        autoCheckUpdates={autoCheckUpdates}
+                        onAutoCheckUpdatesChange={(checked) => {
+                            const { theme, fontSize, defaultLimit, connectTimeout, queryTimeout, save } = useSettingsStore.getState();
+                            save(new utils.Preferences({
+                                theme,
+                                font_size: fontSize,
+                                default_limit: defaultLimit,
+                                connect_timeout: connectTimeout,
+                                query_timeout: queryTimeout,
+                                toast_placement: useSettingsStore.getState().toastPlacement,
+                                auto_check_updates: checked
+                            }));
+                        }}
+                    />
+                )}
+
+                {sourceControlMatch && (
+                    <SettingsSourceControl
+                        enabled={sourceControlEnabled}
+                        checked={autoCommitOnExit}
+                        saving={autoCommitSaving}
+                        repoPath={activeProject?.git_repo_path}
+                        onToggle={(checked) => {
+                            void handleAutoCommitOnExitChange(checked);
+                        }}
+                    />
+                )}
+
+                {!hasSettingsMatch && (
+                    <div className="mt-4 rounded-sm bg-card/35 p-4 text-center">
+                        <h3 className="ui-text-section">No settings matched</h3>
+                        <p className="ui-text-body text-muted-foreground">Try another keyword to find the setting you need.</p>
                     </div>
+                )}
+            </div>
                 </main>
             </div>
         </div>

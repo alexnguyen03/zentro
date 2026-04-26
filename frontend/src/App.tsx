@@ -1,260 +1,360 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Toolbar } from './components/layout/Toolbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
-import { QueryTabs } from './components/editor/QueryTabs';
+import { QueryTabs } from './features/editor/QueryTabs';
 import { useConnectionStore } from './stores/connectionStore';
-import { useEditorStore } from './stores/editorStore';
-import { useResultStore } from './stores/resultStore';
-import { useStatusStore } from './stores/statusStore';
-import { useSettingsStore } from './stores/settingsStore';
 import { useLayoutStore } from './stores/layoutStore';
-import {
-    onConnectionChanged,
-    onSchemaDatabases,
-    onSchemaLoaded,
-    onSchemaError,
-    onQueryStarted,
-    onQueryChunk,
-    onQueryDone,
-    type ConnectionChangedPayload,
-} from './lib/events';
+import { useProjectStore } from './stores/projectStore';
+import { useEnvironmentStore } from './stores/environmentStore';
+import { useEditorStore } from './stores/editorStore';
+import { useSidebarUiStore } from './stores/sidebarUiStore';
 import { useToast } from './components/layout/Toast';
-import { EventsOn, WindowReloadApp } from '../wailsjs/runtime/runtime';
-import { ForceQuit, Connect } from '../wailsjs/go/app/App';
-import { RowDetailSidebar } from './components/sidebar/RowDetailSidebar';
+import { SecondarySidebar } from './components/sidebar/SecondarySidebar';
+import { CommandPalette } from './components/layout/CommandPalette';
+import { ContextSearchDialog } from './components/layout/ContextSearchDialog';
+import { QueryCompareModal } from './components/editor/QueryCompareModal';
+import { ProjectHub } from './components/layout/ProjectHub';
+import { ConfirmationModal } from './components/ui/ConfirmationModal';
+import { DOM_EVENT, type ProjectHubLaunchIntent } from './lib/constants';
+import { emitCommand, onCommand } from './lib/commandBus';
+import { Disconnect } from './services/connectionService';
+import { Button, Spinner } from './components/ui';
+import { useGlobalShortcuts } from './features/shortcuts/useGlobalShortcuts';
+import { useAppEventBridge } from './features/app-runtime/useAppEventBridge';
+import { useBeforeCloseGuard } from './features/app-runtime/useBeforeCloseGuard';
+import { useSidebarResize, useProjectLifecycle } from './features/project/useProjectLifecycle';
+import { usePluginCommandBridge } from './features/plugin/usePluginCommandBridge';
+import { forceQuitWithAutosave } from './features/app-runtime/forceQuitWithAutosave';
+import { useQueryTabAutosave } from './features/editor/useQueryTabAutosave';
+import { useAppZoom } from './features/app-runtime/useAppZoom';
+
+const STARTUP_LOADING_FADE_MS = 480;
+
+interface PersistApi {
+    hasHydrated?: () => boolean;
+    onFinishHydration?: (listener: () => void) => (() => void) | void;
+}
+
+interface PersistEnabledStore {
+    persist?: PersistApi;
+}
+
+function readPersistApi(store: unknown): PersistApi | null {
+    const candidate = (store as PersistEnabledStore | undefined)?.persist;
+    return candidate || null;
+}
+
+function isPersistStoreReady(store: unknown): boolean {
+    const persistApi = readPersistApi(store);
+    if (!persistApi || typeof persistApi.hasHydrated !== 'function') {
+        return true;
+    }
+    return Boolean(persistApi.hasHydrated());
+}
 
 function App() {
-    const { isConnected, setIsConnected, setActiveProfile, setDatabases, setConnectionStatus, activeProfile } = useConnectionStore();
-    const { setTabRunning, addTab } = useEditorStore();
-    const { initTab, appendRows, setDone, results } = useResultStore();
-    const { setQueryStats } = useStatusStore();
+    const startupAutoOpenAttemptedRef = React.useRef(false);
+    const persistedStateGateDoneRef = React.useRef(false);
+    const { isConnected } = useConnectionStore();
+    const resetRuntime = useConnectionStore((state) => state.resetRuntime);
+    const activeProject = useProjectStore((state) => state.activeProject);
+    const projects = useProjectStore((state) => state.projects);
+    const recentProjectIds = useProjectStore((state) => state.recentProjectIds);
+    const hasBootstrapped = useProjectStore((state) => state.hasBootstrapped);
+    const projectStoreError = useProjectStore((state) => state.error);
+    const openProject = useProjectStore((state) => state.openProject);
+    const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const { toast } = useToast();
-    const { showSidebar, showRightSidebar, toggleSidebar, toggleResultPanel, toggleRightSidebar } = useLayoutStore();
+    const toastError = toast.error;
+    const { showSidebar, showRightSidebar, showCommandPalette } = useLayoutStore();
 
-    // ── Before-close guard ────────────────────────────────────────────────
+    const [showForceQuitConfirm, setShowForceQuitConfirm] = useState(false);
+    const [showCompareModal, setShowCompareModal] = useState(false);
+    const [showProjectHub, setShowProjectHub] = useState(false);
+    const [projectHubLaunchIntent, setProjectHubLaunchIntent] = useState<ProjectHubLaunchIntent | undefined>(undefined);
+    const [showContextSearch, setShowContextSearch] = useState(false);
+    const [startupPhase, setStartupPhase] = useState<'bootstrapping' | 'autoOpening' | 'hydratingAppState' | 'ready'>('bootstrapping');
+    const [startupLoadingMounted, setStartupLoadingMounted] = useState(true);
+    const [startupLoadingVisible, setStartupLoadingVisible] = useState(true);
+
+    const { sidebarWidth, startResizing } = useSidebarResize();
+
+    useBeforeCloseGuard(() => setShowForceQuitConfirm(true));
+    useProjectLifecycle();
+    useAppEventBridge(toast);
+    useGlobalShortcuts(toast);
+    usePluginCommandBridge();
+    useQueryTabAutosave();
+    useAppZoom();
+
     useEffect(() => {
-        const off = EventsOn('app:before-close', () => {
-            const running = useEditorStore.getState().groups.some(g => g.tabs.some(t => t.isRunning));
-            if (!running) {
-                ForceQuit();
-                return;
-            }
-            const ok = window.confirm(
-                'One or more queries are still running.\nStop them and close anyway?'
-            );
-            if (ok) {
-                ForceQuit();
-            }
+        const off = onCommand(DOM_EVENT.OPEN_QUERY_COMPARE, () => setShowCompareModal(true));
+        return off;
+    }, []);
+
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_PROJECT_HUB, (intent) => {
+            setProjectHubLaunchIntent(intent);
+            setShowProjectHub(true);
         });
-        return () => { if (typeof off === 'function') off(); };
+        return off;
     }, []);
 
-    const [sidebarWidth, setSidebarWidth] = useState(250);
-    const isResizing = useRef(false);
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER, () => {
+            if (!activeProject?.id) {
+                setProjectHubLaunchIntent(undefined);
+                setShowProjectHub(true);
+                return;
+            }
+            setProjectHubLaunchIntent({
+                surface: 'wizard',
+                wizardMode: 'edit',
+                launchContext: 'env-config',
+                projectId: activeProject.id,
+                initialEnvironmentKey: activeEnvironmentKey || activeProject.default_environment_key,
+            });
+            setShowProjectHub(true);
+        });
+        return off;
+    }, [activeEnvironmentKey, activeProject?.default_environment_key, activeProject?.id]);
 
+    useEffect(() => {
+        const off = onCommand(DOM_EVENT.OPEN_CONTEXT_SEARCH, () => setShowContextSearch(true));
+        return off;
+    }, []);
 
-    const startResizing = React.useCallback(() => { isResizing.current = true; }, []);
-    const stopResizing = React.useCallback(() => { isResizing.current = false; }, []);
-
-    const resize = React.useCallback((e: MouseEvent) => {
-        if (isResizing.current && e.clientX > 150 && e.clientX < 800) {
-            setSidebarWidth(e.clientX);
+    useEffect(() => {
+        if (!hasBootstrapped) {
+            setStartupPhase('bootstrapping');
+            startupAutoOpenAttemptedRef.current = false;
+            persistedStateGateDoneRef.current = false;
+            return;
         }
-    }, []);
 
-    // ── Global Wails event wiring ─────────────────────────────────────────
-    useEffect(() => {
-        // Load global settings on starup
-        useSettingsStore.getState().load();
+        if (activeProject?.id) {
+            setStartupPhase(persistedStateGateDoneRef.current ? 'ready' : 'hydratingAppState');
+            return;
+        }
 
-        const subs = [
-            onConnectionChanged((data: ConnectionChangedPayload) => {
-                console.log('[zentro] connection:changed', data);
-                if (data.status === 'connected' && data.profile) {
-                    setIsConnected(true);
-                    setConnectionStatus('connected');
-                    setActiveProfile(data.profile as any);
-                    setDatabases(data.databases ?? []);
-                } else if (data.status === 'connecting' && data.profile) {
-                    setConnectionStatus('connecting');
-                    setActiveProfile(data.profile as any);
-                } else if (data.status === 'disconnected') {
-                    setIsConnected(false);
-                    setConnectionStatus('disconnected');
-                    setActiveProfile(null);
-                    setDatabases([]);
-                } else if (data.status === 'error') {
-                    if (data.profile) {
-                        setActiveProfile(data.profile as any);
-                    }
-                    setConnectionStatus('error');
-                    setIsConnected(false); // Ensure we show the empty state on physical connect failure
-                    toast.error(`Connection failed or lost. Please check your settings.`);
-                } else {
-                    toast.error(`Connection failed`);
-                }
-            }),
-            onSchemaDatabases((data) => {
-                console.log('[zentro] schema:databases', data);
-                setDatabases(data.databases ?? []);
-            }),
-            onSchemaError((data) => {
-                console.warn('[zentro] schema:error', data);
-                toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
-            }),
-            onQueryStarted(({ tabID, query }) => {
-                setTabRunning(tabID, true);
-                initTab(tabID);
-                // Automatically show result panel if hidden
-                useLayoutStore.getState().setShowResultPanel(true);
-                // Store the original query for tooltip/filter — skip filter-wrapped queries
-                // so the base stays as the user's original query
-                if (query && !query.includes('_zentro_filter')) {
-                    useResultStore.getState().setLastExecutedQuery(tabID, query);
-                }
-            }),
-            onQueryChunk(({ tabID, columns, rows, tableName, primaryKeys }) => {
-                appendRows(tabID, columns, rows, tableName, primaryKeys);
-            }),
-            onQueryDone(({ tabID, affected, duration, isSelect, hasMore, error }) => {
-                setTabRunning(tabID, false);
-                setDone(tabID, affected, duration, isSelect, hasMore, error);
-                if (error) {
-                    toast.error(`Query failed: ${error}`);
-                }
-                // Update status bar row count from finished result
-                const rowCount = isSelect
-                    ? (results[tabID]?.rows.length ?? affected)
-                    : affected;
-                setQueryStats(Number(rowCount), duration);
-            }),
-        ];
-        return () => subs.forEach(unsub => unsub());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (startupAutoOpenAttemptedRef.current) {
+            setStartupPhase('ready');
+            return;
+        }
 
-    useEffect(() => {
-        window.addEventListener('mousemove', resize);
-        window.addEventListener('mouseup', stopResizing);
+        startupAutoOpenAttemptedRef.current = true;
+
+        const recentProjectId = recentProjectIds[0];
+        const latestUpdatedProjectId = [...projects]
+            .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0]?.id;
+        const targetProjectId = recentProjectId || latestUpdatedProjectId;
+
+        if (!targetProjectId) {
+            setStartupPhase('ready');
+            return;
+        }
+
+        setStartupPhase('autoOpening');
+        let cancelled = false;
+
+        const tryAutoOpen = async () => {
+            try {
+                try { await Disconnect(); } catch { /* ignore */ }
+                const project = await openProject(targetProjectId);
+                resetRuntime();
+
+                if (cancelled) return;
+                if (!project) {
+                    toastError(projectStoreError || 'Could not auto-open the last project. Please choose one manually.');
+                }
+            } catch (error) {
+                resetRuntime();
+                if (cancelled) return;
+                const message = projectStoreError || (error instanceof Error ? error.message : String(error));
+                toastError(`Could not auto-open the last project: ${message}`);
+            } finally {
+                if (!cancelled) {
+                    setStartupPhase('ready');
+                }
+            }
+        };
+
+        void tryAutoOpen();
         return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
+            cancelled = true;
         };
-    }, [resize, stopResizing]);
-
-    // ── Global Layout Shortcuts ───────────────────────────────────────────
-    const chordRef = useRef<string | null>(null);
-    const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    }, [activeProject?.id, hasBootstrapped, openProject, projectStoreError, projects, recentProjectIds, resetRuntime, toastError]);
 
     useEffect(() => {
-        const handleLayoutShortcuts = (e: KeyboardEvent) => {
-            const mod = e.ctrlKey || e.metaKey;
+        if (!activeProject?.id) return;
+        if (startupPhase === 'bootstrapping' || startupPhase === 'autoOpening') return;
 
-            // Ctrl + Alt + B: Toggle Right Sidebar
-            if (mod && e.altKey && e.key.toLowerCase() === 'b') {
-                e.preventDefault();
-                toggleRightSidebar();
-                return;
-            }
+        if (persistedStateGateDoneRef.current) {
+            setStartupPhase('ready');
+            return;
+        }
 
-            // Ctrl + Shift + R: Reload App
-            if (mod && e.shiftKey && e.key.toLowerCase() === 'r') {
-                e.preventDefault();
-                WindowReloadApp();
-                return;
-            }
+        const persistStores: unknown[] = [useEditorStore, useLayoutStore, useSidebarUiStore];
+        const allStoresReady = () => persistStores.every((store) => isPersistStoreReady(store));
 
-            // Chords: Ctrl+K, Ctrl+B
-            if (mod && e.key.toLowerCase() === 'k') {
-                e.preventDefault();
-                chordRef.current = 'k';
-                if (chordTimerRef.current) {
-                    clearTimeout(chordTimerRef.current);
-                }
-                chordTimerRef.current = setTimeout(() => {
-                    chordRef.current = null;
-                }, 1000);
-                return;
-            }
+        if (allStoresReady()) {
+            persistedStateGateDoneRef.current = true;
+            setStartupPhase('ready');
+            return;
+        }
 
-            if (chordRef.current === 'k') {
-                if (mod && e.key.toLowerCase() === 'b') {
-                    e.preventDefault();
-                    addTab({ type: 'shortcuts', name: 'Keyboard Shortcuts' });
-                }
-                chordRef.current = null;
-                if (chordTimerRef.current) {
-                    clearTimeout(chordTimerRef.current);
-                }
-                return;
-            }
+        setStartupPhase('hydratingAppState');
 
-            // Ctrl + ,: Open Settings
-            if (mod && e.key === ',') {
-                e.preventDefault();
-                addTab({ type: 'settings', name: 'Settings' });
-                return;
-            }
-
-            // Ctrl + B: Toggle Left Sidebar
-            if (mod && !e.altKey && e.key.toLowerCase() === 'b') {
-                e.preventDefault();
-                toggleSidebar();
-                return;
-            }
-
-            // Ctrl + J: Toggle Result Panel
-            if (mod && !e.altKey && e.key.toLowerCase() === 'j') {
-                e.preventDefault();
-                toggleResultPanel();
-                return;
-            }
+        let cancelled = false;
+        const finishGate = () => {
+            if (cancelled || persistedStateGateDoneRef.current) return;
+            persistedStateGateDoneRef.current = true;
+            setStartupPhase('ready');
         };
 
-        window.addEventListener('keydown', handleLayoutShortcuts);
-        return () => window.removeEventListener('keydown', handleLayoutShortcuts);
-    }, [toggleSidebar, toggleResultPanel, toggleRightSidebar, addTab]);
+        const unsubscribers = persistStores.map((store) => {
+            const persistApi = readPersistApi(store);
+            if (!persistApi || typeof persistApi.onFinishHydration !== 'function') return () => {};
+            const unsubscribe = persistApi.onFinishHydration(() => {
+                if (allStoresReady()) finishGate();
+            });
+            return typeof unsubscribe === 'function' ? unsubscribe : () => {};
+        });
+
+        const timeoutId = window.setTimeout(() => {
+            finishGate();
+        }, 2000);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timeoutId);
+            unsubscribers.forEach((unsubscribe) => unsubscribe());
+        };
+    }, [activeProject?.id, startupPhase]);
+
+    const shouldBlockStartup = startupPhase !== 'ready';
+
+    useEffect(() => {
+        if (shouldBlockStartup) {
+            setStartupLoadingMounted(true);
+            const rafId = window.requestAnimationFrame(() => {
+                setStartupLoadingVisible(true);
+            });
+            return () => {
+                window.cancelAnimationFrame(rafId);
+            };
+        }
+
+        setStartupLoadingVisible(false);
+        const timeoutId = window.setTimeout(() => {
+            setStartupLoadingMounted(false);
+        }, STARTUP_LOADING_FADE_MS);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [shouldBlockStartup]);
+
+    if (!activeProject) {
+        return (
+            <>
+                <div className="h-full w-full bg-background">
+                    {startupPhase === 'ready' && <ProjectHub overlay startupMode />}
+                </div>
+                {startupLoadingMounted && (
+                    <div
+                        className={`fixed inset-0 z-[9999] flex h-full w-full flex-col items-center justify-center gap-3 bg-background ${startupLoadingVisible ? 'opacity-100 animate-[startup-loading-fade-in_480ms_linear_forwards]' : 'pointer-events-none opacity-0 animate-[startup-loading-fade-out_480ms_linear_forwards]'}`}
+                        data-testid="startup-loading"
+                    >
+                        <Spinner size={24} />
+                        <div className="text-small text-muted-foreground">Preparing your workspace...</div>
+                    </div>
+                )}
+            </>
+        );
+    }
 
     return (
-        <div className="flex flex-col h-full w-full">
-            <Toolbar />
-            <div className="flex flex-1 overflow-hidden">
-                {showSidebar && (
-                    <>
-                        <div style={{ width: sidebarWidth, flexShrink: 0 }}>
-                            <Sidebar />
-                        </div>
-                        <div className="resizer" onMouseDown={startResizing} />
-                    </>
-                )}
-                <div className="flex flex-1 flex-col overflow-hidden">
-                    <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
-                        {!isConnected ? (
-                            <div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
-                                <span className="text-3xl">🔌</span>
-                                <h3 className="m-0 text-sm font-semibold text-text-primary">No active connection</h3>
-                                <p className="m-0 text-xs">Select or add a connection from the sidebar to begin.</p>
-                                {activeProfile && (
-                                    <button 
-                                        onClick={() => Connect(activeProfile.name)}
-                                        className="mt-2 px-4 py-2 bg-success text-white text-xs font-bold rounded-lg hover:bg-success/90 transition-all active:scale-95 shadow-lg shadow-success/20"
-                                    >
-                                        Reconnect to {activeProfile.name}
-                                    </button>
-                                )}
-                            </div>
-                        ) : (
-                            <QueryTabs />
+        <>
+            <div className="h-full w-full bg-background">
+                {startupPhase === 'ready' && (
+                    <div className="flex flex-col h-full w-full">
+                        {showCommandPalette && <CommandPalette />}
+                        {showContextSearch && <ContextSearchDialog onClose={() => setShowContextSearch(false)} />}
+                        {showCompareModal && <QueryCompareModal onClose={() => setShowCompareModal(false)} />}
+                        {showProjectHub && (
+                            <ProjectHub
+                                overlay
+                                launchIntent={projectHubLaunchIntent}
+                                onClose={() => {
+                                    setShowProjectHub(false);
+                                    setProjectHubLaunchIntent(undefined);
+                                }}
+                            />
                         )}
+                        <ConfirmationModal
+                            isOpen={showForceQuitConfirm}
+                            onClose={() => setShowForceQuitConfirm(false)}
+                            onConfirm={() => {
+                                setShowForceQuitConfirm(false);
+                                forceQuitWithAutosave().catch(() => {});
+                            }}
+                            title="Force Close Application"
+                            message="One or more queries are still running."
+                            description="Close now and stop all active queries?"
+                            confirmLabel="Force Close"
+                            variant="destructive"
+                        />
+                        <Toolbar />
+                        <div className="flex flex-1 overflow-hidden px-2">
+                            {showSidebar && (
+                                <>
+                                    <div style={{ width: sidebarWidth, flexShrink: 0 }}>
+                                        <Sidebar />
+                                    </div>
+                                    <div className="resizer bg-card/10" onMouseDown={startResizing} />
+                                </>
+                            )}
+                            <div className="flex flex-1 flex-col overflow-hidden">
+                                <div className="flex-1 flex flex-col bg-background overflow-hidden">
+                                    {!isConnected && activeProject && (
+                                        <div className="flex items-center justify-between px-4 py-1.5 bg-muted border-b border-border text-label text-muted-foreground shrink-0">
+                                            <span>No active connection - switch environment to connect.</span>
+                                            <Button
+                                                type="button"
+                                                variant="link"
+                                                size="sm"
+                                                onClick={() => emitCommand(DOM_EVENT.OPEN_ENVIRONMENT_SWITCHER)}
+                                                className="h-auto px-0 py-0 text-accent font-semibold"
+                                            >
+                                                Configure env
+                                            </Button>
+                                        </div>
+                                    )}
+                                    <QueryTabs />
+                                </div>
+                            </div>
+                            {showRightSidebar && <SecondarySidebar />}
+                        </div>
+                        <StatusBar />
                     </div>
-                </div>
-                {showRightSidebar && (
-                    <RowDetailSidebar />
                 )}
             </div>
-            <StatusBar />
-        </div>
+            {startupLoadingMounted && (
+                <div
+                    className={`fixed inset-0 z-[9999] flex h-full w-full flex-col items-center justify-center gap-3 bg-background ${startupLoadingVisible ? 'opacity-100 animate-[startup-loading-fade-in_480ms_linear_forwards]' : 'pointer-events-none opacity-0 animate-[startup-loading-fade-out_480ms_linear_forwards]'}`}
+                    data-testid="startup-loading"
+                >
+                    <Spinner size={24} />
+                    <div className="text-small text-muted-foreground">
+                        {startupPhase === 'hydratingAppState'
+                            ? 'Restoring your workspace state...'
+                            : 'Preparing your workspace...'}
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
