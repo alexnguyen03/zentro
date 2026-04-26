@@ -103,9 +103,14 @@ jobs:
           VERSION=${{ steps.get_version.outputs.version }}
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             mv build/bin/zentro.exe zentro-v${VERSION}-windows-amd64.exe
-            # Optional NSIS output, name can vary by Wails/NSIS templates
-            if compgen -G "build/bin/*setup*.exe" > /dev/null; then
-              cp "$(ls build/bin/*setup*.exe | head -n 1)" "zentro-v${VERSION}-windows-amd64-setup.exe"
+            # Capture NSIS installer output. Wails default name is often "*-installer.exe".
+            if compgen -G "build/bin/*installer*.exe" > /dev/null; then
+              cp "$(ls build/bin/*installer*.exe | head -n 1)" "zentro-v${VERSION}-windows-amd64-installer.exe"
+            elif compgen -G "build/bin/*setup*.exe" > /dev/null; then
+              cp "$(ls build/bin/*setup*.exe | head -n 1)" "zentro-v${VERSION}-windows-amd64-installer.exe"
+            else
+              echo "No installer file found in build/bin"
+              ls -la build/bin
             fi
           else
             mv build/bin/zentro zentro-v${VERSION}-linux-amd64
@@ -277,8 +282,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
-            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64-setup.exe', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64-installer.exe', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64.tar.gz', steps.get_version.outputs.version) || '' }}
             ${{ matrix.os == 'macos-latest' && format('zentro-v{0}-macos-universal.zip', steps.get_version.outputs.version) || '' }}
