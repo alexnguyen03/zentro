@@ -7,7 +7,7 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 ## v0.3.0 (2026-04-26)
 
 ### Scope
-* Release scope includes commits from `v0.2.0-beta` to `f653d26`.
+* Release scope covers the full line from `v0.2.0-beta` to the final `v0.3.0` release candidate set.
 * This release packages Beta 3 improvements into the first stable `0.3.x` line.
 
 ### SQL Editor, Search & Productivity
@@ -38,6 +38,11 @@ All notable changes to Zentro will be documented in this file. Zentro follows a 
 * Introduced broader design-token and UI consistency updates across toolbar/sidebar/settings/project hub.
 * Continued decomposition of large frontend modules into focused units (editor/result/table-info domains).
 * Fixed multiple frontend guardrail, accessibility, lifecycle, and memory/performance issues (including Monaco lifecycle stability).
+
+### Packaging & Distribution
+* Added Windows installer release artifacts alongside the signed standalone executable flow.
+* Standardized release packaging output names across Windows, macOS, and Linux.
+* Aligned release metadata stamping with the tag-driven build version.
 
 ---
 

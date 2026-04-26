@@ -141,7 +141,7 @@ func (a *App) Startup(ctx context.Context) {
 		a.logger.Warn("load preferences failed", "err", err)
 	}
 	a.prefs = prefs
-	a.logger.Info("zentro starting", "version", "v0.2.0-beta")
+	a.logger.Info("zentro starting", "version", Version)
 }
 
 func (a *App) OnBeforeClose(ctx context.Context) bool {
