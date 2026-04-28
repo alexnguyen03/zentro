@@ -15,6 +15,17 @@ interface GroupedJoinRelation {
 
 const JOIN_PREFIXES = ['jo', 'joi', 'join'];
 
+const JOIN_TYPE_SNIPPETS: Array<{ label: string; insertText: string; detail: string }> = [
+    { label: 'INNER JOIN', insertText: 'INNER JOIN ', detail: 'Inner join' },
+    { label: 'LEFT JOIN', insertText: 'LEFT JOIN ', detail: 'Left join' },
+    { label: 'LEFT OUTER JOIN', insertText: 'LEFT OUTER JOIN ', detail: 'Left outer join' },
+    { label: 'RIGHT JOIN', insertText: 'RIGHT JOIN ', detail: 'Right join' },
+    { label: 'RIGHT OUTER JOIN', insertText: 'RIGHT OUTER JOIN ', detail: 'Right outer join' },
+    { label: 'FULL JOIN', insertText: 'FULL JOIN ', detail: 'Full outer join' },
+    { label: 'FULL OUTER JOIN', insertText: 'FULL OUTER JOIN ', detail: 'Full outer join' },
+    { label: 'CROSS JOIN', insertText: 'CROSS JOIN ', detail: 'Cross join — cartesian product' },
+];
+
 function getTrailingIdentifierBeforeCursor(analysis: SqlAnalysis): string {
     const cursorInStatement = Math.max(0, analysis.cursorOffset - analysis.statementStartOffset);
     const typedSegment = analysis.statementText.slice(0, cursorInStatement);
@@ -158,11 +169,22 @@ export async function buildJoinSuggestionItems(
     shouldAbort: () => boolean,
 ): Promise<JoinSuggestionRecord[]> {
     if (!shouldSuggestJoinSnippets(clause, currentWord, analysis) || shouldAbort()) return [];
-    const anchors = resolveAnchorCandidates(analysis, env, currentWord);
-    if (anchors.length === 0) return [];
 
+    const typeItems: JoinSuggestionRecord[] = JOIN_TYPE_SNIPPETS.map((snippet) => ({
+        label: snippet.label,
+        priority: -200,
+        item: {
+            label: snippet.label,
+            kind: env.monaco.languages.CompletionItemKind.Keyword as CompletionKind,
+            detail: snippet.detail,
+            insertText: snippet.insertText,
+            range,
+        },
+    }));
+
+    const anchors = resolveAnchorCandidates(analysis, env, currentWord);
     for (const anchor of anchors) {
-        if (shouldAbort()) return [];
+        if (shouldAbort()) return typeItems;
         const relationships = await env.fetchRelationships(anchor.schemaName, anchor.tableName);
         if (shouldAbort() || relationships.length === 0) continue;
 
@@ -173,7 +195,7 @@ export async function buildJoinSuggestionItems(
         const anchorAliasRaw = anchor.source.alias || anchor.source.name;
         const anchorAlias = quoteIdentifierForDriver(anchorAliasRaw, env.driver);
 
-        return grouped.map((group) => {
+        const fkItems = grouped.map((group) => {
             const joinAlias = makeUniqueAlias(generateAliasFromObjectName(group.joinTable), existingAliases);
             const joinAliasQuoted = quoteIdentifierForDriver(joinAlias, env.driver);
             const conditions = group.columnPairs
@@ -184,7 +206,6 @@ export async function buildJoinSuggestionItems(
                 .join(' AND ');
             const qualifiedJoinTable = quoteQualifiedName(group.joinSchema, group.joinTable, env.driver);
             const label = `JOIN ${group.joinSchema}.${group.joinTable} (${group.constraintName})`;
-
             return {
                 label,
                 priority: -300,
@@ -198,7 +219,10 @@ export async function buildJoinSuggestionItems(
                 },
             };
         });
+
+        // FK snippets (priority -300) appear above join type items (priority -200)
+        return [...fkItems, ...typeItems];
     }
 
-    return [];
+    return typeItems;
 }

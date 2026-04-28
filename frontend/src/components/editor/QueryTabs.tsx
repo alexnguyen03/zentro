@@ -442,8 +442,8 @@ export const QueryTabs: React.FC = () => {
                         </Allotment>
                     </Allotment.Pane>
 
-                    <Allotment.Pane 
-                        preferredSize={isResultMaximized ? '100%' : '35%'} 
+                    <Allotment.Pane
+                        preferredSize={isResultMaximized ? '100%' : '50%'}
                         minSize={100} 
                         visible={showResultPanel && activeTabIsQuery}
                     >
