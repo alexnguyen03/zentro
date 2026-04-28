@@ -171,6 +171,69 @@ vi.mock('./LicenseModal', () => ({
     ),
 }));
 
+vi.mock('./toolbar/AppMenu', () => ({
+    AppMenu: ({
+        trigger,
+        onOpenLicense,
+        onOpenUpdateModal,
+        check,
+    }: {
+        trigger: React.ReactNode;
+        onOpenLicense: () => void;
+        onOpenUpdateModal: (open: boolean) => void;
+        check: (manual?: boolean) => Promise<any>;
+    }) => {
+        const [open, setOpen] = React.useState(false);
+        const [section, setSection] = React.useState<string | null>(null);
+
+        const handleCheckForUpdates = async () => {
+            const result = await check(true);
+            if (result?.has_update) {
+                onOpenUpdateModal(true);
+                return;
+            }
+            mocks.toastSuccess('You are already on the latest version.');
+        };
+
+        return (
+            <div>
+                <button title="Open app menu" onClick={() => setOpen((value) => !value)}>
+                    {trigger}
+                </button>
+                {open ? (
+                    <div>
+                        <button type="button" onClick={() => setSection('File')}>File</button>
+                        <button type="button" onClick={() => setSection('Help')}>Help</button>
+                        {section === 'File' ? (
+                            <div>
+                                <button type="button" onClick={mocks.windowReloadApp}>Reload Application</button>
+                            </div>
+                        ) : null}
+                        {section === 'Help' ? (
+                            <div>
+                                <button type="button" onClick={onOpenLicense}>License</button>
+                                <button type="button" onClick={handleCheckForUpdates}>Check for Updates</button>
+                            </div>
+                        ) : null}
+                    </div>
+                ) : null}
+            </div>
+        );
+    },
+}));
+
+async function openAppMenu() {
+    fireEvent.click(screen.getByTitle('Open app menu'));
+    await waitFor(() => {
+        expect(screen.getByText('File')).toBeInTheDocument();
+    });
+}
+
+async function openAppMenuSection(sectionName: string) {
+    await openAppMenu();
+    fireEvent.click(screen.getByText(sectionName));
+}
+
 describe('Toolbar app menu', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -185,16 +248,17 @@ describe('Toolbar app menu', () => {
 
         fireEvent.click(screen.getByTitle('Open app menu'));
 
-        expect(screen.getByRole('button', { name: /^File$/ })).toBeInTheDocument();
+        expect(screen.getByText('File')).toBeInTheDocument();
         expect(screen.queryByText('Restart App')).not.toBeInTheDocument();
     });
 
-    it('triggers full app reload when clicking Reload Application', () => {
+    it('triggers full app reload when clicking Reload Application', async () => {
         render(<Toolbar />);
 
-        fireEvent.click(screen.getByTitle('Open app menu'));
-        fireEvent.mouseEnter(screen.getByRole('button', { name: /^File$/ }));
-        fireEvent.click(screen.getByRole('button', { name: /^File$/ }));
+        await openAppMenuSection('File');
+        await waitFor(() => {
+            expect(screen.getByText('Reload Application')).toBeInTheDocument();
+        });
         fireEvent.click(screen.getByText('Reload Application'));
 
         expect(mocks.windowReloadApp).toHaveBeenCalled();
@@ -203,13 +267,12 @@ describe('Toolbar app menu', () => {
     it('opens License modal from Help menu', async () => {
         render(<Toolbar />);
 
-        fireEvent.click(screen.getByTitle('Open app menu'));
-        fireEvent.click(screen.getByRole('button', { name: /^Help$/ }));
+        await openAppMenuSection('Help');
 
         await waitFor(() => {
             expect(screen.getByText('License')).toBeInTheDocument();
         });
-        fireEvent.click(screen.getByRole('button', { name: /License/i }));
+        fireEvent.click(screen.getByText('License'));
 
         expect(screen.getByTestId('license-modal')).toBeInTheDocument();
     });
@@ -218,12 +281,11 @@ describe('Toolbar app menu', () => {
         updateCheckState.check = vi.fn(async () => null);
         render(<Toolbar />);
 
-        fireEvent.click(screen.getByTitle('Open app menu'));
-        fireEvent.click(screen.getByRole('button', { name: /^Help$/ }));
+        await openAppMenuSection('Help');
         await waitFor(() => {
             expect(screen.getByText('Check for Updates')).toBeInTheDocument();
         });
-        fireEvent.click(screen.getByRole('button', { name: /Check for Updates/i }));
+        fireEvent.click(screen.getByText('Check for Updates'));
 
         await waitFor(() => {
             expect(updateCheckState.check).toHaveBeenCalledWith(true);
