@@ -271,4 +271,4 @@ jobs:
           fail_on_unmatched_files: false
           generate_release_notes: true
           draft: false
-          prerelease: true
+          prerelease: false
