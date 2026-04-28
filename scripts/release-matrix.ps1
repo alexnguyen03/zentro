@@ -11,11 +11,12 @@ $platforms = @(
 foreach ($platform in $platforms) {
     Write-Host "Building $platform..." -ForegroundColor Cyan
 
+    $releaseVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
     $args = @(
         "build",
         "-clean",
         "-platform", $platform,
-        "-ldflags", "-X 'zentro/internal/app.Version=v0.3.0'"
+        "-ldflags", "-X 'zentro/internal/app.Version=v$releaseVersion'"
     )
 
     if ($platform -eq "windows/amd64" -and -not $NoInstaller) {
