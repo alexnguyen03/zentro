@@ -184,161 +184,144 @@ jobs:
           VERSION=${{ steps.get_version.outputs.version }}
           tar -czf release-assets/zentro-v${VERSION}-linux-amd64.tar.gz -C release-assets zentro-v${VERSION}-linux-amd64
 
-      - name: Zip for SignPath
+      - name: Sign Windows artifacts (REST API)
         if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          $VERSION = "${{ steps.get_version.outputs.version }}"
-          $portablePath = "release-assets/zentro-v$VERSION-windows-amd64.exe"
-          $installerPath = "release-assets/zentro-v$VERSION-windows-amd64-installer.exe"
-          $bundleDir = "signpath-bundle"
-          $bundlePath = "zentro-signing-bundle.zip"
-
-          foreach ($path in @($portablePath, $installerPath)) {
-              Write-Host "Locating Windows artifact: $path"
-              if (-not (Test-Path $path)) {
-                  Write-Error "Expected Windows artifact not found at $path"
-                  Get-ChildItem release-assets
-                  exit 1
-              }
-          }
-
-          Remove-Item $bundleDir -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $bundleDir | Out-Null
-          Copy-Item $portablePath "$bundleDir\zentro.exe" -Force
-          Copy-Item $installerPath "$bundleDir\zentro-installer.exe" -Force
-
-          Write-Host "Creating $bundlePath..."
-          Compress-Archive -Path "$bundleDir\*" -DestinationPath $bundlePath -Force
-
-          $zipFile = Get-Item $bundlePath
-          Write-Host "Zip created. Size: $($zipFile.Length) bytes"
-          if ($zipFile.Length -lt 100) {
-              Write-Error "Created zip file is suspiciously small or empty."
-              exit 1
-          }
-
-      - name: Upload unsigned artifact to GitHub
-        if: matrix.os == 'windows-latest'
-        id: upload_unsigned
-        uses: actions/upload-artifact@v4
-        with:
-          name: unsigned-artifact
-          path: zentro-signing-bundle.zip
-          retention-days: 1
-
-      - name: Submit and download signing request (REST API)
-        if: matrix.os == 'windows-latest'
-        id: sign_request
         shell: pwsh
         env:
           API_TOKEN: ${{ secrets.SIGNPATH_ORG_TOKEN }}
           ORG_ID: "d111c10f-ab29-4683-81c9-037cd5311726"
         run: |
           $headers = @{ "Authorization" = "Bearer $env:API_TOKEN" }
-          
-          Write-Host "Submitting signing request..."
-          $uri = "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/SubmitWithArtifact"
-          $form = @{
-              projectSlug = "Zentro"
-              signingPolicySlug = "github-ci"
-              artifactConfigurationSlug = "initial"
-              artifact = Get-Item "zentro-signing-bundle.zip"
-          }
-          Write-Host "Artifact to upload: $($form.artifact.FullName) ($($form.artifact.Length) bytes)"
-          
-          # 1. Submit
-          $responseHeaders = $null
-          try {
-              $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form -ResponseHeadersVariable responseHeaders
-              $requestId = $response.id
-              
-              # Nếu body không có ID, lấy từ header Location
-              if (-not $requestId -and $responseHeaders.Location) {
-                  $requestId = ($responseHeaders.Location -split '/')[-1]
-              }
-          } catch {
-              Write-Host "Submission failed!"
-              if ($_.Exception.Response) {
-                  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-                  $errorBody = $reader.ReadToEnd()
-                  Write-Host "Error Body: $errorBody"
-              }
-              Write-Error $_
-              exit 1
-          }
-          
-          if (-not $requestId) {
-              Write-Error "Could not retrieve Signing Request ID."
-              exit 1
-          }
-          Write-Host "Request submitted successfully. ID: $requestId"
-          
-          # 2. Poll for completion
-          $status = "InProgress"
-          while ($status -eq "InProgress" -or $status -eq "Queued" -or $status -eq "Submitted") {
-              Start-Sleep -Seconds 20
-              $statusResponse = Invoke-RestMethod -Uri "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$requestId" -Method Get -Headers $headers
-              $status = $statusResponse.status
-              Write-Host "Current status: $status"
-          }
-          
-          if ($status -ne "Completed") {
-              Write-Error "Signing failed with status: $status"
-              exit 1
-          }
-          
-          # 3. Download (Using curl.exe for better binary handling)
-          Write-Host "Signing completed. Downloading signed artifact..."
-          New-Item -ItemType Directory -Force -Path signed-artifact
-          
-          # Use curl.exe instead of Invoke-WebRequest to ensure binary integrity
-          curl.exe -H "Authorization: Bearer $env:API_TOKEN" `
-              -L -o "signed-artifact/signed.zip" `
-              "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$requestId/SignedArtifact"
-          
-          # 4. Extract and Hash
-          Expand-Archive -Path "signed-artifact/signed.zip" -DestinationPath "signed-artifact" -Force
-          foreach ($signedFile in @("signed-artifact/zentro.exe", "signed-artifact/zentro-installer.exe")) {
-              if (Test-Path $signedFile) {
-                  $hash = (Get-FileHash -Path $signedFile -Algorithm SHA256).Hash
-                  Write-Host "SIGNED FILE SHA256 [$signedFile]: $hash"
-              }
-          }
-          Write-Host "Artifact downloaded and integrity hash printed."
-
-      - name: Verify and Extract signed artifact
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
           $VERSION = "${{ steps.get_version.outputs.version }}"
           $targets = @(
               @{
-                  SignedPath = "signed-artifact/zentro.exe"
                   ReleasePath = "release-assets/zentro-v$VERSION-windows-amd64.exe"
                   Label = "portable exe"
+                  RequestSlug = "portable"
               },
               @{
-                  SignedPath = "signed-artifact/zentro-installer.exe"
                   ReleasePath = "release-assets/zentro-v$VERSION-windows-amd64-installer.exe"
                   Label = "installer exe"
+                  RequestSlug = "installer"
               }
           )
+
+          function Submit-SigningRequest {
+              param(
+                  [string]$BundlePath
+              )
+
+              $uri = "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/SubmitWithArtifact"
+              $form = @{
+                  projectSlug = "Zentro"
+                  signingPolicySlug = "github-ci"
+                  artifactConfigurationSlug = "initial"
+                  artifact = Get-Item $BundlePath
+              }
+
+              Write-Host "Submitting signing request for $BundlePath ($((Get-Item $BundlePath).Length) bytes)"
+              $responseHeaders = $null
+              try {
+                  $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form -ResponseHeadersVariable responseHeaders
+                  $requestId = $response.id
+                  if (-not $requestId -and $responseHeaders.Location) {
+                      $requestId = ($responseHeaders.Location -split '/')[-1]
+                  }
+              } catch {
+                  Write-Host "Submission failed!"
+                  if ($_.Exception.Response) {
+                      $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                      $errorBody = $reader.ReadToEnd()
+                      Write-Host "Error Body: $errorBody"
+                  }
+                  Write-Error $_
+                  exit 1
+              }
+
+              if (-not $requestId) {
+                  Write-Error "Could not retrieve Signing Request ID."
+                  exit 1
+              }
+
+              Write-Host "Request submitted successfully. ID: $requestId"
+              return $requestId
+          }
+
+          function Wait-SigningRequest {
+              param(
+                  [string]$RequestId
+              )
+
+              $status = "InProgress"
+              while ($status -eq "InProgress" -or $status -eq "Queued" -or $status -eq "Submitted") {
+                  Start-Sleep -Seconds 20
+                  $statusResponse = Invoke-RestMethod -Uri "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$RequestId" -Method Get -Headers $headers
+                  $status = $statusResponse.status
+                  Write-Host "Current status for $RequestId : $status"
+              }
+
+              if ($status -ne "Completed") {
+                  Write-Error "Signing failed with status: $status"
+                  exit 1
+              }
+          }
+
+          function Download-SignedBundle {
+              param(
+                  [string]$RequestId,
+                  [string]$OutputPath
+              )
+
+              curl.exe -H "Authorization: Bearer $env:API_TOKEN" `
+                  -L -o $OutputPath `
+                  "https://app.signpath.io/api/v1/$($env:ORG_ID)/SigningRequests/$RequestId/SignedArtifact"
+          }
 
           foreach ($target in $targets) {
               Write-Host "Checking original signature for $($target.Label)..."
               (Get-AuthenticodeSignature $target.ReleasePath).Status
 
-              if (-not (Test-Path $target.SignedPath)) {
-                  Write-Error "Signed $($target.Label) not found at $($target.SignedPath)"
-                  Get-ChildItem signed-artifact -Recurse
+              if (-not (Test-Path $target.ReleasePath)) {
+                  Write-Error "Release asset missing for $($target.Label) at $($target.ReleasePath)"
+                  Get-ChildItem release-assets
                   exit 1
               }
 
-              $signedSize = (Get-Item $target.SignedPath).Length
+              $requestDir = Join-Path "signed-artifact" $target.RequestSlug
+              $bundleDir = Join-Path $requestDir "bundle"
+              $extractDir = Join-Path $requestDir "extract"
+              $bundlePath = Join-Path $requestDir "unsigned.zip"
+              $signedBundlePath = Join-Path $requestDir "signed.zip"
+              $signedPath = Join-Path $extractDir "zentro.exe"
+
+              Remove-Item $requestDir -Recurse -Force -ErrorAction SilentlyContinue
+              New-Item -ItemType Directory -Path $bundleDir -Force | Out-Null
+              New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
+
+              # Reuse the same inner filename for every request to match the SignPath artifact configuration.
+              Copy-Item $target.ReleasePath (Join-Path $bundleDir "zentro.exe") -Force
+              Compress-Archive -Path (Join-Path $bundleDir "*") -DestinationPath $bundlePath -Force
+
+              $requestId = Submit-SigningRequest -BundlePath $bundlePath
+              Wait-SigningRequest -RequestId $requestId
+
+              Write-Host "Downloading signed artifact for $($target.Label)..."
+              Download-SignedBundle -RequestId $requestId -OutputPath $signedBundlePath
+              Expand-Archive -Path $signedBundlePath -DestinationPath $extractDir -Force
+
+              if (-not (Test-Path $signedPath)) {
+                  Write-Error "Signed $($target.Label) not found at $signedPath"
+                  Get-ChildItem $extractDir -Recurse
+                  exit 1
+              }
+
+              $signedSize = (Get-Item $signedPath).Length
               Write-Host "Signed $($target.Label) found. Size: $signedSize bytes"
 
-              Copy-Item $target.SignedPath $target.ReleasePath -Force
+              $hash = (Get-FileHash -Path $signedPath -Algorithm SHA256).Hash
+              Write-Host "SIGNED FILE SHA256 [$($target.Label)]: $hash"
+
+              Copy-Item $signedPath $target.ReleasePath -Force
               Write-Host "Overwrote release asset for $($target.Label) with signed version."
 
               Write-Host "Verifying final signature for $($target.Label)..."
