@@ -151,8 +151,8 @@ func (a *App) ExportAllSQLInsert(tabID, tableName string, selectedColumns []stri
 	return exportSQLInsert(a.ctx, filteredColumns, filteredRows, tableName)
 }
 
-// Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.2.0-beta'"
-var Version = "v0.2.0-beta"
+// Version is set at build time via -ldflags "-X 'zentro/internal/app.Version=v0.3.0'"
+var Version = "v0.3.0"
 
 type AboutInfo struct {
 	Version string `json:"version"`

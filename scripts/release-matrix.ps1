@@ -15,7 +15,7 @@ foreach ($platform in $platforms) {
         "build",
         "-clean",
         "-platform", $platform,
-        "-ldflags", "-X 'zentro/internal/app.Version=v0.2.0-beta'"
+        "-ldflags", "-X 'zentro/internal/app.Version=v0.3.0'"
     )
 
     if ($platform -eq "windows/amd64" -and -not $NoInstaller) {

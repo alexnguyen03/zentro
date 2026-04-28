@@ -1,76 +1,55 @@
-# Zentro Early Access Release Notes (v0.2.0-beta)
+# Zentro Release Notes (v0.3.0)
 
 ## Release Scope
-This Early Access cut includes work from commit `1e7db18e28ec96d4de27342aebb4102c801bfb3d` up to `1c16b10`.
+This `v0.3.0` refresh republishes the current stable line with the latest code on `dev`, corrected release metadata, and the final release notes body used by GitHub Actions.
 
 ## Summary
-`v0.2.0-beta` is a major product and platform step focused on:
-- Project-first workflow and workspace isolation
-- Faster, safer query execution and result exploration
-- Stronger editor productivity and SQL assist
-- Reliable script persistence and tab recovery
-- Architecture hardening and test coverage expansion
+`v0.3.0` is the first stable `0.3.x` release for Zentro, focused on:
+- Faster SQL workflows and editor productivity
+- Better result exploration and data actions
+- Stronger schema/table tooling
+- Safer source-control flows and release hardening
+- Broader UI consistency through shadcn/radix migration
 
 ## Highlights
-- Added full project hub workflow with multi-project sessions, project-aware connection flows, and environment switching stabilization.
-- Upgraded query execution with guarded runtime state, deterministic compare behavior, incremental result handling, and export reliability improvements.
-- Expanded SQL editor productivity with richer completion metadata, FK join snippets, alias-aware suggestions, scoped format/folding, and keyboard workflow upgrades.
-- Improved result panel/table UX with virtualization-focused refinements, stable DnD column identity, sticky index behavior, and clearer edit/action gating.
-- Delivered project-scoped Saved Scripts with autosave hardening, reopen-by-id, duplicate prevention, and improved New Query numbering logic.
-- Added history-to-editor append behavior, plus shortcut and toolbar refinements across daily workflows.
+- Added universal script search with matched-line jump navigation.
+- Improved result-grid workflows with richer copy/export/context actions.
+- Expanded Table Info and schema operations with stronger consistency across constraint and object flows.
+- Added SQL-oriented Git tracking and safer source-control interactions.
+- Continued frontend design-system migration and architecture cleanup across toolbar, sidebar, settings, and project flows.
 
-## What Is New in This Beta
+## What Is New in v0.3.0
 
-### Project and Workspace
-- Introduced project foundation and project hub flows across multiple phases.
-- Added project-aware state, session restore, and startup recovery behavior.
-- Refactored connection setup to a project-centric model and compact provider-first flows.
-- Added project deletion and improved project card/setup status behavior.
-- Stabilized environment switch and reconnect behaviors in workspace transitions.
+### SQL Editor, Search & Productivity
+- Added universal script search in Context Search using `#` prefix.
+- Added matched-line search results with direct jump-to-line navigation.
+- Polished saved scripts UX with content previews and hover cards.
+- Improved multi-result labeling and SQL workflow helpers, including insert/update actions, copy helpers, and definition navigation.
 
-### Query Execution and Results
-- Introduced a query runtime state machine with guarded execution paths.
-- Added incremental result strategy and result virtualization-focused improvements.
-- Added deterministic compare behavior and persistent tab query context.
-- Improved export reliability and native save dialog behavior.
-- Refined result exploration UX, result panel toolbar controls, and filter interactions.
+### Result Grid & Data Workflows
+- Modularized `ResultTable` and related hooks to improve maintainability and reload resilience.
+- Improved result filtering flow and order-by builder behavior.
+- Added richer result context actions such as copy value, copy with headers, copy as JSON, and SQL copy helpers.
+- Fixed dirty-cell state edge cases and stabilized result sync loops after rerun.
 
-### Editor and SQL Productivity
-- Added SQL completion context optimization and stale cancellation handling.
-- Added auto-alias table suggestions with driver-safe quoting.
-- Added column data-type display in dot suggestions.
-- Added FK-based join snippet suggestions.
-- Added styled table suggestion docs and inline picker improvements.
-- Added scoped format and SQL clause folding support.
-- Added MRU `Ctrl/Cmd+Tab` switcher and `Ctrl+E` context quick open.
-- Refined execution shortcuts (`Ctrl/Cmd+Enter`) and execute behavior consistency.
+### Schema Explorer & Table Info
+- Expanded Table Info with unified key and constraint workflows.
+- Added full foreign key CRUD flow in table constraints management.
+- Added richer object operations from explorer context menu, including drop, truncate, and export flows.
+- Improved DDL handling paths and index operation correctness across drivers.
 
-### Saved Scripts and History
-- Saved Scripts are now scoped by `project + connection`.
-- Reopen behavior now uses `savedScriptId` and focuses existing open tabs instead of duplicating.
-- Close flows (`x`, `Ctrl+W`) now autosave before tab removal.
-- `Ctrl+S` now triggers save for the current query script tab.
-- New query naming now resolves from the max index across open query tabs plus saved scripts in current scope.
-- Saved Script deletion now uses a one-click confirmation modal flow.
-- Clicking history now appends SQL to the current editor instead of replacing content.
+### Source Control & Project Safety
+- Added SQL-oriented Git tracking with timeline, manual commit flow, and diff preview.
+- Added close-flush and exit-commit hardening in project source-control workflows.
+- Hardened write-safety protections, including stronger confirmation behavior for high-risk environments.
 
-### UI and Interaction Refinements
-- Refined toolbar alignment, environment visuals, and status bar simplification.
-- Moved editor toolbar to a vertical layout and simplified related actions.
-- Improved connection picker, project hub visuals, and modal transitions.
-- Refined result-table sizing and sticky index presentation.
+### UI System, Architecture & Stability
+- Migrated core frontend surfaces to shadcn/radix primitives and standardized control patterns.
+- Introduced broader design-token and UI consistency updates across toolbar, sidebar, settings, and project hub.
+- Continued decomposition of large frontend modules into focused units across editor, result, and table-info domains.
+- Fixed multiple frontend guardrail, accessibility, lifecycle, and performance issues, including Monaco lifecycle stability.
 
-## Engineering and Quality
-- Large frontend modularization split monolithic stores/components into feature-focused slices.
-- Standardized modal system, design tokens, and command boundaries.
-- Reduced legacy `any` usage and improved platform boundaries.
-- Large backend decomposition split app/query/schema/driver services into modular units.
-- Added typed v2 events and stronger backend guardrails.
-- Improved cancellation and lifecycle coverage.
-- Added and expanded tests across backend query/connection lifecycles and frontend store/session utilities.
-- Added telemetry and policy/contribution groundwork for phase completion and release readiness.
-
-## Behavior Changes
-- Script visibility is now scoped; scripts outside the active project scope are hidden from the Saved Scripts list.
-- New Query naming is monotonic in scope (max index + 1), rather than filling the first missing gap.
-- History insertion now appends to the active editor content by default.
+## Release Fixes Included In This Republish
+- Corrected version metadata that still referenced `v0.2.0-beta` in runtime and release scripts.
+- Updated the GitHub release body source so the regenerated `v0.3.0` release notes match the stable release.
+- Included latest app-menu and dropdown behavior refinements before retagging to rerun the release workflow.
