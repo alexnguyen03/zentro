@@ -327,7 +327,9 @@ export async function buildSqlCompletionItems(
     }
 
     if (COLUMN_LIKE_CLAUSES.has(baseClause)) {
-        const columns = await buildColumnItems(analysis.sources);
+        const isFilteringClause = baseClause === 'where' || baseClause === 'having' || baseClause === 'on' || baseClause === 'set';
+        const bareColumnSources = isFilteringClause ? analysis.sources.filter(s => !s.alias) : analysis.sources;
+        const columns = await buildColumnItems(bareColumnSources);
         if (shouldAbort()) return [];
         columns.forEach((item) => addSuggestion(item.label as string, item, 0));
     }
@@ -354,7 +356,8 @@ export async function buildSqlCompletionItems(
         joinSuggestions.forEach((record) => addSuggestion(record.label, record.item, record.priority));
     }
     if (baseClause === 'where' || baseClause === 'having' || baseClause === 'on' || baseClause === 'set') {
-        const columns = await buildColumnItems(analysis.sources);
+        const unaliasedSources = analysis.sources.filter(s => !s.alias);
+        const columns = await buildColumnItems(unaliasedSources);
         const aliases = buildAliasItems(analysis.sources);
         const aliasColumns = await buildAliasQualifiedColumnItems(analysis.sources);
         if (shouldAbort()) return [];

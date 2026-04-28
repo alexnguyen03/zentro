@@ -31,7 +31,7 @@ export function registerContextAwareSQLCompletion(monaco: SqlCompletionRegisterM
     }
 
     const provider: languages.CompletionItemProvider = {
-        triggerCharacters: ['.', ' ', ',', '(', 'j', 'J', 'o', 'O', 'i', 'I', 'n', 'N'],
+        triggerCharacters: ['.', ',', '('],
         provideCompletionItems: async (model, position, _context, token) => {
             const requestId = ++latestRequestId;
             const shouldAbort = () => Boolean(token?.isCancellationRequested) || requestId !== latestRequestId;

@@ -4,12 +4,14 @@ import { ArrowLeftRight, Copy, ExternalLink, Plus, PlusSquare, X } from 'lucide-
 import { cn } from '../../lib/cn';
 import { buildFilterOrderQuery } from '../../lib/queryBuilder';
 import { OrderDirection, OrderTerm, parseOrderByTerms, serializeOrderByTerms } from '../../lib/orderByBuilder';
-import { extractSelectAliases, extractTableAliases } from '../../lib/sqlAliases';
+import { extractSelectAliases } from '../../lib/sqlAliases';
 import { useToast } from '../layout/Toast';
 import { setClipboardText } from '../../services/clipboardService';
 import { createResultFilterModelPath, registerResultFilterCompletion } from '../../lib/monaco/resultFilterCompletion';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useSchemaStore } from '../../stores/schemaStore';
+import { getSchemasForActiveDatabase } from '../../lib/monaco/sqlCompletionIdentifiers';
 import { Badge, Button, Input, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
 
 interface ResultFilterBarProps {
@@ -65,7 +67,9 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const orderValueRef = useRef(orderValue);
     const { toast } = useToast();
     const { theme } = useSettingsStore();
-    const driver = useConnectionStore((s) => s.activeProfile?.driver || '');
+    const activeProfile = useConnectionStore(s => s.activeProfile);
+    const driver = activeProfile?.driver || '';
+    const trees = useSchemaStore(s => s.trees);
     const [showTooltip, setShowTooltip] = React.useState(false);
     const [orderTerms, setOrderTerms] = React.useState<OrderTerm[]>([]);
     const [orderInputMode, setOrderInputMode] = React.useState<'chips' | 'text'>('chips');
@@ -76,13 +80,7 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
     const tooltipTimeout = useRef<number>();
     const completionColumns = useMemo(() => {
         const selectAliases = baseQuery ? extractSelectAliases(baseQuery) : [];
-        const tableAliases = baseQuery ? extractTableAliases(baseQuery) : [];
-        const qualifiedColumns = tableAliases.flatMap((tableAlias) => (
-            columns.map((column) => `${tableAlias}.${column}`)
-        ));
-        return Array.from(
-            new Set([...columns, ...selectAliases, ...qualifiedColumns].filter((column) => column && column.trim().length > 0)),
-        );
+        return Array.from(new Set([...columns, ...selectAliases].filter(col => col.trim().length > 0)));
     }, [baseQuery, columns]);
 
     useEffect(() => {
@@ -170,12 +168,19 @@ export const ResultFilterBar: React.FC<ResultFilterBarProps> = ({
         const monaco = monacoRef.current;
         if (!monaco) return;
         completionDisposableRef.current?.dispose();
+        const profileKey = activeProfile?.name ?? '';
+        const dbName = activeProfile?.db_name ?? '';
+        const schemas = getSchemasForActiveDatabase(trees, profileKey, dbName);
         completionDisposableRef.current = registerResultFilterCompletion({
             monaco,
             columns: completionColumns,
             driver,
+            baseQuery,
+            schemas,
+            fetchColumns: (schemaName, tableName) =>
+                useSchemaStore.getState().checkAndFetchColumns(profileKey, dbName, schemaName, tableName),
         });
-    }, [completionColumns, driver]);
+    }, [completionColumns, driver, baseQuery, activeProfile, trees]);
 
     useEffect(() => {
         registerCompletion();
