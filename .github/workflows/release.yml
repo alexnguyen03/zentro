@@ -33,11 +33,49 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get version from tag
         id: get_version
         shell: bash
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Sync release version metadata
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const releaseVersion = process.env.RELEASE_VERSION;
+          const coreVersion = releaseVersion.split('-')[0];
+          const parts = coreVersion.split('.');
+          while (parts.length < 4) parts.push('0');
+          const productVersion = parts.slice(0, 4).join('.');
+
+          const writeJson = (file, mutate) => {
+            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+            mutate(data);
+            fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
+          };
+
+          writeJson('package.json', (data) => {
+            data.version = releaseVersion;
+          });
+
+          writeJson('frontend/package.json', (data) => {
+            data.version = releaseVersion;
+          });
+
+          writeJson('wails.json', (data) => {
+            data.info = data.info || {};
+            data.info.productVersion = productVersion;
+          });
+
+          console.log(`Synced package versions to ${releaseVersion} and wails productVersion to ${productVersion}`);
+          NODE
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -70,28 +108,53 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
 
+      - name: Install NSIS
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          $nsisBin = "C:\Program Files (x86)\NSIS\Bin"
+          if (Test-Path $nsisBin) {
+            $env:PATH = "$nsisBin;$env:PATH"
+            "$nsisBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            Write-Error "makensis.exe was not found after installing NSIS."
+            exit 1
+          }
+          & $makensis.Source /VERSION
+
       - name: Wails Build
         shell: bash
         run: |
-          # Set ldflags based on platform
-          LDFLAGS="-s -w"
+          VERSION=${{ steps.get_version.outputs.version }}
+          APP_VERSION="v${VERSION}"
+          LDFLAGS="-s -w -X 'zentro/internal/app.Version=${APP_VERSION}'"
+          EXTRA_FLAGS=""
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             LDFLAGS="$LDFLAGS -H windowsgui"
+            EXTRA_FLAGS="-nsis"
           fi
           
           # Wails build will automatically run npm install/build based on wails.json
-          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean
+          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean $EXTRA_FLAGS
 
       - name: Package macOS
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
+          mkdir -p release-assets
           cd build/bin
           # Zip the app bundle (Wails uses productName from wails.json for the .app folder)
           if [ -d "Zentro.app" ]; then
-            zip -r ../../zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip Zentro.app
+            zip -r ../../release-assets/zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip Zentro.app
           elif [ -d "zentro.app" ]; then
-            zip -r ../../zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip zentro.app
+            zip -r ../../release-assets/zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip zentro.app
+          else
+            echo "Expected macOS app bundle was not produced."
+            ls -la
+            exit 1
           fi
 
       - name: Rename assets (Windows/Linux)
@@ -99,35 +162,59 @@ jobs:
         shell: bash
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
+          mkdir -p release-assets
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv build/bin/zentro.exe zentro-v${VERSION}-windows-amd64.exe
+            mv build/bin/zentro.exe release-assets/zentro-v${VERSION}-windows-amd64.exe
+            shopt -s nullglob
+            installers=(build/bin/*-installer.exe build/bin/*installer*.exe build/bin/*setup*.exe)
+            if [[ ${#installers[@]} -eq 0 ]]; then
+              echo "Windows installer was not produced by Wails/NSIS."
+              ls -la build/bin
+              exit 1
+            fi
+            cp "${installers[0]}" "release-assets/zentro-v${VERSION}-windows-amd64-installer.exe"
           else
-            mv build/bin/zentro zentro-v${VERSION}-linux-amd64
+            mv build/bin/zentro release-assets/zentro-v${VERSION}-linux-amd64
           fi
+
+      - name: Package Linux
+        if: matrix.os == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          tar -czf release-assets/zentro-v${VERSION}-linux-amd64.tar.gz -C release-assets zentro-v${VERSION}-linux-amd64
 
       - name: Zip for SignPath
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $VERSION = "${{ steps.get_version.outputs.version }}"
-          $EXE_PATH = "zentro-v$VERSION-windows-amd64.exe"
-          
-          Write-Host "Locating executable: $EXE_PATH"
-          if (Test-Path $EXE_PATH) {
-              Copy-Item $EXE_PATH zentro.exe -Force
-              Write-Host "Creating zentro.zip..."
-              Compress-Archive -Path zentro.exe -DestinationPath zentro.zip -Force
-              
-              $zipFile = Get-Item zentro.zip
-              Write-Host "Zip created. Size: $($zipFile.Length) bytes"
-              if ($zipFile.Length -lt 100) {
-                  Write-Error "Created zip file is suspiciously small or empty."
+          $portablePath = "release-assets/zentro-v$VERSION-windows-amd64.exe"
+          $installerPath = "release-assets/zentro-v$VERSION-windows-amd64-installer.exe"
+          $bundleDir = "signpath-bundle"
+          $bundlePath = "zentro-signing-bundle.zip"
+
+          foreach ($path in @($portablePath, $installerPath)) {
+              Write-Host "Locating Windows artifact: $path"
+              if (-not (Test-Path $path)) {
+                  Write-Error "Expected Windows artifact not found at $path"
+                  Get-ChildItem release-assets
                   exit 1
               }
-          } else {
-              Write-Error "Executable not found at $EXE_PATH"
-              # List files to helps debug
-              ls
+          }
+
+          Remove-Item $bundleDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $bundleDir | Out-Null
+          Copy-Item $portablePath "$bundleDir\zentro.exe" -Force
+          Copy-Item $installerPath "$bundleDir\zentro-installer.exe" -Force
+
+          Write-Host "Creating $bundlePath..."
+          Compress-Archive -Path "$bundleDir\*" -DestinationPath $bundlePath -Force
+
+          $zipFile = Get-Item $bundlePath
+          Write-Host "Zip created. Size: $($zipFile.Length) bytes"
+          if ($zipFile.Length -lt 100) {
+              Write-Error "Created zip file is suspiciously small or empty."
               exit 1
           }
 
@@ -137,7 +224,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-artifact
-          path: zentro.zip
+          path: zentro-signing-bundle.zip
           retention-days: 1
 
       - name: Submit and download signing request (REST API)
@@ -156,7 +243,7 @@ jobs:
               projectSlug = "Zentro"
               signingPolicySlug = "github-ci"
               artifactConfigurationSlug = "initial"
-              artifact = Get-Item "zentro.zip"
+              artifact = Get-Item "zentro-signing-bundle.zip"
           }
           Write-Host "Artifact to upload: $($form.artifact.FullName) ($($form.artifact.Length) bytes)"
           
@@ -212,10 +299,11 @@ jobs:
           
           # 4. Extract and Hash
           Expand-Archive -Path "signed-artifact/signed.zip" -DestinationPath "signed-artifact" -Force
-          $finalExe = "signed-artifact/zentro.exe"
-          if (Test-Path $finalExe) {
-              $hash = (Get-FileHash -Path $finalExe -Algorithm SHA256).Hash
-              Write-Host "FINAL SIGNED FILE SHA256: $hash"
+          foreach ($signedFile in @("signed-artifact/zentro.exe", "signed-artifact/zentro-installer.exe")) {
+              if (Test-Path $signedFile) {
+                  $hash = (Get-FileHash -Path $signedFile -Algorithm SHA256).Hash
+                  Write-Host "SIGNED FILE SHA256 [$signedFile]: $hash"
+              }
           }
           Write-Host "Artifact downloaded and integrity hash printed."
 
@@ -224,51 +312,57 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ steps.get_version.outputs.version }}"
-          $TARGET_FILE = "zentro-v$VERSION-windows-amd64.exe"
-          
-          # 1. Check original file signature (should be NotSigned)
-          Write-Host "Checking original file signature..."
-          (Get-AuthenticodeSignature $TARGET_FILE).Status
-          
-          # 2. Extract signed file
-          if (Test-Path "signed-artifact/zentro.exe") {
-              $signedSize = (Get-Item "signed-artifact/zentro.exe").Length
-              Write-Host "Signed file found. Size: $signedSize bytes"
-              
-              Copy-Item "signed-artifact/zentro.exe" $TARGET_FILE -Force
-              Write-Host "Overwrote original file with signed version."
-          } else {
-              Write-Error "Signed zentro.exe not found in extraction directory!"
-              ls signed-artifact -Recurse
-              exit 1
+          $targets = @(
+              @{
+                  SignedPath = "signed-artifact/zentro.exe"
+                  ReleasePath = "release-assets/zentro-v$VERSION-windows-amd64.exe"
+                  Label = "portable exe"
+              },
+              @{
+                  SignedPath = "signed-artifact/zentro-installer.exe"
+                  ReleasePath = "release-assets/zentro-v$VERSION-windows-amd64-installer.exe"
+                  Label = "installer exe"
+              }
+          )
+
+          foreach ($target in $targets) {
+              Write-Host "Checking original signature for $($target.Label)..."
+              (Get-AuthenticodeSignature $target.ReleasePath).Status
+
+              if (-not (Test-Path $target.SignedPath)) {
+                  Write-Error "Signed $($target.Label) not found at $($target.SignedPath)"
+                  Get-ChildItem signed-artifact -Recurse
+                  exit 1
+              }
+
+              $signedSize = (Get-Item $target.SignedPath).Length
+              Write-Host "Signed $($target.Label) found. Size: $signedSize bytes"
+
+              Copy-Item $target.SignedPath $target.ReleasePath -Force
+              Write-Host "Overwrote release asset for $($target.Label) with signed version."
+
+              Write-Host "Verifying final signature for $($target.Label)..."
+              $sig = Get-AuthenticodeSignature $target.ReleasePath
+              Write-Host "Signature Status: $($sig.Status)"
+              Write-Host "Subject: $($sig.SignerCertificate.Subject)"
+
+              if ($sig.Status -eq "NotSigned") {
+                  Write-Error "CRITICAL: Final $($target.Label) is NOT SIGNED!"
+                  exit 1
+              }
+
+              if ($sig.Status -ne "Valid") {
+                  Write-Warning "Signature status for $($target.Label) is $($sig.Status). This is common for test certificates that are not in the trusted root store of the runner."
+              }
           }
-          
-          # 3. Final Verification
-          Write-Host "Verifying final signature..."
-          $sig = Get-AuthenticodeSignature $TARGET_FILE
-          Write-Host "Signature Status: $($sig.Status)"
-          Write-Host "Subject: $($sig.SignerCertificate.Subject)"
-          
-          if ($sig.Status -eq "NotSigned") {
-              Write-Error "CRITICAL: Final executable is NOT SIGNED!"
-              exit 1
-          }
-          
-          if ($sig.Status -ne "Valid") {
-              Write-Warning "Signature status is $($sig.Status). This is common for test certificates that are not in the trusted root store of the runner."
-          }
-          
-          Write-Host "Digital signature applied successfully (Subject: $($sig.SignerCertificate.Subject))"
+
+          Write-Host "Digital signatures applied successfully to both Windows artifacts."
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
-          files: |
-            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
-            ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
-            ${{ matrix.os == 'macos-latest' && format('zentro-v{0}-macos-universal.zip', steps.get_version.outputs.version) || '' }}
-          fail_on_unmatched_files: false
-          generate_release_notes: true
+          files: release-assets/*
+          fail_on_unmatched_files: true
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
