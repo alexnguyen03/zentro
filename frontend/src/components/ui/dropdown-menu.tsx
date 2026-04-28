@@ -38,7 +38,7 @@ const DropdownMenuSubContent = React.forwardRef<
     <DropdownMenuPrimitive.SubContent
         ref={ref}
         className={cn(
-            'z-dropdown min-w-36 overflow-hidden rounded-sm border border-border bg-popover p-1 text-popover-foreground shadow-elevation-md',
+            'z-[calc(var(--layer-dropdown)+1)] min-w-36 overflow-hidden rounded-sm border border-border bg-popover p-1 text-popover-foreground shadow-elevation-md',
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
             className,

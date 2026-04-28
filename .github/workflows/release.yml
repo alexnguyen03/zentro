@@ -33,49 +33,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Get version from tag
         id: get_version
         shell: bash
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Sync release version metadata
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ steps.get_version.outputs.version }}
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-
-          const releaseVersion = process.env.RELEASE_VERSION;
-          const coreVersion = releaseVersion.split('-')[0];
-          const parts = coreVersion.split('.');
-          while (parts.length < 4) parts.push('0');
-          const productVersion = parts.slice(0, 4).join('.');
-
-          const writeJson = (file, mutate) => {
-            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-            mutate(data);
-            fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
-          };
-
-          writeJson('package.json', (data) => {
-            data.version = releaseVersion;
-          });
-
-          writeJson('frontend/package.json', (data) => {
-            data.version = releaseVersion;
-          });
-
-          writeJson('wails.json', (data) => {
-            data.info = data.info || {};
-            data.info.productVersion = productVersion;
-          });
-
-          console.log(`Synced package versions to ${releaseVersion} and wails productVersion to ${productVersion}`);
-          NODE
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -108,53 +70,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
 
-      - name: Install NSIS
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          choco install nsis --yes --no-progress
-          $nsisBin = "C:\Program Files (x86)\NSIS\Bin"
-          if (Test-Path $nsisBin) {
-            $env:PATH = "$nsisBin;$env:PATH"
-            "$nsisBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          }
-          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
-          if (-not $makensis) {
-            Write-Error "makensis.exe was not found after installing NSIS."
-            exit 1
-          }
-          & $makensis.Source /VERSION
-
       - name: Wails Build
         shell: bash
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          APP_VERSION="v${VERSION}"
-          LDFLAGS="-s -w -X 'zentro/internal/app.Version=${APP_VERSION}'"
-          EXTRA_FLAGS=""
+          # Set ldflags based on platform
+          LDFLAGS="-s -w"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             LDFLAGS="$LDFLAGS -H windowsgui"
-            EXTRA_FLAGS="-nsis"
           fi
           
           # Wails build will automatically run npm install/build based on wails.json
-          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean $EXTRA_FLAGS
+          wails build -platform ${{ matrix.platform }} -ldflags "$LDFLAGS" -clean
 
       - name: Package macOS
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          mkdir -p release-assets
           cd build/bin
           # Zip the app bundle (Wails uses productName from wails.json for the .app folder)
           if [ -d "Zentro.app" ]; then
-            zip -r ../../release-assets/zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip Zentro.app
+            zip -r ../../zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip Zentro.app
           elif [ -d "zentro.app" ]; then
-            zip -r ../../release-assets/zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip zentro.app
-          else
-            echo "Expected macOS app bundle was not produced."
-            ls -la
-            exit 1
+            zip -r ../../zentro-v${{ steps.get_version.outputs.version }}-macos-universal.zip zentro.app
           fi
 
       - name: Rename assets (Windows/Linux)
@@ -162,34 +99,18 @@ jobs:
         shell: bash
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          mkdir -p release-assets
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv build/bin/zentro.exe release-assets/zentro-v${VERSION}-windows-amd64.exe
-            shopt -s nullglob
-            installers=(build/bin/*-installer.exe build/bin/*installer*.exe build/bin/*setup*.exe)
-            if [[ ${#installers[@]} -eq 0 ]]; then
-              echo "Windows installer was not produced by Wails/NSIS."
-              ls -la build/bin
-              exit 1
-            fi
-            cp "${installers[0]}" "release-assets/zentro-v${VERSION}-windows-amd64-installer.exe"
+            mv build/bin/zentro.exe zentro-v${VERSION}-windows-amd64.exe
           else
-            mv build/bin/zentro release-assets/zentro-v${VERSION}-linux-amd64
+            mv build/bin/zentro zentro-v${VERSION}-linux-amd64
           fi
-
-      - name: Package Linux
-        if: matrix.os == 'ubuntu-22.04'
-        shell: bash
-        run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          tar -czf release-assets/zentro-v${VERSION}-linux-amd64.tar.gz -C release-assets zentro-v${VERSION}-linux-amd64
 
       - name: Zip for SignPath
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $VERSION = "${{ steps.get_version.outputs.version }}"
-          $EXE_PATH = "release-assets/zentro-v$VERSION-windows-amd64.exe"
+          $EXE_PATH = "zentro-v$VERSION-windows-amd64.exe"
           
           Write-Host "Locating executable: $EXE_PATH"
           if (Test-Path $EXE_PATH) {
@@ -303,7 +224,7 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = "${{ steps.get_version.outputs.version }}"
-          $TARGET_FILE = "release-assets/zentro-v$VERSION-windows-amd64.exe"
+          $TARGET_FILE = "zentro-v$VERSION-windows-amd64.exe"
           
           # 1. Check original file signature (should be NotSigned)
           Write-Host "Checking original file signature..."
@@ -343,7 +264,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
-          files: release-assets/*
-          fail_on_unmatched_files: true
+          files: |
+            ${{ matrix.os == 'windows-latest' && format('zentro-v{0}-windows-amd64.exe', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'ubuntu-22.04' && format('zentro-v{0}-linux-amd64', steps.get_version.outputs.version) || '' }}
+            ${{ matrix.os == 'macos-latest' && format('zentro-v{0}-macos-universal.zip', steps.get_version.outputs.version) || '' }}
+          fail_on_unmatched_files: false
+          generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: false

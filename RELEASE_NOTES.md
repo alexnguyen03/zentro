@@ -1,55 +1,55 @@
 # Zentro Release Notes (v0.3.0)
 
 ## Release Scope
-This release rolls up the full product line from `v0.2.0-beta` to `v0.3.0`, including the final cross-platform packaging pass for Windows, macOS, and Linux.
+This `v0.3.0` refresh republishes the current stable line with the latest code on `dev`, corrected release metadata, and the final release notes body used by GitHub Actions.
 
 ## Summary
-`v0.3.0` turns the Early Access baseline into the first stable `0.3.x` release, carrying forward everything introduced in `v0.2.0-beta` and adding stronger search, schema workflows, source control tooling, UI cleanup, and release packaging.
+`v0.3.0` is the first stable `0.3.x` release for Zentro, focused on:
+- Faster SQL workflows and editor productivity
+- Better result exploration and data actions
+- Stronger schema/table tooling
+- Safer source-control flows and release hardening
+- Broader UI consistency through shadcn/radix migration
 
 ## Highlights
-- Added universal saved-script search in Context Search with `#` prefix.
-- Added matched-line search results with click-to-jump line navigation.
-- Strengthened ResultTable reliability with modularized hooks and safer rerun/filter synchronization.
-- Expanded table constraints and foreign key CRUD workflows in Table Info.
-- Improved SQL-oriented Git tracking with timeline, manual commit, and diff workflows.
-- Continued broad UI modernization and guardrail/performance hardening.
+- Added universal script search with matched-line jump navigation.
+- Improved result-grid workflows with richer copy/export/context actions.
+- Expanded Table Info and schema operations with stronger consistency across constraint and object flows.
+- Added SQL-oriented Git tracking and safer source-control interactions.
+- Continued frontend design-system migration and architecture cleanup across toolbar, sidebar, settings, and project flows.
 
 ## What Is New in v0.3.0
 
 ### SQL Editor, Search & Productivity
-- Universal script search via `#` in Context Search.
-- Matched-line display and direct jump-to-line behavior.
-- Saved scripts preview improvements with hover card UX.
-- Better multi-result labels and SQL helper actions (insert/update/copy utilities, definition navigation).
+- Added universal script search in Context Search using `#` prefix.
+- Added matched-line search results with direct jump-to-line navigation.
+- Polished saved scripts UX with content previews and hover cards.
+- Improved multi-result labeling and SQL workflow helpers, including insert/update actions, copy helpers, and definition navigation.
 
 ### Result Grid & Data Workflows
-- Refactored and modularized `ResultTable` and related hooks.
-- Improved filtering and order-by builder flows.
-- Added richer result context actions (`Copy Cell`, `Copy with Headers`, `Copy as JSON`, SQL copy helpers).
-- Fixed dirty-cell edge cases and post-rerun synchronization issues.
+- Modularized `ResultTable` and related hooks to improve maintainability and reload resilience.
+- Improved result filtering flow and order-by builder behavior.
+- Added richer result context actions such as copy value, copy with headers, copy as JSON, and SQL copy helpers.
+- Fixed dirty-cell state edge cases and stabilized result sync loops after rerun.
 
 ### Schema Explorer & Table Info
-- Unified key/constraint workflows in Table Info.
-- Added full foreign key CRUD flow.
-- Extended explorer context menu operations (drop/truncate/export).
-- Improved DDL and index operation correctness across drivers.
+- Expanded Table Info with unified key and constraint workflows.
+- Added full foreign key CRUD flow in table constraints management.
+- Added richer object operations from explorer context menu, including drop, truncate, and export flows.
+- Improved DDL handling paths and index operation correctness across drivers.
 
 ### Source Control & Project Safety
-- Added SQL-oriented Git timeline and manual commit capabilities.
-- Added close-flush/exit commit hardening for project source control.
-- Hardened write-safety confirmations for high-risk environments.
+- Added SQL-oriented Git tracking with timeline, manual commit flow, and diff preview.
+- Added close-flush and exit-commit hardening in project source-control workflows.
+- Hardened write-safety protections, including stronger confirmation behavior for high-risk environments.
 
 ### UI System, Architecture & Stability
-- Migrated major frontend surfaces to shadcn/radix primitives.
-- Improved design token consistency across toolbar/sidebar/settings/project hub.
-- Continued decomposition of large frontend modules into focused units.
-- Fixed multiple guardrail, accessibility, lifecycle, and performance issues (including Monaco stability).
+- Migrated core frontend surfaces to shadcn/radix primitives and standardized control patterns.
+- Introduced broader design-token and UI consistency updates across toolbar, sidebar, settings, and project hub.
+- Continued decomposition of large frontend modules into focused units across editor, result, and table-info domains.
+- Fixed multiple frontend guardrail, accessibility, lifecycle, and performance issues, including Monaco lifecycle stability.
 
-### Packaging & Distribution
-- Added Windows NSIS installer output to the official release assets.
-- Standardized release packaging across Windows, macOS, and Linux targets.
-- Aligned release metadata and app version stamping with the Git tag used for the build.
-
-## Upgrade Notes
-- If you previously used `v0.2.0-beta`, this release preserves the same project-first and script-tracking direction while adding stronger search and constraints tooling.
-- Refresh local docs and workflow references to use `v0.3.0` naming.
+## Release Fixes Included In This Republish
+- Corrected version metadata that still referenced `v0.2.0-beta` in runtime and release scripts.
+- Updated the GitHub release body source so the regenerated `v0.3.0` release notes match the stable release.
+- Included latest app-menu and dropdown behavior refinements before retagging to rerun the release workflow.

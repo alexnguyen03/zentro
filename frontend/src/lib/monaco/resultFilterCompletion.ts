@@ -1,4 +1,5 @@
 import { languages } from 'monaco-editor';
+import type { SchemaNode } from '../../stores/schemaStore';
 import { analyzeSqlText } from './sqlCompletionAnalysis';
 import { buildSqlCompletionItems } from './sqlCompletionBuilder';
 import { normalizeIdentifier } from './sqlCompletionIdentifiers';
@@ -22,12 +23,20 @@ export interface ResultFilterCompletionParams {
     };
     columns: string[];
     driver?: string;
+    baseQuery?: string;
+    schemas?: SchemaNode[];
+    fetchColumns?: (schemaName: string, tableName: string) => Promise<SqlColumnLike[]>;
+    currentSchema?: string;
 }
 
 export interface RegisterResultFilterCompletionParams {
     monaco: SqlCompletionRegisterMonacoApi;
     columns: string[];
     driver?: string;
+    baseQuery?: string;
+    schemas?: SchemaNode[];
+    fetchColumns?: (schemaName: string, tableName: string) => Promise<SqlColumnLike[]>;
+    currentSchema?: string;
 }
 
 function toColumnDefs(columns: string[]): SqlColumnLike[] {
@@ -46,7 +55,42 @@ export function createResultFilterModelPath(key: string): string {
     return `inmemory://model${RESULT_FILTER_MODEL_PATH_SEGMENT}${encodeURIComponent(key)}.sql`;
 }
 
+// Strip trailing ORDER BY / LIMIT / OFFSET so WHERE can be safely appended.
+function stripTrailingOrderLimitOffset(sql: string): string {
+    return sql
+        .replace(/;\s*$/, '')
+        .replace(/\s+(?:order\s+by|limit|offset)\b[\s\S]*$/i, '')
+        .trim();
+}
+
 export async function buildResultFilterCompletionItems(params: ResultFilterCompletionParams): Promise<languages.CompletionItem[]> {
+    // Real-schema branch: reconstruct the full query so alias resolution works correctly.
+    if (params.baseQuery && params.schemas && params.schemas.length > 0 && params.fetchColumns) {
+        const stripped = stripTrailingOrderLimitOffset(params.baseQuery);
+        const hasWhere = /\bwhere\b/i.test(stripped);
+        const connector = hasWhere ? ' AND ' : ' WHERE ';
+        const prefix = `${stripped}${connector}`;
+        const fullText = `${prefix}${params.filterText}`;
+        const cursorOffset = prefix.length + Math.max(0, Math.min(params.cursorOffset, params.filterText.length));
+        const analysis = analyzeSqlText(fullText, cursorOffset);
+        if (analysis.isInCommentOrString) return [];
+        return buildSqlCompletionItems(
+            analysis,
+            params.currentWord,
+            params.range,
+            {
+                monaco: params.monaco,
+                schemas: params.schemas,
+                driver: params.driver || '',
+                currentSchema: params.currentSchema || '',
+                fetchColumns: params.fetchColumns,
+                fetchRelationships: async () => [],
+                templates: [],
+            },
+        );
+    }
+
+    // Fallback: virtual single-table approach (no base query or no schema loaded yet).
     const columnDefs = toColumnDefs(params.columns);
     const fullText = `${FILTER_SQL_PREFIX}${params.filterText}`;
     const cursorOffset = Math.max(0, Math.min(params.cursorOffset, params.filterText.length));
@@ -79,10 +123,7 @@ export async function buildResultFilterCompletionItems(params: ResultFilterCompl
         const label = normalizeIdentifier(String(item.label || ''));
         if (!columnNames.has(label)) return item;
         const baseSortText = item.sortText || String(item.label || '');
-        return {
-            ...item,
-            sortText: `!${baseSortText}`,
-        };
+        return { ...item, sortText: `!${baseSortText}` };
     });
 
     adjusted.sort((a, b) => {
@@ -99,7 +140,7 @@ export async function buildResultFilterCompletionItems(params: ResultFilterCompl
 
 export function registerResultFilterCompletion(params: RegisterResultFilterCompletionParams): DisposableLike {
     const provider: languages.CompletionItemProvider = {
-        triggerCharacters: ['.', ' ', ',', '(', 'j', 'J', 'o', 'O', 'i', 'I', 'n', 'N'],
+        triggerCharacters: ['.', ',', '('],
         provideCompletionItems: async (model, position, _context, token) => {
             if (!makeFilterUriMatcher(model)) return { suggestions: [] };
             if (token?.isCancellationRequested) return { suggestions: [] };
@@ -124,6 +165,10 @@ export function registerResultFilterCompletion(params: RegisterResultFilterCompl
                 range,
                 columns: params.columns,
                 driver: params.driver,
+                baseQuery: params.baseQuery,
+                schemas: params.schemas,
+                fetchColumns: params.fetchColumns,
+                currentSchema: params.currentSchema,
             });
             if (token?.isCancellationRequested) return { suggestions: [] };
             return { suggestions };
