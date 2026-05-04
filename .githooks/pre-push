@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "${SKIP_PRE_PUSH_CHECKS:-0}" = "1" ]; then
+  echo "Skipping pre-push checks because SKIP_PRE_PUSH_CHECKS=1"
+  exit 0
+fi
+
+if command -v npm >/dev/null 2>&1; then
+  npm run verify:push
+  exit $?
+fi
+
+echo "npm is required to run pre-push checks."
+exit 1

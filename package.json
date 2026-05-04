@@ -5,6 +5,8 @@
   "scripts": {
     "build": "powershell -ExecutionPolicy Bypass -File build_zentro.ps1",
     "build:dev": "powershell -ExecutionPolicy Bypass -File build_zentro.ps1 -Dev",
+    "hooks:install": "node scripts/setup-git-hooks.mjs",
+    "verify:push": "node scripts/verify-push.mjs",
     "test:backend": "go test ./... -coverprofile=coverage-backend.out",
     "test:frontend": "cmd /c \"cd frontend && npm run test\"",
     "check:backend:guardrails": "node scripts/check-be-guardrails.mjs",
