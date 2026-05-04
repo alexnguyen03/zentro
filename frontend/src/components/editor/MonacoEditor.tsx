@@ -389,6 +389,7 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
     const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
+    const sqlCompletionRegistrationRef = useRef<{ dispose: () => void } | null>(null);
     const onRunRef = useRef(onRun);
     onRunRef.current = onRun; // keep ref fresh without re-registering keybinding
     const onExplainRef = useRef(onExplain);
@@ -674,7 +675,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
 
         // Register SQL completion provider
         registerSqlCompletionSchemaContextCommand(monacoInstance);
-        registerContextAwareSQLCompletion(monacoInstance);
+        sqlCompletionRegistrationRef.current?.dispose();
+        sqlCompletionRegistrationRef.current = registerContextAwareSQLCompletion(monacoInstance);
         registerSqlFolding(monacoInstance);
 
         // Register F12 / Go To Definition provider (stored in ref for cleanup)
@@ -852,6 +854,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
         window.addEventListener('keyup', handleModifierKey, true);
 
         editor.onDidDispose(() => {
+            sqlCompletionRegistrationRef.current?.dispose();
+            sqlCompletionRegistrationRef.current = null;
             window.removeEventListener('keydown', handleModifierKey, true);
             window.removeEventListener('keyup', handleModifierKey, true);
             if (domNode && wheelZoomHandler) {
@@ -938,6 +942,8 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             offToggle();
             offNext();
             offJump();
+            sqlCompletionRegistrationRef.current?.dispose();
+            sqlCompletionRegistrationRef.current = null;
             definitionProviderRef.current?.dispose();
             definitionProviderRef.current = null;
         };

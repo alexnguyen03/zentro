@@ -358,6 +358,7 @@ export async function buildSqlCompletionItems(
     if (baseClause === 'where' || baseClause === 'having' || baseClause === 'on' || baseClause === 'set') {
         const unaliasedSources = analysis.sources.filter(s => !s.alias);
         const columns = await buildColumnItems(unaliasedSources);
+        if (shouldAbort()) return [];
         const aliases = buildAliasItems(analysis.sources);
         const aliasColumns = await buildAliasQualifiedColumnItems(analysis.sources);
         if (shouldAbort()) return [];

@@ -4,6 +4,7 @@ import { registerContextAwareSQLCompletion } from '../../../lib/monaco/sqlComple
 export function useEditorSqlCompletion(monaco: any) {
     useEffect(() => {
         if (!monaco) return;
-        registerContextAwareSQLCompletion(monaco);
+        const registration = registerContextAwareSQLCompletion(monaco);
+        return () => registration.dispose();
     }, [monaco]);
 }

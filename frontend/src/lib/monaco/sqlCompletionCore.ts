@@ -1,7 +1,7 @@
 ﻿export { analyzeSqlText } from './sqlCompletionAnalysis';
 export { buildSqlCompletionItems } from './sqlCompletionBuilder';
 export { getSchemasForActiveDatabase } from './sqlCompletionIdentifiers';
-export { registerContextAwareSQLCompletion } from './sqlCompletionProvider';
+export { registerContextAwareSQLCompletion, disposeSqlCompletionProviders } from './sqlCompletionProvider';
 export {
     normalizeDriverKey,
     registerSqlDriverFacade,

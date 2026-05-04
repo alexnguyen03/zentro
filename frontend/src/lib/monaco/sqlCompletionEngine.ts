@@ -3,6 +3,7 @@
     buildSqlCompletionItems,
     getSchemasForActiveDatabase,
     registerContextAwareSQLCompletion,
+    disposeSqlCompletionProviders,
     normalizeDriverKey,
     registerSqlDriverFacade,
     resolveSqlDriverFacade,

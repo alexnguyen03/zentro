@@ -1,13 +1,20 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     analyzeSqlText,
     buildSqlCompletionItems,
+    disposeSqlCompletionProviders,
     formatTableSuggestionDocumentation,
     getSchemasForActiveDatabase,
     isTableCompletionItem,
+    registerContextAwareSQLCompletion,
     resolveTableSuggestionItem,
     type SqlCompletionEnv,
 } from './sqlCompletion';
+import { useConnectionStore } from '../../stores/connectionStore';
+import { useEnvironmentStore } from '../../stores/environmentStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { useSchemaStore } from '../../stores/schemaStore';
+import { useTemplateStore } from '../../stores/templateStore';
 
 const monacoStub = {
     languages: {
@@ -51,6 +58,10 @@ const env: SqlCompletionEnv = {
 function createRange(column: number) {
     return { startLineNumber: 1, endLineNumber: 1, startColumn: column, endColumn: column };
 }
+
+afterEach(() => {
+    disposeSqlCompletionProviders();
+});
 
 describe('sqlCompletion', () => {
     it('detects the current statement and clause across multiple statements', () => {
@@ -876,5 +887,118 @@ describe('sqlCompletion', () => {
 
         const items = await promise;
         expect(items).toEqual([]);
+    });
+
+    it('reuses a single provider registration until the last consumer disposes it', () => {
+        const disposeSpy = vi.fn();
+        const registerCompletionItemProvider = vi.fn(() => ({ dispose: disposeSpy }));
+        const monaco = {
+            languages: {
+                ...monacoStub.languages,
+                registerCompletionItemProvider,
+            },
+        };
+
+        const first = registerContextAwareSQLCompletion(monaco as any);
+        const second = registerContextAwareSQLCompletion(monaco as any);
+
+        expect(registerCompletionItemProvider).toHaveBeenCalledTimes(1);
+
+        first.dispose();
+        expect(disposeSpy).not.toHaveBeenCalled();
+
+        second.dispose();
+        expect(disposeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not abort a slow completion request just because another model requested completion later', async () => {
+        const originalConnectionState = useConnectionStore.getState();
+        const originalEnvironmentState = useEnvironmentStore.getState();
+        const originalProjectState = useProjectStore.getState();
+        const originalSchemaState = useSchemaStore.getState();
+        const originalTemplateState = useTemplateStore.getState();
+
+        let resolveColumns: ((value: Array<{ Name: string; DataType?: string }>) => void) | undefined;
+        const checkAndFetchColumns = vi.fn(() => new Promise<Array<{ Name: string; DataType?: string }>>((resolve) => {
+            resolveColumns = resolve;
+        }));
+
+        useConnectionStore.setState({
+            ...originalConnectionState,
+            activeProfile: { name: 'main', db_name: 'db1', driver: 'postgres' } as any,
+        });
+        useEnvironmentStore.setState({
+            ...originalEnvironmentState,
+            activeEnvironmentKey: null,
+        });
+        useProjectStore.setState({
+            ...originalProjectState,
+            activeProject: null,
+        });
+        useSchemaStore.setState({
+            ...originalSchemaState,
+            trees: {
+                'main:db1': [{ Name: 'public', Tables: ['users'], Views: [] }],
+            },
+            checkAndFetchColumns: checkAndFetchColumns as any,
+            checkAndFetchRelationships: vi.fn(async () => []),
+        });
+        useTemplateStore.setState({
+            ...originalTemplateState,
+            templates: [],
+        });
+
+        const registered: { provider?: any } = {};
+        const monaco = {
+            languages: {
+                ...monacoStub.languages,
+                registerCompletionItemProvider: vi.fn((_languageSelector, provider) => {
+                    registered.provider = provider;
+                    return { dispose: vi.fn() };
+                }),
+            },
+        };
+
+        const registration = registerContextAwareSQLCompletion(monaco as any);
+
+        const slowText = 'SELECT * FROM users u WHERE u.';
+        const fastText = 'se';
+        const slowModel = {
+            getValue: () => slowText,
+            getOffsetAt: () => slowText.length,
+            getWordUntilPosition: () => ({ startColumn: slowText.length + 1, endColumn: slowText.length + 1, word: '' }),
+        };
+        const fastModel = {
+            getValue: () => fastText,
+            getOffsetAt: () => fastText.length,
+            getWordUntilPosition: () => ({ startColumn: 1, endColumn: fastText.length + 1, word: 'se' }),
+        };
+
+        const slowPromise = registered.provider.provideCompletionItems(
+            slowModel,
+            { lineNumber: 1, column: slowText.length + 1 },
+            {},
+            { isCancellationRequested: false },
+        );
+
+        const fastResult = await registered.provider.provideCompletionItems(
+            fastModel,
+            { lineNumber: 1, column: fastText.length + 1 },
+            {},
+            { isCancellationRequested: false },
+        );
+
+        resolveColumns?.([{ Name: 'id', DataType: 'integer' }]);
+        const slowResult = await slowPromise;
+
+        expect(fastResult.suggestions.some((item: any) => String(item.label) === 'SELECT')).toBe(true);
+        expect(slowResult.suggestions.some((item: any) => String(item.label) === 'id')).toBe(true);
+
+        registration.dispose();
+        useConnectionStore.setState(originalConnectionState);
+        useEnvironmentStore.setState(originalEnvironmentState);
+        useProjectStore.setState(originalProjectState);
+        useSchemaStore.setState(originalSchemaState);
+        useTemplateStore.setState(originalTemplateState);
     });
 });
