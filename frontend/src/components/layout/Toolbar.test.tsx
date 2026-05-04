@@ -243,6 +243,21 @@ describe('Toolbar app menu', () => {
         updateCheckState.check = vi.fn(async () => null);
     });
 
+    it('shows the debug mode badge only in dev runtime', async () => {
+        render(<Toolbar />);
+
+        if (import.meta.env.DEV) {
+            await waitFor(() => {
+                expect(screen.getByText('Debug Mode')).toBeInTheDocument();
+            });
+            return;
+        }
+
+        await waitFor(() => {
+            expect(screen.queryByText('Debug Mode')).not.toBeInTheDocument();
+        });
+    });
+
     it('opens app menu when clicking the logo', () => {
         render(<Toolbar />);
 

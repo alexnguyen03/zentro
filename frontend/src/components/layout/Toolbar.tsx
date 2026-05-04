@@ -100,6 +100,7 @@ export const Toolbar: React.FC = () => {
     const activeEnvKey = (activeEnvironmentKey || activeProject?.default_environment_key) as EnvironmentKey | undefined;
     const envMeta = getEnvironmentMeta(activeEnvironmentKey || activeProject?.default_environment_key);
     const envToolbarBg = getEnvironmentBgClass(activeEnvKey);
+    const isDebugMode = import.meta.env.DEV;
 
     const quickEnvOptions = useMemo(() => {
         const orderedKeys: EnvironmentKey[] = [];
@@ -420,7 +421,15 @@ export const Toolbar: React.FC = () => {
                 </div>
 
                 {/* Env badge — right-aligned, no container */}
-                <div className="ml-auto shrink-0">
+                <div className="ml-auto shrink-0 flex items-center gap-1.5 pr-1">
+                    {isDebugMode && (
+                        <span
+                            title="Visible only while the app is running in development mode."
+                            className="debug-mode-badge inline-flex h-6 shrink-0 items-center justify-center rounded-sm px-2 text-[12px] font-semibold tracking-[0.02em] leading-none"
+                        >
+                            Debug Mode
+                        </span>
+                    )}
                     <Popover open={quickEnvOpen} onOpenChange={setQuickEnvOpen}>
                         <PopoverAnchor asChild>
                             <Button

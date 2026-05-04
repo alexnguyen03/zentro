@@ -153,6 +153,12 @@
   .text-testing   { color: var(--status-testing); }
   .bg-testing\/10 { background-color: color-mix(in srgb, var(--status-testing) 10%, transparent); }
   .border-testing\/40 { border-color: color-mix(in srgb, var(--status-testing) 40%, transparent); }
+
+  .debug-mode-badge {
+    background-color: var(--alert-info-bg);
+    border: 1px solid var(--alert-info-border);
+    color: var(--interactive-primary);
+  }
 }
 
 @import "./styles/tokens.css";
