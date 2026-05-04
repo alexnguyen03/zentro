@@ -149,10 +149,10 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                             variant="ghost"
                             onClick={() => setActiveTab(tab.key)}
                             className={cn(
-                                'relative h-9 rounded-none border-b-[3px] px-2 text-section transition-colors',
+                                'relative h-7 rounded-sm px-2 text-section transition-colors',
                                 activeTab === tab.key
-                                    ? 'border-primary text-foreground'
-                                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                                    ? 'bg-(--state-selected-bg) text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground',
                             )}
                         >
                             <span>{tab.label}</span>
@@ -199,7 +199,7 @@ export const ProjectHubEntryScreen: React.FC<ProjectHubEntryScreenProps> = ({
                     }
                 }}
             >
-                <div className="py-2 lg:px-4">
+                <div className="py-2">
                     {isLoading ? (
                         <div className="flex h-full items-center justify-center">
                             <Spinner size={20} />
