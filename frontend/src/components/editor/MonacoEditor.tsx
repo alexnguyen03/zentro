@@ -942,10 +942,6 @@ export const MonacoEditorWrapper: React.FC<MonacoEditorProps> = ({
             offToggle();
             offNext();
             offJump();
-            sqlCompletionRegistrationRef.current?.dispose();
-            sqlCompletionRegistrationRef.current = null;
-            definitionProviderRef.current?.dispose();
-            definitionProviderRef.current = null;
         };
     }, [activeProfile?.driver, activeProfile?.name, nextLine, onChange, resolveRunnableQueryTarget, tabId, toggleLine]);
 
