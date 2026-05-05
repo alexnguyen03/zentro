@@ -1,17 +1,10 @@
 import React from 'react';
-import { LoadConnections, GetConnectionStatus } from '../../services/connectionService';
-import { useConnectionStore } from '../../stores/connectionStore';
-import { CONNECTION_STATUS } from '../../lib/constants';
-import { getErrorMessage } from '../../lib/errors';
-import { useToast } from '../layout/Toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger, Separator } from '../ui';
 import { registerBuiltInSidebarPanels } from './sidebarPanels';
 import { useSidebarPanels } from './sidebarPanelRegistry';
 import { useSidebarSideState } from '../../stores/sidebarUiStore';
 
 export const Sidebar: React.FC = () => {
-    const { setConnections } = useConnectionStore();
-    const { toast } = useToast();
     const panels = useSidebarPanels('primary');
     const {
         activePanelId,
@@ -29,30 +22,6 @@ export const Sidebar: React.FC = () => {
             setActivePanelId(panels[0].id);
         }
     }, [activePanelId, panels, setActivePanelId]);
-
-    React.useEffect(() => {
-        const loadConns = async () => {
-            try {
-                const data = await LoadConnections();
-                setConnections(data || []);
-
-                const store = useConnectionStore.getState();
-                const status = await GetConnectionStatus();
-                if (status && status.status === CONNECTION_STATUS.CONNECTED && status.profile) {
-                    store.setActiveProfile(status.profile);
-                    store.setIsConnected(true);
-                    store.setConnectionStatus(CONNECTION_STATUS.CONNECTED);
-                    return;
-                }
-                store.resetRuntime();
-            } catch (error: unknown) {
-                console.error('Failed to load connections:', error);
-                toast.error(`Failed to load connections: ${getErrorMessage(error)}`);
-            }
-        };
-
-        void loadConns();
-    }, [setConnections, toast]);
 
     if (panels.length === 0) {
         return null;

@@ -4,6 +4,7 @@ import {
     onQueryChunk,
     onQueryDone,
     onQueryStarted,
+    onSchemaLoaded,
     onSchemaDatabases,
     onSchemaError,
     onTransactionStatus,
@@ -15,6 +16,7 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useSchemaStore } from '../../stores/schemaStore';
 import { GetTransactionStatus } from '../../services/queryService';
 import { appLogger } from '../../lib/logger';
 import type { ConnectionProfile } from '../../types/connection';
@@ -121,7 +123,11 @@ export function useAppEventBridge(toast: { error: (message: string) => void }) {
             }),
             onSchemaError((data) => {
                 appLogger.warn('schema error', data);
+                useSchemaStore.getState().setLoading(data.profileName, data.dbName, false);
                 toast.error(`Failed to load schema for ${data.dbName}: ${data.error}`);
+            }),
+            onSchemaLoaded((data) => {
+                useSchemaStore.getState().setTree(data.profileName, data.dbName, data.schemas);
             }),
             onQueryStarted((payload) => {
                 if (payload.statementIndex === 0) {

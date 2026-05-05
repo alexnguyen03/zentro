@@ -8,9 +8,12 @@ import { useStatusStore } from '../../stores/statusStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useScriptStore } from '../../stores/scriptStore';
+import { useSchemaStore } from '../../stores/schemaStore';
 import { createEmptySession, normalizeSession } from '../../stores/editor/sessionUtils';
 import { CONNECTION_STATUS } from '../../lib/constants';
 import { ConnectProjectEnvironment } from '../../services/projectService';
+import { FetchDatabaseSchema } from '../../services/schemaService';
+import { GetConnectionStatus, LoadConnections } from '../../services/connectionService';
 import { recoverStartupState } from './startupRecovery';
 import {
     isSessionEmpty,
@@ -29,6 +32,7 @@ export function useProjectLifecycle() {
     const activeEnvironmentKey = useEnvironmentStore((state) => state.activeEnvironmentKey);
     const activeProfile = useConnectionStore((state) => state.activeProfile);
     const connectionStatus = useConnectionStore((state) => state.connectionStatus);
+    const setConnections = useConnectionStore((state) => state.setConnections);
     const setStatusMessage = useStatusStore((state) => state.setMessage);
     const switchEditorProject = useEditorStore((state) => state.switchProject);
     const hydrateProjectSession = useEditorStore((state) => state.hydrateProjectSession);
@@ -39,6 +43,9 @@ export function useProjectLifecycle() {
     const switchResultProject = useResultStore((state) => state.switchProject);
     const loadScripts = useScriptStore((state) => state.loadScripts);
     const clearScriptScope = useScriptStore((state) => state.clearScope);
+    const schemaTrees = useSchemaStore((state) => state.trees);
+    const schemaLoadingKeys = useSchemaStore((state) => state.loadingKeys);
+    const setSchemaLoading = useSchemaStore((state) => state.setLoading);
     const connectAttemptRef = useRef<string>('');
     const failedAutoConnectKeysRef = useRef<Set<string>>(new Set());
     const migratedProjectsRef = useRef<Set<string>>(new Set());
@@ -84,6 +91,37 @@ export function useProjectLifecycle() {
             appLogger.warn('project bootstrap failed', error);
         });
     }, [bootstrapProjects, setStatusMessage]);
+
+    useEffect(() => {
+        const preloadConnections = async () => {
+            try {
+                const connections = await LoadConnections();
+                setConnections(connections || []);
+
+                const runtime = await GetConnectionStatus();
+                const store = useConnectionStore.getState();
+                if (runtime?.status === CONNECTION_STATUS.CONNECTED && runtime.profile) {
+                    store.setActiveProfile(runtime.profile);
+                    store.setIsConnected(true);
+                    store.setConnectionStatus(CONNECTION_STATUS.CONNECTED);
+                    return;
+                }
+
+                if (runtime?.status === CONNECTION_STATUS.CONNECTING && runtime.profile) {
+                    store.setActiveProfile(runtime.profile);
+                    store.setIsConnected(false);
+                    store.setConnectionStatus(CONNECTION_STATUS.CONNECTING);
+                    return;
+                }
+
+                store.resetRuntime();
+            } catch (error) {
+                appLogger.warn('background connection preload failed', error);
+            }
+        };
+
+        void preloadConnections();
+    }, [setConnections]);
 
     useEffect(() => {
         flushPendingSessionSave();
@@ -232,6 +270,43 @@ export function useProjectLifecycle() {
             appLogger.warn('preload scripts failed', { projectId, connectionName, error });
         });
     }, [activeProfile?.name, activeProject?.id, loadScripts]);
+
+    useEffect(() => {
+        const targetEnvironmentKey = activeEnvironmentKey || activeProject?.last_active_environment_key || activeProject?.default_environment_key;
+        if (!activeProject || !targetEnvironmentKey || connectionStatus !== CONNECTION_STATUS.CONNECTED || !activeProfile?.name || !activeProfile?.db_name) {
+            return;
+        }
+
+        const boundConnection = activeProject.connections?.find((item) => item.environment_key === targetEnvironmentKey);
+        const targetProfileName = boundConnection?.advanced_meta?.profile_name || boundConnection?.name;
+        const targetDbName = boundConnection?.database || boundConnection?.advanced_meta?.db_name || activeProfile.db_name;
+        if (!targetProfileName || !targetDbName) return;
+        if (activeProfile.name !== targetProfileName || activeProfile.db_name !== targetDbName) return;
+
+        const schemaKey = `${targetProfileName}:${targetDbName}`;
+        if (schemaTrees[schemaKey] || schemaLoadingKeys.has(schemaKey)) return;
+
+        setSchemaLoading(targetProfileName, targetDbName, true);
+        FetchDatabaseSchema(targetProfileName, targetDbName).catch((error) => {
+            setSchemaLoading(targetProfileName, targetDbName, false);
+            appLogger.warn('background schema preload failed', {
+                projectId: activeProject.id,
+                envKey: targetEnvironmentKey,
+                profileName: targetProfileName,
+                dbName: targetDbName,
+                error,
+            });
+        });
+    }, [
+        activeEnvironmentKey,
+        activeProfile?.db_name,
+        activeProfile?.name,
+        activeProject,
+        connectionStatus,
+        schemaLoadingKeys,
+        schemaTrees,
+        setSchemaLoading,
+    ]);
 }
 
 export function useSidebarResize(initialWidth = 250, side: SidebarSide = 'primary') {
