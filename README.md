@@ -1,3 +1,20 @@
+# Repository Moved
+
+> [!IMPORTANT]
+> This repository has moved to the official organization repository:
+> [https://github.com/ZentroIDE/Zentro](https://github.com/ZentroIDE/Zentro)
+>
+> Please use the new repository for all future development, issues, and contributions.
+
+## Update Your Remote
+
+If you already cloned this repository, run:
+
+```bash
+git remote set-url origin https://github.com/ZentroIDE/Zentro.git
+```
+This repository is now kept for reference only.
+
 # Zentro
 
 ![Release](https://img.shields.io/badge/release-v0.3.0-2ea44f)
